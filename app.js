@@ -1261,16 +1261,12 @@ document.querySelectorAll("[data-view]").forEach((button) => {
 
 function loadBottles() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (!saved) {
-    const seeded = seedBottles.map(normalizeBottle);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
-  }
+  if (!saved) return [];
 
   try {
     return JSON.parse(saved).map(normalizeBottle);
   } catch {
-    return seedBottles.map(normalizeBottle);
+    return [];
   }
 }
 
