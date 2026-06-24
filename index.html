@@ -21,6 +21,15 @@
           </div>
         </div>
 
+        <div class="account-box" id="accountBox" aria-label="Account">
+          <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
+          <div class="account-chip is-hidden" id="accountChip">
+            <img id="accountAvatar" alt="" />
+            <span id="accountName"></span>
+            <button class="icon-button" id="signOutButton" type="button" aria-label="Sign out">⏏</button>
+          </div>
+        </div>
+
         <nav class="nav-list" aria-label="Views">
           <button class="nav-item is-active" data-view="collection" type="button">
             <span aria-hidden="true">▦</span>
@@ -683,6 +692,9 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
-    <script src="app.js?v=33"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="app.js?v=34"></script>
   </body>
 </html>

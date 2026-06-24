@@ -1,6 +1,25 @@
 const STORAGE_KEY = "cellar-ledger-bottles";
 const POUR_STORAGE_KEY = "cellar-ledger-pours";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyDJ6BpySxmM7bvZQYmLh0kmkPB18qxt47Q",
+  authDomain: "fully-involved-pour.firebaseapp.com",
+  projectId: "fully-involved-pour",
+  storageBucket: "fully-involved-pour.firebasestorage.app",
+  messagingSenderId: "801004541737",
+  appId: "1:801004541737:web:f878996b8d7dc333b14938",
+};
+
+let auth;
+let db;
+let currentUser = null;
+
+if (typeof firebase !== "undefined") {
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+}
+
 const seedBottles = [
   {
     id: crypto.randomUUID(),
@@ -1110,6 +1129,11 @@ const els = {
   formPhotoLinks: document.querySelector("#formPhotoLinks"),
   photoUpload: document.querySelector("#photoUpload"),
   distilleryOptions: document.querySelector("#distilleryOptions"),
+  signInButton: document.querySelector("#signInButton"),
+  signOutButton: document.querySelector("#signOutButton"),
+  accountChip: document.querySelector("#accountChip"),
+  accountAvatar: document.querySelector("#accountAvatar"),
+  accountName: document.querySelector("#accountName"),
 };
 
 const fields = {
@@ -1271,6 +1295,7 @@ function loadBottles() {
 
 function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
+  pushCloudData();
 }
 
 function loadPours() {
@@ -1286,7 +1311,71 @@ function loadPours() {
 
 function persistPours() {
   localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+  pushCloudData();
 }
+
+function userDocRef(uid) {
+  return db.collection("users").doc(uid);
+}
+
+async function pullCloudData(uid) {
+  try {
+    const snap = await userDocRef(uid).get();
+    if (snap.exists) {
+      const data = snap.data();
+      bottles = (data.bottles || []).map(normalizeBottle);
+      pours = data.pours || [];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
+      localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+    } else {
+      await userDocRef(uid).set({ bottles, pours, updatedAt: Date.now() });
+    }
+    render();
+  } catch (error) {
+    console.error("Cloud sync failed to load", error);
+  }
+}
+
+async function pushCloudData() {
+  if (!currentUser || !db) return;
+  try {
+    await userDocRef(currentUser.uid).set({ bottles, pours, updatedAt: Date.now() });
+  } catch (error) {
+    console.error("Cloud sync failed to save", error);
+  }
+}
+
+function updateAccountUI() {
+  if (currentUser) {
+    els.signInButton.classList.add("is-hidden");
+    els.accountChip.classList.remove("is-hidden");
+    els.accountAvatar.src = currentUser.photoURL || "";
+    els.accountName.textContent = currentUser.displayName || currentUser.email || "Signed in";
+  } else {
+    els.signInButton.classList.remove("is-hidden");
+    els.accountChip.classList.add("is-hidden");
+  }
+}
+
+if (auth) {
+  auth.onAuthStateChanged((user) => {
+    currentUser = user;
+    updateAccountUI();
+    if (user) pullCloudData(user.uid);
+  });
+}
+
+els.signInButton?.addEventListener("click", () => {
+  if (!auth) return;
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch((error) => {
+    console.error("Sign-in failed", error);
+  });
+});
+
+els.signOutButton?.addEventListener("click", () => {
+  auth?.signOut();
+});
 
 function renderDistilleryOptions() {
   els.distilleryOptions.innerHTML = availableDistilleries

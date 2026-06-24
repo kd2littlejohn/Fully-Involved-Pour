@@ -112,6 +112,37 @@ label {
   overflow-x: auto;
 }
 
+.account-box {
+  display: flex;
+  align-items: center;
+}
+
+.account-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.account-chip img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.account-chip span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nav-item,
 .primary-action,
 .secondary-action,
