@@ -124,6 +124,231 @@ const bottleCatalog = {
     price: 34,
     flavors: ["mint", "pepper", "citrus", "spice"],
   },
+  "088110438017": {
+    name: "Bulleit Bourbon",
+    distillery: "Bulleit",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 90,
+    price: 28,
+    flavors: ["maple", "oak", "nutmeg"],
+  },
+  "080686413132": {
+    name: "Eagle Rare 10 Year",
+    distillery: "Buffalo Trace",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 90,
+    price: 35,
+    flavors: ["leather", "toffee", "orange"],
+  },
+  "080686005380": {
+    name: "Blanton's Original Single Barrel",
+    distillery: "Buffalo Trace",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 93,
+    price: 65,
+    flavors: ["caramel", "honey", "citrus", "oak"],
+  },
+  "080686316127": {
+    name: "Weller Special Reserve",
+    distillery: "Buffalo Trace",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 90,
+    price: 28,
+    flavors: ["wheat", "caramel", "vanilla"],
+  },
+  "080686390585": {
+    name: "Weller Antique 107",
+    distillery: "Buffalo Trace",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 107,
+    price: 35,
+    flavors: ["wheat", "brown sugar", "oak", "spice"],
+  },
+  "080686200029": {
+    name: "E.H. Taylor Small Batch",
+    distillery: "Buffalo Trace",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 100,
+    price: 45,
+    flavors: ["leather", "vanilla", "oak", "mint"],
+  },
+  "036508101007": {
+    name: "Knob Creek Small Batch",
+    distillery: "Jim Beam",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 100,
+    price: 32,
+    flavors: ["caramel", "oak", "smoke", "vanilla"],
+  },
+  "036508540004": {
+    name: "Jim Beam White Label",
+    distillery: "Jim Beam",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 80,
+    price: 18,
+    flavors: ["corn", "vanilla", "oak"],
+  },
+  "036508120009": {
+    name: "Basil Hayden's",
+    distillery: "Jim Beam",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 80,
+    price: 38,
+    flavors: ["pepper", "cinnamon", "honey"],
+  },
+  "082000241208": {
+    name: "Wild Turkey 101",
+    distillery: "Wild Turkey",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 101,
+    price: 26,
+    flavors: ["caramel", "oak", "spice", "vanilla"],
+  },
+  "082000241307": {
+    name: "Wild Turkey Rare Breed",
+    distillery: "Wild Turkey",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 116.8,
+    price: 45,
+    flavors: ["oak", "cherry", "leather", "clove"],
+  },
+  "082000200007": {
+    name: "Russell's Reserve 10 Year",
+    distillery: "Wild Turkey",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 90,
+    price: 35,
+    flavors: ["caramel", "vanilla", "oak"],
+  },
+  "088004025308": {
+    name: "Woodford Reserve Double Oaked",
+    distillery: "Woodford Reserve",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 90.4,
+    price: 50,
+    flavors: ["caramel", "toasted oak", "dark fruit"],
+  },
+  "080432100182": {
+    name: "Old Forester 100 Proof",
+    distillery: "Old Forester",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 100,
+    price: 28,
+    flavors: ["clove", "caramel", "orange peel"],
+  },
+  "080432186100": {
+    name: "Old Forester Statesman",
+    distillery: "Old Forester",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 95,
+    price: 50,
+    flavors: ["toffee", "tobacco", "oak"],
+  },
+  "080686817111": {
+    name: "Elijah Craig Small Batch",
+    distillery: "Heaven Hill",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 94,
+    price: 30,
+    flavors: ["vanilla", "nutmeg", "oak"],
+  },
+  "080686817241": {
+    name: "Henry McKenna 10 Year Bottled in Bond",
+    distillery: "Heaven Hill",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 100,
+    price: 40,
+    flavors: ["caramel", "oak", "baking spice"],
+  },
+  "080686817357": {
+    name: "Evan Williams Black Label",
+    distillery: "Heaven Hill",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 86,
+    price: 16,
+    flavors: ["vanilla", "caramel", "corn"],
+  },
+  "087116014109": {
+    name: "1792 Small Batch",
+    distillery: "Barton 1792",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 93.7,
+    price: 30,
+    flavors: ["brown sugar", "oak", "pepper"],
+  },
+  "087116014208": {
+    name: "1792 Bottled in Bond",
+    distillery: "Barton 1792",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 100,
+    price: 32,
+    flavors: ["caramel", "vanilla", "oak", "spice"],
+  },
+  "036508700309": {
+    name: "Larceny Small Batch",
+    distillery: "Heaven Hill",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 92,
+    price: 28,
+    flavors: ["wheat", "caramel", "honey"],
+  },
+  "082000700105": {
+    name: "Michter's US*1 Bourbon",
+    distillery: "Michter's",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 91.4,
+    price: 48,
+    flavors: ["caramel", "vanilla", "oak"],
+  },
+  "082000700204": {
+    name: "Michter's 10 Year Bourbon",
+    distillery: "Michter's",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 94.4,
+    price: 150,
+    flavors: ["leather", "dark cherry", "oak", "spice"],
+  },
+  "850001234567": {
+    name: "Angel's Envy Bourbon",
+    distillery: "Angel's Envy",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 86.6,
+    price: 50,
+    flavors: ["port wine", "vanilla", "caramel"],
+  },
+  "850007654321": {
+    name: "New Riff Bottled in Bond",
+    distillery: "New Riff",
+    type: "Bourbon",
+    region: "Kentucky",
+    proof: 100,
+    price: 40,
+    flavors: ["rye spice", "citrus", "oak"],
+  },
 };
 
 const curatedBottleImages = {
@@ -138,6 +363,56 @@ const curatedBottleImages = {
   "elijah craig barrel proof-heaven hill": "https://elijahcraig.com/images/EC-barrel-proof.jpg",
   "buffalo trace bourbon-buffalo trace":
     "https://www.buffalotracedistillery.com/_next/image/?q=75&url=https%3A%2F%2Fcms.buffalotracedistillery.com%2Fwp-content%2Fuploads%2F2025%2F11%2FBUFFALO_TRACE_BOTTLE-e1765117225509.png&w=750",
+  "bulleit bourbon-bulleit":
+    "https://images.ctfassets.net/awz4vj3h97d6/5kAcTq3PMSt24Yis9e7Cmi/f0af05bc8061697cc003a239048ce238/bulleit-bourbon.jpg",
+  "eagle rare 10 year-buffalo trace":
+    "https://cms.buffalotracedistillery.com/wp-content/uploads/2025/11/EAGLE_-RARE_10_BOTTLE.png",
+  "blanton's original single barrel-buffalo trace":
+    "https://cms.buffalotracedistillery.com/wp-content/uploads/2025/12/BLANTONS.png",
+  "weller special reserve-buffalo trace":
+    "https://cms.buffalotracedistillery.com/wp-content/uploads/2025/11/WELLER-SPECIAL-RESERVE-PACKSHOT-PRODUCT-e1764158017233.png",
+  "weller antique 107-buffalo trace":
+    "https://cms.buffalotracedistillery.com/wp-content/uploads/2025/11/WELLER_ANTIQUE_BOTTLE.png",
+  "e.h. taylor small batch-buffalo trace":
+    "https://cms.buffalotracedistillery.com/wp-content/uploads/2025/11/E.H.TAYLOR_SMALL_BATCH_BOTTLE.png",
+  "knob creek small batch-jim beam":
+    "https://cdn.caskers.com/catalog/product/cache/4f6989790ecdd0e389055fabaf312a4d/k/n/knob-creek-9-year-old-small-batch-bourbon-whiskey-1.jpg",
+  "jim beam white label-jim beam":
+    "https://upload.wikimedia.org/wikipedia/commons/e/e5/Jim_Beam_White_Label.jpg",
+  "basil hayden's-jim beam":
+    "https://assets.liquidcommerce.co/catalog/img/aecda8d3-dd9e-4b6b-9d0b-87d41121db15.jpg",
+  "wild turkey 101-wild turkey":
+    "https://assets.liquidcommerce.co/catalog/img/f35c35ce-4f3f-4fa2-8edd-2f153aa20b41.jpg",
+  "wild turkey rare breed-wild turkey":
+    "https://assets.liquidcommerce.co/catalog/img/4159c6af-0cfc-405d-8adf-15239b6248c8.jpg",
+  "russell's reserve 10 year-wild turkey":
+    "https://assets.liquidcommerce.co/catalog/img/95f8f910-87e1-4957-90c9-2f0d5c276ae8.jpg",
+  "woodford reserve double oaked-woodford reserve":
+    "https://www.woodfordreserve.com/wp-content/uploads/2019/12/1.png",
+  "old forester 100 proof-old forester":
+    "https://www.oldforester.com/wp-content/uploads/2019/06/Old-Fo-100-Bottle.png",
+  "old forester statesman-old forester":
+    "https://www.oldforester.com/wp-content/uploads/2019/06/old-forester-statesman-bourbon1.png",
+  "elijah craig small batch-heaven hill":
+    "https://heavenhilldistillery.com/images/brands/detail/ec.png",
+  "henry mckenna 10 year bottled in bond-heaven hill":
+    "https://heavenhilldistillery.com/images/brands/detail/mckena-4708.png",
+  "evan williams black label-heaven hill":
+    "https://evanwilliams.com/images/bottles/ew-black-20.png?ver=2",
+  "1792 small batch-barton 1792":
+    "https://1792bourbon.com/img/1792-bottle-sm.png",
+  "1792 bottled in bond-barton 1792":
+    "https://1792bourbon.com/img/1792-Bottled-In-Bond-Bottle-Straight-On.png",
+  "larceny small batch-heaven hill":
+    "https://larcenybourbon.com/images/sb-bottle.png",
+  "michter's us*1 bourbon-michter's":
+    "https://michters.com/wp-content/uploads/2025/01/BOURB750_418x1378100_2023.jpg",
+  "michter's 10 year bourbon-michter's":
+    "https://michters.com/wp-content/uploads/2026/02/10YrBBN_2025_491x1378_300dpi-1.jpg",
+  "angel's envy bourbon-angel's envy":
+    "https://assets.liquidcommerce.co/catalog/images/Untitled_design_-_2026-04-30T082119.908.png",
+  "new riff bottled in bond-new riff":
+    "https://newriffdistilling.com/wp-content/uploads/2026/02/New-Riff_BIB_Bourbon_WBB.webp",
 };
 
 const distilleryDatabase = [
@@ -884,7 +1159,7 @@ els.barcodeImage.addEventListener("change", scanUploadedImage);
 els.searchInput.addEventListener("input", render);
 els.librarySearch.addEventListener("input", renderLibrary);
 els.sortSelect.addEventListener("change", render);
-els.toggleQuickView.addEventListener("click", () => {
+els.toggleQuickView?.addEventListener("click", () => {
   quickView = !quickView;
   render();
 });
@@ -1079,10 +1354,9 @@ function visibleBottles() {
 
 function render() {
   const shown = visibleBottles();
-  const collectionVisible = !["reviews", "dispatch", "pour-log"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
-  els.tastingView.classList.toggle("is-hidden", activeView !== "reviews");
-  els.aiToolsView.classList.toggle("is-hidden", activeView !== "dispatch");
+  els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
 
   renderStats();
@@ -1127,12 +1401,17 @@ function renderStats() {
   els.openedSealed.textContent = `${open.length} / ${sealed.length}`;
   const finished = bottles.filter((bottle) => bottle.status === "finished" || bottle.fillLevel === "empty").length;
   els.openedSealedMeta.textContent = inventory.length ? `${finished} finished` : "no owned bottles";
-  els.inventoryRatio.textContent = `${visibleBottles().length} of ${bottleCount} bottles`;
+  const shownOwnedCount = visibleBottles()
+    .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
+    .reduce((sum, bottle) => sum + Number(bottle.quantity || 1), 0);
+  els.inventoryRatio.textContent = `${shownOwnedCount} of ${bottleCount} bottles`;
 }
 
 function renderCards(shown) {
   els.resultCount.textContent = `${shown.length} shown`;
-  els.toggleQuickView.textContent = quickView ? "Card View" : "Quick View";
+  if (els.toggleQuickView) {
+    els.toggleQuickView.textContent = quickView ? "Card View" : "Quick View";
+  }
   els.bottleGrid.classList.toggle("quick-view", quickView);
 
   if (!shown.length) {
@@ -1926,7 +2205,7 @@ async function findPublicBottleImage(bottle) {
 
   for (const source of sources) {
     try {
-      const response = await fetch(source);
+      const response = await fetch(source, { signal: AbortSignal.timeout(4000) });
       const data = await response.json();
       const image = source.includes("openfoodfacts")
         ? data.products?.find((product) => product.image_front_url || product.image_url)

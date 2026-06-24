@@ -48,26 +48,26 @@ button {
   position: sticky;
   top: 0;
   z-index: 20;
-  min-height: 68px;
-  padding: 10px max(20px, calc((100vw - 1200px) / 2));
+  min-height: 54px;
+  padding: 6px max(18px, calc((100vw - 1200px) / 2));
   border-bottom: 1px solid var(--line);
   background: rgba(17, 17, 18, 0.94);
   backdrop-filter: blur(14px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 12px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brand-mark {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   object-fit: cover;
   border: 1px solid rgba(215, 138, 54, 0.55);
   background: rgba(215, 138, 54, 0.12);
@@ -127,13 +127,13 @@ label {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 0 10px;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 8px;
   background: transparent;
   text-align: left;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -157,15 +157,15 @@ label {
 
 .main {
   min-width: 0;
-  min-height: calc(100vh - 68px);
+  min-height: calc(100vh - 54px);
   padding-bottom: 40px;
 }
 
 .hero {
   position: relative;
   width: min(1200px, calc(100% - 48px));
-  min-height: 260px;
-  margin: 22px auto 0;
+  min-height: 220px;
+  margin: 14px auto 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -191,12 +191,12 @@ label {
 .hero-overlay {
   position: relative;
   z-index: 1;
-  min-height: 260px;
+  min-height: 220px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 24px;
-  padding: 28px;
+  padding: 24px;
 }
 
 .hero-actions {
@@ -208,7 +208,7 @@ label {
 }
 
 .hero-copy {
-  max-width: 560px;
+  max-width: 600px;
 }
 
 .hero-copy p,
@@ -222,14 +222,14 @@ label {
   margin: 0;
   max-width: 16ch;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2.1rem, 4.5vw, 4.2rem);
+  font-size: clamp(1.9rem, 3.8vw, 3.6rem);
   line-height: 0.98;
   letter-spacing: 0;
 }
 
 .hero-description {
   max-width: 620px;
-  margin-top: 12px;
+  margin-top: 10px;
   color: rgba(245, 239, 231, 0.82);
   font-size: clamp(0.95rem, 1.3vw, 1.08rem);
   line-height: 1.55;
@@ -237,7 +237,7 @@ label {
 
 .hero-slogan {
   display: block;
-  margin-top: 10px;
+  margin-top: 8px;
   color: #ffd3a5;
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(1.05rem, 1.6vw, 1.35rem);
@@ -420,11 +420,55 @@ select {
 .filter-drawer {
   display: grid;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 10px;
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
+}
+
+.filter-shell,
+.more-actions {
+  position: relative;
+}
+
+.filter-shell {
+  width: min(1200px, calc(100% - 48px));
+  margin: 10px auto 0;
+}
+
+.filter-shell summary,
+.more-actions summary {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: var(--panel);
+  font-weight: 750;
+  cursor: pointer;
+  list-style: none;
+}
+
+.filter-shell summary::-webkit-details-marker,
+.more-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-actions .backup-actions {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 5;
+  min-width: 260px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #101011;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
 }
 
 .filter-drawer div {
@@ -488,6 +532,10 @@ select {
   margin-top: 18px;
 }
 
+.secondary-stat {
+  display: none;
+}
+
 .stats-grid article,
 .bottle-card,
 .insights,
@@ -517,9 +565,13 @@ select {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   margin-top: 24px;
+}
+
+.insights {
+  display: none;
 }
 
 .section-heading {
@@ -1012,6 +1064,11 @@ select {
 
 .ai-tools-board {
   margin-top: 24px;
+}
+
+.ai-tools-board .tasting-board {
+  width: auto;
+  margin: 14px 0 0;
 }
 
 .assistant-shell,
@@ -1640,6 +1697,11 @@ textarea {
     justify-content: stretch;
   }
 
+  .more-actions .backup-actions {
+    position: static;
+    margin-top: 8px;
+  }
+
   .backup-actions > * {
     flex: 1;
   }
@@ -1680,6 +1742,7 @@ textarea {
 
   .toolbar,
   .inventory-overview,
+  .filter-shell,
   .filter-drawer,
   .stats-grid,
   .content-grid,

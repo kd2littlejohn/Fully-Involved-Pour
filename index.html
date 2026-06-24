@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=27" />
+    <link rel="stylesheet" href="styles.css?v=28" />
   </head>
   <body>
     <div class="app-shell">
@@ -17,23 +17,11 @@
           />
           <div>
             <strong>Fully Involved Pour</strong>
-            <span>BourbonVault</span>
-            <a
-              class="brand-link"
-              href="https://www.instagram.com/fullyinvolvedpour/"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Instagram
-            </a>
+            <span>Where there's proof, there's fire.</span>
           </div>
         </div>
 
         <nav class="nav-list" aria-label="Views">
-          <button class="nav-item" data-view="dashboard" type="button">
-            <span aria-hidden="true">▤</span>
-            Dashboard
-          </button>
           <button class="nav-item is-active" data-view="collection" type="button">
             <span aria-hidden="true">▦</span>
             Inventory
@@ -54,13 +42,9 @@
             <span aria-hidden="true">✓</span>
             Finished
           </button>
-          <button class="nav-item" data-view="dispatch" type="button">
+          <button class="nav-item" data-view="ai-tools" type="button">
             <span aria-hidden="true">✦</span>
-            Dispatch
-          </button>
-          <button class="nav-item" data-view="reviews" type="button">
-            <span aria-hidden="true">◌</span>
-            Reviews
+            AI Tools
           </button>
           <button class="nav-item" data-view="wishlist" type="button">
             <span aria-hidden="true">☆</span>
@@ -130,17 +114,22 @@
             <option value="proof">Sort by proof</option>
           </select>
 
-          <div class="backup-actions" aria-label="Backup tools">
-            <button class="secondary-action" id="openLibrary" type="button">Library</button>
-            <button class="secondary-action" id="exportCollection" type="button">Export</button>
-            <label class="import-action">
-              Import
-              <input id="importCollection" type="file" accept="application/json" />
-            </label>
-          </div>
+          <details class="more-actions">
+            <summary>More</summary>
+            <div class="backup-actions" aria-label="Backup tools">
+              <button class="secondary-action" id="openLibrary" type="button">Library</button>
+              <button class="secondary-action" id="exportCollection" type="button">Export</button>
+              <label class="import-action">
+                Import
+                <input id="importCollection" type="file" accept="application/json" />
+              </label>
+            </div>
+          </details>
         </section>
 
-        <section class="filter-drawer" aria-label="Advanced filters">
+        <details class="filter-shell">
+          <summary>Advanced filters</summary>
+          <section class="filter-drawer" aria-label="Advanced filters">
           <div>
             <span>Status</span>
             <button data-filter="owned" type="button">Owned</button>
@@ -182,7 +171,8 @@
             <span>Core Bar</span>
             <button data-filter="core-bar" type="button">Core Bar Only</button>
           </div>
-        </section>
+          </section>
+        </details>
 
         <section class="stats-grid" aria-label="Collection stats">
           <article>
@@ -205,22 +195,22 @@
             <strong id="openedSealed">0 / 0</strong>
             <em id="openedSealedMeta">no owned bottles</em>
           </article>
-          <article>
+          <article class="secondary-stat">
             <span>Avg Rating</span>
             <strong id="averageRating">0.0</strong>
             <em>rated bottles</em>
           </article>
-          <article>
+          <article class="secondary-stat">
             <span>Core Bar</span>
             <strong id="coreBarCount">0</strong>
             <em>must-keep bottles</em>
           </article>
-          <article>
+          <article class="secondary-stat">
             <span>Buy Next</span>
             <strong id="buyNextCount">0</strong>
             <em>hunt list</em>
           </article>
-          <article>
+          <article class="secondary-stat">
             <span>Open Bottles</span>
             <strong id="openBottles">0</strong>
             <em>ready to pour</em>
@@ -234,10 +224,7 @@
                 <p>Inventory</p>
                 <h2>Your cabinet</h2>
               </div>
-              <div class="inventory-actions">
-                <button class="secondary-action" id="toggleQuickView" type="button">Quick View</button>
-                <span id="resultCount">0 shown</span>
-              </div>
+              <span id="resultCount">0 shown</span>
             </div>
             <div class="bottle-grid" id="bottleGrid"></div>
           </div>
@@ -277,56 +264,11 @@
           </aside>
         </section>
 
-        <section class="tasting-board is-hidden" id="tastingView">
-          <div class="section-heading">
-            <div>
-              <p>Bottle Reviews</p>
-              <h2>Guided notes</h2>
-            </div>
-            <button class="secondary-action" id="saveTastingNote" type="button">Save Note</button>
-          </div>
-          <div class="tasting-workspace">
-            <div class="tasting-form">
-              <label>
-                Bottle
-                <select id="tastingBottle"></select>
-              </label>
-              <div class="tasting-grid">
-                <label>
-                  Nose
-                  <textarea id="tastingNose" rows="3" placeholder="Caramel, cherry, ethanol, oak..."></textarea>
-                </label>
-                <label>
-                  Palate
-                  <textarea id="tastingPalate" rows="3" placeholder="Sweet entry, spice, fruit, proof..."></textarea>
-                </label>
-                <label>
-                  Finish
-                  <textarea id="tastingFinish" rows="3" placeholder="Short, drying, warm, long oak..."></textarea>
-                </label>
-                <label>
-                  Score
-                  <input id="tastingScore" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
-                </label>
-              </div>
-              <div class="form-actions">
-                <button class="secondary-action" id="buildTastingNote" type="button">Build Note</button>
-                <button class="primary-action" id="logTastingPour" type="button">Log Pour</button>
-              </div>
-            </div>
-            <div class="tasting-preview">
-              <span>Generated Note</span>
-              <p id="generatedTastingNote">Build a note from your tasting inputs.</p>
-            </div>
-          </div>
-          <div class="note-list" id="noteList"></div>
-        </section>
-
         <section class="ai-tools-board is-hidden" id="aiToolsView">
           <div class="section-heading">
             <div>
-              <p>Dispatch Recommendations</p>
-              <h2>Dispatch</h2>
+              <p>AI Tools</p>
+              <h2>Pour assistant</h2>
             </div>
             <button class="secondary-action" id="refreshAiTools" type="button">Refresh</button>
           </div>
@@ -372,6 +314,51 @@
               <button class="primary-action" data-ai-action="compare" type="button">Compare</button>
             </div>
             <div class="ai-output" id="compareOutput"></div>
+          </div>
+
+          <div class="tasting-board" id="tastingView">
+            <div class="section-heading">
+              <div>
+                <p>Bottle Reviews</p>
+                <h2>Guided notes</h2>
+              </div>
+              <button class="secondary-action" id="saveTastingNote" type="button">Save Note</button>
+            </div>
+            <div class="tasting-workspace">
+              <div class="tasting-form">
+                <label>
+                  Bottle
+                  <select id="tastingBottle"></select>
+                </label>
+                <div class="tasting-grid">
+                  <label>
+                    Nose
+                    <textarea id="tastingNose" rows="3" placeholder="Caramel, cherry, ethanol, oak..."></textarea>
+                  </label>
+                  <label>
+                    Palate
+                    <textarea id="tastingPalate" rows="3" placeholder="Sweet entry, spice, fruit, proof..."></textarea>
+                  </label>
+                  <label>
+                    Finish
+                    <textarea id="tastingFinish" rows="3" placeholder="Short, drying, warm, long oak..."></textarea>
+                  </label>
+                  <label>
+                    Score
+                    <input id="tastingScore" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
+                  </label>
+                </div>
+                <div class="form-actions">
+                  <button class="secondary-action" id="buildTastingNote" type="button">Build Note</button>
+                  <button class="primary-action" id="logTastingPour" type="button">Log Pour</button>
+                </div>
+              </div>
+              <div class="tasting-preview">
+                <span>Generated Note</span>
+                <p id="generatedTastingNote">Build a note from your tasting inputs.</p>
+              </div>
+            </div>
+            <div class="note-list" id="noteList"></div>
           </div>
         </section>
 
@@ -695,6 +682,6 @@
       </div>
     </dialog>
 
-    <script src="app.js?v=31"></script>
+    <script src="app.js?v=32"></script>
   </body>
 </html>
