@@ -1029,9 +1029,8 @@ let activePourStyle = "all";
 let activeProofBand = "all";
 let activeView = "collection";
 let quickView = false;
-let barcodeDetector;
-let scannerStream;
-let scannerTimer;
+let zxingReader;
+let scannerControls;
 let formPhotoTimer;
 
 const els = {
@@ -2490,43 +2489,50 @@ function openScanner() {
   els.manualBarcode.value = "";
   els.scannerStatus.textContent = supportsBarcodeScanner()
     ? "Start the camera and center the barcode in the frame."
-    : "Camera barcode scanning is not supported in this browser. Enter a UPC or upload a clear label photo.";
+    : "Camera access is not available in this browser. Enter a UPC or upload a clear label photo.";
   els.scannerDialog.showModal();
+}
+
+function getZxingReader() {
+  if (!window.ZXing) return null;
+  if (!zxingReader) {
+    const hints = new Map();
+    hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      window.ZXing.BarcodeFormat.EAN_13,
+      window.ZXing.BarcodeFormat.EAN_8,
+      window.ZXing.BarcodeFormat.UPC_A,
+      window.ZXing.BarcodeFormat.UPC_E,
+      window.ZXing.BarcodeFormat.CODE_128,
+      window.ZXing.BarcodeFormat.QR_CODE,
+    ]);
+    zxingReader = new window.ZXing.BrowserMultiFormatReader(hints);
+  }
+  return zxingReader;
 }
 
 async function startScanner() {
   if (!supportsBarcodeScanner()) {
-    els.scannerStatus.textContent = "This browser does not support live barcode scanning yet.";
+    els.scannerStatus.textContent = "This browser does not support camera scanning. Enter a UPC or upload a label photo.";
+    return;
+  }
+
+  const reader = getZxingReader();
+  if (!reader) {
+    els.scannerStatus.textContent = "Scanner library failed to load. Enter a UPC or upload a label photo.";
     return;
   }
 
   try {
-    barcodeDetector ||= new BarcodeDetector({
-      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "qr_code"],
-    });
-    scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
-      audio: false,
-    });
-    els.scannerVideo.srcObject = scannerStream;
-    await els.scannerVideo.play();
     els.scannerStatus.textContent = "Scanning... hold the barcode steady inside the frame.";
-    scannerTimer = window.setInterval(scanVideoFrame, 700);
+    scannerControls = await reader.decodeFromConstraints(
+      { video: { facingMode: { ideal: "environment" } }, audio: false },
+      els.scannerVideo,
+      (result) => {
+        if (result) lookupBarcode(result.getText());
+      },
+    );
   } catch (error) {
     els.scannerStatus.textContent = "Camera access was unavailable. You can still enter the barcode manually.";
-  }
-}
-
-async function scanVideoFrame() {
-  if (!barcodeDetector || !els.scannerVideo.videoWidth) return;
-
-  try {
-    const codes = await barcodeDetector.detect(els.scannerVideo);
-    if (codes.length) {
-      lookupBarcode(codes[0].rawValue);
-    }
-  } catch {
-    els.scannerStatus.textContent = "Scanner paused. Try a brighter label angle or enter the barcode manually.";
   }
 }
 
@@ -2534,25 +2540,21 @@ async function scanUploadedImage(event) {
   const [file] = event.target.files;
   if (!file) return;
 
-  if (!supportsBarcodeScanner()) {
-    els.scannerStatus.textContent = "Image barcode scanning is not supported in this browser.";
+  const reader = getZxingReader();
+  if (!reader) {
+    els.scannerStatus.textContent = "Scanner library failed to load. Enter the UPC manually instead.";
+    event.target.value = "";
     return;
   }
 
+  const url = URL.createObjectURL(file);
   try {
-    barcodeDetector ||= new BarcodeDetector({
-      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "qr_code"],
-    });
-    const bitmap = await createImageBitmap(file);
-    const codes = await barcodeDetector.detect(bitmap);
-    if (codes.length) {
-      lookupBarcode(codes[0].rawValue);
-    } else {
-      els.scannerStatus.textContent = "No barcode found in that image. Try a closer, sharper label photo.";
-    }
+    const result = await reader.decodeFromImageUrl(url);
+    lookupBarcode(result.getText());
   } catch {
-    els.scannerStatus.textContent = "Could not scan that image. Enter the UPC manually instead.";
+    els.scannerStatus.textContent = "No barcode found in that image. Try a closer, sharper label photo.";
   } finally {
+    URL.revokeObjectURL(url);
     event.target.value = "";
   }
 }
@@ -2637,19 +2639,15 @@ function closeScanner() {
 }
 
 function stopScanner() {
-  if (scannerTimer) {
-    window.clearInterval(scannerTimer);
-    scannerTimer = undefined;
-  }
-  if (scannerStream) {
-    scannerStream.getTracks().forEach((track) => track.stop());
-    scannerStream = undefined;
+  if (scannerControls) {
+    scannerControls.stop();
+    scannerControls = undefined;
   }
   els.scannerVideo.srcObject = null;
 }
 
 function supportsBarcodeScanner() {
-  return "BarcodeDetector" in window && navigator.mediaDevices?.getUserMedia;
+  return !!navigator.mediaDevices?.getUserMedia;
 }
 
 function normalizeBarcode(value) {
