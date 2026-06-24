@@ -1357,11 +1357,23 @@ function updateAccountUI() {
   }
 }
 
+let wasSignedIn = false;
+
 if (auth) {
   auth.onAuthStateChanged((user) => {
+    const isSignOut = !user && wasSignedIn;
     currentUser = user;
+    wasSignedIn = !!user;
     updateAccountUI();
-    if (user) pullCloudData(user.uid);
+    if (user) {
+      pullCloudData(user.uid);
+    } else if (isSignOut) {
+      bottles = [];
+      pours = [];
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(POUR_STORAGE_KEY);
+      render();
+    }
   });
 }
 
