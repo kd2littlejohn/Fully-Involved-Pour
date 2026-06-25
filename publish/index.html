@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=44" />
+    <link rel="stylesheet" href="styles.css?v=46" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -53,6 +53,10 @@
             </button>
             <button class="icon-button" id="signOutButton" type="button" aria-label="Sign out">⏏</button>
           </div>
+          <button class="icon-button friends-toggle" id="friendsToggle" type="button" aria-label="Friends">
+            <span aria-hidden="true">⚇</span>
+            <span class="nav-badge is-hidden" id="friendsBadge"></span>
+          </button>
         </div>
 
         <nav class="nav-list" aria-label="Views">
@@ -91,11 +95,6 @@
           <button class="nav-item" data-view="pour-log" type="button">
             <span aria-hidden="true">◍</span>
             Pour Log
-          </button>
-          <button class="nav-item" data-view="friends" type="button">
-            <span aria-hidden="true">⚇</span>
-            Friends
-            <span class="nav-badge is-hidden" id="friendsBadge"></span>
           </button>
         </nav>
       </header>
@@ -267,6 +266,7 @@
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
           <div class="core-bar-highlight" id="coreBarHighlight"></div>
           <div class="top-rated-highlight" id="topRatedHighlight"></div>
+          <div class="pour-streak-highlight" id="pourStreakHighlight"></div>
 
           <section class="dashboard-grid">
           <div class="insights-card">
@@ -436,46 +436,43 @@
           <div class="pour-list" id="pourList"></div>
         </section>
 
-        <section class="friends-board is-hidden" id="friendsView">
-          <div class="section-heading">
-            <div>
-              <p>Social</p>
-              <h2>Friends</h2>
-            </div>
-          </div>
-          <div class="follow-form">
-            <input id="followUsernameInput" placeholder="friend_username" autocomplete="off" />
-            <button class="primary-action" id="followButton" type="button">Follow</button>
-          </div>
-          <p class="auth-gate-note" id="followError"></p>
-
-          <div class="friends-columns">
-            <div>
-              <div class="section-heading compact">
-                <div>
-                  <p>Following <span id="followingCount">0</span></p>
-                  <h2>People you follow</h2>
-                </div>
-              </div>
-              <div class="friend-list" id="friendList"></div>
-            </div>
-            <div>
-              <div class="section-heading compact">
-                <div>
-                  <p>Followers <span id="followerCount">0</span></p>
-                  <h2>People following you</h2>
-                </div>
-              </div>
-              <div class="friend-list" id="followerList"></div>
-            </div>
-          </div>
-        </section>
-
         <footer class="brand-footer">
           <strong>Drink what you enjoy. Share what matters.</strong>
         </footer>
       </main>
     </div>
+
+    <div class="friends-backdrop is-hidden" id="friendsBackdrop"></div>
+    <aside class="friends-drawer" id="friendsDrawer" aria-label="Friends">
+      <div class="section-heading">
+        <div>
+          <p>Social</p>
+          <h2>Friends</h2>
+        </div>
+        <button class="icon-button" id="closeFriendsDrawer" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="follow-form">
+        <input id="followUsernameInput" placeholder="friend_username" autocomplete="off" />
+        <button class="primary-action" id="followButton" type="button">Follow</button>
+      </div>
+      <p class="auth-gate-note" id="followError"></p>
+
+      <div class="section-heading compact">
+        <div>
+          <p>Following <span id="followingCount">0</span></p>
+          <h2>People you follow</h2>
+        </div>
+      </div>
+      <div class="friend-list" id="friendList"></div>
+
+      <div class="section-heading compact">
+        <div>
+          <p>Followers <span id="followerCount">0</span></p>
+          <h2>People following you</h2>
+        </div>
+      </div>
+      <div class="friend-list" id="followerList"></div>
+    </aside>
 
     <dialog class="bottle-dialog" id="bottleDialog">
       <form method="dialog" class="bottle-form" id="bottleForm">
@@ -780,6 +777,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=51"></script>
+    <script src="app.js?v=53"></script>
   </body>
 </html>

@@ -884,6 +884,38 @@ select {
   color: var(--muted);
 }
 
+.pour-streak-highlight {
+  margin-top: 20px;
+}
+
+.pour-streak-highlight:empty {
+  display: none;
+}
+
+.pour-streak-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.pour-streak-card > div {
+  display: grid;
+  gap: 2px;
+}
+
+.pour-streak-card strong {
+  font-size: 1.6rem;
+}
+
+.pour-streak-card span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 @media (max-width: 980px) {
   .dashboard-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -1401,17 +1433,35 @@ select {
   margin-top: 12px;
 }
 
-.friends-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-  margin-top: 12px;
+.friends-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
 }
 
-@media (max-width: 980px) {
-  .friends-columns {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.friends-backdrop.is-hidden {
+  display: none;
+}
+
+.friends-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  width: min(420px, 100%);
+  padding: 22px;
+  overflow-y: auto;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -20px 0 50px rgba(0, 0, 0, 0.45);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+
+.friends-drawer.is-open {
+  transform: translateX(0);
 }
 
 .friend-item {
@@ -2158,6 +2208,16 @@ textarea {
   background: transparent;
   border-color: var(--line);
   font-size: 1.4rem;
+}
+
+.friends-toggle {
+  position: relative;
+}
+
+.friends-toggle .nav-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
 }
 
 #deleteBottle {

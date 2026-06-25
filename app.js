@@ -439,6 +439,25 @@ const curatedBottleImages = {
     "https://newriffdistilling.com/wp-content/uploads/2026/02/New-Riff_BIB_Bourbon_WBB.webp",
 };
 
+const distilleryMashBills = {
+  "buffalo trace": { corn: 90, ryeWheat: 8, malted: 2 },
+  "maker's mark": { corn: 70, ryeWheat: 16, malted: 14 },
+  "wild turkey": { corn: 75, ryeWheat: 13, malted: 12 },
+  "woodford reserve": { corn: 72, ryeWheat: 18, malted: 10 },
+  "jim beam": { corn: 77, ryeWheat: 13, malted: 10 },
+  "heaven hill": { corn: 78, ryeWheat: 10, malted: 12 },
+};
+
+const wheatedMashBill = { corn: 75, ryeWheat: 20, malted: 5 };
+
+function suggestMashBill(name, distillery) {
+  const distilleryKey = String(distillery || "").toLowerCase();
+  const nameText = String(name || "").toLowerCase();
+  const isWheated = /weller|pappy|fitzgerald|wheat/.test(nameText);
+  if (distilleryKey === "buffalo trace" && isWheated) return wheatedMashBill;
+  return distilleryMashBills[distilleryKey] || null;
+}
+
 const distilleryProfiles = {
   "buffalo trace": {
     location: "Frankfort, Kentucky",
@@ -1153,6 +1172,7 @@ const els = {
   shelfList: document.querySelector("#shelfList"),
   coreBarHighlight: document.querySelector("#coreBarHighlight"),
   topRatedHighlight: document.querySelector("#topRatedHighlight"),
+  pourStreakHighlight: document.querySelector("#pourStreakHighlight"),
   recommendation: document.querySelector("#recommendation"),
   resultCount: document.querySelector("#resultCount"),
   inventoryRatio: document.querySelector("#inventoryRatio"),
@@ -1233,7 +1253,10 @@ const els = {
   usernameError: document.querySelector("#usernameError"),
   saveUsername: document.querySelector("#saveUsername"),
   editUsernameButton: document.querySelector("#editUsernameButton"),
-  friendsView: document.querySelector("#friendsView"),
+  friendsDrawer: document.querySelector("#friendsDrawer"),
+  friendsBackdrop: document.querySelector("#friendsBackdrop"),
+  friendsToggle: document.querySelector("#friendsToggle"),
+  closeFriendsDrawer: document.querySelector("#closeFriendsDrawer"),
   followUsernameInput: document.querySelector("#followUsernameInput"),
   followButton: document.querySelector("#followButton"),
   followError: document.querySelector("#followError"),
@@ -1312,15 +1335,27 @@ document.querySelectorAll("[data-assistant-prompt]").forEach((button) => {
 document.querySelectorAll("[data-ai-action]").forEach((button) => {
   button.addEventListener("click", () => runAiTool(button.dataset.aiAction));
 });
+function applyMashBillSuggestion() {
+  const hasMashBillEntered = fields.mashBillCorn.value || fields.mashBillRyeWheat.value || fields.mashBillMalted.value;
+  if (hasMashBillEntered) return;
+  const suggestion = suggestMashBill(fields.name.value, fields.distillery.value);
+  if (!suggestion) return;
+  fields.mashBillCorn.value = suggestion.corn;
+  fields.mashBillRyeWheat.value = suggestion.ryeWheat;
+  fields.mashBillMalted.value = suggestion.malted;
+}
+
 fields.name.addEventListener("input", () => {
   renderBottleSuggestions();
   updateFormPhotoTools();
   queueAutoFormPhotoSearch();
+  applyMashBillSuggestion();
 });
 fields.name.addEventListener("focus", renderBottleSuggestions);
 fields.distillery.addEventListener("input", () => {
   updateFormPhotoTools();
   queueAutoFormPhotoSearch();
+  applyMashBillSuggestion();
 });
 fields.imageUrl.addEventListener("input", updateFormPhotoTools);
 els.photoUpload.addEventListener("change", uploadBottlePhoto);
@@ -1903,6 +1938,21 @@ els.editUsernameButton?.addEventListener("click", () => openUsernameSetup());
 els.saveUsername?.addEventListener("click", () => claimUsername(els.usernameInput.value));
 els.followButton?.addEventListener("click", () => followUsername(els.followUsernameInput.value));
 
+function openFriendsDrawer() {
+  els.friendsDrawer.classList.add("is-open");
+  els.friendsBackdrop.classList.remove("is-hidden");
+  renderFriendList();
+}
+
+function closeFriendsDrawerFn() {
+  els.friendsDrawer.classList.remove("is-open");
+  els.friendsBackdrop.classList.add("is-hidden");
+}
+
+els.friendsToggle?.addEventListener("click", openFriendsDrawer);
+els.closeFriendsDrawer?.addEventListener("click", closeFriendsDrawerFn);
+els.friendsBackdrop?.addEventListener("click", closeFriendsDrawerFn);
+
 function renderDistilleryOptions() {
   els.distilleryOptions.innerHTML = availableDistilleries
     .map((distillery) => `<option value="${escapeHtml(distillery)}"></option>`)
@@ -1971,13 +2021,11 @@ function updateWelcomeVisibility() {
 function render() {
   updateWelcomeVisibility();
   const shown = visibleBottles();
-  const collectionVisible = !["ai-tools", "pour-log", "dashboard", "friends"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
-  els.friendsView.classList.toggle("is-hidden", activeView !== "friends");
-  if (activeView === "friends") renderFriendList();
 
   renderStats();
   renderCards(shown);
@@ -1985,6 +2033,7 @@ function render() {
   renderShelfMap();
   renderCoreBarHighlight();
   renderTopRatedHighlight();
+  renderPourStreakHighlight();
   renderRecommendation();
   renderNotes();
   renderTastingWorkspace();
@@ -2459,6 +2508,57 @@ function renderTopRatedHighlight() {
   els.topRatedHighlight.querySelectorAll("[data-quick]").forEach((item) => {
     item.addEventListener("click", () => openBottleQuick(item.dataset.quick));
   });
+}
+
+function computePourStreak() {
+  if (!pours.length) return 0;
+  const dateSet = new Set(pours.map((pour) => pour.date));
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const mostRecent = [...dateSet].sort().pop();
+  const mostRecentDate = new Date(`${mostRecent}T00:00:00`);
+  const diffDays = Math.round((today - mostRecentDate) / 86400000);
+  if (diffDays > 1) return 0;
+
+  let streak = 0;
+  const cursor = new Date(mostRecentDate);
+  while (dateSet.has(cursor.toISOString().slice(0, 10))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+}
+
+function countBottlesOpenedThisMonth() {
+  const now = new Date();
+  return bottles.filter((bottle) => {
+    if (!bottle.openedDate) return false;
+    const opened = new Date(`${bottle.openedDate}T00:00:00`);
+    return opened.getFullYear() === now.getFullYear() && opened.getMonth() === now.getMonth();
+  }).length;
+}
+
+function renderPourStreakHighlight() {
+  const streak = computePourStreak();
+  const openedThisMonth = countBottlesOpenedThisMonth();
+
+  if (!streak && !openedThisMonth) {
+    els.pourStreakHighlight.innerHTML = "";
+    return;
+  }
+
+  els.pourStreakHighlight.innerHTML = `
+    <div class="pour-streak-card">
+      <div>
+        <strong>🔥 ${streak}</strong>
+        <span>day pour streak</span>
+      </div>
+      <div>
+        <strong>${openedThisMonth}</strong>
+        <span>${openedThisMonth === 1 ? "bottle" : "bottles"} opened this month</span>
+      </div>
+    </div>
+  `;
 }
 
 function renderRecommendation() {
