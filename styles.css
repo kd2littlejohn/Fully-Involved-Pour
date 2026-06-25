@@ -417,6 +417,15 @@ label {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.ai-action {
+  border-color: rgba(215, 138, 54, 0.5);
+  color: var(--amber);
+}
+
+.ai-action:hover {
+  background: rgba(215, 138, 54, 0.12);
+}
+
 .toolbar,
 .inventory-overview,
 .stats-grid,

@@ -13,6 +13,7 @@ const firebaseConfig = {
 let auth;
 let db;
 let storage;
+let cloudFunctions;
 let currentUser = null;
 let currentProfile = null;
 
@@ -21,6 +22,7 @@ if (typeof firebase !== "undefined") {
   auth = firebase.auth();
   db = firebase.firestore();
   storage = firebase.storage ? firebase.storage() : undefined;
+  cloudFunctions = firebase.functions ? firebase.functions() : undefined;
 }
 
 const seedBottles = [
@@ -1295,6 +1297,7 @@ els.bottleForm.addEventListener("submit", saveBottle);
 els.pourForm.addEventListener("submit", savePour);
 els.deleteBottle.addEventListener("click", deleteBottle);
 document.querySelector("#buildTastingNote").addEventListener("click", buildGuidedTastingNote);
+document.querySelector("#aiTastingNote").addEventListener("click", generateAiTastingNote);
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
@@ -2519,6 +2522,43 @@ function buildGuidedTastingNote() {
   return { text, nose, palate, finish, score: scoreValue };
 }
 
+async function generateAiTastingNote() {
+  const bottle = bottles.find((item) => item.id === els.tastingBottle.value);
+  if (!bottle) {
+    els.generatedTastingNote.textContent = "Choose a bottle first.";
+    return;
+  }
+  if (!currentUser || !cloudFunctions) {
+    els.generatedTastingNote.textContent = "Sign in with Google to use AI tasting notes.";
+    return;
+  }
+
+  els.generatedTastingNote.textContent = "Asking the sommelier...";
+  try {
+    const callable = cloudFunctions.httpsCallable("generateTastingProfile");
+    const result = await callable({
+      bottleName: bottle.name,
+      distillery: bottle.distillery,
+      type: bottle.type,
+      proof: bottle.proof,
+      flavors: bottle.flavors,
+    });
+    const profile = result.data || {};
+    els.tastingNose.value = profile.nose || "";
+    els.tastingPalate.value = profile.palate || "";
+    els.tastingFinish.value = profile.finish || "";
+    if (Array.isArray(profile.flavors) && profile.flavors.length) {
+      bottle.flavors = [...new Set([...(bottle.flavors || []), ...profile.flavors])];
+      persist();
+    }
+    buildGuidedTastingNote();
+    render();
+  } catch (error) {
+    console.error("AI tasting note failed", error);
+    els.generatedTastingNote.textContent = "Could not generate an AI tasting note. Try again.";
+  }
+}
+
 function saveGuidedTastingNote() {
   const note = buildGuidedTastingNote();
   if (!note) return;
@@ -2679,13 +2719,48 @@ function runAiTool(action) {
   }
 }
 
-function sendAssistantMessage(event) {
+function summarizeCollectionForAi() {
+  if (!bottles.length) return "";
+  return bottles
+    .slice(0, 40)
+    .map(
+      (bottle) =>
+        `${bottle.name} (${bottle.distillery}, ${bottle.type}, ${numberOrDash(bottle.proof)} proof, status: ${bottle.status}, rating: ${numberOrDash(bottle.rating)})`,
+    )
+    .join("\n");
+}
+
+async function askSommelierAi(prompt) {
+  if (!currentUser || !cloudFunctions) return null;
+  try {
+    const callable = cloudFunctions.httpsCallable("askSommelier");
+    const result = await callable({ prompt, collectionSummary: summarizeCollectionForAi() });
+    return result.data?.reply || null;
+  } catch (error) {
+    console.error("AI sommelier call failed", error);
+    return null;
+  }
+}
+
+async function sendAssistantMessage(event) {
   event?.preventDefault();
   const prompt = els.assistantPrompt.value.trim();
   if (!prompt) return;
 
   appendAssistantMessage("user", prompt);
   els.assistantPrompt.value = "";
+
+  if (currentUser && cloudFunctions) {
+    const thinking = appendAssistantMessage("assistant", aiMessage("Thinking..."));
+    const aiReply = await askSommelierAi(prompt);
+    if (aiReply) {
+      thinking.innerHTML = aiMessage(aiReply);
+      els.assistantMessages.scrollTop = els.assistantMessages.scrollHeight;
+      return;
+    }
+    thinking.remove();
+  }
+
   appendAssistantMessage("assistant", routeAssistantPrompt(prompt));
 }
 
@@ -2712,6 +2787,7 @@ function appendAssistantMessage(role, html) {
   message.innerHTML = role === "user" ? `<p>${escapeHtml(html)}</p>` : html;
   els.assistantMessages.append(message);
   els.assistantMessages.scrollTop = els.assistantMessages.scrollHeight;
+  return message;
 }
 
 function renderExpertAnswer(prompt) {
