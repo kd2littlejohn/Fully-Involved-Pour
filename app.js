@@ -434,6 +434,84 @@ const curatedBottleImages = {
     "https://newriffdistilling.com/wp-content/uploads/2026/02/New-Riff_BIB_Bourbon_WBB.webp",
 };
 
+const distilleryProfiles = {
+  "buffalo trace": {
+    location: "Frankfort, Kentucky",
+    founded: "Distillery site dates to 1773; operating as Buffalo Trace since 1999",
+    blurb: "One of the oldest continuously operating distilleries in the U.S., home to Eagle Rare, Blanton's, Weller, and E.H. Taylor.",
+  },
+  "wild turkey": {
+    location: "Lawrenceburg, Kentucky",
+    founded: "1869 (Ripy Brothers); Wild Turkey brand since the 1940s",
+    blurb: "Known for a bold, high-proof house style under longtime master distiller Jimmy Russell.",
+  },
+  "heaven hill": {
+    location: "Bardstown / Louisville, Kentucky",
+    founded: "1935",
+    blurb: "One of the largest family-owned distilleries in the U.S., producing Evan Williams, Elijah Craig, Larceny, and Henry McKenna.",
+  },
+  "jim beam": {
+    location: "Clermont, Kentucky",
+    founded: "1795 (Beam family)",
+    blurb: "The world's best-selling bourbon brand, still run by descendants of the founding Beam family.",
+  },
+  "woodford reserve": {
+    location: "Versailles, Kentucky",
+    founded: "Historic distillery site from 1812; Woodford Reserve brand since 1996",
+    blurb: "Uses copper pot stills and a triple-distillation process at one of Kentucky's most scenic distilleries.",
+  },
+  "old forester": {
+    location: "Louisville, Kentucky",
+    founded: "1870 by George Garvin Brown",
+    blurb: "The first bourbon brand sold exclusively in sealed glass bottles, owned by Brown-Forman.",
+  },
+  "four roses": {
+    location: "Lawrenceburg, Kentucky",
+    founded: "1888",
+    blurb: "Famous for blending 10 distinct bourbon recipes from 2 mash bills and 5 proprietary yeast strains.",
+  },
+  "barton 1792": {
+    location: "Bardstown, Kentucky",
+    founded: "Distillery site dates to 1879",
+    blurb: "One of Bardstown's oldest distilleries, producing the 1792 line under the Sazerac Company.",
+  },
+  "michter's": {
+    location: "Louisville, Kentucky",
+    founded: "Brand revived in the 1990s; current distillery opened 2015",
+    blurb: "Focuses on small-batch, single-barrel releases with no age statement on some core bottlings.",
+  },
+  "angel's envy": {
+    location: "Louisville, Kentucky",
+    founded: "2010 by Lincoln Henderson",
+    blurb: "Known for finishing bourbon in port wine barrels for added depth and sweetness.",
+  },
+  "new riff": {
+    location: "Newport, Kentucky",
+    founded: "2014",
+    blurb: "A newer craft distillery committed to bottled-in-bond, non-chill-filtered whiskey.",
+  },
+  "maker's mark": {
+    location: "Loretto, Kentucky",
+    founded: "1953 by Bill Samuels Sr.",
+    blurb: "A wheated bourbon recognizable by its hand-dipped red wax seal.",
+  },
+  bulleit: {
+    location: "Shelbyville / Louisville, Kentucky",
+    founded: "Brand revived in 1987 by Tom Bulleit",
+    blurb: "A high-rye bourbon with roots tracing back to the historic Stitzel-Weller area.",
+  },
+  "redwood empire": {
+    location: "Sonoma County, California",
+    founded: "2014",
+    blurb: "A California distillery aging whiskey in a markedly different climate than Kentucky.",
+  },
+  ardbeg: {
+    location: "Isle of Islay, Scotland",
+    founded: "1815",
+    blurb: "Known for intensely peated, smoky single malt Scotch whisky.",
+  },
+};
+
 const distilleryDatabase = [
   "1792 Barton",
   "A. Smith Bowman",
@@ -1081,6 +1159,7 @@ const els = {
   formTitle: document.querySelector("#formTitle"),
   deleteBottle: document.querySelector("#deleteBottle"),
   collectionView: document.querySelector("#collectionView"),
+  dashboardView: document.querySelector("#dashboardView"),
   tastingView: document.querySelector("#tastingView"),
   aiToolsView: document.querySelector("#aiToolsView"),
   pourLogView: document.querySelector("#pourLogView"),
@@ -1450,8 +1529,9 @@ function visibleBottles() {
 
 function render() {
   const shown = visibleBottles();
-  const collectionVisible = !["ai-tools", "pour-log"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
+  els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
 
@@ -1879,7 +1959,7 @@ function buildGuidedTastingNote() {
   const bottle = bottles.find((item) => item.id === els.tastingBottle.value);
   if (!bottle) {
     els.generatedTastingNote.textContent = "Choose a bottle first.";
-    return "";
+    return null;
   }
 
   const nose = els.tastingNose.value.trim() || bottle.flavors.slice(0, 2).join(", ");
@@ -1887,10 +1967,11 @@ function buildGuidedTastingNote() {
   const finish =
     els.tastingFinish.value.trim() ||
     (Number(bottle.proof) >= 110 ? "warm, lingering proof with oak and spice" : "balanced, clean, and approachable");
-  const score = els.tastingScore.value ? ` Rating: ${Number(els.tastingScore.value).toFixed(1)}/10.` : "";
-  const note = `${bottle.name} opens with ${nose} on the nose. The palate brings ${palate}, leading into a finish of ${finish}.${score}`;
-  els.generatedTastingNote.textContent = note;
-  return note;
+  const scoreValue = els.tastingScore.value ? Number(els.tastingScore.value) : 0;
+  const score = scoreValue ? ` Rating: ${scoreValue.toFixed(1)}/10.` : "";
+  const text = `${bottle.name} opens with ${nose} on the nose. The palate brings ${palate}, leading into a finish of ${finish}.${score}`;
+  els.generatedTastingNote.textContent = text;
+  return { text, nose, palate, finish, score: scoreValue };
 }
 
 function saveGuidedTastingNote() {
@@ -1900,8 +1981,9 @@ function saveGuidedTastingNote() {
     if (bottle.id !== els.tastingBottle.value) return bottle;
     return {
       ...bottle,
-      notes: note,
-      rating: Number(els.tastingScore.value || bottle.rating || 0),
+      notes: note.text,
+      tastingNote: { nose: note.nose, palate: note.palate, finish: note.finish, score: note.score },
+      rating: Number(note.score || bottle.rating || 0),
       status: bottle.status === "sealed" ? "open" : bottle.status,
       openedDate: bottle.openedDate || new Date().toISOString().slice(0, 10),
     };
@@ -1921,7 +2003,7 @@ function logGuidedTastingPour() {
       ounces: 1.5,
       rating: Number(els.tastingScore.value || 0),
       occasion: "Guided tasting",
-      notes: note,
+      notes: note.text,
     },
     ...pours,
   ];
@@ -2209,6 +2291,34 @@ function aiMessage(text) {
   return `<p>${text}</p>`;
 }
 
+function renderTastingNoteBlock(bottle) {
+  const note = bottle.tastingNote;
+  if (!note || !(note.nose || note.palate || note.finish)) {
+    return `<p>${escapeHtml(bottle.notes || "No notes yet.")}</p>`;
+  }
+  return `
+    <div class="tasting-note-block">
+      <span class="section-label">Tasting note</span>
+      ${note.nose ? `<div><strong>Nose</strong><p>${escapeHtml(note.nose)}</p></div>` : ""}
+      ${note.palate ? `<div><strong>Palate</strong><p>${escapeHtml(note.palate)}</p></div>` : ""}
+      ${note.finish ? `<div><strong>Finish</strong><p>${escapeHtml(note.finish)}</p></div>` : ""}
+      ${note.score ? `<div><strong>Score</strong><p>${Number(note.score).toFixed(1)}/10</p></div>` : ""}
+    </div>
+  `;
+}
+
+function renderDistilleryInfoBlock(bottle) {
+  const profile = distilleryProfiles[String(bottle.distillery || "").toLowerCase()];
+  if (!profile) return "";
+  return `
+    <div class="distillery-info-block">
+      <span class="section-label">About ${escapeHtml(bottle.distillery)}</span>
+      <p class="distillery-meta">${escapeHtml(profile.location)} · Founded ${escapeHtml(profile.founded)}</p>
+      <p>${escapeHtml(profile.blurb)}</p>
+    </div>
+  `;
+}
+
 function openBottleQuick(id) {
   const bottle = bottles.find((item) => item.id === id);
   if (!bottle) return;
@@ -2243,7 +2353,8 @@ function openBottleQuick(id) {
       </div>
       <div class="bottle-radar">${renderBottleFlavorRadar(bottle)}</div>
     </div>
-    <p>${escapeHtml(bottle.notes || "No notes yet.")}</p>
+    ${renderTastingNoteBlock(bottle)}
+    ${renderDistilleryInfoBlock(bottle)}
     <div class="photo-source-panel">
       <span>Find actual bottle photo</span>
       ${renderPhotoSourceLinks(bottle)}

@@ -31,6 +31,10 @@
         </div>
 
         <nav class="nav-list" aria-label="Views">
+          <button class="nav-item" data-view="dashboard" type="button">
+            <span aria-hidden="true">▤</span>
+            Dashboard
+          </button>
           <button class="nav-item is-active" data-view="collection" type="button">
             <span aria-hidden="true">▦</span>
             Inventory
@@ -136,9 +140,7 @@
           </details>
         </section>
 
-        <details class="filter-shell">
-          <summary>Advanced filters</summary>
-          <section class="filter-drawer" aria-label="Advanced filters">
+        <section class="filter-drawer" aria-label="Advanced filters">
           <div>
             <span>Status</span>
             <button data-filter="owned" type="button">Owned</button>
@@ -180,8 +182,7 @@
             <span>Core Bar</span>
             <button data-filter="core-bar" type="button">Core Bar Only</button>
           </div>
-          </section>
-        </details>
+        </section>
 
         <section class="stats-grid" aria-label="Collection stats">
           <article>
@@ -237,8 +238,10 @@
             </div>
             <div class="bottle-grid" id="bottleGrid"></div>
           </div>
+        </section>
 
-          <aside class="insights" aria-label="Collection insights">
+        <section class="dashboard-grid is-hidden" id="dashboardView" aria-label="Collection insights">
+          <div class="insights">
             <div class="section-heading">
               <div>
                 <p>Profile</p>
@@ -270,7 +273,7 @@
               </div>
             </div>
             <div class="core-rule">The bottles that earned permanent shelf space.</div>
-          </aside>
+          </div>
         </section>
 
         <section class="ai-tools-board is-hidden" id="aiToolsView">
