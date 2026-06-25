@@ -1235,6 +1235,7 @@ const els = {
   followError: document.querySelector("#followError"),
   friendList: document.querySelector("#friendList"),
   followerList: document.querySelector("#followerList"),
+  friendsBadge: document.querySelector("#friendsBadge"),
   followingCount: document.querySelector("#followingCount"),
   followerCount: document.querySelector("#followerCount"),
   friendInventoryDialog: document.querySelector("#friendInventoryDialog"),
@@ -1499,6 +1500,7 @@ async function pullCloudData(uid) {
     syncCoreBarScores();
     updateAccountUI();
     render();
+    refreshFriendsBadge();
     if (!currentProfile.username) openUsernameSetup();
   } catch (error) {
     console.error("Cloud sync failed to load", error);
@@ -1646,6 +1648,47 @@ async function lookupProfileUsername(uid, fallback) {
   return fallback || "Unknown";
 }
 
+const FRIENDS_SEEN_KEY = "cellar-ledger-friends-seen";
+
+async function loadMySalutesCount() {
+  if (!currentUser || !db) return 0;
+  const summary = await loadReactionsFor(currentUser.uid);
+  let total = 0;
+  summary.forEach((entry) => {
+    total += entry.count;
+  });
+  return total;
+}
+
+function readFriendsSeenTotals() {
+  try {
+    return JSON.parse(localStorage.getItem(FRIENDS_SEEN_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function markFriendsSeen(totals) {
+  localStorage.setItem(FRIENDS_SEEN_KEY, JSON.stringify(totals));
+  els.friendsBadge.classList.add("is-hidden");
+}
+
+async function refreshFriendsBadge() {
+  if (!currentUser || !els.friendsBadge) return;
+  const [followerCount, saluteCount] = await Promise.all([
+    loadFollowers().then(() => followers.length),
+    loadMySalutesCount(),
+  ]);
+  const seen = readFriendsSeenTotals();
+  const unseen = Math.max(0, followerCount - (seen.followers || 0)) + Math.max(0, saluteCount - (seen.salutes || 0));
+  if (unseen > 0) {
+    els.friendsBadge.textContent = unseen;
+    els.friendsBadge.classList.remove("is-hidden");
+  } else {
+    els.friendsBadge.classList.add("is-hidden");
+  }
+}
+
 async function renderFriendList() {
   await Promise.all([loadFollowing(), loadFollowers()]);
 
@@ -1691,6 +1734,9 @@ async function renderFriendList() {
   els.friendList.querySelectorAll("[data-unfollow]").forEach((button) => {
     button.addEventListener("click", () => unfollowUser(button.dataset.unfollow));
   });
+
+  const saluteCount = await loadMySalutesCount();
+  markFriendsSeen({ followers: followers.length, salutes: saluteCount });
 }
 
 function reactionDocId(ownerUid, bottleId, reactorUid) {
@@ -1825,6 +1871,8 @@ if (auth) {
       currentProfile = null;
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(POUR_STORAGE_KEY);
+      localStorage.removeItem(FRIENDS_SEEN_KEY);
+      els.friendsBadge?.classList.add("is-hidden");
       render();
     }
   });
@@ -1975,7 +2023,19 @@ function renderCards(shown) {
   els.bottleGrid.classList.toggle("quick-view", quickView);
 
   if (!shown.length) {
-    els.bottleGrid.innerHTML = `<div class="empty-state">No bottles match the current search and filters.</div>`;
+    els.bottleGrid.innerHTML = bottles.length
+      ? `<div class="empty-state">No bottles match the current search and filters.</div>`
+      : `
+        <div class="empty-state first-run-nudge">
+          <p>Your cabinet is empty. Add your first bottle to start tracking pours, ratings, and your Core Bar.</p>
+          <div class="first-run-actions">
+            <button class="primary-action" id="firstRunAddBottle" type="button">Add Bottle</button>
+            <button class="secondary-action" id="firstRunScanBottle" type="button">Scan Bottle</button>
+          </div>
+        </div>
+      `;
+    document.querySelector("#firstRunAddBottle")?.addEventListener("click", () => openForm());
+    document.querySelector("#firstRunScanBottle")?.addEventListener("click", openScanner);
     return;
   }
 

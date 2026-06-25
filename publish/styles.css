@@ -183,6 +183,26 @@ label {
   white-space: nowrap;
 }
 
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--amber);
+  color: #1a0f04;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.nav-badge.is-hidden {
+  display: none;
+}
+
 .nav-item span {
   width: auto;
   color: var(--amber);
@@ -1976,11 +1996,28 @@ textarea {
 }
 
 .empty-state {
+  grid-column: 1 / -1;
   padding: 28px;
   background: var(--panel);
   border: 1px dashed var(--line);
   border-radius: var(--radius);
   color: var(--muted);
+}
+
+.first-run-nudge {
+  text-align: center;
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+}
+
+.first-run-nudge p {
+  max-width: 380px;
+}
+
+.first-run-actions {
+  display: flex;
+  gap: 10px;
 }
 
 @media (max-width: 980px) {
