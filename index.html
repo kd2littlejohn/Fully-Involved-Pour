@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=29" />
+    <link rel="stylesheet" href="styles.css?v=30" />
   </head>
   <body>
     <div class="auth-gate" id="authGate">
@@ -441,7 +441,27 @@
             <button class="primary-action" id="followButton" type="button">Follow</button>
           </div>
           <p class="auth-gate-note" id="followError"></p>
-          <div class="friend-list" id="friendList"></div>
+
+          <div class="friends-columns">
+            <div>
+              <div class="section-heading compact">
+                <div>
+                  <p>Following <span id="followingCount">0</span></p>
+                  <h2>People you follow</h2>
+                </div>
+              </div>
+              <div class="friend-list" id="friendList"></div>
+            </div>
+            <div>
+              <div class="section-heading compact">
+                <div>
+                  <p>Followers <span id="followerCount">0</span></p>
+                  <h2>People following you</h2>
+                </div>
+              </div>
+              <div class="friend-list" id="followerList"></div>
+            </div>
+          </div>
         </section>
 
         <footer class="brand-footer">
@@ -759,6 +779,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="app.js?v=35"></script>
+    <script src="app.js?v=36"></script>
   </body>
 </html>

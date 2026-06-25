@@ -1227,6 +1227,9 @@ const els = {
   followButton: document.querySelector("#followButton"),
   followError: document.querySelector("#followError"),
   friendList: document.querySelector("#friendList"),
+  followerList: document.querySelector("#followerList"),
+  followingCount: document.querySelector("#followingCount"),
+  followerCount: document.querySelector("#followerCount"),
   friendInventoryDialog: document.querySelector("#friendInventoryDialog"),
   friendInventoryDetail: document.querySelector("#friendInventoryDetail"),
 };
@@ -1492,6 +1495,7 @@ async function claimUsername(rawUsername) {
 }
 
 let following = [];
+let followers = [];
 
 function followDocId(followerUid, followingUid) {
   return `${followerUid}_${followingUid}`;
@@ -1504,6 +1508,16 @@ async function loadFollowing() {
     following = snap.docs.map((doc) => doc.data());
   } catch (error) {
     console.error("Failed to load following list", error);
+  }
+}
+
+async function loadFollowers() {
+  if (!currentUser || !db) return;
+  try {
+    const snap = await db.collection("follows").where("followingUid", "==", currentUser.uid).get();
+    followers = snap.docs.map((doc) => doc.data());
+  } catch (error) {
+    console.error("Failed to load followers list", error);
   }
 }
 
@@ -1528,7 +1542,13 @@ async function followUsername(rawUsername) {
     await db
       .collection("follows")
       .doc(followDocId(currentUser.uid, targetUid))
-      .set({ followerUid: currentUser.uid, followingUid: targetUid, followingUsername: username, createdAt: Date.now() });
+      .set({
+        followerUid: currentUser.uid,
+        followerUsername: currentProfile?.username || "",
+        followingUid: targetUid,
+        followingUsername: username,
+        createdAt: Date.now(),
+      });
     els.followUsernameInput.value = "";
     await renderFriendList();
   } catch (error) {
@@ -1548,7 +1568,11 @@ async function unfollowUser(targetUid) {
 }
 
 async function renderFriendList() {
-  await loadFollowing();
+  await Promise.all([loadFollowing(), loadFollowers()]);
+
+  els.followingCount.textContent = following.length;
+  els.followerCount.textContent = followers.length;
+
   els.friendList.innerHTML = following.length
     ? following
         .map(
@@ -1564,6 +1588,18 @@ async function renderFriendList() {
         )
         .join("")
     : `<div class="empty-state">You're not following anyone yet. Follow a friend by username above.</div>`;
+
+  els.followerList.innerHTML = followers.length
+    ? followers
+        .map(
+          (entry) => `
+            <div class="friend-item">
+              <strong>${escapeHtml(entry.followerUsername || "Unknown")}</strong>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">No one follows you yet.</div>`;
 
   els.friendList.querySelectorAll("[data-view-friend]").forEach((button) => {
     button.addEventListener("click", () => viewFriendInventory(button.dataset.viewFriend, button.dataset.friendName));
