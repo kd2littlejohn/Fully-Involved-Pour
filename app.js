@@ -3276,6 +3276,41 @@ function openForm(id = "") {
   updateFormPhotoTools();
 }
 
+let aiBottleLookupTimer;
+
+function queueAiBottleLookup(query) {
+  window.clearTimeout(aiBottleLookupTimer);
+  if (!currentUser || !cloudFunctions || query.length < 4) return;
+  aiBottleLookupTimer = window.setTimeout(() => runAiBottleLookup(query), 900);
+}
+
+async function runAiBottleLookup(query) {
+  if (fields.name.value.trim() !== query) return;
+  els.aiSuggestions.innerHTML = `<div class="ai-empty">✨ Asking AI about "${escapeHtml(query)}"...</div>`;
+  try {
+    const callable = cloudFunctions.httpsCallable("lookupBottleInfo");
+    const result = await callable({ bottleName: query });
+    if (fields.name.value.trim() !== query) return;
+    const info = result.data || {};
+    if (!info.known) {
+      els.aiSuggestions.innerHTML = `<div class="ai-empty">No close match yet. Keep typing, or save it manually.</div>`;
+      return;
+    }
+    if (!fields.distillery.value.trim() && info.distillery) fields.distillery.value = info.distillery;
+    if (info.type) fields.type.value = info.type;
+    if (!fields.region.value.trim() && info.region) fields.region.value = info.region;
+    if (!fields.proof.value && info.proof) fields.proof.value = info.proof;
+    updateFormPhotoTools();
+    queueAutoFormPhotoSearch();
+    els.aiSuggestions.innerHTML = `<div class="ai-empty">✨ AI filled in ${escapeHtml(info.distillery || "details")} for this bottle.</div>`;
+  } catch (error) {
+    console.error("AI bottle lookup failed", error);
+    if (fields.name.value.trim() === query) {
+      els.aiSuggestions.innerHTML = `<div class="ai-empty">No close match yet. Keep typing, or save it manually.</div>`;
+    }
+  }
+}
+
 function renderBottleSuggestions() {
   const query = fields.name.value.trim();
   if (query.length < 2 || fields.id.value) {
@@ -3290,6 +3325,7 @@ function renderBottleSuggestions() {
         No close match yet. Keep typing, or save it manually.
       </div>
     `;
+    queueAiBottleLookup(query);
     return;
   }
 
