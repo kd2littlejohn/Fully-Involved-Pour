@@ -1676,11 +1676,57 @@ async function renderFriendList() {
   });
 }
 
+function reactionDocId(ownerUid, bottleId, reactorUid) {
+  return `${ownerUid}_${bottleId}_${reactorUid}`;
+}
+
+async function loadReactionsFor(ownerUid) {
+  const summary = new Map();
+  if (!db) return summary;
+  try {
+    const snap = await db.collection("reactions").where("ownerUid", "==", ownerUid).get();
+    snap.docs.forEach((doc) => {
+      const data = doc.data();
+      const entry = summary.get(data.bottleId) || { count: 0, reactedByMe: false };
+      entry.count += 1;
+      if (currentUser && data.reactorUid === currentUser.uid) entry.reactedByMe = true;
+      summary.set(data.bottleId, entry);
+    });
+  } catch (error) {
+    console.error("Failed to load reactions", error);
+  }
+  return summary;
+}
+
+async function toggleSalute(ownerUid, bottleId, username) {
+  if (!currentUser || !db) return;
+  const ref = db.collection("reactions").doc(reactionDocId(ownerUid, bottleId, currentUser.uid));
+  try {
+    const existing = await ref.get();
+    if (existing.exists) {
+      await ref.delete();
+    } else {
+      await ref.set({
+        ownerUid,
+        bottleId,
+        reactorUid: currentUser.uid,
+        reactorUsername: currentProfile?.username || "",
+        emoji: "🫡",
+        createdAt: Date.now(),
+      });
+    }
+    viewFriendInventory(ownerUid, username);
+  } catch (error) {
+    console.error("Salute failed", error);
+  }
+}
+
 async function viewFriendInventory(targetUid, username) {
   try {
     const snap = await userDocRef(targetUid).get();
     const data = snap.exists ? snap.data() : { bottles: [] };
     const friendBottles = (data.bottles || []).map(normalizeBottle);
+    const reactions = await loadReactionsFor(targetUid);
     els.friendInventoryDetail.innerHTML = `
       <div class="form-head">
         <div>
@@ -1692,8 +1738,9 @@ async function viewFriendInventory(targetUid, username) {
       ${
         friendBottles.length
           ? `<div class="friend-bottle-list">${friendBottles
-              .map(
-                (bottle) => `
+              .map((bottle) => {
+                const reaction = reactions.get(bottle.id) || { count: 0, reactedByMe: false };
+                return `
                   <div class="friend-bottle-item">
                     <img class="friend-bottle-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
                     <div class="friend-bottle-body">
@@ -1712,16 +1759,22 @@ async function viewFriendInventory(targetUid, username) {
                         <span>${labelPourStyle(bottle.pourStyle)}</span>
                         <span>${labelPourTier(bottle.pourTier)}</span>
                       </div>
+                      <button class="salute-button${reaction.reactedByMe ? " is-saluted" : ""}" data-salute="${escapeHtml(bottle.id)}" type="button">
+                        🫡 ${reaction.count > 0 ? reaction.count : "Salute"}
+                      </button>
                     </div>
                   </div>
-                `,
-              )
+                `;
+              })
               .join("")}</div>`
           : `<div class="empty-state">${escapeHtml(username)} hasn't added any bottles yet.</div>`
       }
     `;
     els.friendInventoryDialog.showModal();
     document.querySelector("#closeFriendInventory").addEventListener("click", () => els.friendInventoryDialog.close());
+    els.friendInventoryDetail.querySelectorAll("[data-salute]").forEach((button) => {
+      button.addEventListener("click", () => toggleSalute(targetUid, button.dataset.salute, username));
+    });
   } catch (error) {
     console.error("Failed to load friend inventory", error);
   }
