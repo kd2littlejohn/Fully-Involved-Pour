@@ -1592,9 +1592,24 @@ async function viewFriendInventory(targetUid, username) {
               .map(
                 (bottle) => `
                   <div class="friend-bottle-item">
-                    <strong>${escapeHtml(bottle.name)}</strong>
-                    <span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof · ${labelStatus(bottle.status)}</span>
-                    ${bottle.rating ? `<span>Rating ${numberOrDash(bottle.rating)}</span>` : ""}
+                    <img class="friend-bottle-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
+                    <div class="friend-bottle-body">
+                      <div class="friend-bottle-head">
+                        <strong>${escapeHtml(bottle.name)}</strong>
+                        <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
+                      </div>
+                      <span>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${escapeHtml(bottle.region || "Unknown region")}</span>
+                      <div class="flavor-row">
+                        ${bottle.flavors.slice(0, 4).map((flavor) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")}
+                      </div>
+                      <div class="shelf-line">
+                        <span>${numberOrDash(bottle.proof)} proof</span>
+                        ${bottle.rating ? `<span>Rating ${numberOrDash(bottle.rating)}</span>` : ""}
+                        <span>${labelCategory(bottle.category)}</span>
+                        <span>${labelPourStyle(bottle.pourStyle)}</span>
+                        <span>${labelPourTier(bottle.pourTier)}</span>
+                      </div>
+                    </div>
                   </div>
                 `,
               )
