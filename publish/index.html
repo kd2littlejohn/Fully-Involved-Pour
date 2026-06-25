@@ -152,9 +152,14 @@
             <div class="backup-actions" aria-label="Backup tools">
               <button class="secondary-action" id="openLibrary" type="button">Library</button>
               <button class="secondary-action" id="exportCollection" type="button">Export</button>
+              <button class="secondary-action" id="downloadImportTemplate" type="button">Template</button>
               <label class="import-action">
                 Import
-                <input id="importCollection" type="file" accept="application/json" />
+                <input
+                  id="importCollection"
+                  type="file"
+                  accept=".json,application/json,.csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                />
               </label>
             </div>
           </details>
@@ -780,6 +785,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="app.js?v=37"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="app.js?v=38"></script>
   </body>
 </html>

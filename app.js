@@ -634,7 +634,15 @@ function normalizeBottle(bottle) {
     storeLocation: "",
     coreBar: false,
     priority: 3,
+    rating: 0,
+    price: 0,
+    proof: 0,
+    region: "",
+    notes: "",
+    flavors: [],
     ...bottle,
+    flavors: Array.isArray(bottle.flavors) ? bottle.flavors : [],
+    notes: bottle.notes || "",
   });
 }
 
@@ -1293,6 +1301,7 @@ document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedT
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 els.scannerDialog.addEventListener("close", stopScanner);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
+document.querySelector("#downloadImportTemplate").addEventListener("click", downloadImportTemplate);
 document.querySelector("#refreshAiTools").addEventListener("click", renderAiTools);
 els.importCollection.addEventListener("change", importCollection);
 els.assistantForm.addEventListener("submit", sendAssistantMessage);
@@ -3276,22 +3285,175 @@ function exportCollection() {
   URL.revokeObjectURL(url);
 }
 
+const IMPORT_FIELD_ALIASES = {
+  name: ["name", "bottle", "bottle name", "product"],
+  distillery: ["distillery", "brand", "producer", "maker"],
+  type: ["type", "category", "spirit type", "spirit"],
+  region: ["region", "location", "country"],
+  proof: ["proof"],
+  abv: ["abv", "alcohol", "alcohol by volume"],
+  price: ["price", "cost", "paid", "price paid"],
+  rating: ["rating", "score", "my rating"],
+  status: ["status"],
+  ageStatement: ["age statement", "age", "age years", "years"],
+  storeLocation: ["store", "store location", "purchased at", "bought at"],
+  shelf: ["shelf", "shelf location"],
+  quantity: ["quantity", "qty", "count", "bottles owned"],
+  bottleSize: ["bottle size", "size", "ml", "volume", "size ml"],
+  notes: ["notes", "description", "comments", "tasting notes"],
+  flavors: ["flavors", "flavor tags", "tags", "flavor profile"],
+};
+
+const IMPORT_STATUS_ALIASES = {
+  owned: "sealed",
+  sealed: "sealed",
+  unopened: "sealed",
+  "in collection": "sealed",
+  opened: "open",
+  open: "open",
+  finished: "finished",
+  empty: "finished",
+  killed: "finished",
+  wishlist: "wishlist",
+  want: "wishlist",
+  "want to buy": "wishlist",
+  "buy next": "buy-next",
+  "buy-next": "buy-next",
+  hunting: "buy-next",
+};
+
+function normalizeImportKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function rowValue(normalizedRow, field) {
+  for (const alias of IMPORT_FIELD_ALIASES[field] || []) {
+    if (normalizedRow[alias] !== undefined && normalizedRow[alias] !== "") return normalizedRow[alias];
+  }
+  return undefined;
+}
+
+function spreadsheetRowToBottle(row) {
+  const normalizedRow = {};
+  Object.entries(row).forEach(([key, value]) => {
+    normalizedRow[normalizeImportKey(key)] = typeof value === "string" ? value.trim() : value;
+  });
+
+  const name = String(rowValue(normalizedRow, "name") || "").trim();
+  if (!name) return null;
+
+  const abv = rowValue(normalizedRow, "abv");
+  const proofValue = rowValue(normalizedRow, "proof");
+  const proof = proofValue !== undefined ? Number(proofValue) : abv !== undefined ? Number(abv) * 2 : 0;
+
+  const rawStatus = normalizeImportKey(rowValue(normalizedRow, "status"));
+  const status = IMPORT_STATUS_ALIASES[rawStatus] || "sealed";
+
+  const flavorsRaw = rowValue(normalizedRow, "flavors");
+  const flavors = flavorsRaw
+    ? String(flavorsRaw)
+        .split(/[,;]/)
+        .map((flavor) => flavor.trim().toLowerCase())
+        .filter(Boolean)
+    : [];
+
+  return {
+    name,
+    distillery: String(rowValue(normalizedRow, "distillery") || "").trim(),
+    type: String(rowValue(normalizedRow, "type") || "Bourbon").trim(),
+    region: String(rowValue(normalizedRow, "region") || "").trim(),
+    proof: Number.isFinite(proof) ? proof : 0,
+    price: Number(rowValue(normalizedRow, "price") || 0),
+    rating: Number(rowValue(normalizedRow, "rating") || 0),
+    status,
+    ageStatement: String(rowValue(normalizedRow, "ageStatement") || "").trim(),
+    storeLocation: String(rowValue(normalizedRow, "storeLocation") || "").trim(),
+    shelf: String(rowValue(normalizedRow, "shelf") || "Main bar").trim(),
+    quantity: Number(rowValue(normalizedRow, "quantity") || 1),
+    bottleSize: Number(rowValue(normalizedRow, "bottleSize") || 750),
+    notes: String(rowValue(normalizedRow, "notes") || "").trim(),
+    flavors,
+  };
+}
+
+function parseSpreadsheetFile(arrayBuffer) {
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+  return rows.map(spreadsheetRowToBottle).filter(Boolean);
+}
+
 async function importCollection(event) {
   const [file] = event.target.files;
   if (!file) return;
 
   try {
-    const payload = JSON.parse(await file.text());
-    const imported = Array.isArray(payload) ? payload : payload.bottles;
-    if (!Array.isArray(imported)) throw new Error("Invalid backup");
-    bottles = imported.map((bottle) => normalizeBottle({ ...bottle, id: bottle.id || crypto.randomUUID() }));
+    const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
+    let imported;
+
+    if (isJson) {
+      const payload = JSON.parse(await file.text());
+      imported = Array.isArray(payload) ? payload : payload.bottles;
+    } else {
+      imported = parseSpreadsheetFile(await file.arrayBuffer());
+    }
+
+    if (!Array.isArray(imported) || !imported.length) throw new Error("Invalid backup");
+    bottles = [...bottles, ...imported.map((bottle) => normalizeBottle({ ...bottle, id: bottle.id || crypto.randomUUID() }))];
     persist();
     render();
-  } catch {
-    alert("That backup file could not be imported.");
+  } catch (error) {
+    console.error("Import failed", error);
+    alert("That file could not be imported. Make sure it's a CSV, Excel, or JSON export with a header row including at least a bottle name.");
   } finally {
     event.target.value = "";
   }
+}
+
+function downloadImportTemplate() {
+  const headers = [
+    "Name",
+    "Distillery",
+    "Type",
+    "Region",
+    "Proof",
+    "Price",
+    "Rating",
+    "Status",
+    "Age Statement",
+    "Store Location",
+    "Quantity",
+    "Bottle Size",
+    "Notes",
+    "Flavors",
+  ];
+  const example = [
+    "Eagle Rare 10 Year",
+    "Buffalo Trace",
+    "Bourbon",
+    "Kentucky",
+    "90",
+    "35",
+    "8.6",
+    "Sealed",
+    "10 years",
+    "Total Wine",
+    "1",
+    "750",
+    "Leather and toffee",
+    "leather, toffee, orange",
+  ];
+  const csv = `${headers.join(",")}\n${example.map((value) => `"${value.replace(/"/g, '""')}"`).join(",")}\n`;
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "fully-involved-pour-import-template.csv";
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function money(value) {
