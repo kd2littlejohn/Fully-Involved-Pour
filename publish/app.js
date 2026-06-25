@@ -638,6 +638,10 @@ function normalizeBottle(bottle) {
     priority: 3,
     rating: 0,
     price: 0,
+    msrp: 0,
+    mashBillCorn: 0,
+    mashBillRyeWheat: 0,
+    mashBillMalted: 0,
     proof: 0,
     region: "",
     notes: "",
@@ -1146,6 +1150,7 @@ const els = {
   flavorRadar: document.querySelector("#flavorRadar"),
   shelfList: document.querySelector("#shelfList"),
   coreBarHighlight: document.querySelector("#coreBarHighlight"),
+  topRatedHighlight: document.querySelector("#topRatedHighlight"),
   recommendation: document.querySelector("#recommendation"),
   resultCount: document.querySelector("#resultCount"),
   inventoryRatio: document.querySelector("#inventoryRatio"),
@@ -1248,6 +1253,10 @@ const fields = {
   imageUrl: document.querySelector("#imageUrl"),
   proof: document.querySelector("#proof"),
   price: document.querySelector("#price"),
+  msrp: document.querySelector("#msrp"),
+  mashBillCorn: document.querySelector("#mashBillCorn"),
+  mashBillRyeWheat: document.querySelector("#mashBillRyeWheat"),
+  mashBillMalted: document.querySelector("#mashBillMalted"),
   rating: document.querySelector("#rating"),
   status: document.querySelector("#status"),
   ageStatement: document.querySelector("#ageStatement"),
@@ -1972,6 +1981,7 @@ function render() {
   renderFlavorMap();
   renderShelfMap();
   renderCoreBarHighlight();
+  renderTopRatedHighlight();
   renderRecommendation();
   renderNotes();
   renderTastingWorkspace();
@@ -2398,6 +2408,56 @@ function renderCoreBarHighlight() {
   });
 }
 
+function ratingTag(rating) {
+  if (rating >= 9) return { label: "Highly Recommended", className: "tag-highly-recommended" };
+  if (rating >= 7.5) return { label: "Worth Trying", className: "tag-worth-trying" };
+  return { label: "Rated", className: "tag-rated" };
+}
+
+function renderTopRatedHighlight() {
+  const rated = bottles
+    .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status) && Number(bottle.rating) > 0)
+    .sort((a, b) => Number(b.rating) - Number(a.rating))
+    .slice(0, 3);
+
+  if (!rated.length) {
+    els.topRatedHighlight.innerHTML = "";
+    return;
+  }
+
+  els.topRatedHighlight.innerHTML = `
+    <div class="top-rated-highlight-card">
+      <div class="section-heading">
+        <div>
+          <p>Your favorites</p>
+          <h2>⭐ Top Rated Bottles</h2>
+        </div>
+      </div>
+      <div class="top-rated-highlight-list">
+        ${rated
+          .map((bottle) => {
+            const tag = ratingTag(Number(bottle.rating));
+            return `
+              <div class="top-rated-highlight-item" data-quick="${bottle.id}">
+                <div>
+                  <strong>${escapeHtml(bottle.name)}</strong>
+                  <span>${escapeHtml(bottle.distillery)}</span>
+                  <span class="rating-tag ${tag.className}">${tag.label}</span>
+                </div>
+                <span class="top-rated-highlight-score">${numberOrDash(bottle.rating)}</span>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
+
+  els.topRatedHighlight.querySelectorAll("[data-quick]").forEach((item) => {
+    item.addEventListener("click", () => openBottleQuick(item.dataset.quick));
+  });
+}
+
 function renderRecommendation() {
   const candidates = bottles
     .filter((bottle) => bottle.status === "open" && Number(bottle.rating) > 0)
@@ -2804,6 +2864,23 @@ function renderDistilleryInfoBlock(bottle) {
   `;
 }
 
+function renderMashBillBlock(bottle) {
+  const corn = Number(bottle.mashBillCorn || 0);
+  const ryeWheat = Number(bottle.mashBillRyeWheat || 0);
+  const malted = Number(bottle.mashBillMalted || 0);
+  if (!corn && !ryeWheat && !malted) return "";
+  return `
+    <div class="mash-bill-block">
+      <span class="section-label">Mash Bill</span>
+      <div class="mash-bill-bars">
+        <div class="mash-bill-bar"><span>Corn</span><strong>${corn}%</strong></div>
+        <div class="mash-bill-bar"><span>Rye/Wheat</span><strong>${ryeWheat}%</strong></div>
+        <div class="mash-bill-bar"><span>Malted Barley</span><strong>${malted}%</strong></div>
+      </div>
+    </div>
+  `;
+}
+
 function openBottleQuick(id) {
   const bottle = bottles.find((item) => item.id === id);
   if (!bottle) return;
@@ -2815,32 +2892,55 @@ function openBottleQuick(id) {
       </div>
       <button class="icon-button" id="closeQuickBottle" type="button" aria-label="Close">×</button>
     </div>
-    <div class="quick-detail-grid">
-      <img class="quick-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
-      <div>
-        <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
-        ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
-        <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
-        <div class="bottle-meta">
-          <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
-          <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
-          <div><span>Rating</span><strong>${numberOrDash(bottle.rating)}</strong></div>
-        </div>
-        <div class="shelf-line">
-          <span>${escapeHtml(bottle.shelf || "Main bar")}</span>
-          <span>${labelFillLevel(bottle.fillLevel)}</span>
-          <span>${labelBottleSize(bottle.bottleSize)}</span>
-          ${bottle.ageStatement ? `<span>${escapeHtml(bottle.ageStatement)}</span>` : ""}
-          ${bottle.storeLocation ? `<span>${escapeHtml(bottle.storeLocation)}</span>` : ""}
-          <span>${labelCategory(bottle.category)}</span>
-          <span>${labelPourStyle(bottle.pourStyle)}</span>
-          <span>${labelPourTier(bottle.pourTier)}</span>
+
+    <div class="quick-tabs" role="tablist">
+      <button class="quick-tab is-active" data-tab="overview" type="button">Overview</button>
+      <button class="quick-tab" data-tab="tasting" type="button">Tasting</button>
+      <button class="quick-tab" data-tab="specs" type="button">Specs</button>
+    </div>
+
+    <div class="quick-tab-panel" data-tab-panel="overview">
+      <div class="quick-detail-grid">
+        <img class="quick-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
+        <div>
+          <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
+          ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
+          <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
+          <div class="bottle-meta">
+            <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
+            <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
+            <div><span>Rating</span><strong>${numberOrDash(bottle.rating)}</strong></div>
+          </div>
+          <div class="shelf-line">
+            <span>${escapeHtml(bottle.shelf || "Main bar")}</span>
+            <span>${labelFillLevel(bottle.fillLevel)}</span>
+            <span>${labelBottleSize(bottle.bottleSize)}</span>
+            <span>${labelCategory(bottle.category)}</span>
+            <span>${labelPourStyle(bottle.pourStyle)}</span>
+          </div>
         </div>
       </div>
-      <div class="bottle-radar">${renderBottleFlavorRadar(bottle)}</div>
     </div>
-    ${renderTastingNoteBlock(bottle)}
-    ${renderDistilleryInfoBlock(bottle)}
+
+    <div class="quick-tab-panel is-hidden" data-tab-panel="tasting">
+      <div class="bottle-radar">${renderBottleFlavorRadar(bottle)}</div>
+      ${renderTastingNoteBlock(bottle)}
+    </div>
+
+    <div class="quick-tab-panel is-hidden" data-tab-panel="specs">
+      <div class="bottle-meta">
+        <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
+        <div><span>MSRP</span><strong>${bottle.msrp ? money(bottle.msrp) : "—"}</strong></div>
+      </div>
+      <div class="shelf-line">
+        ${bottle.ageStatement ? `<span>${escapeHtml(bottle.ageStatement)}</span>` : ""}
+        ${bottle.storeLocation ? `<span>${escapeHtml(bottle.storeLocation)}</span>` : ""}
+        <span>${labelPourTier(bottle.pourTier)}</span>
+      </div>
+      ${renderMashBillBlock(bottle)}
+      ${renderDistilleryInfoBlock(bottle)}
+    </div>
+
     <div class="photo-source-panel">
       <span>Find actual bottle photo</span>
       ${renderPhotoSourceLinks(bottle)}
@@ -2859,6 +2959,15 @@ function openBottleQuick(id) {
   document.querySelector("#quickLogPour").addEventListener("click", () => {
     els.quickBottleDialog.close();
     openPourForm(id);
+  });
+  els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((tabButton) => {
+    tabButton.addEventListener("click", () => {
+      els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((btn) => btn.classList.remove("is-active"));
+      tabButton.classList.add("is-active");
+      els.quickBottleDetail.querySelectorAll("[data-tab-panel]").forEach((panel) => {
+        panel.classList.toggle("is-hidden", panel.dataset.tabPanel !== tabButton.dataset.tab);
+      });
+    });
   });
 }
 
@@ -2958,6 +3067,10 @@ function openForm(id = "") {
   fields.imageUrl.value = bottle?.imageUrl || "";
   fields.proof.value = bottle?.proof || "";
   fields.price.value = bottle?.price || "";
+  fields.msrp.value = bottle?.msrp || "";
+  fields.mashBillCorn.value = bottle?.mashBillCorn || "";
+  fields.mashBillRyeWheat.value = bottle?.mashBillRyeWheat || "";
+  fields.mashBillMalted.value = bottle?.mashBillMalted || "";
   fields.rating.value = bottle?.rating || "";
   fields.status.value = bottle?.status || "sealed";
   fields.ageStatement.value = bottle?.ageStatement || "";
@@ -3244,6 +3357,10 @@ async function saveBottle(event) {
     imageUrl: fields.imageUrl.value.trim(),
     proof: Number(fields.proof.value || 0),
     price: Number(fields.price.value || 0),
+    msrp: Number(fields.msrp.value || 0),
+    mashBillCorn: Number(fields.mashBillCorn.value || 0),
+    mashBillRyeWheat: Number(fields.mashBillRyeWheat.value || 0),
+    mashBillMalted: Number(fields.mashBillMalted.value || 0),
     rating: Number(fields.rating.value || 0),
     status: fields.status.value,
     ageStatement: fields.ageStatement.value.trim(),

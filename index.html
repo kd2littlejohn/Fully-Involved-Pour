@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=39" />
+    <link rel="stylesheet" href="styles.css?v=41" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -266,6 +266,7 @@
 
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
           <div class="core-bar-highlight" id="coreBarHighlight"></div>
+          <div class="top-rated-highlight" id="topRatedHighlight"></div>
 
           <section class="dashboard-grid">
           <div class="insights-card">
@@ -551,6 +552,10 @@
             <input id="price" type="number" min="0" step="1" placeholder="55" />
           </label>
           <label>
+            MSRP
+            <input id="msrp" type="number" min="0" step="1" placeholder="50" />
+          </label>
+          <label>
             Rating
             <input id="rating" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
           </label>
@@ -634,6 +639,24 @@
             Priority
             <input id="priority" type="number" min="1" max="5" step="1" placeholder="3" />
           </label>
+        </div>
+
+        <div class="mash-bill-field">
+          <span>Mash Bill</span>
+          <div class="mash-bill-grid">
+            <label>
+              Corn %
+              <input id="mashBillCorn" type="number" min="0" max="100" step="1" placeholder="75" />
+            </label>
+            <label>
+              Rye/Wheat %
+              <input id="mashBillRyeWheat" type="number" min="0" max="100" step="1" placeholder="13" />
+            </label>
+            <label>
+              Malted Barley %
+              <input id="mashBillMalted" type="number" min="0" max="100" step="1" placeholder="12" />
+            </label>
+          </div>
         </div>
 
         <label>
@@ -749,6 +772,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=47"></script>
+    <script src="app.js?v=49"></script>
   </body>
 </html>
