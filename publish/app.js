@@ -1129,7 +1129,6 @@ const availableDistilleries = [
 
 let bottles = loadBottles();
 let pours = loadPours();
-syncCoreBarScores();
 let activeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
@@ -1146,6 +1145,7 @@ const els = {
   flavorList: document.querySelector("#flavorList"),
   flavorRadar: document.querySelector("#flavorRadar"),
   shelfList: document.querySelector("#shelfList"),
+  coreBarHighlight: document.querySelector("#coreBarHighlight"),
   recommendation: document.querySelector("#recommendation"),
   resultCount: document.querySelector("#resultCount"),
   inventoryRatio: document.querySelector("#inventoryRatio"),
@@ -1201,7 +1201,6 @@ const els = {
   manualBarcode: document.querySelector("#manualBarcode"),
   barcodeImage: document.querySelector("#barcodeImage"),
   aiSuggestions: document.querySelector("#aiSuggestions"),
-  importCollection: document.querySelector("#importCollection"),
   assistantMessages: document.querySelector("#assistantMessages"),
   assistantPrompt: document.querySelector("#assistantPrompt"),
   assistantForm: document.querySelector("#assistantForm"),
@@ -1299,9 +1298,7 @@ document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedT
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 els.scannerDialog.addEventListener("close", stopScanner);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
-document.querySelector("#downloadImportTemplate").addEventListener("click", downloadImportTemplate);
 document.querySelector("#refreshAiTools").addEventListener("click", renderAiTools);
-els.importCollection.addEventListener("change", importCollection);
 els.assistantForm.addEventListener("submit", sendAssistantMessage);
 document.querySelectorAll("[data-assistant-prompt]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -1855,6 +1852,7 @@ function render() {
   renderCards(shown);
   renderFlavorMap();
   renderShelfMap();
+  renderCoreBarHighlight();
   renderRecommendation();
   renderNotes();
   renderTastingWorkspace();
@@ -1957,7 +1955,8 @@ function renderCards(shown) {
   els.bottleGrid.innerHTML = shown
     .map(
       (bottle) => `
-        <article class="bottle-card" data-quick="${bottle.id}">
+        <article class="bottle-card${bottle.coreBar ? " core-bar-card" : ""}" data-quick="${bottle.id}">
+          ${bottle.coreBar ? `<div class="core-bar-ribbon">🔥 Core Bar · ${bottle.coreBarScore ?? ""}</div>` : ""}
           <div class="bottle-top">
             <img class="bottle-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
             <div>
@@ -1984,7 +1983,6 @@ function renderCards(shown) {
             <span>${labelCategory(bottle.category)}</span>
             <span>${labelPourStyle(bottle.pourStyle)}</span>
             <span>${labelPourTier(bottle.pourTier)}</span>
-            ${bottle.coreBar ? `<span>🔥 Core Bar ${bottle.coreBarScore ?? ""}</span>` : ""}
           </div>
           <div class="bottle-meta">
             <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
@@ -2227,6 +2225,48 @@ function renderShelfMap() {
         )
         .join("")
     : `<div class="empty-state">Add shelf locations to map your collection.</div>`;
+}
+
+function renderCoreBarHighlight() {
+  const earned = bottles
+    .filter((bottle) => bottle.coreBar)
+    .sort((a, b) => (b.coreBarScore || 0) - (a.coreBarScore || 0));
+
+  if (!earned.length) {
+    els.coreBarHighlight.innerHTML = "";
+    return;
+  }
+
+  els.coreBarHighlight.innerHTML = `
+    <div class="core-bar-highlight-card">
+      <div class="section-heading">
+        <div>
+          <p>Permanent shelf</p>
+          <h2>🔥 Core Bar</h2>
+        </div>
+        <span>${earned.length} earned</span>
+      </div>
+      <div class="core-bar-highlight-list">
+        ${earned
+          .map(
+            (bottle) => `
+              <div class="core-bar-highlight-item" data-quick="${bottle.id}">
+                <div>
+                  <strong>${escapeHtml(bottle.name)}</strong>
+                  <span>${escapeHtml(bottle.distillery)}</span>
+                </div>
+                <span class="core-bar-highlight-score">${bottle.coreBarScore ?? ""}</span>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+
+  els.coreBarHighlight.querySelectorAll("[data-quick]").forEach((item) => {
+    item.addEventListener("click", () => openBottleQuick(item.dataset.quick));
+  });
 }
 
 function renderRecommendation() {
@@ -2650,6 +2690,7 @@ function openBottleQuick(id) {
       <img class="quick-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
       <div>
         <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
+        ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
         <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
         <div class="bottle-meta">
           <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
@@ -3544,4 +3585,5 @@ function escapeHtml(value) {
 }
 
 renderDistilleryOptions();
+syncCoreBarScores();
 render();
