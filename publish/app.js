@@ -12,6 +12,7 @@ const firebaseConfig = {
 
 let auth;
 let db;
+let storage;
 let currentUser = null;
 let currentProfile = null;
 
@@ -19,6 +20,7 @@ if (typeof firebase !== "undefined") {
   firebase.initializeApp(firebaseConfig);
   auth = firebase.auth();
   db = firebase.firestore();
+  storage = firebase.storage ? firebase.storage() : undefined;
 }
 
 const seedBottles = [
@@ -3181,6 +3183,12 @@ function readFileAsDataUrl(file) {
   });
 }
 
+async function uploadFileToStorage(file, path) {
+  const ref = storage.ref().child(path);
+  await ref.put(file);
+  return ref.getDownloadURL();
+}
+
 async function uploadBottlePhoto(event) {
   const [file] = event.target.files;
   if (!file) return;
@@ -3199,9 +3207,18 @@ async function uploadBottlePhoto(event) {
       const converted = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
       displayFile = Array.isArray(converted) ? converted[0] : converted;
     }
-    const dataUrl = await readFileAsDataUrl(displayFile);
-    fields.imageUrl.value = dataUrl;
-    updateFormPhotoTools({ imageUrl: dataUrl });
+
+    let photoUrl;
+    if (currentUser && storage) {
+      els.formPhotoName.textContent = "Uploading photo...";
+      const path = `bottle-photos/${currentUser.uid}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.jpg`;
+      photoUrl = await uploadFileToStorage(displayFile, path);
+    } else {
+      photoUrl = await readFileAsDataUrl(displayFile);
+    }
+
+    fields.imageUrl.value = photoUrl;
+    updateFormPhotoTools({ imageUrl: photoUrl });
     els.formPhotoName.textContent = file.name.replace(/\.[^.]+$/, "") || "Uploaded bottle photo";
   } catch (error) {
     console.error("Photo upload failed", error);
