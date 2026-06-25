@@ -7,7 +7,22 @@
     <link rel="stylesheet" href="styles.css?v=28" />
   </head>
   <body>
-    <div class="app-shell">
+    <div class="auth-gate" id="authGate">
+      <div class="auth-gate-card">
+        <img
+          class="brand-mark"
+          src="assets/fully-involved-pour-logo.png"
+          alt="Fully Involved Pour logo"
+        />
+        <strong>Fully Involved Pour</strong>
+        <span>Where there's proof, there's fire.</span>
+        <p>Sign in with Google to track your bourbon collection and sync it across your devices.</p>
+        <button class="primary-action" id="signInButton" type="button">Sign in with Google</button>
+        <p class="auth-gate-note" id="authGateNote"></p>
+      </div>
+    </div>
+
+    <div class="app-shell is-hidden" id="appShell">
       <header class="topbar" aria-label="Application header">
         <div class="brand">
           <img
@@ -22,10 +37,11 @@
         </div>
 
         <div class="account-box" id="accountBox" aria-label="Account">
-          <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
           <div class="account-chip is-hidden" id="accountChip">
             <img id="accountAvatar" alt="" />
-            <span id="accountName"></span>
+            <button class="account-name-button" id="editUsernameButton" type="button">
+              <span id="accountName"></span>
+            </button>
             <button class="icon-button" id="signOutButton" type="button" aria-label="Sign out">⏏</button>
           </div>
         </div>
@@ -66,6 +82,10 @@
           <button class="nav-item" data-view="pour-log" type="button">
             <span aria-hidden="true">◍</span>
             Pour Log
+          </button>
+          <button class="nav-item" data-view="friends" type="button">
+            <span aria-hidden="true">⚇</span>
+            Friends
           </button>
         </nav>
       </header>
@@ -140,7 +160,9 @@
           </details>
         </section>
 
-        <section class="filter-drawer" aria-label="Advanced filters">
+        <details class="filter-shell">
+          <summary>Advanced filters</summary>
+          <section class="filter-drawer" aria-label="Advanced filters">
           <div>
             <span>Status</span>
             <button data-filter="owned" type="button">Owned</button>
@@ -182,7 +204,8 @@
             <span>Core Bar</span>
             <button data-filter="core-bar" type="button">Core Bar Only</button>
           </div>
-        </section>
+          </section>
+        </details>
 
         <section class="stats-grid" aria-label="Collection stats">
           <article>
@@ -241,7 +264,7 @@
         </section>
 
         <section class="dashboard-grid is-hidden" id="dashboardView" aria-label="Collection insights">
-          <div class="insights">
+          <div class="insights-card">
             <div class="section-heading">
               <div>
                 <p>Profile</p>
@@ -250,29 +273,26 @@
             </div>
             <div class="flavor-radar" id="flavorRadar"></div>
             <div class="flavor-list" id="flavorList"></div>
+          </div>
 
-            <div class="section-heading compact">
+          <div class="insights-card">
+            <div class="section-heading">
               <div>
                 <p>Next Pour</p>
                 <h2>Recommended</h2>
               </div>
             </div>
             <div class="recommendation" id="recommendation"></div>
+          </div>
 
-            <div class="section-heading compact">
+          <div class="insights-card">
+            <div class="section-heading">
               <div>
                 <p>Shelves</p>
                 <h2>Inventory map</h2>
               </div>
             </div>
             <div class="shelf-list" id="shelfList"></div>
-            <div class="section-heading compact">
-              <div>
-                <p>Core Bar</p>
-                <h2>Permanent shelf</h2>
-              </div>
-            </div>
-            <div class="core-rule">The bottles that earned permanent shelf space.</div>
           </div>
         </section>
 
@@ -407,6 +427,21 @@
           </div>
           <div class="ai-output" id="pourAnalysis"></div>
           <div class="pour-list" id="pourList"></div>
+        </section>
+
+        <section class="friends-board is-hidden" id="friendsView">
+          <div class="section-heading">
+            <div>
+              <p>Social</p>
+              <h2>Friends</h2>
+            </div>
+          </div>
+          <div class="follow-form">
+            <input id="followUsernameInput" placeholder="friend_username" autocomplete="off" />
+            <button class="primary-action" id="followButton" type="button">Follow</button>
+          </div>
+          <p class="auth-gate-note" id="followError"></p>
+          <div class="friend-list" id="friendList"></div>
         </section>
 
         <footer class="brand-footer">
@@ -594,6 +629,32 @@
 
     <dialog class="bottle-dialog" id="quickBottleDialog">
       <div class="quick-detail" id="quickBottleDetail"></div>
+    </dialog>
+
+    <dialog class="bottle-dialog" id="usernameDialog">
+      <form class="bottle-form" id="usernameForm">
+        <div class="form-head">
+          <div>
+            <p>Account</p>
+            <h2>Choose a username</h2>
+          </div>
+        </div>
+        <p class="auth-gate-note" style="color: var(--muted)">
+          Friends will find and follow you by this username instead of your email.
+        </p>
+        <label>
+          Username
+          <input id="usernameInput" placeholder="bourbon_baron" autocomplete="off" />
+        </label>
+        <p class="auth-gate-note" id="usernameError"></p>
+        <div class="form-actions">
+          <button class="primary-action" id="saveUsername" type="button">Save Username</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="bottle-dialog" id="friendInventoryDialog">
+      <div class="quick-detail" id="friendInventoryDetail"></div>
     </dialog>
 
     <dialog class="bottle-dialog library-dialog" id="libraryDialog">

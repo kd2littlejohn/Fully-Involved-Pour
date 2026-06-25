@@ -13,6 +13,7 @@ const firebaseConfig = {
 let auth;
 let db;
 let currentUser = null;
+let currentProfile = null;
 
 if (typeof firebase !== "undefined") {
   firebase.initializeApp(firebaseConfig);
@@ -1213,6 +1214,21 @@ const els = {
   accountChip: document.querySelector("#accountChip"),
   accountAvatar: document.querySelector("#accountAvatar"),
   accountName: document.querySelector("#accountName"),
+  authGate: document.querySelector("#authGate"),
+  authGateNote: document.querySelector("#authGateNote"),
+  appShell: document.querySelector("#appShell"),
+  usernameDialog: document.querySelector("#usernameDialog"),
+  usernameInput: document.querySelector("#usernameInput"),
+  usernameError: document.querySelector("#usernameError"),
+  saveUsername: document.querySelector("#saveUsername"),
+  editUsernameButton: document.querySelector("#editUsernameButton"),
+  friendsView: document.querySelector("#friendsView"),
+  followUsernameInput: document.querySelector("#followUsernameInput"),
+  followButton: document.querySelector("#followButton"),
+  followError: document.querySelector("#followError"),
+  friendList: document.querySelector("#friendList"),
+  friendInventoryDialog: document.querySelector("#friendInventoryDialog"),
+  friendInventoryDetail: document.querySelector("#friendInventoryDetail"),
 };
 
 const fields = {
@@ -1404,12 +1420,16 @@ async function pullCloudData(uid) {
       const data = snap.data();
       bottles = (data.bottles || []).map(normalizeBottle);
       pours = data.pours || [];
+      currentProfile = { username: data.username || "" };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
       localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
     } else {
-      await userDocRef(uid).set({ bottles, pours, updatedAt: Date.now() });
+      currentProfile = { username: "" };
+      await userDocRef(uid).set({ bottles, pours, username: "", updatedAt: Date.now() });
     }
+    updateAccountUI();
     render();
+    if (!currentProfile.username) openUsernameSetup();
   } catch (error) {
     console.error("Cloud sync failed to load", error);
   }
@@ -1418,22 +1438,187 @@ async function pullCloudData(uid) {
 async function pushCloudData() {
   if (!currentUser || !db) return;
   try {
-    await userDocRef(currentUser.uid).set({ bottles, pours, updatedAt: Date.now() });
+    await userDocRef(currentUser.uid).set(
+      { bottles, pours, username: currentProfile?.username || "", updatedAt: Date.now() },
+      { merge: true },
+    );
   } catch (error) {
     console.error("Cloud sync failed to save", error);
   }
 }
 
+function normalizeUsername(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "");
+}
+
+function openUsernameSetup() {
+  els.usernameError.textContent = "";
+  els.usernameInput.value = "";
+  els.usernameDialog.showModal();
+}
+
+async function claimUsername(rawUsername) {
+  const username = normalizeUsername(rawUsername);
+  if (username.length < 3 || username.length > 20) {
+    els.usernameError.textContent = "Username must be 3-20 characters (letters, numbers, underscore).";
+    return;
+  }
+  if (!currentUser) return;
+  try {
+    const usernameRef = db.collection("usernames").doc(username);
+    const existing = await usernameRef.get();
+    if (existing.exists && existing.data().uid !== currentUser.uid) {
+      els.usernameError.textContent = "That username is already taken.";
+      return;
+    }
+    const previousUsername = normalizeUsername(currentProfile?.username);
+    const batch = db.batch();
+    batch.set(usernameRef, { uid: currentUser.uid });
+    batch.set(userDocRef(currentUser.uid), { username }, { merge: true });
+    if (previousUsername && previousUsername !== username) {
+      batch.delete(db.collection("usernames").doc(previousUsername));
+    }
+    await batch.commit();
+    currentProfile = { ...currentProfile, username };
+    updateAccountUI();
+    els.usernameDialog.close();
+  } catch (error) {
+    console.error("Username claim failed", error);
+    els.usernameError.textContent = "Could not save that username. Try again.";
+  }
+}
+
+let following = [];
+
+function followDocId(followerUid, followingUid) {
+  return `${followerUid}_${followingUid}`;
+}
+
+async function loadFollowing() {
+  if (!currentUser || !db) return;
+  try {
+    const snap = await db.collection("follows").where("followerUid", "==", currentUser.uid).get();
+    following = snap.docs.map((doc) => doc.data());
+  } catch (error) {
+    console.error("Failed to load following list", error);
+  }
+}
+
+async function followUsername(rawUsername) {
+  els.followError.textContent = "";
+  const username = normalizeUsername(rawUsername);
+  if (!username || !currentUser) {
+    els.followError.textContent = "Enter a username to follow.";
+    return;
+  }
+  try {
+    const usernameSnap = await db.collection("usernames").doc(username).get();
+    if (!usernameSnap.exists) {
+      els.followError.textContent = "No user found with that username.";
+      return;
+    }
+    const targetUid = usernameSnap.data().uid;
+    if (targetUid === currentUser.uid) {
+      els.followError.textContent = "You can't follow yourself.";
+      return;
+    }
+    await db
+      .collection("follows")
+      .doc(followDocId(currentUser.uid, targetUid))
+      .set({ followerUid: currentUser.uid, followingUid: targetUid, followingUsername: username, createdAt: Date.now() });
+    els.followUsernameInput.value = "";
+    await renderFriendList();
+  } catch (error) {
+    console.error("Follow failed", error);
+    els.followError.textContent = "Could not follow that user. Try again.";
+  }
+}
+
+async function unfollowUser(targetUid) {
+  if (!currentUser) return;
+  try {
+    await db.collection("follows").doc(followDocId(currentUser.uid, targetUid)).delete();
+    await renderFriendList();
+  } catch (error) {
+    console.error("Unfollow failed", error);
+  }
+}
+
+async function renderFriendList() {
+  await loadFollowing();
+  els.friendList.innerHTML = following.length
+    ? following
+        .map(
+          (entry) => `
+            <div class="friend-item">
+              <strong>${escapeHtml(entry.followingUsername)}</strong>
+              <div class="friend-item-actions">
+                <button class="secondary-action" data-view-friend="${escapeHtml(entry.followingUid)}" data-friend-name="${escapeHtml(entry.followingUsername)}" type="button">View</button>
+                <button class="secondary-action" data-unfollow="${escapeHtml(entry.followingUid)}" type="button">Unfollow</button>
+              </div>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">You're not following anyone yet. Follow a friend by username above.</div>`;
+
+  els.friendList.querySelectorAll("[data-view-friend]").forEach((button) => {
+    button.addEventListener("click", () => viewFriendInventory(button.dataset.viewFriend, button.dataset.friendName));
+  });
+  els.friendList.querySelectorAll("[data-unfollow]").forEach((button) => {
+    button.addEventListener("click", () => unfollowUser(button.dataset.unfollow));
+  });
+}
+
+async function viewFriendInventory(targetUid, username) {
+  try {
+    const snap = await userDocRef(targetUid).get();
+    const data = snap.exists ? snap.data() : { bottles: [] };
+    const friendBottles = (data.bottles || []).map(normalizeBottle);
+    els.friendInventoryDetail.innerHTML = `
+      <div class="form-head">
+        <div>
+          <p>Friend's cabinet</p>
+          <h2>${escapeHtml(username)}</h2>
+        </div>
+        <button class="icon-button" id="closeFriendInventory" type="button" aria-label="Close">×</button>
+      </div>
+      ${
+        friendBottles.length
+          ? `<div class="friend-bottle-list">${friendBottles
+              .map(
+                (bottle) => `
+                  <div class="friend-bottle-item">
+                    <strong>${escapeHtml(bottle.name)}</strong>
+                    <span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof · ${labelStatus(bottle.status)}</span>
+                    ${bottle.rating ? `<span>Rating ${numberOrDash(bottle.rating)}</span>` : ""}
+                  </div>
+                `,
+              )
+              .join("")}</div>`
+          : `<div class="empty-state">${escapeHtml(username)} hasn't added any bottles yet.</div>`
+      }
+    `;
+    els.friendInventoryDialog.showModal();
+    document.querySelector("#closeFriendInventory").addEventListener("click", () => els.friendInventoryDialog.close());
+  } catch (error) {
+    console.error("Failed to load friend inventory", error);
+  }
+}
+
 function updateAccountUI() {
   if (currentUser) {
-    els.signInButton.classList.add("is-hidden");
     els.accountChip.classList.remove("is-hidden");
     els.accountAvatar.src = currentUser.photoURL || "";
-    els.accountName.textContent = currentUser.displayName || currentUser.email || "Signed in";
+    els.accountName.textContent = currentProfile?.username || currentUser.displayName || currentUser.email || "Signed in";
   } else {
-    els.signInButton.classList.remove("is-hidden");
     els.accountChip.classList.add("is-hidden");
   }
+  els.authGate.classList.toggle("is-hidden", !!currentUser);
+  els.appShell.classList.toggle("is-hidden", !currentUser);
 }
 
 let wasSignedIn = false;
@@ -1449,11 +1634,15 @@ if (auth) {
     } else if (isSignOut) {
       bottles = [];
       pours = [];
+      currentProfile = null;
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(POUR_STORAGE_KEY);
       render();
     }
   });
+} else {
+  els.authGateNote.textContent = "Sign-in is unavailable right now. Please refresh or try again later.";
+  if (els.signInButton) els.signInButton.disabled = true;
 }
 
 els.signInButton?.addEventListener("click", () => {
@@ -1467,6 +1656,10 @@ els.signInButton?.addEventListener("click", () => {
 els.signOutButton?.addEventListener("click", () => {
   auth?.signOut();
 });
+
+els.editUsernameButton?.addEventListener("click", () => openUsernameSetup());
+els.saveUsername?.addEventListener("click", () => claimUsername(els.usernameInput.value));
+els.followButton?.addEventListener("click", () => followUsername(els.followUsernameInput.value));
 
 function renderDistilleryOptions() {
   els.distilleryOptions.innerHTML = availableDistilleries
@@ -1529,11 +1722,13 @@ function visibleBottles() {
 
 function render() {
   const shown = visibleBottles();
-  const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log", "dashboard", "friends"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
+  els.friendsView.classList.toggle("is-hidden", activeView !== "friends");
+  if (activeView === "friends") renderFriendList();
 
   renderStats();
   renderCards(shown);

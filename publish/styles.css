@@ -44,6 +44,73 @@ button {
   min-height: 100vh;
 }
 
+.app-shell.is-hidden {
+  display: none;
+}
+
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at top, rgba(215, 138, 54, 0.12), var(--charcoal) 60%);
+}
+
+.auth-gate.is-hidden {
+  display: none;
+}
+
+.auth-gate-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 360px;
+  padding: 32px 28px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+}
+
+.auth-gate-card .brand-mark {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid rgba(215, 138, 54, 0.55);
+  background: rgba(215, 138, 54, 0.12);
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+}
+
+.auth-gate-card strong {
+  font-size: 1.1rem;
+}
+
+.auth-gate-card span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.auth-gate-card p {
+  margin: 8px 0 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.auth-gate-card .primary-action {
+  margin-top: 6px;
+  width: 100%;
+}
+
+.auth-gate-note {
+  color: #e1664f;
+  font-size: 0.8rem;
+}
+
 .topbar {
   position: sticky;
   top: 0;
@@ -141,6 +208,13 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.account-name-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .nav-item,
@@ -569,7 +643,7 @@ select {
 
 .stats-grid article,
 .bottle-card,
-.insights,
+.insights-card,
 .tasting-board {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -603,13 +677,19 @@ select {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
   margin-top: 24px;
 }
 
 .dashboard-grid.is-hidden {
   display: none;
+}
+
+@media (max-width: 980px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .section-heading {
@@ -875,7 +955,7 @@ select {
   flex: 1;
 }
 
-.insights,
+.insights-card,
 .tasting-board {
   padding: 18px;
 }
@@ -1073,6 +1153,58 @@ select {
   display: flex;
   justify-content: flex-end;
   margin: 12px 0;
+}
+
+.follow-form {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.follow-form input {
+  flex: 1;
+}
+
+.friend-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.friend-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-bottle-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.friend-bottle-item {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.friend-bottle-item span {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .pour-list {
