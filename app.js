@@ -3351,6 +3351,8 @@ function renderBottleSuggestions() {
   });
 }
 
+const MATCH_CONFIDENCE_THRESHOLD = 30;
+
 function getBottleSuggestions(query) {
   const inventoryMatches = bottles.map((bottle) => ({
     ...bottle,
@@ -3364,7 +3366,7 @@ function getBottleSuggestions(query) {
       ...bottle,
       score: scoreBottleMatch(query, bottle),
     }))
-    .filter((bottle) => bottle.score > 0)
+    .filter((bottle) => bottle.score >= MATCH_CONFIDENCE_THRESHOLD)
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
     .filter((bottle) => {
       const key = `${bottle.name}-${bottle.distillery}`.toLowerCase();
