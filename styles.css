@@ -234,7 +234,6 @@ label {
 .secondary-action,
 .icon-button,
 .segmented button,
-.file-scan,
 .import-action {
   border: 1px solid transparent;
   border-radius: var(--radius);
@@ -1571,8 +1570,7 @@ select {
   display: none !important;
 }
 
-.bottle-dialog,
-.scanner-dialog {
+.bottle-dialog {
   width: min(720px, calc(100% - 28px));
   padding: 0;
   border: 1px solid var(--line);
@@ -1585,17 +1583,11 @@ select {
   width: min(860px, calc(100% - 28px));
 }
 
-.scanner-dialog {
-  width: min(620px, calc(100% - 28px));
-}
-
-.bottle-dialog::backdrop,
-.scanner-dialog::backdrop {
+.bottle-dialog::backdrop {
   background: rgba(0, 0, 0, 0.72);
 }
 
 .bottle-form,
-.scanner-panel,
 .library-panel,
 .quick-detail {
   padding: 22px;
@@ -1959,102 +1951,6 @@ textarea {
   gap: 12px;
 }
 
-.scanner-frame {
-  position: relative;
-  min-height: 280px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background:
-    linear-gradient(145deg, rgba(215, 138, 54, 0.12), transparent),
-    #0b0b0c;
-}
-
-.scanner-frame video {
-  width: 100%;
-  height: 280px;
-  object-fit: cover;
-  display: block;
-}
-
-.scan-reticle {
-  position: absolute;
-  inset: 22%;
-  border: 2px solid rgba(240, 177, 106, 0.82);
-  border-radius: var(--radius);
-  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.24);
-  pointer-events: none;
-}
-
-#scannerStatus {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 12px;
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: var(--radius);
-  background: rgba(10, 10, 11, 0.82);
-  color: var(--ink);
-  font-size: 0.9rem;
-}
-
-.scanner-actions,
-.manual-scan {
-  display: grid;
-  gap: 12px;
-}
-
-.scanner-actions {
-  grid-template-columns: 1fr 1fr;
-}
-
-.file-scan {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  border-color: var(--line);
-  background: transparent;
-  font-weight: 750;
-}
-
-.file-scan input {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.manual-scan {
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-}
-
-.scan-result {
-  display: grid;
-  gap: 8px;
-  min-height: 58px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #101011;
-}
-
-.scan-result:empty {
-  display: none;
-}
-
-.scan-result span {
-  color: var(--muted);
-}
-
-.scan-result .primary-action {
-  width: fit-content;
-  margin-top: 4px;
-}
 
 .icon-button {
   width: 38px;
@@ -2192,8 +2088,6 @@ textarea {
   .quick-detail-grid,
   .tasting-workspace,
   .tasting-grid,
-  .scanner-actions,
-  .manual-scan,
   .assistant-shell,
   .assistant-input,
   .compare-controls {

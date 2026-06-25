@@ -1135,8 +1135,6 @@ let activePourStyle = "all";
 let activeProofBand = "all";
 let activeView = "collection";
 let quickView = false;
-let zxingReader;
-let scannerControls;
 let formPhotoTimer;
 
 const els = {
@@ -1194,12 +1192,6 @@ const els = {
   tastingFinish: document.querySelector("#tastingFinish"),
   tastingScore: document.querySelector("#tastingScore"),
   generatedTastingNote: document.querySelector("#generatedTastingNote"),
-  scannerDialog: document.querySelector("#scannerDialog"),
-  scannerVideo: document.querySelector("#scannerVideo"),
-  scannerStatus: document.querySelector("#scannerStatus"),
-  scanResult: document.querySelector("#scanResult"),
-  manualBarcode: document.querySelector("#manualBarcode"),
-  barcodeImage: document.querySelector("#barcodeImage"),
   aiSuggestions: document.querySelector("#aiSuggestions"),
   assistantMessages: document.querySelector("#assistantMessages"),
   assistantPrompt: document.querySelector("#assistantPrompt"),
@@ -1273,8 +1265,6 @@ const fields = {
 
 document.querySelector("#openBottleForm").addEventListener("click", () => openForm());
 document.querySelector("#inventoryAddBottle").addEventListener("click", () => openForm());
-document.querySelector("#openScanner").addEventListener("click", openScanner);
-document.querySelector("#inventoryScanBottle").addEventListener("click", openScanner);
 document.querySelector("#closeDialog").addEventListener("click", () => els.bottleDialog.close());
 document.querySelector("#openLibrary").addEventListener("click", openLibrary);
 document.querySelector("#closeLibrary").addEventListener("click", () => els.libraryDialog.close());
@@ -1283,10 +1273,6 @@ document.querySelector("#openPourForm").addEventListener("click", openPourForm);
 document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
 document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 document.querySelector("#deleteLastPour").addEventListener("click", deleteLastPour);
-document.querySelector("#closeScanner").addEventListener("click", closeScanner);
-document.querySelector("#startScanner").addEventListener("click", startScanner);
-document.querySelector("#lookupBarcode").addEventListener("click", () => lookupBarcode(els.manualBarcode.value));
-els.barcodeImage.addEventListener("change", scanUploadedImage);
 els.searchInput.addEventListener("input", render);
 els.librarySearch.addEventListener("input", renderLibrary);
 els.sortSelect.addEventListener("change", render);
@@ -1300,7 +1286,6 @@ els.deleteBottle.addEventListener("click", deleteBottle);
 document.querySelector("#buildTastingNote").addEventListener("click", buildGuidedTastingNote);
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
-els.scannerDialog.addEventListener("close", stopScanner);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
 document.querySelector("#refreshAiTools").addEventListener("click", renderAiTools);
 els.assistantForm.addEventListener("submit", sendAssistantMessage);
@@ -2044,12 +2029,10 @@ function renderCards(shown) {
           <p>Your cabinet is empty. Add your first bottle to start tracking pours, ratings, and your Core Bar.</p>
           <div class="first-run-actions">
             <button class="primary-action" id="firstRunAddBottle" type="button">Add Bottle</button>
-            <button class="secondary-action" id="firstRunScanBottle" type="button">Scan Bottle</button>
           </div>
         </div>
       `;
     document.querySelector("#firstRunAddBottle")?.addEventListener("click", () => openForm());
-    document.querySelector("#firstRunScanBottle")?.addEventListener("click", openScanner);
     return;
   }
 
@@ -3139,9 +3122,14 @@ function getFormBottleDraft(seed = {}) {
 function updateFormPhotoTools(seed = {}) {
   const draft = getFormBottleDraft(seed);
   const hasName = draft.name.length > 1;
-  els.formPhotoName.textContent = hasName ? `${draft.name}${draft.distillery ? ` · ${draft.distillery}` : ""}` : "Start typing a bottle name";
-  els.formPhotoPreview.src = hasName ? bottleImage(draft) : "";
-  els.formPhotoPreview.classList.toggle("is-empty", !hasName);
+  const hasImage = Boolean(draft.imageUrl);
+  els.formPhotoName.textContent = hasName
+    ? `${draft.name}${draft.distillery ? ` · ${draft.distillery}` : ""}`
+    : hasImage
+      ? "Uploaded photo"
+      : "Start typing a bottle name";
+  els.formPhotoPreview.src = hasName || hasImage ? bottleImage(draft) : "";
+  els.formPhotoPreview.classList.toggle("is-empty", !hasName && !hasImage);
   els.formPhotoLinks.innerHTML = hasName
     ? photoSourceLinks(draft)
         .slice(0, 4)
@@ -3180,197 +3168,51 @@ async function autoFindFormPhoto(options = {}) {
   updateFormPhotoTools(draft);
 }
 
-function uploadBottlePhoto(event) {
+function isHeicFile(file) {
+  return /image\/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name || "");
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(reader.error));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadBottlePhoto(event) {
   const [file] = event.target.files;
   if (!file) return;
 
-  if (!file.type.startsWith("image/")) {
+  const looksLikeImage = file.type.startsWith("image/") || isHeicFile(file) || /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(file.name || "");
+  if (!looksLikeImage) {
     els.formPhotoName.textContent = "Choose an image file.";
     event.target.value = "";
     return;
   }
 
-  const reader = new FileReader();
-  reader.addEventListener("load", () => {
-    fields.imageUrl.value = reader.result;
-    updateFormPhotoTools({ imageUrl: reader.result });
+  els.formPhotoName.textContent = "Processing photo...";
+  try {
+    let displayFile = file;
+    if (isHeicFile(file) && window.heic2any) {
+      const converted = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+      displayFile = Array.isArray(converted) ? converted[0] : converted;
+    }
+    const dataUrl = await readFileAsDataUrl(displayFile);
+    fields.imageUrl.value = dataUrl;
+    updateFormPhotoTools({ imageUrl: dataUrl });
     els.formPhotoName.textContent = file.name.replace(/\.[^.]+$/, "") || "Uploaded bottle photo";
-  });
-  reader.readAsDataURL(file);
+  } catch (error) {
+    console.error("Photo upload failed", error);
+    els.formPhotoName.textContent = "Could not process that photo. Try a different file.";
+  } finally {
+    event.target.value = "";
+  }
 }
 
 function clearBottleSuggestions() {
   els.aiSuggestions.innerHTML = "";
-}
-
-function openScanner() {
-  els.scanResult.innerHTML = "";
-  els.manualBarcode.value = "";
-  els.scannerStatus.textContent = supportsBarcodeScanner()
-    ? "Start the camera and center the barcode in the frame."
-    : "Camera access is not available in this browser. Enter a UPC or upload a clear label photo.";
-  els.scannerDialog.showModal();
-}
-
-function getZxingReader() {
-  if (!window.ZXing) return null;
-  if (!zxingReader) {
-    const hints = new Map();
-    hints.set(window.ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-      window.ZXing.BarcodeFormat.EAN_13,
-      window.ZXing.BarcodeFormat.EAN_8,
-      window.ZXing.BarcodeFormat.UPC_A,
-      window.ZXing.BarcodeFormat.UPC_E,
-      window.ZXing.BarcodeFormat.CODE_128,
-      window.ZXing.BarcodeFormat.QR_CODE,
-    ]);
-    zxingReader = new window.ZXing.BrowserMultiFormatReader(hints);
-  }
-  return zxingReader;
-}
-
-async function startScanner() {
-  if (!supportsBarcodeScanner()) {
-    els.scannerStatus.textContent = "This browser does not support camera scanning. Enter a UPC or upload a label photo.";
-    return;
-  }
-
-  const reader = getZxingReader();
-  if (!reader) {
-    els.scannerStatus.textContent = "Scanner library failed to load. Enter a UPC or upload a label photo.";
-    return;
-  }
-
-  try {
-    els.scannerStatus.textContent = "Scanning... hold the barcode steady inside the frame.";
-    scannerControls = await reader.decodeFromConstraints(
-      { video: { facingMode: { ideal: "environment" } }, audio: false },
-      els.scannerVideo,
-      (result) => {
-        if (result) lookupBarcode(result.getText());
-      },
-    );
-  } catch (error) {
-    els.scannerStatus.textContent = "Camera access was unavailable. You can still enter the barcode manually.";
-  }
-}
-
-async function scanUploadedImage(event) {
-  const [file] = event.target.files;
-  if (!file) return;
-
-  const reader = getZxingReader();
-  if (!reader) {
-    els.scannerStatus.textContent = "Scanner library failed to load. Enter the UPC manually instead.";
-    event.target.value = "";
-    return;
-  }
-
-  const url = URL.createObjectURL(file);
-  try {
-    const result = await reader.decodeFromImageUrl(url);
-    lookupBarcode(result.getText());
-  } catch {
-    els.scannerStatus.textContent = "No barcode found in that image. Try a closer, sharper label photo.";
-  } finally {
-    URL.revokeObjectURL(url);
-    event.target.value = "";
-  }
-}
-
-function lookupBarcode(rawCode) {
-  const code = normalizeBarcode(rawCode);
-  if (!code) {
-    els.scannerStatus.textContent = "Enter a barcode to look up.";
-    return;
-  }
-
-  stopScanner();
-  els.manualBarcode.value = code;
-  const match = bottleCatalog[code] || bottleCatalog[code.slice(1)];
-  if (match) {
-    els.scannerStatus.textContent = `Found ${match.name}.`;
-    els.scanResult.innerHTML = `
-      <strong>${escapeHtml(match.name)}</strong>
-      <span>${escapeHtml(match.distillery)} · ${escapeHtml(match.type)} · ${numberOrDash(match.proof)} proof</span>
-      <button class="primary-action" id="addScannedBottle" type="button">Add to Inventory</button>
-    `;
-    document.querySelector("#addScannedBottle").addEventListener("click", () => {
-      closeScanner();
-      openForm({
-        ...match,
-        id: "",
-        rating: "",
-        status: "sealed",
-        shelf: "Main bar",
-        quantity: 1,
-        fillLevel: "full",
-        bottleSize: 750,
-        openedDate: "",
-        category: defaultCategory(match),
-        pourStyle: "daily",
-        pourTier: "crowd",
-        coreBar: false,
-        priority: 3,
-        notes: `Scanned barcode ${code}.`,
-      });
-    });
-    return;
-  }
-
-  els.scannerStatus.textContent = "Barcode captured, but it is not in the local catalog yet.";
-  els.scanResult.innerHTML = `
-    <strong>Unknown bottle</strong>
-    <span>Barcode ${escapeHtml(code)} is ready to attach to a new inventory entry.</span>
-    <button class="primary-action" id="addUnknownBottle" type="button">Add Manually</button>
-  `;
-  document.querySelector("#addUnknownBottle").addEventListener("click", () => {
-    closeScanner();
-    openForm({
-      id: "",
-      name: "",
-      distillery: "",
-      type: "Bourbon",
-      region: "",
-      proof: "",
-      price: "",
-      rating: "",
-      status: "sealed",
-      shelf: "Main bar",
-      quantity: 1,
-      fillLevel: "full",
-      bottleSize: 750,
-      openedDate: "",
-      category: "daily",
-      pourStyle: "daily",
-      pourTier: "crowd",
-      coreBar: false,
-      priority: 3,
-      flavors: [],
-      notes: `Scanned barcode ${code}.`,
-    });
-  });
-}
-
-function closeScanner() {
-  stopScanner();
-  els.scannerDialog.close();
-}
-
-function stopScanner() {
-  if (scannerControls) {
-    scannerControls.stop();
-    scannerControls = undefined;
-  }
-  els.scannerVideo.srcObject = null;
-}
-
-function supportsBarcodeScanner() {
-  return !!navigator.mediaDevices?.getUserMedia;
-}
-
-function normalizeBarcode(value) {
-  return String(value || "").replace(/\D/g, "");
 }
 
 async function saveBottle(event) {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=38" />
+    <link rel="stylesheet" href="styles.css?v=39" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -118,10 +118,6 @@
                 <span aria-hidden="true">+</span>
                 Add Bottle
               </button>
-              <button class="secondary-action" id="openScanner" type="button">
-                <span aria-hidden="true">⌗</span>
-                Scan Bottle
-              </button>
             </div>
           </div>
         </section>
@@ -133,7 +129,6 @@
             <span id="inventoryRatio">0 of 0 bottles</span>
           </div>
           <div class="inventory-overview-actions">
-            <button class="secondary-action" id="inventoryScanBottle" type="button">Scan</button>
             <button class="primary-action" id="inventoryAddBottle" type="button">Add Bottle</button>
           </div>
         </section>
@@ -749,46 +744,10 @@
       </form>
     </dialog>
 
-    <dialog class="scanner-dialog" id="scannerDialog">
-      <div class="scanner-panel">
-        <div class="form-head">
-          <div>
-            <p>Bottle scanner</p>
-            <h2>Scan to add</h2>
-          </div>
-          <button class="icon-button" id="closeScanner" type="button" aria-label="Close">×</button>
-        </div>
-
-        <div class="scanner-frame">
-          <video id="scannerVideo" playsinline muted></video>
-          <div class="scan-reticle" aria-hidden="true"></div>
-          <p id="scannerStatus">Start the camera or enter the barcode printed on the bottle.</p>
-        </div>
-
-        <div class="scanner-actions">
-          <button class="primary-action" id="startScanner" type="button">Start Camera</button>
-          <label class="file-scan">
-            Upload Label
-            <input id="barcodeImage" type="file" accept="image/*" />
-          </label>
-        </div>
-
-        <div class="manual-scan">
-          <label>
-            Barcode or UPC
-            <input id="manualBarcode" inputmode="numeric" placeholder="088004027104" />
-          </label>
-          <button class="secondary-action" id="lookupBarcode" type="button">Look Up</button>
-        </div>
-
-        <div class="scan-result" id="scanResult"></div>
-      </div>
-    </dialog>
-
-    <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="app.js?v=44"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <script src="app.js?v=46"></script>
   </body>
 </html>
