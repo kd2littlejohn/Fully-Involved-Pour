@@ -1356,6 +1356,12 @@ select {
   color: var(--ink);
 }
 
+.assistant-message.dispatch-update {
+  justify-self: stretch;
+  background: rgba(215, 138, 54, 0.16);
+  border: 1px solid rgba(215, 138, 54, 0.45);
+}
+
 .assistant-message p {
   margin: 0;
 }
@@ -1711,6 +1717,26 @@ textarea {
   align-items: center;
   gap: 10px;
   padding-top: 23px;
+}
+
+.core-score-field {
+  display: grid;
+  gap: 2px;
+  grid-column: span 2;
+}
+
+.core-score-field > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.core-score-field strong {
+  font-size: 1.3rem;
+}
+
+.core-score-field small {
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 .checkbox-field input {

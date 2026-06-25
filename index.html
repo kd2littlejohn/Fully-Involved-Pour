@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=30" />
+    <link rel="stylesheet" href="styles.css?v=31" />
   </head>
   <body>
     <div class="auth-gate" id="authGate">
@@ -621,10 +621,11 @@
               <option value="vip">VIP Pour</option>
             </select>
           </label>
-          <label class="checkbox-field">
-            <input id="coreBar" type="checkbox" />
-            Core Bar bottle
-          </label>
+          <div class="core-score-field">
+            <span>Core Bar Score</span>
+            <strong id="coreScoreDisplay">—</strong>
+            <small id="coreScoreNote">Earned automatically from rating, pour frequency, rebuys, value, and how often you recommend it.</small>
+          </div>
           <label>
             Priority
             <input id="priority" type="number" min="1" max="5" step="1" placeholder="3" />
@@ -779,6 +780,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="app.js?v=36"></script>
+    <script src="app.js?v=37"></script>
   </body>
 </html>

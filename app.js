@@ -1121,6 +1121,7 @@ const availableDistilleries = [
 
 let bottles = loadBottles();
 let pours = loadPours();
+syncCoreBarScores();
 let activeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
@@ -1146,6 +1147,7 @@ const els = {
   averageRating: document.querySelector("#averageRating"),
   estimatedValue: document.querySelector("#estimatedValue"),
   coreBarCount: document.querySelector("#coreBarCount"),
+  coreScoreDisplay: document.querySelector("#coreScoreDisplay"),
   buyNextCount: document.querySelector("#buyNextCount"),
   topDistillery: document.querySelector("#topDistillery"),
   topDistilleryMeta: document.querySelector("#topDistilleryMeta"),
@@ -1255,7 +1257,6 @@ const fields = {
   pourStyle: document.querySelector("#pourStyle"),
   pourTier: document.querySelector("#pourTier"),
   bottleSize: document.querySelector("#bottleSize"),
-  coreBar: document.querySelector("#coreBar"),
   priority: document.querySelector("#priority"),
   flavors: document.querySelector("#flavors"),
   notes: document.querySelector("#notes"),
@@ -1391,9 +1392,67 @@ function loadBottles() {
   }
 }
 
+const CORE_BAR_THRESHOLD = 65;
+
+function bottlePoursFor(bottleId) {
+  return pours.filter((pour) => pour.bottleId === bottleId);
+}
+
+function computeCoreBarScore(bottle) {
+  if (["wishlist", "buy-next"].includes(bottle.status)) return 0;
+
+  const bottlePourList = bottlePoursFor(bottle.id);
+  const pourCount = bottlePourList.length;
+  const maxPourCount = Math.max(1, ...bottles.map((item) => bottlePoursFor(item.id).length));
+
+  const ratingScore = Number(bottle.rating || 0) / 10;
+  const pourScore = pourCount / maxPourCount;
+  const rebuyScore = Number(bottle.quantity || 1) > 1 ? 1 : 0;
+
+  const valueRatio = bottle.price > 0 && bottle.rating > 0 ? Number(bottle.rating) / Number(bottle.price) : 0;
+  const maxValueRatio = Math.max(
+    0.0001,
+    ...bottles.map((item) => (item.price > 0 && item.rating > 0 ? Number(item.rating) / Number(item.price) : 0)),
+  );
+  const valueScore = valueRatio / maxValueRatio;
+
+  const recommendedPours = bottlePourList.filter((pour) =>
+    /shar|recommend|friend|gift|impress/i.test(pour.occasion || ""),
+  ).length;
+  const recommendScore = pourCount ? recommendedPours / pourCount : 0;
+
+  let weighted = ratingScore * 0.3 + pourScore * 0.25 + rebuyScore * 0.15 + valueScore * 0.15 + recommendScore * 0.15;
+  if (pourCount === 0) weighted *= 0.4;
+
+  return Math.round(weighted * 100);
+}
+
+function syncCoreBarScores() {
+  const newlyEarned = [];
+  bottles = bottles.map((bottle) => {
+    const score = computeCoreBarScore(bottle);
+    const earned = score >= CORE_BAR_THRESHOLD;
+    const updated = { ...bottle, coreBarScore: score, coreBar: earned };
+    if (earned && !bottle.coreBar) newlyEarned.push(updated);
+    return updated;
+  });
+  return newlyEarned;
+}
+
+function showDispatchUpdate(bottle) {
+  if (!els.assistantMessages) return;
+  const bubble = document.createElement("div");
+  bubble.className = "assistant-message assistant dispatch-update";
+  bubble.innerHTML = `<p>🔥 Dispatch Update<br><strong>${escapeHtml(bottle.name)}</strong> has earned a place on your Core Bar.</p>`;
+  els.assistantMessages.appendChild(bubble);
+  els.assistantMessages.scrollTop = els.assistantMessages.scrollHeight;
+}
+
 function persist() {
+  const newlyEarned = syncCoreBarScores();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
   pushCloudData();
+  newlyEarned.forEach(showDispatchUpdate);
 }
 
 function loadPours() {
@@ -1409,7 +1468,10 @@ function loadPours() {
 
 function persistPours() {
   localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+  const newlyEarned = syncCoreBarScores();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
   pushCloudData();
+  newlyEarned.forEach(showDispatchUpdate);
 }
 
 function userDocRef(uid) {
@@ -1430,6 +1492,7 @@ async function pullCloudData(uid) {
       currentProfile = { username: "" };
       await userDocRef(uid).set({ bottles, pours, username: "", updatedAt: Date.now() });
     }
+    syncCoreBarScores();
     updateAccountUI();
     render();
     if (!currentProfile.username) openUsernameSetup();
@@ -1914,7 +1977,7 @@ function renderCards(shown) {
             <span>${labelCategory(bottle.category)}</span>
             <span>${labelPourStyle(bottle.pourStyle)}</span>
             <span>${labelPourTier(bottle.pourTier)}</span>
-            ${bottle.coreBar ? `<span>Core Bar</span>` : ""}
+            ${bottle.coreBar ? `<span>🔥 Core Bar ${bottle.coreBarScore ?? ""}</span>` : ""}
           </div>
           <div class="bottle-meta">
             <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
@@ -2730,10 +2793,16 @@ function openForm(id = "") {
   fields.pourStyle.value = bottle?.pourStyle || "daily";
   fields.pourTier.value = normalizePourTier(bottle?.pourTier || "crowd");
   fields.bottleSize.value = String(bottle?.bottleSize || 750);
-  fields.coreBar.checked = Boolean(bottle?.coreBar);
   fields.priority.value = bottle?.priority || 3;
   fields.flavors.value = bottle?.flavors.join(", ") || "";
   fields.notes.value = bottle?.notes || "";
+
+  if (isExisting && bottle) {
+    const score = computeCoreBarScore(bottle);
+    els.coreScoreDisplay.textContent = score >= CORE_BAR_THRESHOLD ? `${score} — Earned 🔥` : score;
+  } else {
+    els.coreScoreDisplay.textContent = "Calculated after you save";
+  }
 
   els.bottleDialog.showModal();
   fields.name.focus();
@@ -3136,7 +3205,7 @@ async function saveBottle(event) {
     category: fields.category.value,
     pourStyle: fields.pourStyle.value,
     pourTier: normalizePourTier(fields.pourTier.value),
-    coreBar: fields.coreBar.checked,
+    coreBar: false,
     priority: Number(fields.priority.value || 3),
     flavors: fields.flavors.value
       .split(",")
