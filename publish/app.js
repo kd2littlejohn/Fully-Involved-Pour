@@ -1224,8 +1224,6 @@ const els = {
   accountChip: document.querySelector("#accountChip"),
   accountAvatar: document.querySelector("#accountAvatar"),
   accountName: document.querySelector("#accountName"),
-  authGate: document.querySelector("#authGate"),
-  authGateNote: document.querySelector("#authGateNote"),
   appShell: document.querySelector("#appShell"),
   usernameDialog: document.querySelector("#usernameDialog"),
   usernameInput: document.querySelector("#usernameInput"),
@@ -1734,14 +1732,14 @@ async function viewFriendInventory(targetUid, username) {
 
 function updateAccountUI() {
   if (currentUser) {
+    els.signInButton.classList.add("is-hidden");
     els.accountChip.classList.remove("is-hidden");
     els.accountAvatar.src = currentUser.photoURL || "";
     els.accountName.textContent = currentProfile?.username || currentUser.displayName || currentUser.email || "Signed in";
   } else {
+    els.signInButton.classList.remove("is-hidden");
     els.accountChip.classList.add("is-hidden");
   }
-  els.authGate.classList.toggle("is-hidden", !!currentUser);
-  els.appShell.classList.toggle("is-hidden", !currentUser);
 }
 
 let wasSignedIn = false;
@@ -1763,9 +1761,9 @@ if (auth) {
       render();
     }
   });
-} else {
-  els.authGateNote.textContent = "Sign-in is unavailable right now. Please refresh or try again later.";
-  if (els.signInButton) els.signInButton.disabled = true;
+} else if (els.signInButton) {
+  els.signInButton.disabled = true;
+  els.signInButton.textContent = "Sign-in unavailable";
 }
 
 els.signInButton?.addEventListener("click", () => {

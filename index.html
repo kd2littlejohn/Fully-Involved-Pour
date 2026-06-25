@@ -4,25 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=31" />
+    <link rel="stylesheet" href="styles.css?v=32" />
   </head>
   <body>
-    <div class="auth-gate" id="authGate">
-      <div class="auth-gate-card">
-        <img
-          class="brand-mark"
-          src="assets/fully-involved-pour-logo.png"
-          alt="Fully Involved Pour logo"
-        />
-        <strong>Fully Involved Pour</strong>
-        <span>Where there's proof, there's fire.</span>
-        <p>Sign in with Google to track your bourbon collection and sync it across your devices.</p>
-        <button class="primary-action" id="signInButton" type="button">Sign in with Google</button>
-        <p class="auth-gate-note" id="authGateNote"></p>
-      </div>
-    </div>
-
-    <div class="app-shell is-hidden" id="appShell">
+    <div class="app-shell" id="appShell">
       <header class="topbar" aria-label="Application header">
         <div class="brand">
           <img
@@ -37,6 +22,7 @@
         </div>
 
         <div class="account-box" id="accountBox" aria-label="Account">
+          <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
           <div class="account-chip is-hidden" id="accountChip">
             <img id="accountAvatar" alt="" />
             <button class="account-name-button" id="editUsernameButton" type="button">
@@ -786,6 +772,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="app.js?v=38"></script>
+    <script src="app.js?v=39"></script>
   </body>
 </html>

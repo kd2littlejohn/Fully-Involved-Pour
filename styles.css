@@ -44,68 +44,6 @@ button {
   min-height: 100vh;
 }
 
-.app-shell.is-hidden {
-  display: none;
-}
-
-.auth-gate {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: radial-gradient(circle at top, rgba(215, 138, 54, 0.12), var(--charcoal) 60%);
-}
-
-.auth-gate.is-hidden {
-  display: none;
-}
-
-.auth-gate-card {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  max-width: 360px;
-  padding: 32px 28px;
-  text-align: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--panel);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
-}
-
-.auth-gate-card .brand-mark {
-  width: 56px;
-  height: 56px;
-  object-fit: cover;
-  border: 1px solid rgba(215, 138, 54, 0.55);
-  background: rgba(215, 138, 54, 0.12);
-  border-radius: var(--radius);
-  margin-bottom: 4px;
-}
-
-.auth-gate-card strong {
-  font-size: 1.1rem;
-}
-
-.auth-gate-card span {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.auth-gate-card p {
-  margin: 8px 0 4px;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.auth-gate-card .primary-action {
-  margin-top: 6px;
-  width: 100%;
-}
-
 .auth-gate-note {
   color: #e1664f;
   font-size: 0.8rem;
