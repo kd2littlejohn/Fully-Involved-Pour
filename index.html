@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=43" />
+    <link rel="stylesheet" href="styles.css?v=44" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -512,49 +512,12 @@
             </select>
           </label>
           <label>
-            Region
-            <input id="region" placeholder="Kentucky" />
-          </label>
-          <label>
-            Image URL
-            <input id="imageUrl" placeholder="Optional bottle photo URL" />
-          </label>
-          <div class="form-photo-panel" id="formPhotoPanel">
-            <img id="formPhotoPreview" alt="" />
-            <div>
-              <span>Photo lookup</span>
-              <strong id="formPhotoName">Start typing a bottle name</strong>
-              <div class="photo-source-links is-compact" id="formPhotoLinks"></div>
-              <div class="photo-form-actions">
-                <button class="secondary-action" id="autoFindPhoto" type="button">Auto Find Photo</button>
-                <label class="upload-photo-action">
-                  Upload Photo
-                  <input id="photoUpload" type="file" accept="image/*" />
-                </label>
-              </div>
-            </div>
-          </div>
-          <label>
             Proof
             <input id="proof" type="number" min="0" step="0.1" placeholder="100" />
           </label>
           <label>
-            Size
-            <select id="bottleSize">
-              <option value="750">750 ML</option>
-              <option value="375">375 ML</option>
-              <option value="700">700 ML</option>
-              <option value="1000">1 Liter</option>
-              <option value="1750">1.75 Liter</option>
-            </select>
-          </label>
-          <label>
             Paid
             <input id="price" type="number" min="0" step="1" placeholder="55" />
-          </label>
-          <label>
-            MSRP
-            <input id="msrp" type="number" min="0" step="1" placeholder="50" />
           </label>
           <label>
             Rating
@@ -570,94 +533,6 @@
               <option value="wishlist">Wish List</option>
             </select>
           </label>
-          <label>
-            Age Statement
-            <input id="ageStatement" placeholder="12 years, NAS, batch year" />
-          </label>
-          <label>
-            Store / Location
-            <input id="storeLocation" placeholder="Total Wine, local shop, gift" />
-          </label>
-          <label>
-            Shelf
-            <input id="shelf" placeholder="Main bar, bunker, top shelf" />
-          </label>
-          <label>
-            Quantity
-            <input id="quantity" type="number" min="1" step="1" placeholder="1" />
-          </label>
-          <label>
-            Fill Level
-            <select id="fillLevel">
-              <option value="full">Full</option>
-              <option value="three-quarter">3/4</option>
-              <option value="half">1/2</option>
-              <option value="low">Low</option>
-              <option value="empty">Empty</option>
-            </select>
-          </label>
-          <label>
-            Opened
-            <input id="openedDate" type="date" />
-          </label>
-          <label>
-            Category
-            <select id="category">
-              <option value="daily">Daily</option>
-              <option value="high-proof">High Proof</option>
-              <option value="wheated">Wheated</option>
-              <option value="rye">Rye</option>
-              <option value="special-occasion">Special Occasion</option>
-              <option value="finished">Finished</option>
-              <option value="showstopper">Showstopper</option>
-              <option value="crowd-pleaser">Crowd Pleaser</option>
-              <option value="other">Other</option>
-            </select>
-          </label>
-          <label>
-            Pour Style
-            <select id="pourStyle">
-              <option value="daily">Daily</option>
-              <option value="share">Share</option>
-              <option value="special">Special</option>
-              <option value="cocktail">Cocktail</option>
-            </select>
-          </label>
-          <label>
-            Pour Tier
-            <select id="pourTier">
-              <option value="crowd">Crowd Pour</option>
-              <option value="reserve">Reserve Pour</option>
-              <option value="vip">VIP Pour</option>
-            </select>
-          </label>
-          <div class="core-score-field">
-            <span>Core Bar Score</span>
-            <strong id="coreScoreDisplay">—</strong>
-            <small id="coreScoreNote">Earned automatically from rating, pour frequency, rebuys, value, and how often you recommend it.</small>
-          </div>
-          <label>
-            Priority
-            <input id="priority" type="number" min="1" max="5" step="1" placeholder="3" />
-          </label>
-        </div>
-
-        <div class="mash-bill-field">
-          <span>Mash Bill</span>
-          <div class="mash-bill-grid">
-            <label>
-              Corn %
-              <input id="mashBillCorn" type="number" min="0" max="100" step="1" placeholder="75" />
-            </label>
-            <label>
-              Rye/Wheat %
-              <input id="mashBillRyeWheat" type="number" min="0" max="100" step="1" placeholder="13" />
-            </label>
-            <label>
-              Malted Barley %
-              <input id="mashBillMalted" type="number" min="0" max="100" step="1" placeholder="12" />
-            </label>
-          </div>
         </div>
 
         <label>
@@ -668,6 +543,137 @@
           Notes
           <textarea id="notes" rows="4" placeholder="Where you found it, who recommended it, or tasting notes."></textarea>
         </label>
+
+        <details class="advanced-details">
+          <summary>Advanced details</summary>
+          <div class="form-grid">
+            <label>
+              Region
+              <input id="region" placeholder="Kentucky" />
+            </label>
+            <label>
+              Image URL
+              <input id="imageUrl" placeholder="Optional bottle photo URL" />
+            </label>
+            <div class="form-photo-panel" id="formPhotoPanel">
+              <img id="formPhotoPreview" alt="" />
+              <div>
+                <span>Photo lookup</span>
+                <strong id="formPhotoName">Start typing a bottle name</strong>
+                <div class="photo-source-links is-compact" id="formPhotoLinks"></div>
+                <div class="photo-form-actions">
+                  <button class="secondary-action" id="autoFindPhoto" type="button">Auto Find Photo</button>
+                  <label class="upload-photo-action">
+                    Upload Photo
+                    <input id="photoUpload" type="file" accept="image/*" />
+                  </label>
+                </div>
+              </div>
+            </div>
+            <label>
+              Size
+              <select id="bottleSize">
+                <option value="750">750 ML</option>
+                <option value="375">375 ML</option>
+                <option value="700">700 ML</option>
+                <option value="1000">1 Liter</option>
+                <option value="1750">1.75 Liter</option>
+              </select>
+            </label>
+            <label>
+              MSRP
+              <input id="msrp" type="number" min="0" step="1" placeholder="50" />
+            </label>
+            <label>
+              Age Statement
+              <input id="ageStatement" placeholder="12 years, NAS, batch year" />
+            </label>
+            <label>
+              Store / Location
+              <input id="storeLocation" placeholder="Total Wine, local shop, gift" />
+            </label>
+            <label>
+              Shelf
+              <input id="shelf" placeholder="Main bar, bunker, top shelf" />
+            </label>
+            <label>
+              Quantity
+              <input id="quantity" type="number" min="1" step="1" placeholder="1" />
+            </label>
+            <label>
+              Fill Level
+              <select id="fillLevel">
+                <option value="full">Full</option>
+                <option value="three-quarter">3/4</option>
+                <option value="half">1/2</option>
+                <option value="low">Low</option>
+                <option value="empty">Empty</option>
+              </select>
+            </label>
+            <label>
+              Opened
+              <input id="openedDate" type="date" />
+            </label>
+            <label>
+              Category
+              <select id="category">
+                <option value="daily">Daily</option>
+                <option value="high-proof">High Proof</option>
+                <option value="wheated">Wheated</option>
+                <option value="rye">Rye</option>
+                <option value="special-occasion">Special Occasion</option>
+                <option value="finished">Finished</option>
+                <option value="showstopper">Showstopper</option>
+                <option value="crowd-pleaser">Crowd Pleaser</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>
+              Pour Style
+              <select id="pourStyle">
+                <option value="daily">Daily</option>
+                <option value="share">Share</option>
+                <option value="special">Special</option>
+                <option value="cocktail">Cocktail</option>
+              </select>
+            </label>
+            <label>
+              Pour Tier
+              <select id="pourTier">
+                <option value="crowd">Crowd Pour</option>
+                <option value="reserve">Reserve Pour</option>
+                <option value="vip">VIP Pour</option>
+              </select>
+            </label>
+            <div class="core-score-field">
+              <span>Core Bar Score</span>
+              <strong id="coreScoreDisplay">—</strong>
+              <small id="coreScoreNote">Earned automatically from rating, pour frequency, rebuys, value, and how often you recommend it.</small>
+            </div>
+            <label>
+              Priority
+              <input id="priority" type="number" min="1" max="5" step="1" placeholder="3" />
+            </label>
+          </div>
+
+          <div class="mash-bill-field">
+            <span>Mash Bill</span>
+            <div class="mash-bill-grid">
+              <label>
+                Corn %
+                <input id="mashBillCorn" type="number" min="0" max="100" step="1" placeholder="75" />
+              </label>
+              <label>
+                Rye/Wheat %
+                <input id="mashBillRyeWheat" type="number" min="0" max="100" step="1" placeholder="13" />
+              </label>
+              <label>
+                Malted Barley %
+                <input id="mashBillMalted" type="number" min="0" max="100" step="1" placeholder="12" />
+              </label>
+            </div>
+          </div>
+        </details>
 
         <div class="form-actions">
           <button class="secondary-action" id="deleteBottle" type="button">Delete</button>
@@ -774,6 +780,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=50"></script>
+    <script src="app.js?v=51"></script>
   </body>
 </html>

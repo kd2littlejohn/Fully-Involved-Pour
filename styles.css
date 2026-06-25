@@ -603,6 +603,33 @@ select {
   display: none;
 }
 
+.advanced-details summary {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: var(--panel);
+  font-weight: 750;
+  cursor: pointer;
+  list-style: none;
+}
+
+.advanced-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-details[open] summary {
+  margin-bottom: 16px;
+}
+
+.advanced-details .form-grid {
+  margin-bottom: 16px;
+}
+
 .more-actions .backup-actions {
   position: absolute;
   right: 0;
