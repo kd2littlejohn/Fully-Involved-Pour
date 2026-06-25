@@ -1548,6 +1548,7 @@ async function claimUsername(rawUsername) {
     const batch = db.batch();
     batch.set(usernameRef, { uid: currentUser.uid });
     batch.set(userDocRef(currentUser.uid), { username }, { merge: true });
+    batch.set(db.collection("profiles").doc(currentUser.uid), { username });
     if (previousUsername && previousUsername !== username) {
       batch.delete(db.collection("usernames").doc(previousUsername));
     }
@@ -1634,8 +1635,24 @@ async function unfollowUser(targetUid) {
   }
 }
 
+async function lookupProfileUsername(uid, fallback) {
+  if (!db) return fallback || "Unknown";
+  try {
+    const snap = await db.collection("profiles").doc(uid).get();
+    if (snap.exists && snap.data().username) return snap.data().username;
+  } catch (error) {
+    console.error("Profile lookup failed", error);
+  }
+  return fallback || "Unknown";
+}
+
 async function renderFriendList() {
   await Promise.all([loadFollowing(), loadFollowers()]);
+
+  const [followingNames, followerNames] = await Promise.all([
+    Promise.all(following.map((entry) => lookupProfileUsername(entry.followingUid, entry.followingUsername))),
+    Promise.all(followers.map((entry) => lookupProfileUsername(entry.followerUid, entry.followerUsername))),
+  ]);
 
   els.followingCount.textContent = following.length;
   els.followerCount.textContent = followers.length;
@@ -1643,11 +1660,11 @@ async function renderFriendList() {
   els.friendList.innerHTML = following.length
     ? following
         .map(
-          (entry) => `
+          (entry, index) => `
             <div class="friend-item">
-              <strong>${escapeHtml(entry.followingUsername)}</strong>
+              <strong>${escapeHtml(followingNames[index])}</strong>
               <div class="friend-item-actions">
-                <button class="secondary-action" data-view-friend="${escapeHtml(entry.followingUid)}" data-friend-name="${escapeHtml(entry.followingUsername)}" type="button">View</button>
+                <button class="secondary-action" data-view-friend="${escapeHtml(entry.followingUid)}" data-friend-name="${escapeHtml(followingNames[index])}" type="button">View</button>
                 <button class="secondary-action" data-unfollow="${escapeHtml(entry.followingUid)}" type="button">Unfollow</button>
               </div>
             </div>
@@ -1659,9 +1676,9 @@ async function renderFriendList() {
   els.followerList.innerHTML = followers.length
     ? followers
         .map(
-          (entry) => `
+          (entry, index) => `
             <div class="friend-item">
-              <strong>${escapeHtml(entry.followerUsername || "Unknown")}</strong>
+              <strong>${escapeHtml(followerNames[index])}</strong>
             </div>
           `,
         )
