@@ -1224,6 +1224,9 @@ const els = {
   accountAvatar: document.querySelector("#accountAvatar"),
   accountName: document.querySelector("#accountName"),
   appShell: document.querySelector("#appShell"),
+  welcomeScreen: document.querySelector("#welcomeScreen"),
+  welcomeAddBottle: document.querySelector("#welcomeAddBottle"),
+  welcomeSignIn: document.querySelector("#welcomeSignIn"),
   usernameDialog: document.querySelector("#usernameDialog"),
   usernameInput: document.querySelector("#usernameInput"),
   usernameError: document.querySelector("#usernameError"),
@@ -1881,13 +1884,17 @@ if (auth) {
   els.signInButton.textContent = "Sign-in unavailable";
 }
 
-els.signInButton?.addEventListener("click", () => {
+function signInWithGoogle() {
   if (!auth) return;
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithPopup(provider).catch((error) => {
     console.error("Sign-in failed", error);
   });
-});
+}
+
+els.signInButton?.addEventListener("click", signInWithGoogle);
+els.welcomeSignIn?.addEventListener("click", signInWithGoogle);
+els.welcomeAddBottle?.addEventListener("click", () => openForm());
 
 els.signOutButton?.addEventListener("click", () => {
   auth?.signOut();
@@ -1956,7 +1963,14 @@ function visibleBottles() {
   });
 }
 
+function updateWelcomeVisibility() {
+  const showWelcome = !currentUser && bottles.length === 0;
+  els.welcomeScreen.classList.toggle("is-hidden", !showWelcome);
+  els.appShell.classList.toggle("is-hidden", showWelcome);
+}
+
 function render() {
+  updateWelcomeVisibility();
   const shown = visibleBottles();
   const collectionVisible = !["ai-tools", "pour-log", "dashboard", "friends"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);

@@ -4,9 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=37" />
+    <link rel="stylesheet" href="styles.css?v=38" />
   </head>
   <body>
+    <div class="welcome-screen is-hidden" id="welcomeScreen">
+      <div class="welcome-card">
+        <img
+          class="brand-mark"
+          src="assets/fully-involved-pour-logo.png"
+          alt="Fully Involved Pour logo"
+        />
+        <strong>Fully Involved Pour</strong>
+        <span>Where there's proof, there's fire.</span>
+        <p>
+          Track every bottle, every pour, and the ones that earn a permanent spot on your Core
+          Bar. Start in seconds &mdash; no account needed.
+        </p>
+        <div class="welcome-actions">
+          <button class="primary-action" id="welcomeAddBottle" type="button">Add Your First Bottle</button>
+          <button class="secondary-action" id="welcomeSignIn" type="button">Sign in with Google</button>
+        </div>
+        <p class="welcome-footnote">
+          Signing in syncs your collection across devices and unlocks following friends.
+        </p>
+      </div>
+    </div>
+
     <div class="app-shell" id="appShell">
       <header class="topbar" aria-label="Application header">
         <div class="brand">
@@ -766,6 +789,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="app.js?v=43"></script>
+    <script src="app.js?v=44"></script>
   </body>
 </html>

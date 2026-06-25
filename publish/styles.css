@@ -44,6 +44,80 @@ button {
   min-height: 100vh;
 }
 
+.app-shell.is-hidden {
+  display: none;
+}
+
+.welcome-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at top, rgba(215, 138, 54, 0.12), var(--charcoal) 60%);
+}
+
+.welcome-screen.is-hidden {
+  display: none;
+}
+
+.welcome-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  max-width: 400px;
+  padding: 32px 28px;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+}
+
+.welcome-card .brand-mark {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid rgba(215, 138, 54, 0.55);
+  background: rgba(215, 138, 54, 0.12);
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+}
+
+.welcome-card strong {
+  font-size: 1.15rem;
+}
+
+.welcome-card span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.welcome-card p {
+  margin: 8px 0 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.welcome-actions button {
+  width: 100%;
+}
+
+.welcome-footnote {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
 .auth-gate-note {
   color: #e1664f;
   font-size: 0.8rem;
