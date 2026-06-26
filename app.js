@@ -534,6 +534,51 @@ const distilleryProfiles = {
     founded: "1815",
     blurb: "Known for intensely peated, smoky single malt Scotch whisky.",
   },
+  "asw distillery": {
+    location: "Atlanta, Georgia",
+    founded: "2013",
+    blurb: "One of the South's pioneering craft distilleries, producing the Fiddler bourbon and Resurgens rye lines.",
+  },
+  "old fourth distillery": {
+    location: "Atlanta, Georgia",
+    founded: "2015",
+    blurb: "An Atlanta craft distillery making small-batch bourbon and rye in the Old Fourth Ward neighborhood.",
+  },
+  "cathead distillery": {
+    location: "Jackson, Mississippi",
+    founded: "2010",
+    blurb: "Mississippi's first legal distillery since Prohibition, known mainly for vodka and gin alongside its bourbon.",
+  },
+  "john emerald distilling co.": {
+    location: "Opelika, Alabama",
+    founded: "2014",
+    blurb: "A small Alabama distillery producing handcrafted bourbon and seasonal spirits.",
+  },
+  "donner-peltier distillers": {
+    location: "Thibodaux, Louisiana",
+    founded: "2012",
+    blurb: "A Louisiana distillery known for Oryza, a rye whiskey made with locally grown rice in the mash.",
+  },
+  "high wire distilling": {
+    location: "Charleston, South Carolina",
+    founded: "2013",
+    blurb: "A Charleston distillery reviving heirloom Southern grains like Jimmy Red corn for its whiskey.",
+  },
+  "defiant whisky": {
+    location: "Bostic, North Carolina",
+    founded: "2005",
+    blurb: "A North Carolina distillery producing an American single malt aged in the Blue Ridge foothills.",
+  },
+  "doc porter's distillery": {
+    location: "Charlotte, North Carolina",
+    founded: "2015",
+    blurb: "A Charlotte craft distillery making small-batch bourbon, rye, and vodka.",
+  },
+  "st. augustine distillery": {
+    location: "St. Augustine, Florida",
+    founded: "2014",
+    blurb: "Florida's oldest city's craft distillery, producing bourbon and rye finished in the Florida humidity.",
+  },
 };
 
 const distilleryDatabase = [
@@ -563,12 +608,16 @@ const distilleryDatabase = [
   "Bushmills",
   "Casey Jones",
   "Castle & Key",
+  "Cathead Distillery",
   "Chattanooga Whiskey",
   "Cooper's Craft",
   "Coppercraft",
   "Crown Royal",
   "Dalmore",
   "Deanston",
+  "Defiant Whisky",
+  "Doc Porter's Distillery",
+  "Donner-Peltier Distillers",
   "Edradour",
   "Elijah Craig",
   "El Tesoro",
@@ -586,12 +635,14 @@ const distilleryDatabase = [
   "Heaven Hill",
   "Herradura",
   "High West",
+  "High Wire Distilling",
   "Hillrock",
   "Jack Daniel's",
   "James E. Pepper",
   "Jameson",
   "Jefferson's",
   "Jim Beam",
+  "John Emerald Distilling Co.",
   "Johnnie Walker",
   "Jose Cuervo",
   "Kentucky Peerless",
@@ -611,6 +662,7 @@ const distilleryDatabase = [
   "New Riff",
   "Old Elk",
   "Old Forester",
+  "Old Fourth Distillery",
   "Old Grand-Dad",
   "Old Overholt",
   "Peerless",
@@ -625,6 +677,7 @@ const distilleryDatabase = [
   "Sazerac",
   "Smoke Wagon",
   "Smooth Ambler",
+  "St. Augustine Distillery",
   "Starlight",
   "Stranahan's",
   "Suntory",
@@ -1134,7 +1187,29 @@ const expressionLineupLibrary = [
   { name: "Nashville Barrel Company Rye", distillery: "Nashville Barrel Company", type: "Rye", region: "Tennessee", proof: 110, price: 80, flavors: ["mint", "spice", "oak", "citrus"] },
 ];
 
-aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary);
+const southernDistilleryLibrary = [
+  { name: "ASW Fiddler Bourbon", distillery: "ASW Distillery", type: "Bourbon", region: "Georgia", proof: 90, price: 40, flavors: ["caramel", "oak", "fruit", "spice"] },
+  { name: "ASW Resurgens Rye", distillery: "ASW Distillery", type: "Rye", region: "Georgia", proof: 92, price: 45, flavors: ["rye spice", "citrus", "oak", "honey"] },
+  { name: "Old Fourth Bourbon", distillery: "Old Fourth Distillery", type: "Bourbon", region: "Georgia", proof: 92, price: 45, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Old Fourth Rye", distillery: "Old Fourth Distillery", type: "Rye", region: "Georgia", proof: 96, price: 45, flavors: ["rye spice", "oak", "citrus", "pepper"] },
+
+  { name: "Cathead Bourbon", distillery: "Cathead Distillery", type: "Bourbon", region: "Mississippi", proof: 80, price: 30, flavors: ["corn", "caramel", "vanilla", "oak"] },
+
+  { name: "John Emerald Bourbon", distillery: "John Emerald Distilling Co.", type: "Bourbon", region: "Alabama", proof: 90, price: 40, flavors: ["caramel", "oak", "honey", "spice"] },
+
+  { name: "Oryza Rye Whiskey", distillery: "Donner-Peltier Distillers", type: "Rye", region: "Louisiana", proof: 90, price: 50, flavors: ["rice grain", "spice", "oak", "citrus"] },
+
+  { name: "High Wire New Southern Revival Bourbon", distillery: "High Wire Distilling", type: "Bourbon", region: "South Carolina", proof: 96, price: 50, flavors: ["corn", "caramel", "oak", "spice"] },
+  { name: "High Wire Jimmy Red Corn Whiskey", distillery: "High Wire Distilling", type: "American Whiskey", region: "South Carolina", proof: 90, price: 55, flavors: ["sweet corn", "oak", "spice", "honey"] },
+
+  { name: "Defiant American Single Malt", distillery: "Defiant Whisky", type: "American Whiskey", region: "North Carolina", proof: 90, price: 45, flavors: ["malt", "honey", "oak", "fruit"] },
+  { name: "Doc Porter's Bourbon", distillery: "Doc Porter's Distillery", type: "Bourbon", region: "North Carolina", proof: 90, price: 40, flavors: ["caramel", "oak", "vanilla", "spice"] },
+
+  { name: "St. Augustine Bourbon", distillery: "St. Augustine Distillery", type: "Bourbon", region: "Florida", proof: 80, price: 40, flavors: ["caramel", "oak", "vanilla", "honey"] },
+  { name: "St. Augustine New World Reserve Rye", distillery: "St. Augustine Distillery", type: "Rye", region: "Florida", proof: 90, price: 45, flavors: ["rye spice", "citrus", "oak", "honey"] },
+];
+
+aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary, ...southernDistilleryLibrary);
 const uniqueLibrary = new Map();
 aiBottleLibrary.forEach((bottle) => {
   uniqueLibrary.set(`${bottle.name}-${bottle.distillery}`.toLowerCase(), bottle);
