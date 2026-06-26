@@ -2714,9 +2714,12 @@ function renderPourLog() {
           const bottle = bottles.find((item) => item.id === pour.bottleId);
           return `
             <article class="pour-item">
-              <div>
-                <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
-                <span>${formatDate(pour.date)} · ${Number(pour.ounces || 0).toFixed(1)} oz · Rating ${numberOrDash(pour.rating)}</span>
+              <div class="pour-item-head">
+                <div>
+                  <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
+                  <span>${formatDate(pour.date)} · ${Number(pour.ounces || 0).toFixed(1)} oz · Rating ${numberOrDash(pour.rating)}</span>
+                </div>
+                <button class="icon-button" data-delete-pour="${escapeHtml(pour.id)}" type="button" aria-label="Delete pour">×</button>
               </div>
               <p>${escapeHtml(pour.occasion || "Pour session")}</p>
               <p>${escapeHtml(pour.notes || "No notes logged.")}</p>
@@ -2725,6 +2728,17 @@ function renderPourLog() {
         })
         .join("")
     : `<div class="empty-state">No pours logged yet. Hit "Log Pour" to start tracking your sessions.</div>`;
+
+  els.pourList.querySelectorAll("[data-delete-pour]").forEach((button) => {
+    button.addEventListener("click", () => deletePourEntry(button.dataset.deletePour));
+  });
+}
+
+function deletePourEntry(id) {
+  if (!confirm("Delete this pour entry?")) return;
+  pours = pours.filter((pour) => pour.id !== id);
+  persistPours();
+  render();
 }
 
 function openPourForm(selectedId = "") {

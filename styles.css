@@ -1556,6 +1556,20 @@ select {
   padding: 14px;
 }
 
+.pour-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pour-item-head .icon-button {
+  width: 30px;
+  height: 30px;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
 .pour-item strong,
 .pour-item span {
   display: block;
