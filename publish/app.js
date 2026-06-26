@@ -3576,6 +3576,7 @@ function clearBottleSuggestions() {
 async function saveBottle(event) {
   event.preventDefault();
   const id = fields.id.value || crypto.randomUUID();
+  const previousStatus = bottles.find((item) => item.id === id)?.status;
   const bottle = {
     id,
     name: fields.name.value.trim(),
@@ -3631,6 +3632,10 @@ async function saveBottle(event) {
   persist();
   els.bottleDialog.close();
   render();
+
+  if (bottle.status === "open" && previousStatus !== "open" && confirm("This bottle is now open. Log a pour now?")) {
+    openPourForm(id);
+  }
 }
 
 function deleteBottle() {
@@ -3643,9 +3648,11 @@ function deleteBottle() {
 }
 
 function toggleBottle(id) {
+  let justOpened = false;
   bottles = bottles.map((bottle) => {
     if (bottle.id !== id) return bottle;
     const nextStatus = bottle.status === "open" ? "sealed" : "open";
+    justOpened = nextStatus === "open";
     return {
       ...bottle,
       status: nextStatus,
@@ -3656,6 +3663,9 @@ function toggleBottle(id) {
   });
   persist();
   render();
+  if (justOpened && confirm("This bottle is now open. Log a pour now?")) {
+    openPourForm(id);
+  }
 }
 
 function exportCollection() {
