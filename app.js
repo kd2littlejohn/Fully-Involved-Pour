@@ -1222,6 +1222,7 @@ const els = {
   tastingScore: document.querySelector("#tastingScore"),
   generatedTastingNote: document.querySelector("#generatedTastingNote"),
   aiSuggestions: document.querySelector("#aiSuggestions"),
+  aiFillDistillery: document.querySelector("#aiFillDistillery"),
   assistantMessages: document.querySelector("#assistantMessages"),
   assistantPrompt: document.querySelector("#assistantPrompt"),
   assistantForm: document.querySelector("#assistantForm"),
@@ -1321,6 +1322,7 @@ els.pourForm.addEventListener("submit", savePour);
 els.deleteBottle.addEventListener("click", deleteBottle);
 document.querySelector("#buildTastingNote").addEventListener("click", buildGuidedTastingNote);
 document.querySelector("#aiTastingNote").addEventListener("click", generateAiTastingNote);
+els.aiFillDistillery.addEventListener("click", fillDistilleryWithAi);
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
@@ -3302,26 +3304,66 @@ async function runAiBottleLookup(query) {
   if (fields.name.value.trim() !== query) return;
   els.aiSuggestions.innerHTML = `<div class="ai-empty">✨ Asking AI about "${escapeHtml(query)}"...</div>`;
   try {
-    const callable = cloudFunctions.httpsCallable("lookupBottleInfo");
-    const result = await callable({ bottleName: query });
+    const info = await fetchAiBottleInfo(query);
     if (fields.name.value.trim() !== query) return;
-    const info = result.data || {};
     if (!info.known) {
       els.aiSuggestions.innerHTML = `<div class="ai-empty">No close match yet. Keep typing, or save it manually.</div>`;
       return;
     }
-    if (!fields.distillery.value.trim() && info.distillery) fields.distillery.value = info.distillery;
-    if (info.type) fields.type.value = info.type;
-    if (!fields.region.value.trim() && info.region) fields.region.value = info.region;
-    if (!fields.proof.value && info.proof) fields.proof.value = info.proof;
-    updateFormPhotoTools();
-    queueAutoFormPhotoSearch();
+    applyAiBottleInfo(info);
     els.aiSuggestions.innerHTML = `<div class="ai-empty">✨ AI filled in ${escapeHtml(info.distillery || "details")} for this bottle.</div>`;
   } catch (error) {
     console.error("AI bottle lookup failed", error);
     if (fields.name.value.trim() === query) {
       els.aiSuggestions.innerHTML = `<div class="ai-empty">No close match yet. Keep typing, or save it manually.</div>`;
     }
+  }
+}
+
+async function fetchAiBottleInfo(bottleName) {
+  const callable = cloudFunctions.httpsCallable("lookupBottleInfo");
+  const result = await callable({ bottleName });
+  return result.data || {};
+}
+
+function applyAiBottleInfo(info) {
+  if (!fields.distillery.value.trim() && info.distillery) fields.distillery.value = info.distillery;
+  if (info.type) fields.type.value = info.type;
+  if (!fields.region.value.trim() && info.region) fields.region.value = info.region;
+  if (!fields.proof.value && info.proof) fields.proof.value = info.proof;
+  updateFormPhotoTools();
+  queueAutoFormPhotoSearch();
+}
+
+async function fillDistilleryWithAi() {
+  const query = fields.name.value.trim();
+  if (query.length < 3) {
+    alert("Enter a bottle name first.");
+    return;
+  }
+  if (!currentUser || !cloudFunctions) {
+    alert("Sign in with Google to use AI auto-fill.");
+    return;
+  }
+
+  const button = els.aiFillDistillery;
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "...";
+  try {
+    const info = await fetchAiBottleInfo(query);
+    if (!info.known) {
+      els.aiSuggestions.innerHTML = `<div class="ai-empty">AI doesn't recognize "${escapeHtml(query)}". Fill in the details manually.</div>`;
+      return;
+    }
+    applyAiBottleInfo(info);
+    els.aiSuggestions.innerHTML = `<div class="ai-empty">✨ AI filled in ${escapeHtml(info.distillery || "details")} for this bottle.</div>`;
+  } catch (error) {
+    console.error("AI distillery fill failed", error);
+    els.aiSuggestions.innerHTML = `<div class="ai-empty">Could not reach the AI lookup. Try again.</div>`;
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
   }
 }
 

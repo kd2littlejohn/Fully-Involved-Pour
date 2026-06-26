@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=47" />
+    <link rel="stylesheet" href="styles.css?v=48" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -493,7 +493,10 @@
           </label>
           <label>
             Distillery
-            <input id="distillery" required placeholder="Buffalo Trace" list="distilleryOptions" />
+            <div class="field-with-action">
+              <input id="distillery" required placeholder="Buffalo Trace" list="distilleryOptions" />
+              <button class="field-ai-btn" id="aiFillDistillery" type="button" title="Auto-fill with AI">✨</button>
+            </div>
             <datalist id="distilleryOptions"></datalist>
           </label>
           <label>
@@ -777,6 +780,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=57"></script>
+    <script src="app.js?v=58"></script>
   </body>
 </html>
