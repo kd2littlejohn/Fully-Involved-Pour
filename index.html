@@ -652,7 +652,13 @@
             </div>
             <label>
               Priority
-              <input id="priority" type="number" min="1" max="5" step="1" placeholder="3" />
+              <select id="priority">
+                <option value="1">🔥 Must Try</option>
+                <option value="2">⭐ Highly Recommended</option>
+                <option value="3" selected>🥃 Solid Choice</option>
+                <option value="4">📦 Collection Piece</option>
+                <option value="5">⌛ Save for Later</option>
+              </select>
             </label>
           </div>
 
@@ -780,6 +786,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=59"></script>
+    <script src="app.js?v=60"></script>
   </body>
 </html>

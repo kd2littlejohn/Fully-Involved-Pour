@@ -3184,6 +3184,7 @@ function openBottleQuick(id) {
             <span>${labelBottleSize(bottle.bottleSize)}</span>
             <span>${labelCategory(bottle.category)}</span>
             <span>${labelPourStyle(bottle.pourStyle)}</span>
+            <span>${priorityLabel(bottle.priority)}</span>
           </div>
         </div>
       </div>
@@ -4039,6 +4040,16 @@ function labelPourTier(tier) {
     reserve: "Reserve Pour",
     vip: "VIP Pour",
   }[normalizePourTier(tier)];
+}
+
+function priorityLabel(priority) {
+  return {
+    1: "🔥 Must Try",
+    2: "⭐ Highly Recommended",
+    3: "🥃 Solid Choice",
+    4: "📦 Collection Piece",
+    5: "⌛ Save for Later",
+  }[Number(priority)] || "🥃 Solid Choice";
 }
 
 function formatDate(value) {
