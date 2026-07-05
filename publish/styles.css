@@ -2371,12 +2371,98 @@ textarea {
 
 @media (max-width: 640px) {
   .topbar {
-    gap: 10px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+  }
+
+  .brand {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .brand span {
+    display: none;
+  }
+
+  .brand strong {
+    font-size: 0.95rem;
+    white-space: nowrap;
   }
 
   .brand-mark {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .account-box {
+    order: 2;
+  }
+
+  #signInButton {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: 0.85rem;
+  }
+
+  .nav-list {
+    order: 3;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .inventory-overview {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+  }
+
+  .inventory-overview h2 {
+    margin-top: 0;
+    font-size: 1.25rem;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .search-field,
+  .segmented.compact-filter {
+    grid-column: 1 / -1;
+  }
+
+  .segmented.compact-filter button {
+    flex: 1;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stats-grid article {
+    padding: 12px 14px;
+  }
+
+  .stats-grid strong {
+    font-size: 1.35rem;
   }
 
   .hero,
@@ -2420,7 +2506,6 @@ textarea {
     overflow-x: auto;
   }
 
-  .stats-grid,
   .pour-stats,
   .form-grid,
   .library-item,
@@ -2447,5 +2532,11 @@ textarea {
 
   .photo-source-links.is-compact {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 430px) {
+  .brand > div {
+    display: none;
   }
 }
