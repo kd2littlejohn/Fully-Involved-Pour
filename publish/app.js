@@ -1323,6 +1323,7 @@ const els = {
   accountName: document.querySelector("#accountName"),
   appShell: document.querySelector("#appShell"),
   welcomeScreen: document.querySelector("#welcomeScreen"),
+  hero: document.querySelector(".hero"),
   welcomeAddBottle: document.querySelector("#welcomeAddBottle"),
   welcomeSignIn: document.querySelector("#welcomeSignIn"),
   usernameDialog: document.querySelector("#usernameDialog"),
@@ -2101,6 +2102,7 @@ function updateWelcomeVisibility() {
 function render() {
   updateWelcomeVisibility();
   const shown = visibleBottles();
+  els.hero.classList.toggle("is-hidden", bottles.length > 0);
   const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
@@ -2243,21 +2245,8 @@ function renderCards(shown) {
           <div class="flavor-row">
             ${bottle.flavors.slice(0, 4).map((flavor) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")}
           </div>
-          <div class="bottle-radar">
-            ${renderBottleFlavorRadar(bottle)}
-          </div>
           <p>${escapeHtml(bottle.notes || "No notes yet.")}</p>
-          <div class="shelf-line">
-            <span>${escapeHtml(bottle.shelf || "Main bar")}</span>
-            <span>${labelFillLevel(bottle.fillLevel)}</span>
-            <span>Qty ${Number(bottle.quantity || 1)}</span>
-            <span>${labelBottleSize(bottle.bottleSize)}</span>
-            ${bottle.ageStatement ? `<span>${escapeHtml(bottle.ageStatement)}</span>` : ""}
-            ${bottle.storeLocation ? `<span>${escapeHtml(bottle.storeLocation)}</span>` : ""}
-            <span>${labelCategory(bottle.category)}</span>
-            <span>${labelPourStyle(bottle.pourStyle)}</span>
-            <span>${labelPourTier(bottle.pourTier)}</span>
-          </div>
+          ${renderCardChips(bottle)}
           <div class="bottle-meta">
             <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
             <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
@@ -2273,6 +2262,24 @@ function renderCards(shown) {
     .join("");
 
   bindBottleActions();
+}
+
+function renderCardChips(bottle) {
+  const chips = [];
+  if ((bottle.shelf || "Main bar") !== "Main bar") chips.push(escapeHtml(bottle.shelf));
+  if ((bottle.fillLevel || "full") !== "full") {
+    const fill = labelFillLevel(bottle.fillLevel);
+    chips.push(/^\d/.test(fill) ? `${fill} full` : fill);
+  }
+  if (Number(bottle.quantity || 1) > 1) chips.push(`Qty ${Number(bottle.quantity)}`);
+  if (Number(bottle.bottleSize || 750) !== 750) chips.push(labelBottleSize(bottle.bottleSize));
+  if (bottle.ageStatement) chips.push(escapeHtml(bottle.ageStatement));
+  if (bottle.storeLocation) chips.push(escapeHtml(bottle.storeLocation));
+  if ((bottle.category || "daily") !== "daily") chips.push(labelCategory(bottle.category));
+  if ((bottle.pourStyle || "daily") !== "daily") chips.push(labelPourStyle(bottle.pourStyle));
+  if (normalizePourTier(bottle.pourTier) !== "crowd") chips.push(labelPourTier(bottle.pourTier));
+  if (!chips.length) return "";
+  return `<div class="shelf-line">${chips.map((chip) => `<span>${chip}</span>`).join("")}</div>`;
 }
 
 function bindBottleActions() {
