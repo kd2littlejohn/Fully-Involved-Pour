@@ -1077,6 +1077,35 @@ select {
   padding-top: 34px;
 }
 
+.fav-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: color 0.15s, transform 0.15s;
+  z-index: 2;
+}
+
+.fav-btn:hover {
+  color: #e05a7a;
+  transform: scale(1.2);
+}
+
+.fav-btn.is-fav {
+  color: #e05a7a;
+}
+
+.bottle-card.favorite-card {
+  border-color: rgba(224, 90, 122, 0.45);
+}
+
 .core-bar-banner {
   margin: 8px 0;
   padding: 8px 12px;

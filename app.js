@@ -709,6 +709,7 @@ function normalizeBottle(bottle) {
     ageStatement: "",
     storeLocation: "",
     coreBar: false,
+    favorite: false,
     priority: 3,
     rating: 0,
     price: 0,
@@ -1485,6 +1486,7 @@ document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.add("is-active");
     const viewFilters = {
       wishlist: "wishlist",
+      favorites: "favorites",
       "core-bar": "core-bar",
       "buy-next": "buy-next",
       opened: "open",
@@ -2059,7 +2061,8 @@ function visibleBottles() {
       (activeFilter === "owned" && !["wishlist", "buy-next"].includes(bottle.status)) ||
       (activeFilter === "finished" && (bottle.status === "finished" || bottle.fillLevel === "empty")) ||
       bottle.status === activeFilter ||
-      (activeFilter === "core-bar" && bottle.coreBar);
+      (activeFilter === "core-bar" && bottle.coreBar) ||
+      (activeFilter === "favorites" && bottle.favorite);
     const matchesCategory = activeCategory === "all" || bottle.category === activeCategory;
     const matchesPour = activePourStyle === "all" || bottle.pourStyle === activePourStyle;
     const matchesProof = activeProofBand === "all" || proofBandFor(bottle.proof) === activeProofBand;
@@ -2163,7 +2166,9 @@ function renderCards(shown) {
   els.bottleGrid.classList.toggle("quick-view", quickView);
 
   if (!shown.length) {
-    els.bottleGrid.innerHTML = bottles.length
+    els.bottleGrid.innerHTML = activeFilter === "favorites"
+      ? `<div class="empty-state">No favorites yet. Hit the ♥ on any bottle card to add it here.</div>`
+      : bottles.length
       ? `<div class="empty-state">No bottles match the current search and filters.</div>`
       : `
         <div class="empty-state first-run-nudge">
@@ -2223,7 +2228,8 @@ function renderCards(shown) {
   els.bottleGrid.innerHTML = shown
     .map(
       (bottle) => `
-        <article class="bottle-card${bottle.coreBar ? " core-bar-card" : ""}" data-quick="${bottle.id}">
+        <article class="bottle-card${bottle.coreBar ? " core-bar-card" : ""}${bottle.favorite ? " favorite-card" : ""}" data-quick="${bottle.id}">
+          <button class="fav-btn${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" title="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>
           ${bottle.coreBar ? `<div class="core-bar-ribbon">🔥 Core Bar · ${bottle.coreBarScore ?? ""}</div>` : ""}
           <div class="bottle-top">
             <img class="bottle-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
@@ -2287,6 +2293,21 @@ function bindBottleActions() {
       toggleBottle(button.dataset.toggle);
     });
   });
+
+  document.querySelectorAll("[data-favorite]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleFavorite(button.dataset.favorite);
+    });
+  });
+}
+
+function toggleFavorite(id) {
+  bottles = bottles.map((bottle) =>
+    bottle.id === id ? { ...bottle, favorite: !bottle.favorite } : bottle
+  );
+  persist();
+  render();
 }
 
 function openLibrary() {
