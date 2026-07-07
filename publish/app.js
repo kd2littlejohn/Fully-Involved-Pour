@@ -3693,19 +3693,16 @@ async function uploadBottlePhoto(event) {
 
   els.formPhotoName.textContent = "Processing photo...";
   try {
-    let displayFile = file;
-    if (isHeicFile(file) && window.heic2any) {
-      const converted = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
-      displayFile = Array.isArray(converted) ? converted[0] : converted;
-    }
+    const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true });
 
     let photoUrl;
     if (currentUser && storage) {
       els.formPhotoName.textContent = "Uploading photo...";
+      const blob = await (await fetch(dataUrl)).blob();
       const path = `bottle-photos/${currentUser.uid}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.jpg`;
-      photoUrl = await uploadFileToStorage(displayFile, path);
+      photoUrl = await uploadFileToStorage(blob, path);
     } else {
-      photoUrl = await readFileAsDataUrl(displayFile);
+      photoUrl = dataUrl;
     }
 
     fields.imageUrl.value = photoUrl;
@@ -3719,7 +3716,48 @@ async function uploadBottlePhoto(event) {
   }
 }
 
-async function downscaleImageToJpeg(file, maxDim = 1024) {
+let brandLogoPromise;
+
+function loadBrandLogo() {
+  if (!brandLogoPromise) {
+    brandLogoPromise = new Promise((resolve) => {
+      const img = new Image();
+      img.addEventListener("load", () => resolve(img));
+      img.addEventListener("error", () => resolve(null));
+      img.src = "assets/logo-badge-512.png";
+    });
+  }
+  return brandLogoPromise;
+}
+
+async function stampBrandLogo(canvas) {
+  const logo = await loadBrandLogo();
+  if (!logo) return;
+  const ctx = canvas.getContext("2d");
+  const size = Math.round(Math.min(canvas.width, canvas.height) * 0.18);
+  const margin = Math.round(size * 0.2);
+  const cx = canvas.width - size / 2 - margin;
+  const cy = canvas.height - size / 2 - margin;
+
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(logo, cx - size / 2, cy - size / 2, size, size);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.strokeStyle = "rgba(215, 138, 54, 0.9)";
+  ctx.lineWidth = Math.max(2, size * 0.025);
+  ctx.beginPath();
+  ctx.arc(cx, cy, size / 2 - ctx.lineWidth / 2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+async function downscaleImageToJpeg(file, maxDim = 1024, { stamp = false } = {}) {
   let sourceFile = file;
   if (isHeicFile(file) && window.heic2any) {
     const converted = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
@@ -3737,6 +3775,7 @@ async function downscaleImageToJpeg(file, maxDim = 1024) {
   canvas.width = Math.round(image.width * scale);
   canvas.height = Math.round(image.height * scale);
   canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  if (stamp) await stampBrandLogo(canvas);
   const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
   return { dataUrl: jpegDataUrl, base64: jpegDataUrl.split(",")[1] };
 }
@@ -3755,7 +3794,7 @@ async function scanBottleLabel(event) {
   els.scanLabelAction.classList.add("is-busy");
   els.scanLabelText.textContent = "Reading label...";
   try {
-    const { dataUrl, base64 } = await downscaleImageToJpeg(file);
+    const { base64 } = await downscaleImageToJpeg(file);
     const callable = cloudFunctions.httpsCallable("scanBottleLabel");
     const result = await callable({ imageBase64: base64, mediaType: "image/jpeg" });
     const info = result.data || {};
@@ -3774,12 +3813,13 @@ async function scanBottleLabel(event) {
 
     if (!fields.imageUrl.value.trim()) {
       try {
+        const { dataUrl: stampedUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true });
         if (storage) {
-          const blob = await (await fetch(dataUrl)).blob();
+          const blob = await (await fetch(stampedUrl)).blob();
           const path = `bottle-photos/${currentUser.uid}/${Date.now()}-label-scan.jpg`;
           fields.imageUrl.value = await uploadFileToStorage(blob, path);
         } else {
-          fields.imageUrl.value = dataUrl;
+          fields.imageUrl.value = stampedUrl;
         }
       } catch (photoError) {
         console.error("Label photo save failed", photoError);
