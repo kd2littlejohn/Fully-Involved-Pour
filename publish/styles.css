@@ -487,6 +487,135 @@ label {
   pointer-events: none;
 }
 
+.view-banner {
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--amber);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.view-core-bar .view-banner {
+  border-left-color: var(--copper);
+  background: linear-gradient(90deg, rgba(215, 138, 54, 0.16), rgba(182, 93, 52, 0.05) 70%, transparent);
+  color: #ffd3a5;
+}
+
+.view-core-bar .section-heading p {
+  color: var(--copper);
+}
+
+.view-buy-next .view-banner {
+  border-left-color: var(--sage);
+  background: linear-gradient(90deg, rgba(142, 169, 141, 0.16), transparent 75%);
+  color: #c4d8c3;
+}
+
+.view-buy-next .section-heading p {
+  color: var(--sage);
+}
+
+.view-wishlist .view-banner {
+  border-left-color: var(--plum);
+  background: linear-gradient(90deg, rgba(154, 107, 134, 0.18), transparent 75%);
+  color: #d9b8cb;
+}
+
+.view-wishlist .section-heading p {
+  color: var(--plum);
+}
+
+.view-wishlist .bottle-card {
+  border-style: dashed;
+}
+
+.view-favorites .view-banner {
+  border-left-color: #d9536f;
+  background: linear-gradient(90deg, rgba(217, 83, 111, 0.14), transparent 75%);
+  color: #eeaebc;
+}
+
+.view-favorites .section-heading p {
+  color: #d9536f;
+}
+
+.buy-next-suggest {
+  margin-bottom: 18px;
+  padding: 14px 16px 16px;
+  border: 1px solid rgba(142, 169, 141, 0.4);
+  border-radius: var(--radius);
+  background: rgba(142, 169, 141, 0.07);
+}
+
+.suggest-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.suggest-head span {
+  color: var(--sage);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.suggest-head em {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: normal;
+}
+
+.suggest-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.suggest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.suggest-card {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.suggest-card h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.suggest-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.suggest-card em {
+  color: var(--sage);
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.suggest-card button {
+  margin-top: 4px;
+  min-height: 36px;
+  font-size: 0.82rem;
+}
+
 .toolbar,
 .inventory-overview,
 .stats-grid,

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fully Involved Pour</title>
-    <link rel="stylesheet" href="styles.css?v=52" />
+    <link rel="stylesheet" href="styles.css?v=53" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -257,11 +257,13 @@
           <div class="bottle-section" id="collectionView">
             <div class="section-heading">
               <div>
-                <p>Inventory</p>
-                <h2>Your cabinet</h2>
+                <p id="viewEyebrow">Inventory</p>
+                <h2 id="viewTitle">Your cabinet</h2>
               </div>
               <span id="resultCount">0 shown</span>
             </div>
+            <div class="view-banner is-hidden" id="viewBanner"></div>
+            <div class="buy-next-suggest is-hidden" id="buyNextSuggest"></div>
             <div class="bottle-grid" id="bottleGrid"></div>
           </div>
         </section>
@@ -794,6 +796,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=64"></script>
+    <script src="app.js?v=65"></script>
   </body>
 </html>

@@ -1273,6 +1273,10 @@ const els = {
   formTitle: document.querySelector("#formTitle"),
   deleteBottle: document.querySelector("#deleteBottle"),
   collectionView: document.querySelector("#collectionView"),
+  viewEyebrow: document.querySelector("#viewEyebrow"),
+  viewTitle: document.querySelector("#viewTitle"),
+  viewBanner: document.querySelector("#viewBanner"),
+  buyNextSuggest: document.querySelector("#buyNextSuggest"),
   dashboardView: document.querySelector("#dashboardView"),
   tastingView: document.querySelector("#tastingView"),
   aiToolsView: document.querySelector("#aiToolsView"),
@@ -2103,10 +2107,51 @@ function updateWelcomeVisibility() {
   els.appShell.classList.toggle("is-hidden", showWelcome);
 }
 
+const VIEW_META = {
+  collection: { eyebrow: "Inventory", title: "Your cabinet", theme: "", banner: "" },
+  favorites: {
+    eyebrow: "Favorites",
+    title: "Bottles you love",
+    theme: "view-favorites",
+    banner: "♥ Your most-loved pours, all in one place.",
+  },
+  "core-bar": {
+    eyebrow: "Core Bar",
+    title: "Earned the Core Bar 🔥",
+    theme: "view-core-bar",
+    banner: "🔥 The proven shelf. Bottles earn their spot with a Core Bar Score of 65+ from ratings, pours, and rebuys.",
+  },
+  "buy-next": {
+    eyebrow: "Buy Next",
+    title: "On the hunt 🎯",
+    theme: "view-buy-next",
+    banner: "🎯 Your shopping shortlist — plus picks suggested from what you already pour.",
+  },
+  wishlist: {
+    eyebrow: "Wish List",
+    title: "Someday bottles ☆",
+    theme: "view-wishlist",
+    banner: "☆ Dream drams and unicorns. No pressure, just aspiration.",
+  },
+  opened: { eyebrow: "Opened", title: "Open bottles", theme: "", banner: "" },
+  finished: { eyebrow: "Finished", title: "Finished bottles", theme: "", banner: "" },
+};
+
+function applyViewIdentity() {
+  const meta = VIEW_META[activeView] || VIEW_META.collection;
+  els.viewEyebrow.textContent = meta.eyebrow;
+  els.viewTitle.textContent = meta.title;
+  els.collectionView.className = `bottle-section ${meta.theme}`.trim();
+  els.viewBanner.textContent = meta.banner;
+  els.viewBanner.classList.toggle("is-hidden", !meta.banner);
+}
+
 function render() {
   updateWelcomeVisibility();
   const shown = visibleBottles();
   els.hero.classList.toggle("is-hidden", bottles.length > 0);
+  applyViewIdentity();
+  renderBuyNextSuggestions();
   const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
@@ -2266,6 +2311,111 @@ function renderCards(shown) {
     .join("");
 
   bindBottleActions();
+}
+
+let buyNextPicks = [];
+
+function computeBuyNextSuggestions() {
+  const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+  if (!owned.length) return [];
+
+  const haveNames = new Set(bottles.map((bottle) => bottle.name.toLowerCase()));
+  const distilleryCount = {};
+  const flavorCount = {};
+  const typeCount = {};
+  owned.forEach((bottle) => {
+    distilleryCount[bottle.distillery] = (distilleryCount[bottle.distillery] || 0) + 1;
+    typeCount[bottle.type] = (typeCount[bottle.type] || 0) + 1;
+    (bottle.flavors || []).forEach((flavor) => {
+      flavorCount[flavor] = (flavorCount[flavor] || 0) + 1;
+    });
+  });
+
+  const perDistillery = {};
+  return aiBottleLibrary
+    .filter((candidate) => !haveNames.has(candidate.name.toLowerCase()))
+    .map((candidate) => {
+      let score = 0;
+      const reasons = [];
+      const fromSame = distilleryCount[candidate.distillery] || 0;
+      if (fromSame) {
+        score += Math.min(fromSame, 3) * 12;
+        reasons.push(`you own ${fromSame} bottle${fromSame === 1 ? "" : "s"} from ${candidate.distillery}`);
+      }
+      const overlap = (candidate.flavors || []).filter((flavor) => flavorCount[flavor]);
+      if (overlap.length) {
+        score += overlap.length * 8;
+        reasons.push(`matches your ${overlap.slice(0, 2).join(" & ")} profile`);
+      }
+      if (typeCount[candidate.type]) score += 4;
+      return { ...candidate, score, reason: reasons[0] || "" };
+    })
+    .filter((candidate) => candidate.score >= 12)
+    .sort((a, b) => b.score - a.score)
+    .filter((candidate) => {
+      perDistillery[candidate.distillery] = (perDistillery[candidate.distillery] || 0) + 1;
+      return perDistillery[candidate.distillery] <= 2;
+    })
+    .slice(0, 6);
+}
+
+function renderBuyNextSuggestions() {
+  if (activeView !== "buy-next") {
+    els.buyNextSuggest.classList.add("is-hidden");
+    els.buyNextSuggest.innerHTML = "";
+    return;
+  }
+
+  buyNextPicks = computeBuyNextSuggestions();
+  els.buyNextSuggest.classList.remove("is-hidden");
+
+  if (!buyNextPicks.length) {
+    els.buyNextSuggest.innerHTML = `
+      <div class="suggest-head"><span>Suggested for you</span></div>
+      <p class="suggest-empty">Add a few bottles to your inventory and suggestions based on what you pour will show up here.</p>
+    `;
+    return;
+  }
+
+  els.buyNextSuggest.innerHTML = `
+    <div class="suggest-head"><span>Suggested for you</span><em>based on your inventory</em></div>
+    <div class="suggest-grid">
+      ${buyNextPicks
+        .map(
+          (pick, index) => `
+            <article class="suggest-card">
+              <h4>${escapeHtml(pick.name)}</h4>
+              <p>${escapeHtml(pick.distillery)} · ${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof${pick.price ? ` · ~${money(pick.price)}` : ""}</p>
+              ${pick.reason ? `<em>Because ${escapeHtml(pick.reason)}</em>` : ""}
+              <button class="secondary-action" type="button" data-suggest-add="${index}">＋ Add to Buy Next</button>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+
+  els.buyNextSuggest.querySelectorAll("[data-suggest-add]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const pick = buyNextPicks[Number(button.dataset.suggestAdd)];
+      if (!pick) return;
+      const bottle = normalizeBottle({
+        id: crypto.randomUUID(),
+        name: pick.name,
+        distillery: pick.distillery,
+        type: pick.type,
+        region: pick.region || "",
+        proof: pick.proof || 0,
+        price: pick.price || 0,
+        msrp: pick.price || 0,
+        flavors: pick.flavors || [],
+        status: "buy-next",
+      });
+      bottles = [bottle, ...bottles];
+      persist();
+      render();
+    });
+  });
 }
 
 function renderCardChips(bottle) {
