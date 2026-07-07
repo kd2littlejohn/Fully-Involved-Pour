@@ -4,7 +4,7 @@ const { defineSecret } = require("firebase-functions/params");
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
-async function callClaude(apiKey, { system, prompt, maxTokens }) {
+async function callClaude(apiKey, { system, prompt, maxTokens, content }) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -16,7 +16,7 @@ async function callClaude(apiKey, { system, prompt, maxTokens }) {
       model: ANTHROPIC_MODEL,
       max_tokens: maxTokens || 400,
       system,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: content || prompt }],
     }),
   });
 
@@ -114,3 +114,61 @@ exports.generateTastingProfile = onCall({ secrets: [anthropicApiKey], cors: true
     flavors: Array.isArray(parsed.flavors) ? parsed.flavors.map((flavor) => String(flavor).toLowerCase()).slice(0, 6) : [],
   };
 });
+
+exports.scanBottleLabel = onCall(
+  { secrets: [anthropicApiKey], cors: true, memory: "512MiB" },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in to scan bottle labels.");
+    }
+
+    const imageBase64 = String(request.data?.imageBase64 || "");
+    const mediaType = String(request.data?.mediaType || "image/jpeg");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(mediaType)) {
+      throw new HttpsError("invalid-argument", "Unsupported image type.");
+    }
+    if (imageBase64.length < 100) {
+      throw new HttpsError("invalid-argument", "A label photo is required.");
+    }
+    if (imageBase64.length > 7000000) {
+      throw new HttpsError("invalid-argument", "Photo is too large. Try a smaller photo.");
+    }
+
+    const system = `You read whiskey and spirits bottle labels from photos. Extract only what you can actually read on the label or confidently identify from the bottle's distinctive appearance. Never guess or invent details that are not visible or certain. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"found": true or false, "name": "full bottle/expression name", "distillery": "producer or distillery", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "state or country if determinable", "proof": number or 0, "ageStatement": "e.g. 10 Year or empty string", "msrp": typical retail price in USD as a number or 0}
+Set "found" to false if the image does not clearly show a spirits bottle label. For msrp, only include it if this is a well-known bottle whose typical retail price you know; otherwise 0.`;
+
+    const raw = await callClaude(anthropicApiKey.value(), {
+      system,
+      maxTokens: 300,
+      content: [
+        {
+          type: "image",
+          source: { type: "base64", media_type: mediaType, data: imageBase64 },
+        },
+        { type: "text", text: "Extract the bottle details from this label photo." },
+      ],
+    });
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+    } catch (error) {
+      console.error("Failed to parse label scan JSON", raw);
+      return { found: false };
+    }
+
+    if (!parsed.found) return { found: false };
+
+    return {
+      found: true,
+      name: String(parsed.name || ""),
+      distillery: String(parsed.distillery || ""),
+      type: String(parsed.type || ""),
+      region: String(parsed.region || ""),
+      proof: Number(parsed.proof || 0),
+      ageStatement: String(parsed.ageStatement || ""),
+      msrp: Number(parsed.msrp || 0),
+    };
+  },
+);

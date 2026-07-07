@@ -1299,6 +1299,9 @@ const els = {
   generatedTastingNote: document.querySelector("#generatedTastingNote"),
   aiSuggestions: document.querySelector("#aiSuggestions"),
   aiFillDistillery: document.querySelector("#aiFillDistillery"),
+  scanLabelAction: document.querySelector("#scanLabelAction"),
+  scanLabelText: document.querySelector("#scanLabelText"),
+  labelScanInput: document.querySelector("#labelScanInput"),
   assistantMessages: document.querySelector("#assistantMessages"),
   assistantPrompt: document.querySelector("#assistantPrompt"),
   assistantForm: document.querySelector("#assistantForm"),
@@ -1438,6 +1441,7 @@ fields.distillery.addEventListener("input", () => {
 });
 fields.imageUrl.addEventListener("input", updateFormPhotoTools);
 els.photoUpload.addEventListener("change", uploadBottlePhoto);
+els.labelScanInput.addEventListener("change", scanBottleLabel);
 document.querySelector("#autoFindPhoto").addEventListener("click", autoFindFormPhoto);
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".name-field")) {
@@ -3712,6 +3716,85 @@ async function uploadBottlePhoto(event) {
     els.formPhotoName.textContent = "Could not process that photo. Try a different file.";
   } finally {
     event.target.value = "";
+  }
+}
+
+async function downscaleImageToJpeg(file, maxDim = 1024) {
+  let sourceFile = file;
+  if (isHeicFile(file) && window.heic2any) {
+    const converted = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    sourceFile = Array.isArray(converted) ? converted[0] : converted;
+  }
+  const dataUrl = await readFileAsDataUrl(sourceFile);
+  const image = await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.addEventListener("load", () => resolve(img));
+    img.addEventListener("error", () => reject(new Error("Could not read image")));
+    img.src = dataUrl;
+  });
+  const scale = Math.min(1, maxDim / Math.max(image.width, image.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(image.width * scale);
+  canvas.height = Math.round(image.height * scale);
+  canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  return { dataUrl: jpegDataUrl, base64: jpegDataUrl.split(",")[1] };
+}
+
+async function scanBottleLabel(event) {
+  const [file] = event.target.files;
+  if (!file) return;
+  event.target.value = "";
+
+  if (!currentUser || !cloudFunctions) {
+    alert("Sign in with Google to scan labels with AI.");
+    return;
+  }
+
+  const originalText = els.scanLabelText.textContent;
+  els.scanLabelAction.classList.add("is-busy");
+  els.scanLabelText.textContent = "Reading label...";
+  try {
+    const { dataUrl, base64 } = await downscaleImageToJpeg(file);
+    const callable = cloudFunctions.httpsCallable("scanBottleLabel");
+    const result = await callable({ imageBase64: base64, mediaType: "image/jpeg" });
+    const info = result.data || {};
+    if (!info.found) {
+      els.aiSuggestions.innerHTML = `<div class="ai-empty">Couldn't read a bottle label in that photo. Try a clearer, closer shot.</div>`;
+      return;
+    }
+
+    if (!fields.name.value.trim() && info.name) fields.name.value = info.name;
+    if (!fields.distillery.value.trim() && info.distillery) fields.distillery.value = info.distillery;
+    if (info.type) fields.type.value = info.type;
+    if (!fields.region.value.trim() && info.region) fields.region.value = info.region;
+    if (!fields.proof.value && info.proof) fields.proof.value = info.proof;
+    if (!fields.ageStatement.value.trim() && info.ageStatement) fields.ageStatement.value = info.ageStatement;
+    if (!fields.msrp.value && info.msrp) fields.msrp.value = info.msrp;
+
+    if (!fields.imageUrl.value.trim()) {
+      try {
+        if (storage) {
+          const blob = await (await fetch(dataUrl)).blob();
+          const path = `bottle-photos/${currentUser.uid}/${Date.now()}-label-scan.jpg`;
+          fields.imageUrl.value = await uploadFileToStorage(blob, path);
+        } else {
+          fields.imageUrl.value = dataUrl;
+        }
+      } catch (photoError) {
+        console.error("Label photo save failed", photoError);
+      }
+    }
+
+    applyMashBillSuggestion();
+    updateFormPhotoTools();
+    els.aiSuggestions.innerHTML = `<div class="ai-empty">📷✨ Read the label: ${escapeHtml(info.name || "bottle")}${info.distillery ? ` — ${escapeHtml(info.distillery)}` : ""}. Check the details and save.</div>`;
+  } catch (error) {
+    console.error("Label scan failed", error);
+    els.aiSuggestions.innerHTML = `<div class="ai-empty">Label scan failed. Check your connection and try again.</div>`;
+  } finally {
+    els.scanLabelAction.classList.remove("is-busy");
+    els.scanLabelText.textContent = originalText;
   }
 }
 

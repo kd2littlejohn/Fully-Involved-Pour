@@ -458,6 +458,35 @@ label {
   cursor: not-allowed;
 }
 
+.scan-label-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  margin-bottom: 14px;
+  padding: 0 16px;
+  border: 1px dashed rgba(215, 138, 54, 0.6);
+  border-radius: var(--radius);
+  background: rgba(215, 138, 54, 0.08);
+  color: var(--amber);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.scan-label-action:hover {
+  background: rgba(215, 138, 54, 0.16);
+}
+
+.scan-label-action input {
+  display: none;
+}
+
+.scan-label-action.is-busy {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
 .toolbar,
 .inventory-overview,
 .stats-grid,
