@@ -2152,6 +2152,10 @@ function render() {
   els.hero.classList.toggle("is-hidden", bottles.length > 0);
   applyViewIdentity();
   renderBuyNextSuggestions();
+  const inventoryToolsVisible = ["collection", "opened", "finished"].includes(activeView);
+  document
+    .querySelectorAll(".inventory-overview, .toolbar, .filter-shell, .stats-grid")
+    .forEach((section) => section.classList.toggle("is-hidden", !inventoryToolsVisible));
   const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
@@ -2217,8 +2221,15 @@ function renderCards(shown) {
   els.bottleGrid.classList.toggle("quick-view", quickView);
 
   if (!shown.length) {
-    els.bottleGrid.innerHTML = activeFilter === "favorites"
-      ? `<div class="empty-state">No favorites yet. Hit the ♥ on any bottle card to add it here.</div>`
+    const viewEmptyMessages = {
+      favorites: "No favorites yet. Hit the ♥ on any bottle card to add it here.",
+      "core-bar": "No bottles have earned the Core Bar yet. Rate, pour, and rebuy — the ones that prove themselves show up here.",
+      wishlist: "Your wish list is empty. Add a bottle with status Wish List to start the hunt.",
+      "buy-next": "Nothing on the shortlist yet. Add bottles with status Buy Next, or grab a suggestion above.",
+    };
+    const viewEmpty = viewEmptyMessages[activeView];
+    els.bottleGrid.innerHTML = viewEmpty
+      ? `<div class="empty-state">${viewEmpty}</div>`
       : bottles.length
       ? `<div class="empty-state">No bottles match the current search and filters.</div>`
       : `
