@@ -134,9 +134,9 @@ exports.scanBottleLabel = onCall(
       throw new HttpsError("invalid-argument", "Photo is too large. Try a smaller photo.");
     }
 
-    const system = `You read whiskey and spirits bottle labels from photos. Extract only what you can actually read on the label or confidently identify from the bottle's distinctive appearance. Never guess or invent details that are not visible or certain. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+    const system = `You identify whiskey and spirits bottles from photos. The photo may show a full bottle, a partial label, a bottle on a shelf, or a close-up -- work with whatever is visible. Combine what you can read on the label with your knowledge of well-known bottles to fill in the details. Do not invent details for bottles you cannot identify. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
 {"found": true or false, "name": "full bottle/expression name", "distillery": "producer or distillery", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "state or country if determinable", "proof": number or 0, "ageStatement": "e.g. 10 Year or empty string", "msrp": typical retail price in USD as a number or 0}
-Set "found" to false if the image does not clearly show a spirits bottle label. For msrp, only include it if this is a well-known bottle whose typical retail price you know; otherwise 0.`;
+Set "found" to false ONLY if no spirits bottle is visible in the image at all. If a bottle is visible but some details are unreadable or unknown, still set "found" to true, fill in what you can, and leave unknown text fields as empty strings and unknown numbers as 0. For msrp, only include it if this is a well-known bottle whose typical retail price you know; otherwise 0.`;
 
     const raw = await callClaude(anthropicApiKey.value(), {
       system,
@@ -157,6 +157,8 @@ Set "found" to false if the image does not clearly show a spirits bottle label. 
       console.error("Failed to parse label scan JSON", raw);
       return { found: false };
     }
+
+    console.log("Label scan result", JSON.stringify({ imageKb: Math.round(imageBase64.length / 1365), ...parsed }));
 
     if (!parsed.found) return { found: false };
 
