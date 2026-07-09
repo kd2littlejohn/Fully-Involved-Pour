@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=54" />
+    <link rel="stylesheet" href="styles.css?v=55" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -809,6 +809,18 @@
       </form>
     </dialog>
 
+    <div class="install-banner is-hidden" id="installBanner" role="dialog" aria-label="Install app">
+      <img src="assets/logo-badge-192.png" alt="" />
+      <div class="install-copy">
+        <strong>Install Fully Involved Pour</strong>
+        <span id="installHint">Add it to your home screen for the full-screen app.</span>
+      </div>
+      <div class="install-actions">
+        <button class="primary-action" id="installAccept" type="button">Install</button>
+        <button class="icon-button" id="installDismiss" type="button" aria-label="Dismiss">×</button>
+      </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -817,11 +829,83 @@
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="app.js?v=67"></script>
     <script>
+      // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
+        // Already-controlled means a SW was running before this load, so a swap is an update.
+        const wasControlled = Boolean(navigator.serviceWorker.controller);
         window.addEventListener("load", () => {
           navigator.serviceWorker.register("sw.js").catch(() => {});
         });
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing || !wasControlled) return;
+          refreshing = true;
+          window.location.reload();
+        });
       }
+
+      // Custom "Add to Home Screen" experience.
+      (function () {
+        const banner = document.getElementById("installBanner");
+        const accept = document.getElementById("installAccept");
+        const dismiss = document.getElementById("installDismiss");
+        const hint = document.getElementById("installHint");
+        const DISMISS_KEY = "fip-install-dismissed";
+
+        const standalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.navigator.standalone === true;
+        const isIOS =
+          /iphone|ipad|ipod/i.test(window.navigator.userAgent) && !window.MSStream;
+
+        let deferredPrompt = null;
+
+        function isDismissed() {
+          return localStorage.getItem(DISMISS_KEY) === "1";
+        }
+
+        function showBanner() {
+          if (standalone || isDismissed()) return;
+          banner.classList.remove("is-hidden");
+        }
+        function hideBanner() {
+          banner.classList.add("is-hidden");
+        }
+
+        dismiss.addEventListener("click", () => {
+          localStorage.setItem(DISMISS_KEY, "1");
+          hideBanner();
+        });
+
+        // Android / desktop Chrome fire this when the app is installable.
+        window.addEventListener("beforeinstallprompt", (event) => {
+          event.preventDefault();
+          deferredPrompt = event;
+          accept.classList.remove("is-hidden");
+          hint.textContent = "Add it to your home screen for the full-screen app.";
+          showBanner();
+        });
+
+        accept.addEventListener("click", async () => {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          const choice = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          if (choice.outcome === "accepted") hideBanner();
+        });
+
+        window.addEventListener("appinstalled", () => {
+          localStorage.setItem(DISMISS_KEY, "1");
+          hideBanner();
+        });
+
+        // iOS Safari has no install event — show manual steps instead.
+        if (isIOS && !standalone && !isDismissed()) {
+          accept.classList.add("is-hidden");
+          hint.textContent = "Tap the Share button, then “Add to Home Screen.”";
+          showBanner();
+        }
+      })();
     </script>
   </body>
 </html>
