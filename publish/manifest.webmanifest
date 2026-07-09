@@ -6,8 +6,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d0d0e",
-  "theme_color": "#0d0d0e",
+  "background_color": "#14100c",
+  "theme_color": "#14100c",
   "icons": [
     {
       "src": "assets/logo-badge-192.png",
