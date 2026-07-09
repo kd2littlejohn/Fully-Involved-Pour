@@ -50,6 +50,7 @@ body {
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
+  max-width: 100%;
 }
 
 button,
@@ -1927,11 +1928,14 @@ select {
   border-left: 1px solid var(--line);
   box-shadow: -20px 0 50px rgba(0, 0, 0, 0.45);
   transform: translateX(100%);
-  transition: transform 0.25s ease;
+  visibility: hidden;
+  transition: transform 0.25s ease, visibility 0s linear 0.25s;
 }
 
 .friends-drawer.is-open {
   transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.25s ease, visibility 0s;
 }
 
 .friend-item {
