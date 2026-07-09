@@ -2081,8 +2081,10 @@ function visibleBottles() {
   const filtered = bottles.filter((bottle) => {
     const matchesFilter =
       activeFilter === "all" ||
+      activeFilter === "recent" ||
       (activeFilter === "owned" && !["wishlist", "buy-next"].includes(bottle.status)) ||
       (activeFilter === "finished" && (bottle.status === "finished" || bottle.fillLevel === "empty")) ||
+      (activeFilter === "ready-tonight" && bottle.status === "open" && bottle.fillLevel !== "empty") ||
       bottle.status === activeFilter ||
       (activeFilter === "core-bar" && bottle.coreBar) ||
       (activeFilter === "favorites" && bottle.favorite);
@@ -2112,6 +2114,12 @@ function visibleBottles() {
       const priorityGap = Number(a.priority || 3) - Number(b.priority || 3);
       if (priorityGap !== 0) return priorityGap;
       return a.name.localeCompare(b.name);
+    }
+    // Recently Added: newest first, falling back to insertion order (new bottles are prepended).
+    if (activeFilter === "recent") {
+      const recencyGap = Number(b.createdAt || 0) - Number(a.createdAt || 0);
+      if (recencyGap !== 0) return recencyGap;
+      return bottles.indexOf(a) - bottles.indexOf(b);
     }
     const sort = els.sortSelect.value;
     if (sort === "rating") return Number(b.rating) - Number(a.rating);
@@ -2475,6 +2483,7 @@ function addPickToBuyNext(pick) {
     msrp: pick.price || 0,
     flavors: pick.flavors || [],
     status: "buy-next",
+    createdAt: Date.now(),
   });
   bottles = [bottle, ...bottles];
   persist();
@@ -4207,9 +4216,14 @@ async function saveBottle(event) {
     }
   }
 
-  bottles = bottles.some((item) => item.id === id)
-    ? bottles.map((item) => (item.id === id ? bottle : item))
-    : [bottle, ...bottles];
+  const existing = bottles.find((item) => item.id === id);
+  if (existing) {
+    bottle.createdAt = existing.createdAt || Date.now();
+    bottles = bottles.map((item) => (item.id === id ? bottle : item));
+  } else {
+    bottle.createdAt = Date.now();
+    bottles = [bottle, ...bottles];
+  }
 
   persist();
   els.bottleDialog.close();

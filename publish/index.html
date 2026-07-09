@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=55" />
+    <link rel="stylesheet" href="styles.css?v=56" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -150,12 +150,6 @@
             <input id="searchInput" type="search" placeholder="Search bottle, distillery, region, note" />
           </label>
 
-          <div class="segmented compact-filter" aria-label="Collection filter">
-            <button class="is-selected" data-filter="all" type="button">All</button>
-            <button data-filter="open" type="button">Opened</button>
-            <button data-filter="sealed" type="button">Sealed</button>
-          </div>
-
           <select id="sortSelect" aria-label="Sort bottles">
             <option value="name">Sort by name</option>
             <option value="rating">Sort by rating</option>
@@ -170,6 +164,16 @@
               <button class="secondary-action" id="exportCollection" type="button">Export</button>
             </div>
           </details>
+        </section>
+
+        <section class="quick-filters" aria-label="Quick filters">
+          <button class="quick-filter is-selected" data-filter="all" type="button">🥃 All Bottles</button>
+          <button class="quick-filter" data-filter="favorites" type="button">⭐ Favorites</button>
+          <button class="quick-filter" data-filter="recent" type="button">🆕 Recently Added</button>
+          <button class="quick-filter" data-filter="open" type="button">🔓 Opened</button>
+          <button class="quick-filter" data-filter="sealed" type="button">🔒 Sealed</button>
+          <button class="quick-filter" data-filter="wishlist" type="button">❤️ Wishlist</button>
+          <button class="quick-filter" data-filter="ready-tonight" type="button">🎉 Ready to Drink Tonight</button>
         </section>
 
         <details class="filter-shell">
@@ -827,7 +831,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=67"></script>
+    <script src="app.js?v=68"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
