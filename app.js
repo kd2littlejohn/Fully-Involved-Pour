@@ -1236,6 +1236,8 @@ let activeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
 let activeProofBand = "all";
+let selectionMode = false;
+const selectedIds = new Set();
 let activeView = "collection";
 let quickView = false;
 let formPhotoTimer;
@@ -1277,6 +1279,11 @@ const els = {
   viewTitle: document.querySelector("#viewTitle"),
   viewBanner: document.querySelector("#viewBanner"),
   viewAddButton: document.querySelector("#viewAddButton"),
+  toggleSelect: document.querySelector("#toggleSelect"),
+  selectBar: document.querySelector("#selectBar"),
+  selectCount: document.querySelector("#selectCount"),
+  selectDelete: document.querySelector("#selectDelete"),
+  selectCancel: document.querySelector("#selectCancel"),
   buyNextSuggest: document.querySelector("#buyNextSuggest"),
   dashboardView: document.querySelector("#dashboardView"),
   tastingView: document.querySelector("#tastingView"),
@@ -1391,6 +1398,9 @@ const fields = {
 document.querySelector("#openBottleForm").addEventListener("click", () => openForm());
 document.querySelector("#inventoryAddBottle").addEventListener("click", () => openForm());
 els.viewAddButton.addEventListener("click", () => openFormWithStatus(els.viewAddButton.dataset.status));
+els.toggleSelect.addEventListener("click", () => setSelectionMode(!selectionMode));
+els.selectCancel.addEventListener("click", () => setSelectionMode(false));
+els.selectDelete.addEventListener("click", bulkDeleteSelected);
 document.querySelector("#closeDialog").addEventListener("click", () => els.bottleDialog.close());
 document.querySelector("#openLibrary").addEventListener("click", openLibrary);
 document.querySelector("#closeLibrary").addEventListener("click", () => els.libraryDialog.close());
@@ -2194,8 +2204,15 @@ function render() {
   renderBuyNextSuggestions();
   const inventoryToolsVisible = ["collection", "opened", "finished"].includes(activeView);
   document
-    .querySelectorAll(".inventory-overview, .toolbar, .filter-shell, .stats-grid")
+    .querySelectorAll(".inventory-overview, .toolbar, .quick-filters, .filter-shell, .stats-grid")
     .forEach((section) => section.classList.toggle("is-hidden", !inventoryToolsVisible));
+  // Leaving an inventory view drops selection mode so the bulk bar can't linger.
+  if (selectionMode && !inventoryToolsVisible) {
+    selectionMode = false;
+    selectedIds.clear();
+    els.toggleSelect.textContent = "Select";
+    els.toggleSelect.classList.remove("is-selected");
+  }
   const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
@@ -2259,6 +2276,8 @@ function renderCards(shown) {
     els.toggleQuickView.textContent = quickView ? "Card View" : "Quick View";
   }
   els.bottleGrid.classList.toggle("quick-view", quickView);
+  els.bottleGrid.classList.toggle("selecting", selectionMode);
+  updateSelectBar();
 
   if (!shown.length) {
     const viewEmptyMessages = {
@@ -2299,7 +2318,7 @@ function renderCards(shown) {
         ${shown
           .map(
             (bottle) => `
-              <div class="quick-row" role="row" data-quick="${bottle.id}">
+              <div class="quick-row${selectionMode && selectedIds.has(bottle.id) ? " is-selected" : ""}" role="row" data-quick="${bottle.id}">
                 <div class="quick-bottle-cell">
                   <img src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
                   <div>
@@ -2330,7 +2349,8 @@ function renderCards(shown) {
   els.bottleGrid.innerHTML = shown
     .map(
       (bottle) => `
-        <article class="bottle-card${bottle.coreBar ? " core-bar-card" : ""}${bottle.favorite ? " favorite-card" : ""}" data-quick="${bottle.id}">
+        <article class="bottle-card${bottle.coreBar ? " core-bar-card" : ""}${bottle.favorite ? " favorite-card" : ""}${selectionMode && selectedIds.has(bottle.id) ? " is-selected" : ""}" data-quick="${bottle.id}">
+          ${selectionMode ? `<span class="select-check${selectedIds.has(bottle.id) ? " is-checked" : ""}" aria-hidden="true">✓</span>` : ""}
           <button class="fav-btn${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" title="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>
           ${bottle.coreBar ? `<div class="core-bar-ribbon">🔥 Core Bar · ${bottle.coreBarScore ?? ""}</div>` : ""}
           <div class="bottle-top">
@@ -2578,7 +2598,13 @@ function renderCardChips(bottle) {
 
 function bindBottleActions() {
   document.querySelectorAll("[data-quick]").forEach((item) => {
-    item.addEventListener("click", () => openBottleQuick(item.dataset.quick));
+    item.addEventListener("click", () => {
+      if (selectionMode) {
+        toggleSelected(item.dataset.quick);
+        return;
+      }
+      openBottleQuick(item.dataset.quick);
+    });
   });
 
   document.querySelectorAll("[data-edit]").forEach((button) => {
@@ -2615,6 +2641,37 @@ function bindBottleActions() {
       changeBottlePriority(button.dataset.priorityDown, 1);
     });
   });
+}
+
+function setSelectionMode(on) {
+  selectionMode = on;
+  if (!on) selectedIds.clear();
+  els.toggleSelect.textContent = on ? "Cancel" : "Select";
+  els.toggleSelect.classList.toggle("is-selected", on);
+  render();
+}
+
+function toggleSelected(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  render();
+}
+
+function updateSelectBar() {
+  const count = selectedIds.size;
+  els.selectBar.classList.toggle("is-hidden", !selectionMode);
+  els.selectCount.textContent = `${count} selected`;
+  els.selectDelete.disabled = count === 0;
+  els.selectDelete.textContent = count > 0 ? `Delete ${count}` : "Delete";
+}
+
+function bulkDeleteSelected() {
+  const count = selectedIds.size;
+  if (!count) return;
+  if (!confirm(`Delete ${count} bottle${count === 1 ? "" : "s"}? This can't be undone.`)) return;
+  bottles = bottles.filter((bottle) => !selectedIds.has(bottle.id));
+  persist();
+  setSelectionMode(false);
 }
 
 function toggleFavorite(id) {

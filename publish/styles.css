@@ -3029,3 +3029,101 @@ textarea {
     font-size: 2.2rem;
   }
 }
+
+/* Multi-select delete */
+#toggleSelect.is-selected {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.bottle-grid.selecting .bottle-card,
+.bottle-grid.selecting .quick-row {
+  cursor: pointer;
+}
+
+.bottle-grid.selecting .fav-btn,
+.bottle-grid.selecting .card-actions,
+.bottle-grid.selecting .quick-actions,
+.bottle-grid.selecting .priority-control {
+  display: none;
+}
+
+.select-check {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: rgba(13, 13, 14, 0.85);
+  color: transparent;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.select-check.is-checked {
+  border-color: var(--amber);
+  background: var(--amber);
+  color: #140d08;
+}
+
+.bottle-card.is-selected,
+.quick-row.is-selected {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+  background: rgba(215, 138, 54, 0.08);
+}
+
+.select-bar {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 28px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(23, 23, 23, 0.98);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.select-bar.is-hidden {
+  display: none;
+}
+
+.select-bar span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.select-delete {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--danger);
+  color: #1a0b08;
+  font-weight: 800;
+}
+
+.select-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .select-bar {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}

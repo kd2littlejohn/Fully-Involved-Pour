@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=56" />
+    <link rel="stylesheet" href="styles.css?v=57" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -140,6 +140,7 @@
             <span id="inventoryRatio">0 of 0 bottles</span>
           </div>
           <div class="inventory-overview-actions">
+            <button class="secondary-action" id="toggleSelect" type="button">Select</button>
             <button class="primary-action" id="inventoryAddBottle" type="button">Add Bottle</button>
           </div>
         </section>
@@ -461,6 +462,12 @@
           <strong>Drink what you enjoy. Share what matters.</strong>
         </footer>
       </main>
+    </div>
+
+    <div class="select-bar is-hidden" id="selectBar" role="region" aria-label="Bulk actions">
+      <button class="secondary-action" id="selectCancel" type="button">Cancel</button>
+      <span id="selectCount">0 selected</span>
+      <button class="select-delete" id="selectDelete" type="button" disabled>Delete</button>
     </div>
 
     <div class="friends-backdrop is-hidden" id="friendsBackdrop"></div>
@@ -831,7 +838,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=68"></script>
+    <script src="app.js?v=69"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
