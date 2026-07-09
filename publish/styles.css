@@ -707,7 +707,7 @@ label {
   height: 120px;
   object-fit: contain;
   border-radius: 6px;
-  background: #0b0b0c;
+  background: #0f0b07;
 }
 
 .suggest-reason {
@@ -916,7 +916,7 @@ label input,
 label select {
   width: 100%;
   min-width: 0;
-  background: #101011;
+  background: #17120d;
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1032,7 +1032,7 @@ select {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.38);
 }
 
@@ -1096,10 +1096,21 @@ select {
 #viewTitle,
 .catalog-main h3,
 .quick-detail h2,
+.form-head h2,
 .welcome-card > strong {
   font-family: var(--serif);
   font-weight: 500;
   letter-spacing: 0.01em;
+}
+
+/* Headline numbers share the editorial serif for cohesion. */
+.pour-stats strong,
+.pour-streak-card strong,
+.core-bar-highlight-item strong,
+.core-bar-highlight-score,
+.bottle-meta strong {
+  font-family: var(--serif);
+  font-weight: 500;
 }
 
 .stats-grid {
@@ -1429,7 +1440,7 @@ select {
   height: 72px;
   object-fit: contain;
   border-radius: 6px;
-  background: #101011;
+  background: #17120d;
 }
 
 .quick-row small,
@@ -1439,7 +1450,7 @@ select {
 
 .quick-head {
   min-height: 40px;
-  background: #101011;
+  background: #17120d;
   font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1541,7 +1552,7 @@ select {
   object-fit: cover;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .bottle-card h3 {
@@ -1561,7 +1572,7 @@ select {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .bottle-radar {
@@ -1693,7 +1704,7 @@ select {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .flavor-radar svg {
@@ -1740,7 +1751,7 @@ select {
 .recommendation {
   padding: 16px;
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
   border: 1px solid var(--line);
 }
 
@@ -1762,7 +1773,7 @@ select {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .shelf-item strong,
@@ -2081,7 +2092,7 @@ select {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
   color: var(--ink);
   text-align: left;
 }
@@ -2106,7 +2117,7 @@ select {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .assistant-message {
@@ -2150,7 +2161,7 @@ select {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .ai-output:empty {
@@ -2278,7 +2289,7 @@ select {
   object-fit: contain;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .selected-bottle-preview {
@@ -2301,7 +2312,7 @@ select {
   height: 90px;
   object-fit: contain;
   border-radius: 6px;
-  background: #0b0b0c;
+  background: #0f0b07;
 }
 
 .selected-bottle-preview span {
@@ -2328,7 +2339,7 @@ select {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .form-photo-panel img {
@@ -2337,7 +2348,7 @@ select {
   object-fit: contain;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #0b0b0c;
+  background: #0f0b07;
 }
 
 .form-photo-panel img.is-empty {
@@ -2411,7 +2422,7 @@ select {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .library-photo {
@@ -2439,7 +2450,7 @@ select {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .tasting-note-block {
@@ -2485,7 +2496,7 @@ select {
   margin-bottom: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
 }
 
 .mash-bill-bars {
@@ -2646,7 +2657,7 @@ textarea {
   padding: 8px;
   border: 1px solid rgba(215, 138, 54, 0.35);
   border-radius: var(--radius);
-  background: #101011;
+  background: #17120d;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
 }
 
@@ -2696,7 +2707,7 @@ textarea {
   height: 58px;
   object-fit: contain;
   border-radius: 6px;
-  background: #0b0b0c;
+  background: #0f0b07;
 }
 
 .ai-suggestion em {
