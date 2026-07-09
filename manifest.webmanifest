@@ -1,0 +1,43 @@
+{
+  "name": "Fully Involved Pour",
+  "short_name": "FI Pour",
+  "description": "Track every bottle, every pour, and the ones that earn a permanent spot on your Core Bar.",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0d0e",
+  "theme_color": "#0d0d0e",
+  "icons": [
+    {
+      "src": "assets/logo-badge-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/logo-badge-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/logo-badge-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Bottle",
+      "url": "./?action=add-bottle",
+      "icons": [{ "src": "assets/logo-badge-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Log Pour",
+      "url": "./?action=log-pour",
+      "icons": [{ "src": "assets/logo-badge-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

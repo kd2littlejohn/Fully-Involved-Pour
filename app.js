@@ -1276,6 +1276,7 @@ const els = {
   viewEyebrow: document.querySelector("#viewEyebrow"),
   viewTitle: document.querySelector("#viewTitle"),
   viewBanner: document.querySelector("#viewBanner"),
+  viewAddButton: document.querySelector("#viewAddButton"),
   buyNextSuggest: document.querySelector("#buyNextSuggest"),
   dashboardView: document.querySelector("#dashboardView"),
   tastingView: document.querySelector("#tastingView"),
@@ -1321,6 +1322,9 @@ const els = {
   formPhotoPreview: document.querySelector("#formPhotoPreview"),
   formPhotoName: document.querySelector("#formPhotoName"),
   formPhotoLinks: document.querySelector("#formPhotoLinks"),
+  selectedBottlePreview: document.querySelector("#selectedBottlePreview"),
+  selectedBottleImage: document.querySelector("#selectedBottleImage"),
+  selectedBottleLabel: document.querySelector("#selectedBottleLabel"),
   photoUpload: document.querySelector("#photoUpload"),
   distilleryOptions: document.querySelector("#distilleryOptions"),
   signInButton: document.querySelector("#signInButton"),
@@ -1386,6 +1390,7 @@ const fields = {
 
 document.querySelector("#openBottleForm").addEventListener("click", () => openForm());
 document.querySelector("#inventoryAddBottle").addEventListener("click", () => openForm());
+els.viewAddButton.addEventListener("click", () => openFormWithStatus(els.viewAddButton.dataset.status));
 document.querySelector("#closeDialog").addEventListener("click", () => els.bottleDialog.close());
 document.querySelector("#openLibrary").addEventListener("click", openLibrary);
 document.querySelector("#closeLibrary").addEventListener("click", () => els.libraryDialog.close());
@@ -1508,6 +1513,9 @@ document.querySelectorAll("[data-view]").forEach((button) => {
       syncFilterButtons("[data-filter]", "filter", activeFilter);
     }
     render();
+    if (window.matchMedia("(max-width: 640px)").matches) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   });
 });
 
@@ -1645,10 +1653,15 @@ async function pushCloudData() {
 }
 
 function normalizeUsername(value) {
+  // Preserve the capitalization the user typed; only strip disallowed characters.
   return String(value || "")
     .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "");
+    .replace(/[^A-Za-z0-9_]/g, "");
+}
+
+// Case-insensitive key used for uniqueness and lookups so "Bob" and "bob" are the same handle.
+function usernameKey(value) {
+  return normalizeUsername(value).toLowerCase();
 }
 
 function openUsernameSetup() {
@@ -1665,19 +1678,20 @@ async function claimUsername(rawUsername) {
   }
   if (!currentUser) return;
   try {
-    const usernameRef = db.collection("usernames").doc(username);
+    const key = usernameKey(username);
+    const usernameRef = db.collection("usernames").doc(key);
     const existing = await usernameRef.get();
     if (existing.exists && existing.data().uid !== currentUser.uid) {
       els.usernameError.textContent = "That username is already taken.";
       return;
     }
-    const previousUsername = normalizeUsername(currentProfile?.username);
+    const previousKey = usernameKey(currentProfile?.username);
     const batch = db.batch();
-    batch.set(usernameRef, { uid: currentUser.uid });
+    batch.set(usernameRef, { uid: currentUser.uid, username });
     batch.set(userDocRef(currentUser.uid), { username }, { merge: true });
     batch.set(db.collection("profiles").doc(currentUser.uid), { username });
-    if (previousUsername && previousUsername !== username) {
-      batch.delete(db.collection("usernames").doc(previousUsername));
+    if (previousKey && previousKey !== key) {
+      batch.delete(db.collection("usernames").doc(previousKey));
     }
     await batch.commit();
     currentProfile = { ...currentProfile, username };
@@ -1718,13 +1732,13 @@ async function loadFollowers() {
 
 async function followUsername(rawUsername) {
   els.followError.textContent = "";
-  const username = normalizeUsername(rawUsername);
-  if (!username || !currentUser) {
+  const key = usernameKey(rawUsername);
+  if (!key || !currentUser) {
     els.followError.textContent = "Enter a username to follow.";
     return;
   }
   try {
-    const usernameSnap = await db.collection("usernames").doc(username).get();
+    const usernameSnap = await db.collection("usernames").doc(key).get();
     if (!usernameSnap.exists) {
       els.followError.textContent = "No user found with that username.";
       return;
@@ -1741,7 +1755,7 @@ async function followUsername(rawUsername) {
         followerUid: currentUser.uid,
         followerUsername: currentProfile?.username || "",
         followingUid: targetUid,
-        followingUsername: username,
+        followingUsername: usernameSnap.data().username || normalizeUsername(rawUsername),
         createdAt: Date.now(),
       });
     els.followUsernameInput.value = "";
@@ -2093,6 +2107,12 @@ function visibleBottles() {
   });
 
   return filtered.sort((a, b) => {
+    // On Buy Next, order the shortlist by priority so the ones you move up rise to the top.
+    if (activeView === "buy-next") {
+      const priorityGap = Number(a.priority || 3) - Number(b.priority || 3);
+      if (priorityGap !== 0) return priorityGap;
+      return a.name.localeCompare(b.name);
+    }
     const sort = els.sortSelect.value;
     if (sort === "rating") return Number(b.rating) - Number(a.rating);
     if (sort === "value") return Number(b.price) - Number(a.price);
@@ -2126,12 +2146,16 @@ const VIEW_META = {
     title: "On the hunt 🎯",
     theme: "view-buy-next",
     banner: "🎯 Your shopping shortlist — plus picks suggested from what you already pour.",
+    addStatus: "buy-next",
+    addLabel: "＋ Add to Buy Next",
   },
   wishlist: {
     eyebrow: "Wish List",
     title: "Someday bottles ☆",
     theme: "view-wishlist",
     banner: "☆ Dream drams and unicorns. No pressure, just aspiration.",
+    addStatus: "wishlist",
+    addLabel: "＋ Add to Wish List",
   },
   opened: { eyebrow: "Opened", title: "Open bottles", theme: "", banner: "" },
   finished: { eyebrow: "Finished", title: "Finished bottles", theme: "", banner: "" },
@@ -2144,6 +2168,14 @@ function applyViewIdentity() {
   els.collectionView.className = `bottle-section ${meta.theme}`.trim();
   els.viewBanner.textContent = meta.banner;
   els.viewBanner.classList.toggle("is-hidden", !meta.banner);
+
+  if (meta.addStatus) {
+    els.viewAddButton.textContent = meta.addLabel;
+    els.viewAddButton.dataset.status = meta.addStatus;
+    els.viewAddButton.classList.remove("is-hidden");
+  } else {
+    els.viewAddButton.classList.add("is-hidden");
+  }
 }
 
 function render() {
@@ -2312,6 +2344,7 @@ function renderCards(shown) {
             <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
             <div><span>Rating</span><strong>${numberOrDash(bottle.rating)}</strong></div>
           </div>
+          ${activeView === "buy-next" ? renderPriorityControl(bottle) : ""}
           <div class="card-actions">
             <button class="secondary-action" type="button" data-edit="${bottle.id}">Edit</button>
             <button class="secondary-action" type="button" data-toggle="${bottle.id}">${bottle.status === "open" ? "Seal" : "Open"}</button>
@@ -2394,7 +2427,8 @@ function renderBuyNextSuggestions() {
       ${buyNextPicks
         .map(
           (pick, index) => `
-            <article class="suggest-card">
+            <article class="suggest-card" data-suggest-quick="${index}" role="button" tabindex="0" title="View details">
+              <img class="suggest-photo" src="${bottleImage(pick)}" alt="${escapeHtml(pick.name)} bottle" />
               <h4>${escapeHtml(pick.name)}</h4>
               <p>${escapeHtml(pick.distillery)} · ${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof${pick.price ? ` · ~${money(pick.price)}` : ""}</p>
               ${pick.reason ? `<em>Because ${escapeHtml(pick.reason)}</em>` : ""}
@@ -2406,27 +2440,113 @@ function renderBuyNextSuggestions() {
     </div>
   `;
 
-  els.buyNextSuggest.querySelectorAll("[data-suggest-add]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const pick = buyNextPicks[Number(button.dataset.suggestAdd)];
-      if (!pick) return;
-      const bottle = normalizeBottle({
-        id: crypto.randomUUID(),
-        name: pick.name,
-        distillery: pick.distillery,
-        type: pick.type,
-        region: pick.region || "",
-        proof: pick.proof || 0,
-        price: pick.price || 0,
-        msrp: pick.price || 0,
-        flavors: pick.flavors || [],
-        status: "buy-next",
-      });
-      bottles = [bottle, ...bottles];
-      persist();
-      render();
+  els.buyNextSuggest.querySelectorAll("[data-suggest-quick]").forEach((card) => {
+    const open = () => openSuggestionQuick(Number(card.dataset.suggestQuick));
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("[data-suggest-add]")) return;
+      open();
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
     });
   });
+
+  els.buyNextSuggest.querySelectorAll("[data-suggest-add]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      addPickToBuyNext(buyNextPicks[Number(button.dataset.suggestAdd)]);
+    });
+  });
+}
+
+function addPickToBuyNext(pick) {
+  if (!pick) return;
+  const bottle = normalizeBottle({
+    id: crypto.randomUUID(),
+    name: pick.name,
+    distillery: pick.distillery,
+    type: pick.type,
+    region: pick.region || "",
+    proof: pick.proof || 0,
+    price: pick.price || 0,
+    msrp: pick.price || 0,
+    flavors: pick.flavors || [],
+    status: "buy-next",
+  });
+  bottles = [bottle, ...bottles];
+  persist();
+  render();
+}
+
+function openSuggestionQuick(index) {
+  const pick = buyNextPicks[index];
+  if (!pick) return;
+  const flavors = (pick.flavors || []).slice(0, 6);
+  els.quickBottleDetail.innerHTML = `
+    <div class="form-head">
+      <div>
+        <p>Suggested pick</p>
+        <h2>${escapeHtml(pick.name)}</h2>
+      </div>
+      <button class="icon-button" id="closeSuggestionQuick" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="quick-detail-grid">
+      <img class="quick-detail-photo" src="${bottleImage(pick)}" alt="${escapeHtml(pick.name)} bottle" />
+      <div>
+        <span class="status-pill buy-next">Suggested for you</span>
+        <p>${escapeHtml(pick.distillery)} · ${escapeHtml(pick.type)} · ${escapeHtml(pick.region || "Unknown region")}</p>
+        <div class="bottle-meta">
+          <div><span>Proof</span><strong>${numberOrDash(pick.proof)}</strong></div>
+          <div><span>Est. Price</span><strong>${pick.price ? money(pick.price) : "—"}</strong></div>
+        </div>
+        ${pick.reason ? `<p class="suggest-reason">Because ${escapeHtml(pick.reason)}</p>` : ""}
+        ${flavors.length ? `<div class="flavor-row">${flavors.map((flavor) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")}</div>` : ""}
+      </div>
+    </div>
+
+    <div class="photo-source-panel">
+      <span>Find actual bottle photo</span>
+      ${renderPhotoSourceLinks(pick)}
+    </div>
+    <div class="form-actions">
+      <button class="primary-action" id="quickAddBuyNext" type="button">＋ Add to Buy Next</button>
+    </div>
+  `;
+  els.quickBottleDialog.showModal();
+  document.querySelector("#closeSuggestionQuick").addEventListener("click", () => els.quickBottleDialog.close());
+  document.querySelector("#quickAddBuyNext").addEventListener("click", () => {
+    addPickToBuyNext(pick);
+    els.quickBottleDialog.close();
+  });
+}
+
+function renderPriorityControl(bottle) {
+  const priority = Number(bottle.priority || 3);
+  return `
+    <div class="priority-control" role="group" aria-label="Buy Next priority">
+      <button class="priority-move" type="button" data-priority-up="${bottle.id}" aria-label="Move up (raise priority)" ${priority <= 1 ? "disabled" : ""}>▲</button>
+      <span class="priority-tag">${priorityLabel(bottle.priority)}</span>
+      <button class="priority-move" type="button" data-priority-down="${bottle.id}" aria-label="Move down (lower priority)" ${priority >= 5 ? "disabled" : ""}>▼</button>
+    </div>
+  `;
+}
+
+function changeBottlePriority(id, delta) {
+  let moved = false;
+  bottles = bottles.map((bottle) => {
+    if (bottle.id !== id) return bottle;
+    const next = Math.min(5, Math.max(1, Number(bottle.priority || 3) + delta));
+    if (next === Number(bottle.priority || 3)) return bottle;
+    moved = true;
+    return { ...bottle, priority: next };
+  });
+  if (!moved) return;
+  persist();
+  render();
 }
 
 function renderCardChips(bottle) {
@@ -2470,6 +2590,20 @@ function bindBottleActions() {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       toggleFavorite(button.dataset.favorite);
+    });
+  });
+
+  document.querySelectorAll("[data-priority-up]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      changeBottlePriority(button.dataset.priorityUp, -1);
+    });
+  });
+
+  document.querySelectorAll("[data-priority-down]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      changeBottlePriority(button.dataset.priorityDown, 1);
     });
   });
 }
@@ -3561,6 +3695,12 @@ function openForm(id = "") {
   updateFormPhotoTools();
 }
 
+// Open a blank Add Bottle form with the status preset (e.g. from the Wish List / Buy Next views).
+function openFormWithStatus(status) {
+  openForm();
+  if (status) fields.status.value = status;
+}
+
 let aiBottleLookupTimer;
 
 function queueAiBottleLookup(query) {
@@ -3784,6 +3924,18 @@ function updateFormPhotoTools(seed = {}) {
       : "Start typing a bottle name";
   els.formPhotoPreview.src = hasName || hasImage ? bottleImage(draft) : "";
   els.formPhotoPreview.classList.toggle("is-empty", !hasName && !hasImage);
+
+  // Surface the selected bottle's picture at the top of the form once we have one.
+  els.selectedBottlePreview.classList.toggle("is-empty", !hasImage);
+  if (hasImage) {
+    els.selectedBottleImage.src = draft.imageUrl;
+    els.selectedBottleLabel.textContent = hasName
+      ? `${draft.name}${draft.distillery ? ` · ${draft.distillery}` : ""}`
+      : "Photo ready";
+  } else {
+    els.selectedBottleImage.removeAttribute("src");
+    els.selectedBottleLabel.textContent = "";
+  }
   els.formPhotoLinks.innerHTML = hasName
     ? photoSourceLinks(draft)
         .slice(0, 4)
@@ -4385,3 +4537,11 @@ function escapeHtml(value) {
 renderDistilleryOptions();
 syncCoreBarScores();
 render();
+
+// Home-screen shortcut deep links from the PWA manifest.
+const launchAction = new URLSearchParams(window.location.search).get("action");
+if (launchAction === "add-bottle") {
+  openForm();
+} else if (launchAction === "log-pour") {
+  openPourForm();
+}

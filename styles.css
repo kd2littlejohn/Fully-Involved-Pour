@@ -591,6 +591,72 @@ label {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--panel);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.suggest-card:hover,
+.suggest-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--amber);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  outline: none;
+}
+
+.suggest-photo {
+  width: 100%;
+  height: 120px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #0b0b0c;
+}
+
+.suggest-reason {
+  margin: 4px 0 0;
+  color: var(--sage);
+  font-size: 0.85rem;
+}
+
+.priority-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-soft);
+}
+
+.priority-move {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--amber);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.priority-move:hover:not(:disabled) {
+  border-color: var(--amber);
+}
+
+.priority-move:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.priority-tag {
+  flex: 1;
+  text-align: center;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .suggest-card h4 {
@@ -1132,6 +1198,25 @@ select {
 .section-heading > span {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.section-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-heading-actions #resultCount {
+  color: var(--muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+#viewAddButton {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .inventory-actions {
@@ -2045,6 +2130,44 @@ select {
   background: #101011;
 }
 
+.selected-bottle-preview {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(215, 138, 54, 0.14), rgba(182, 93, 52, 0.06));
+}
+
+.selected-bottle-preview.is-empty {
+  display: none;
+}
+
+.selected-bottle-preview img {
+  width: 64px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #0b0b0c;
+}
+
+.selected-bottle-preview span {
+  display: block;
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.selected-bottle-preview strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.05rem;
+}
+
 .form-photo-panel {
   grid-column: 1 / -1;
   display: grid;
@@ -2696,5 +2819,82 @@ textarea {
 @media (max-width: 430px) {
   .brand > div {
     display: none;
+  }
+}
+
+/* Mobile app shell: bottom tab bar + safe areas for installed PWA */
+@media (max-width: 640px) {
+  .topbar {
+    padding-top: calc(8px + env(safe-area-inset-top));
+    /* backdrop-filter would become the containing block for the fixed bottom nav */
+    backdrop-filter: none;
+    background: rgb(17, 17, 18);
+  }
+
+  .nav-list {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    order: unset;
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 6px 8px calc(8px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgba(13, 13, 14, 0.96);
+    backdrop-filter: blur(14px);
+  }
+
+  .nav-item {
+    flex: 1 0 auto;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 62px;
+    min-height: 52px;
+    padding: 4px 8px;
+    text-align: center;
+    font-size: 0.58rem;
+    letter-spacing: 0.06em;
+  }
+
+  .nav-item span {
+    font-size: 1.2rem;
+    line-height: 1;
+  }
+
+  .nav-item:hover {
+    background: transparent;
+    border-color: transparent;
+  }
+
+  .nav-item.is-active {
+    background: var(--panel-soft);
+    border-color: var(--line);
+    color: var(--ink);
+  }
+
+  .main {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .friends-drawer {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (display-mode: standalone) and (max-width: 640px) {
+  .hero,
+  .hero-overlay {
+    min-height: 260px;
+  }
+
+  .hero-copy h1 {
+    font-size: 2.2rem;
   }
 }
