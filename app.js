@@ -2346,41 +2346,46 @@ function renderCards(shown) {
     return;
   }
 
-  els.bottleGrid.innerHTML = shown
-    .map(
-      (bottle) => `
-        <article class="bottle-card${bottle.coreBar ? " core-bar-card" : ""}${bottle.favorite ? " favorite-card" : ""}${selectionMode && selectedIds.has(bottle.id) ? " is-selected" : ""}" data-quick="${bottle.id}">
-          ${selectionMode ? `<span class="select-check${selectedIds.has(bottle.id) ? " is-checked" : ""}" aria-hidden="true">✓</span>` : ""}
-          <button class="fav-btn${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" title="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>
-          ${bottle.coreBar ? `<div class="core-bar-ribbon">🔥 Core Bar · ${bottle.coreBarScore ?? ""}</div>` : ""}
-          <div class="bottle-top">
-            <img class="bottle-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
-            <div>
-              <h3>${escapeHtml(bottle.name)}</h3>
-              <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
+  const isBuyNext = activeView === "buy-next";
+  els.bottleGrid.classList.toggle("catalog-view", !quickView);
+  els.bottleGrid.innerHTML = `
+    <div class="catalog-list">
+      ${shown
+        .map(
+          (bottle, index) => `
+        <div class="catalog-row${bottle.coreBar ? " is-core" : ""}${selectionMode && selectedIds.has(bottle.id) ? " is-selected" : ""}" data-quick="${bottle.id}">
+          ${
+            selectionMode
+              ? `<span class="select-check${selectedIds.has(bottle.id) ? " is-checked" : ""}" aria-hidden="true">✓</span>`
+              : `<span class="catalog-index">${String(index + 1).padStart(2, "0")}</span>`
+          }
+          <img class="catalog-thumb" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
+          <div class="catalog-main">
+            <h3>${escapeHtml(bottle.name)}</h3>
+            <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
+            <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
+              ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))} · ${numberOrDash(bottle.proof)}pf
             </div>
-            <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
           </div>
-          <span class="type-pill">${escapeHtml(bottle.type)}</span>
-          <div class="flavor-row">
-            ${bottle.flavors.slice(0, 4).map((flavor) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")}
-          </div>
-          <p>${escapeHtml(bottle.notes || "No notes yet.")}</p>
-          ${renderCardChips(bottle)}
-          <div class="bottle-meta">
-            <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
-            <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
-            <div><span>Rating</span><strong>${numberOrDash(bottle.rating)}</strong></div>
-          </div>
-          ${activeView === "buy-next" ? renderPriorityControl(bottle) : ""}
-          <div class="card-actions">
-            <button class="secondary-action" type="button" data-edit="${bottle.id}">Edit</button>
-            <button class="secondary-action" type="button" data-toggle="${bottle.id}">${bottle.status === "open" ? "Seal" : "Open"}</button>
-          </div>
-        </article>
+          ${
+            isBuyNext
+              ? `<div class="catalog-right">
+                   <strong class="catalog-priority">${escapeHtml(priorityLabel(bottle.priority).split(" ")[0])}</strong>
+                   <span>${bottle.price ? money(bottle.price) : ""}</span>
+                 </div>
+                 ${renderPriorityControlCompact(bottle)}`
+              : `<div class="catalog-right">
+                   <strong class="catalog-rating${Number(bottle.rating) > 0 ? "" : " is-empty"}">${numberOrDash(bottle.rating)}</strong>
+                   <span>${bottle.price ? money(bottle.price) : ""}</span>
+                 </div>
+                 <button class="catalog-fav${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" aria-label="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>`
+          }
+        </div>
       `,
-    )
-    .join("");
+        )
+        .join("")}
+    </div>
+  `;
 
   bindBottleActions();
 }
@@ -2559,6 +2564,16 @@ function renderPriorityControl(bottle) {
     <div class="priority-control" role="group" aria-label="Buy Next priority">
       <button class="priority-move" type="button" data-priority-up="${bottle.id}" aria-label="Move up (raise priority)" ${priority <= 1 ? "disabled" : ""}>▲</button>
       <span class="priority-tag">${priorityLabel(bottle.priority)}</span>
+      <button class="priority-move" type="button" data-priority-down="${bottle.id}" aria-label="Move down (lower priority)" ${priority >= 5 ? "disabled" : ""}>▼</button>
+    </div>
+  `;
+}
+
+function renderPriorityControlCompact(bottle) {
+  const priority = Number(bottle.priority || 3);
+  return `
+    <div class="priority-control compact" role="group" aria-label="Buy Next priority">
+      <button class="priority-move" type="button" data-priority-up="${bottle.id}" aria-label="Move up (raise priority)" ${priority <= 1 ? "disabled" : ""}>▲</button>
       <button class="priority-move" type="button" data-priority-down="${bottle.id}" aria-label="Move down (lower priority)" ${priority >= 5 ? "disabled" : ""}>▼</button>
     </div>
   `;

@@ -1094,7 +1094,7 @@ select {
 .hero-copy h1,
 .section-heading h2,
 #viewTitle,
-.bottle-card h3,
+.catalog-main h3,
 .quick-detail h2,
 .welcome-card > strong {
   font-family: var(--serif);
@@ -3057,6 +3057,7 @@ textarea {
 }
 
 .bottle-grid.selecting .fav-btn,
+.bottle-grid.selecting .catalog-fav,
 .bottle-grid.selecting .card-actions,
 .bottle-grid.selecting .quick-actions,
 .bottle-grid.selecting .priority-control {
@@ -3064,15 +3065,12 @@ textarea {
 }
 
 .select-check {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 2px solid var(--line);
   background: rgba(13, 13, 14, 0.85);
@@ -3141,4 +3139,155 @@ textarea {
   .select-bar {
     bottom: calc(84px + env(safe-area-inset-bottom));
   }
+}
+
+/* Catalog rows (Top Shelf blend) */
+.bottle-grid.catalog-view {
+  display: block;
+}
+
+.catalog-list {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.catalog-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.catalog-row:last-child {
+  border-bottom: 0;
+}
+
+.catalog-row:hover {
+  background: var(--panel-soft);
+}
+
+.catalog-row.is-selected {
+  background: rgba(215, 138, 54, 0.1);
+}
+
+.catalog-row.is-core {
+  background: linear-gradient(90deg, rgba(215, 138, 54, 0.08), transparent 60%);
+}
+
+.catalog-index {
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  color: var(--amber);
+}
+
+.catalog-thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #0f0b07;
+}
+
+.catalog-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.catalog-main h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.catalog-main p {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-tag {
+  margin-top: 5px;
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.catalog-tag.is-core {
+  color: var(--amber);
+}
+
+.catalog-right {
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 46px;
+}
+
+.catalog-rating {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--amber);
+}
+
+.catalog-rating.is-empty {
+  color: var(--muted);
+}
+
+.catalog-right span {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.catalog-fav {
+  flex-shrink: 0;
+  padding: 0 2px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.catalog-fav.is-fav {
+  color: var(--danger);
+}
+
+.catalog-row .priority-control {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.priority-control.compact {
+  padding: 4px;
+  gap: 4px;
+}
+
+.priority-control.compact .priority-move {
+  width: 26px;
+  min-height: 26px;
+}
+
+.catalog-priority {
+  display: block;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.stats-grid {
+  margin-top: 26px;
 }

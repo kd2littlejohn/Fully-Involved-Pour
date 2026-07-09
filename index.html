@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=58" />
+    <link rel="stylesheet" href="styles.css?v=59" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -224,6 +224,24 @@
           </section>
         </details>
 
+        <section class="content-grid">
+          <div class="bottle-section" id="collectionView">
+            <div class="section-heading">
+              <div>
+                <p id="viewEyebrow">Inventory</p>
+                <h2 id="viewTitle">Your cabinet</h2>
+              </div>
+              <div class="section-heading-actions">
+                <button class="primary-action is-hidden" id="viewAddButton" type="button"></button>
+                <span id="resultCount">0 shown</span>
+              </div>
+            </div>
+            <div class="view-banner is-hidden" id="viewBanner"></div>
+            <div class="buy-next-suggest is-hidden" id="buyNextSuggest"></div>
+            <div class="bottle-grid" id="bottleGrid"></div>
+          </div>
+        </section>
+
         <section class="stats-grid" aria-label="Collection stats">
           <article>
             <span>Total Bottles</span>
@@ -265,24 +283,6 @@
             <strong id="openBottles">0</strong>
             <em>ready to pour</em>
           </article>
-        </section>
-
-        <section class="content-grid">
-          <div class="bottle-section" id="collectionView">
-            <div class="section-heading">
-              <div>
-                <p id="viewEyebrow">Inventory</p>
-                <h2 id="viewTitle">Your cabinet</h2>
-              </div>
-              <div class="section-heading-actions">
-                <button class="primary-action is-hidden" id="viewAddButton" type="button"></button>
-                <span id="resultCount">0 shown</span>
-              </div>
-            </div>
-            <div class="view-banner is-hidden" id="viewBanner"></div>
-            <div class="buy-next-suggest is-hidden" id="buyNextSuggest"></div>
-            <div class="bottle-grid" id="bottleGrid"></div>
-          </div>
         </section>
 
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
@@ -838,7 +838,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=69"></script>
+    <script src="app.js?v=70"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
