@@ -2371,7 +2371,7 @@ function renderCards(shown) {
               ? `<span class="select-check${selectedIds.has(bottle.id) ? " is-checked" : ""}" aria-hidden="true">✓</span>`
               : `<span class="catalog-index">${String(index + 1).padStart(2, "0")}</span>`
           }
-          <img class="catalog-thumb" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
+          ${bottleThumb(bottle)}
           <div class="catalog-main">
             <h3>${escapeHtml(bottle.name)}</h3>
             <p>${escapeHtml([bottle.distillery, bottle.region].filter(Boolean).join(" · ") || "No details yet")}</p>
@@ -3687,6 +3687,16 @@ function bottleImage(bottle) {
   const curatedImage = getCuratedBottleImage(bottle);
   if (curatedImage) return curatedImage;
   return "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+}
+
+// A real photo when we have one, otherwise a clean initial tile instead of a blank box.
+function bottleThumb(bottle) {
+  const image = bottle.imageUrl || getCuratedBottleImage(bottle);
+  if (image) {
+    return `<img class="catalog-thumb" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
+  }
+  const initial = (bottle.name || "?").trim().charAt(0).toUpperCase() || "?";
+  return `<div class="catalog-thumb catalog-thumb-empty" aria-hidden="true">${escapeHtml(initial)}</div>`;
 }
 
 async function fetchBottlePhotos() {

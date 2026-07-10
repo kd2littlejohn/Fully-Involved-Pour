@@ -3232,6 +3232,16 @@ textarea {
   background: #0f0b07;
 }
 
+.catalog-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  color: var(--amber);
+}
+
 .catalog-main {
   flex: 1;
   min-width: 0;
