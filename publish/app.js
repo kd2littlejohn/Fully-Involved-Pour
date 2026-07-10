@@ -1210,6 +1210,9 @@ const southernDistilleryLibrary = [
   { name: "St. Augustine New World Reserve Rye", distillery: "St. Augustine Distillery", type: "Rye", region: "Florida", proof: 90, price: 45, flavors: ["rye spice", "citrus", "oak", "honey"] },
 
   { name: "Blue Note Uncut Barrel Proof Bourbon", distillery: "Blue Note", type: "Bourbon", region: "Tennessee", proof: 113, price: 60, flavors: ["brown sugar", "dark fruit", "oak", "baking spice"] },
+
+  { name: "Silver Springs Sweet Rye Whiskey", distillery: "J.W. Kelly & Co.", type: "Rye", region: "Tennessee", proof: 110, price: 55, flavors: ["molasses", "toffee", "caramel", "cinnamon"] },
+  { name: "J.W. Kelly Old Milford Straight Bourbon", distillery: "J.W. Kelly & Co.", type: "Bourbon", region: "Tennessee", proof: 90, price: 45, flavors: ["oak", "vanilla", "white pepper", "toffee"] },
 ];
 
 aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary, ...southernDistilleryLibrary);
