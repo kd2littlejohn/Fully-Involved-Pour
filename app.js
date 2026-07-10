@@ -4085,9 +4085,13 @@ async function uploadBottlePhoto(event) {
     return;
   }
 
-  els.formPhotoName.textContent = "Isolating bottle...";
+  els.formPhotoName.textContent = "Removing background — this can take a few seconds...";
   try {
-    const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
+    let dataUrl = await cutoutBottlePhoto(file);
+    if (!dataUrl) {
+      els.formPhotoName.textContent = "Isolating bottle...";
+      ({ dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true }));
+    }
 
     let photoUrl;
     if (currentUser && storage) {
@@ -4176,6 +4180,100 @@ async function downscaleImageToJpeg(file, maxDim = 1024, { stamp = false, isolat
   if (stamp) await stampBrandLogo(canvas);
   const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
   return { dataUrl: jpegDataUrl, base64: jpegDataUrl.split(",")[1] };
+}
+
+let bgRemovalModulePromise;
+let bgRemovalUnavailable = false;
+
+function loadBgRemoval() {
+  if (!bgRemovalModulePromise) {
+    bgRemovalModulePromise = import("https://esm.sh/@imgly/background-removal@1.5.8");
+  }
+  return bgRemovalModulePromise;
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+}
+
+// Cut the bottle out of its background with an in-browser ML model, then place the
+// cutout centered on a clean solid backdrop. Returns a JPEG data URL, or null on
+// failure/timeout so the caller falls back to the plain crop. Runs fully on-device.
+async function cutoutBottlePhoto(file) {
+  if (bgRemovalUnavailable) return null;
+  let removeBackground;
+  try {
+    ({ removeBackground } = await loadBgRemoval());
+  } catch {
+    bgRemovalUnavailable = true;
+    return null;
+  }
+  try {
+    const { dataUrl } = await downscaleImageToJpeg(file, 1024);
+    const srcBlob = await (await fetch(dataUrl)).blob();
+    const cutout = await withTimeout(removeBackground(srcBlob), 45000);
+    return await compositeCutout(cutout);
+  } catch (error) {
+    console.warn("Background removal failed; keeping cropped photo.", error);
+    return null;
+  }
+}
+
+async function compositeCutout(cutoutBlob) {
+  const cutoutUrl = URL.createObjectURL(cutoutBlob);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.addEventListener("load", () => resolve(i));
+      i.addEventListener("error", reject);
+      i.src = cutoutUrl;
+    });
+    const w = img.width;
+    const h = img.height;
+    const tmp = document.createElement("canvas");
+    tmp.width = w;
+    tmp.height = h;
+    const tctx = tmp.getContext("2d");
+    tctx.drawImage(img, 0, 0);
+    const data = tctx.getImageData(0, 0, w, h).data;
+
+    let minX = w, minY = h, maxX = 0, maxY = 0, found = false;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 30) {
+          found = true;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (!found) return null;
+
+    const cropW = maxX - minX + 1;
+    const cropH = maxY - minY + 1;
+    const outH = 900;
+    const outW = Math.round((outH * 3) / 4);
+    const out = document.createElement("canvas");
+    out.width = outW;
+    out.height = outH;
+    const octx = out.getContext("2d");
+    octx.fillStyle = "#17120d";
+    octx.fillRect(0, 0, outW, outH);
+    const margin = 0.86;
+    const scale = Math.min((outW * margin) / cropW, (outH * margin) / cropH);
+    const dw = cropW * scale;
+    const dh = cropH * scale;
+    octx.drawImage(tmp, minX, minY, cropW, cropH, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
+    await stampBrandLogo(out);
+    return out.toDataURL("image/jpeg", 0.85);
+  } finally {
+    URL.revokeObjectURL(cutoutUrl);
+  }
 }
 
 // Auto-crop an uploaded photo down to just the bottle by finding the subject's
