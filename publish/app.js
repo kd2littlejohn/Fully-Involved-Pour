@@ -4085,31 +4085,51 @@ async function uploadBottlePhoto(event) {
     return;
   }
 
+  const displayName = file.name.replace(/\.[^.]+$/, "") || "Uploaded bottle photo";
   els.formPhotoName.textContent = "Isolating bottle...";
   try {
-    // On-device background removal hangs on iOS Safari (no WebGPU), so uploads use the
-    // instant pixel crop. True cutouts are handled server-side (see cutoutBottlePhoto).
+    // Show the instant pixel crop right away so the upload never blocks.
     const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
+    const cropUrl = await storeBottlePhoto(dataUrl, file, "crop");
+    fields.imageUrl.value = cropUrl;
+    updateFormPhotoTools({ imageUrl: cropUrl });
+    els.formPhotoName.textContent = displayName;
 
-    let photoUrl;
-    if (currentUser && storage) {
-      els.formPhotoName.textContent = "Uploading photo...";
-      const blob = await (await fetch(dataUrl)).blob();
-      const path = `bottle-photos/${currentUser.uid}/${Date.now()}-${file.name.replace(/\.[^.]+$/, "")}.jpg`;
-      photoUrl = await uploadFileToStorage(blob, path);
-    } else {
-      photoUrl = dataUrl;
+    // Progressively erase the background on the server and swap it in when ready.
+    if (currentUser && cloudFunctions) {
+      els.formPhotoName.textContent = `${displayName} · removing background…`;
+      cutoutBottlePhoto(file)
+        .then(async (cutoutDataUrl) => {
+          if (!cutoutDataUrl || fields.imageUrl.value !== cropUrl) {
+            els.formPhotoName.textContent = displayName;
+            return;
+          }
+          const cutoutUrl = await storeBottlePhoto(cutoutDataUrl, file, "cutout");
+          if (fields.imageUrl.value !== cropUrl) return;
+          fields.imageUrl.value = cutoutUrl;
+          updateFormPhotoTools({ imageUrl: cutoutUrl });
+          els.formPhotoName.textContent = `${displayName} · background removed`;
+        })
+        .catch(() => {
+          els.formPhotoName.textContent = displayName;
+        });
     }
-
-    fields.imageUrl.value = photoUrl;
-    updateFormPhotoTools({ imageUrl: photoUrl });
-    els.formPhotoName.textContent = file.name.replace(/\.[^.]+$/, "") || "Uploaded bottle photo";
   } catch (error) {
     console.error("Photo upload failed", error);
     els.formPhotoName.textContent = "Could not process that photo. Try a different file.";
   } finally {
     event.target.value = "";
   }
+}
+
+async function storeBottlePhoto(dataUrl, file, tag) {
+  if (currentUser && storage) {
+    const blob = await (await fetch(dataUrl)).blob();
+    const base = file.name.replace(/\.[^.]+$/, "") || "photo";
+    const path = `bottle-photos/${currentUser.uid}/${Date.now()}-${tag}-${base}.jpg`;
+    return uploadFileToStorage(blob, path);
+  }
+  return dataUrl;
 }
 
 let brandLogoPromise;
@@ -4180,16 +4200,6 @@ async function downscaleImageToJpeg(file, maxDim = 1024, { stamp = false, isolat
   return { dataUrl: jpegDataUrl, base64: jpegDataUrl.split(",")[1] };
 }
 
-let bgRemovalModulePromise;
-let bgRemovalUnavailable = false;
-
-function loadBgRemoval() {
-  if (!bgRemovalModulePromise) {
-    bgRemovalModulePromise = import("https://esm.sh/@imgly/background-removal@1.5.8");
-  }
-  return bgRemovalModulePromise;
-}
-
 function withTimeout(promise, ms) {
   return Promise.race([
     promise,
@@ -4197,25 +4207,22 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-// Cut the bottle out of its background with an in-browser ML model, then place the
-// cutout centered on a clean solid backdrop. Returns a JPEG data URL, or null on
-// failure/timeout so the caller falls back to the plain crop. Runs fully on-device.
+// Cut the bottle out of its background on the server (reliable on any device, incl.
+// iOS), then place the cutout centered on a clean solid backdrop. Returns a JPEG data
+// URL, or null on failure/timeout so the caller keeps the plain crop.
 async function cutoutBottlePhoto(file) {
-  if (bgRemovalUnavailable) return null;
-  let removeBackground;
-  try {
-    ({ removeBackground } = await loadBgRemoval());
-  } catch {
-    bgRemovalUnavailable = true;
-    return null;
-  }
+  if (!currentUser || !cloudFunctions) return null;
   try {
     const { dataUrl } = await downscaleImageToJpeg(file, 1024);
-    const srcBlob = await (await fetch(dataUrl)).blob();
-    const cutout = await withTimeout(removeBackground(srcBlob), 45000);
-    return await compositeCutout(cutout);
+    const base64 = dataUrl.split(",")[1];
+    const callable = cloudFunctions.httpsCallable("removeBottleBackground");
+    const res = await withTimeout(callable({ imageBase64: base64 }), 90000);
+    const outB64 = res?.data?.imageBase64;
+    if (!outB64) return null;
+    const cutoutBlob = await (await fetch(`data:image/png;base64,${outB64}`)).blob();
+    return await compositeCutout(cutoutBlob);
   } catch (error) {
-    console.warn("Background removal failed; keeping cropped photo.", error);
+    console.warn("Server background removal unavailable; keeping cropped photo.", error);
     return null;
   }
 }

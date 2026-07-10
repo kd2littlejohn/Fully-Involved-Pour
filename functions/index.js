@@ -174,3 +174,39 @@ Set "found" to false ONLY if no spirits bottle is visible in the image at all. I
     };
   },
 );
+
+// Server-side background removal so the clean cutout works on any device (incl. iOS,
+// where the in-browser model stalls). Runs the open-source model bundled with the
+// package — no external API, no per-image cost. Lazy-required so it only weighs on
+// this function's cold start, not the AI ones.
+let removeBackgroundFn;
+function getRemoveBackground() {
+  if (!removeBackgroundFn) {
+    ({ removeBackground: removeBackgroundFn } = require("@imgly/background-removal-node"));
+  }
+  return removeBackgroundFn;
+}
+
+exports.removeBottleBackground = onCall(
+  { memory: "2GiB", timeoutSeconds: 120, cors: true },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in to clean up bottle photos.");
+    }
+    const imageBase64 = String(request.data?.imageBase64 || "");
+    if (!imageBase64) {
+      throw new HttpsError("invalid-argument", "An image is required.");
+    }
+    try {
+      const removeBackground = getRemoveBackground();
+      const inputBuffer = Buffer.from(imageBase64, "base64");
+      const inputBlob = new Blob([inputBuffer], { type: "image/jpeg" });
+      const outBlob = await removeBackground(inputBlob, { output: { format: "image/png" } });
+      const outBuffer = Buffer.from(await outBlob.arrayBuffer());
+      return { imageBase64: outBuffer.toString("base64") };
+    } catch (error) {
+      console.error("Background removal failed", error);
+      throw new HttpsError("internal", "Could not remove the background from that photo.");
+    }
+  },
+);
