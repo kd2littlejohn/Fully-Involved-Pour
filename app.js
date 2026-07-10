@@ -1208,6 +1208,8 @@ const southernDistilleryLibrary = [
 
   { name: "St. Augustine Bourbon", distillery: "St. Augustine Distillery", type: "Bourbon", region: "Florida", proof: 80, price: 40, flavors: ["caramel", "oak", "vanilla", "honey"] },
   { name: "St. Augustine New World Reserve Rye", distillery: "St. Augustine Distillery", type: "Rye", region: "Florida", proof: 90, price: 45, flavors: ["rye spice", "citrus", "oak", "honey"] },
+
+  { name: "Blue Note Uncut Barrel Proof Bourbon", distillery: "Blue Note", type: "Bourbon", region: "Tennessee", proof: 113, price: 60, flavors: ["brown sugar", "dark fruit", "oak", "baking spice"] },
 ];
 
 aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary, ...southernDistilleryLibrary);
