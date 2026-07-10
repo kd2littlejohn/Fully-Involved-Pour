@@ -4085,9 +4085,9 @@ async function uploadBottlePhoto(event) {
     return;
   }
 
-  els.formPhotoName.textContent = "Processing photo...";
+  els.formPhotoName.textContent = "Isolating bottle...";
   try {
-    const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true });
+    const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
 
     let photoUrl;
     if (currentUser && storage) {
@@ -4151,7 +4151,7 @@ async function stampBrandLogo(canvas) {
   ctx.restore();
 }
 
-async function downscaleImageToJpeg(file, maxDim = 1024, { stamp = false } = {}) {
+async function downscaleImageToJpeg(file, maxDim = 1024, { stamp = false, isolate = false } = {}) {
   let sourceFile = file;
   if (isHeicFile(file) && window.heic2any) {
     const converted = await window.heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
@@ -4165,13 +4165,99 @@ async function downscaleImageToJpeg(file, maxDim = 1024, { stamp = false } = {})
     img.src = dataUrl;
   });
   const scale = Math.min(1, maxDim / Math.max(image.width, image.height));
-  const canvas = document.createElement("canvas");
+  let canvas = document.createElement("canvas");
   canvas.width = Math.round(image.width * scale);
   canvas.height = Math.round(image.height * scale);
   canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+  if (isolate) {
+    const cropped = isolateBottleSubject(canvas);
+    if (cropped) canvas = cropped;
+  }
   if (stamp) await stampBrandLogo(canvas);
   const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.85);
   return { dataUrl: jpegDataUrl, base64: jpegDataUrl.split(",")[1] };
+}
+
+// Auto-crop an uploaded photo down to just the bottle by finding the subject's
+// bounding box (pixels that differ from the photo's background). Returns a new
+// cropped canvas, or null when detection is uncertain so the caller keeps the original.
+function isolateBottleSubject(srcCanvas) {
+  const w = srcCanvas.width;
+  const h = srcCanvas.height;
+  if (w < 40 || h < 40) return null;
+
+  const ctx = srcCanvas.getContext("2d");
+  let data;
+  try {
+    data = ctx.getImageData(0, 0, w, h).data;
+  } catch {
+    return null;
+  }
+
+  const s = Math.max(4, Math.round(Math.min(w, h) * 0.04));
+  const avgRegion = (x0, y0) => {
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let y = y0; y < y0 + s; y++) {
+      for (let x = x0; x < x0 + s; x++) {
+        const i = (y * w + x) * 4;
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        n++;
+      }
+    }
+    return [r / n, g / n, b / n];
+  };
+  const corners = [avgRegion(0, 0), avgRegion(w - s, 0), avgRegion(0, h - s), avgRegion(w - s, h - s)];
+  const bg = [0, 1, 2].map((k) => corners.reduce((sum, c) => sum + c[k], 0) / corners.length);
+
+  const threshold = 44;
+  const colCount = new Array(w).fill(0);
+  const rowCount = new Array(h).fill(0);
+  let fgTotal = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const dr = data[i] - bg[0];
+      const dg = data[i + 1] - bg[1];
+      const db = data[i + 2] - bg[2];
+      if (Math.sqrt(dr * dr + dg * dg + db * db) > threshold) {
+        colCount[x]++;
+        rowCount[y]++;
+        fgTotal++;
+      }
+    }
+  }
+  if (fgTotal < w * h * 0.02) return null;
+
+  const colThresh = h * 0.03;
+  const rowThresh = w * 0.03;
+  let x0 = 0;
+  while (x0 < w && colCount[x0] < colThresh) x0++;
+  let x1 = w - 1;
+  while (x1 > x0 && colCount[x1] < colThresh) x1--;
+  let y0 = 0;
+  while (y0 < h && rowCount[y0] < rowThresh) y0++;
+  let y1 = h - 1;
+  while (y1 > y0 && rowCount[y1] < rowThresh) y1--;
+
+  const boxW = x1 - x0;
+  const boxH = y1 - y0;
+  if (boxW < w * 0.1 || boxH < h * 0.15) return null;
+  if (boxW > w * 0.95 && boxH > h * 0.95) return null;
+
+  const padX = Math.round(boxW * 0.08);
+  const padY = Math.round(boxH * 0.06);
+  const cx0 = Math.max(0, x0 - padX);
+  const cy0 = Math.max(0, y0 - padY);
+  const cropW = Math.min(w, x1 + padX) - cx0;
+  const cropH = Math.min(h, y1 + padY) - cy0;
+
+  const out = document.createElement("canvas");
+  out.width = cropW;
+  out.height = cropH;
+  out.getContext("2d").drawImage(srcCanvas, cx0, cy0, cropW, cropH, 0, 0, cropW, cropH);
+  return out;
 }
 
 async function scanBottleLabel(event) {
