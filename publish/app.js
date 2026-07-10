@@ -1422,7 +1422,15 @@ document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 document.querySelector("#deleteLastPour").addEventListener("click", deleteLastPour);
 els.searchInput.addEventListener("input", render);
 els.librarySearch.addEventListener("input", renderLibrary);
-els.sortSelect.addEventListener("change", render);
+const SORT_KEY = "fip-sort";
+const savedSort = localStorage.getItem(SORT_KEY);
+if (savedSort && [...els.sortSelect.options].some((option) => option.value === savedSort)) {
+  els.sortSelect.value = savedSort;
+}
+els.sortSelect.addEventListener("change", () => {
+  localStorage.setItem(SORT_KEY, els.sortSelect.value);
+  render();
+});
 els.toggleQuickView?.addEventListener("click", () => {
   quickView = !quickView;
   render();
@@ -2143,11 +2151,40 @@ function visibleBottles() {
       return bottles.indexOf(a) - bottles.indexOf(b);
     }
     const sort = els.sortSelect.value;
+    if (sort === "custom") return compareCustomOrder(a, b);
     if (sort === "rating") return Number(b.rating) - Number(a.rating);
     if (sort === "value") return Number(b.price) - Number(a.price);
     if (sort === "proof") return Number(b.proof) - Number(a.proof);
     return a.name.localeCompare(b.name);
   });
+}
+
+// "My order": bottles with an assigned order come first in that order; the rest
+// keep their insertion order until the user arranges them.
+function compareCustomOrder(a, b) {
+  const ao = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER;
+  const bo = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER;
+  if (ao !== bo) return ao - bo;
+  return bottles.indexOf(a) - bottles.indexOf(b);
+}
+
+// Move a bottle one slot up/down within the current view and persist the new order.
+function moveBottleOrder(id, direction) {
+  const visible = visibleBottles();
+  const vIdx = visible.findIndex((bottle) => bottle.id === id);
+  const targetId = visible[vIdx + direction]?.id;
+  if (vIdx < 0 || !targetId) return;
+
+  const ordered = [...bottles].sort(compareCustomOrder);
+  const item = ordered.splice(ordered.findIndex((bottle) => bottle.id === id), 1)[0];
+  const targetIdx = ordered.findIndex((bottle) => bottle.id === targetId);
+  ordered.splice(direction > 0 ? targetIdx + 1 : targetIdx, 0, item);
+  ordered.forEach((bottle, index) => {
+    bottle.order = index;
+  });
+
+  persist();
+  render();
 }
 
 function updateWelcomeVisibility() {
@@ -2359,6 +2396,7 @@ function renderCards(shown) {
   }
 
   const isBuyNext = activeView === "buy-next";
+  const customOrder = !isBuyNext && !selectionMode && els.sortSelect.value === "custom";
   els.bottleGrid.classList.toggle("catalog-view", !quickView);
   els.bottleGrid.innerHTML = `
     <div class="catalog-list">
@@ -2390,7 +2428,11 @@ function renderCards(shown) {
                    <strong class="catalog-rating${Number(bottle.rating) > 0 ? "" : " is-empty"}">${numberOrDash(bottle.rating)}</strong>
                    <span>${bottle.price ? money(bottle.price) : ""}</span>
                  </div>
-                 <button class="catalog-fav${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" aria-label="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>`
+                 ${
+                   customOrder
+                     ? renderMoveControl(bottle, index, shown.length)
+                     : `<button class="catalog-fav${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" aria-label="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>`
+                 }`
           }
         </div>
       `,
@@ -2614,6 +2656,15 @@ function renderPriorityControlCompact(bottle) {
   `;
 }
 
+function renderMoveControl(bottle, index, total) {
+  return `
+    <div class="priority-control compact" role="group" aria-label="Reorder">
+      <button class="priority-move" type="button" data-move-up="${bottle.id}" aria-label="Move up" ${index <= 0 ? "disabled" : ""}>▲</button>
+      <button class="priority-move" type="button" data-move-down="${bottle.id}" aria-label="Move down" ${index >= total - 1 ? "disabled" : ""}>▼</button>
+    </div>
+  `;
+}
+
 function changeBottlePriority(id, delta) {
   let moved = false;
   bottles = bottles.map((bottle) => {
@@ -2689,6 +2740,20 @@ function bindBottleActions() {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
       changeBottlePriority(button.dataset.priorityDown, 1);
+    });
+  });
+
+  document.querySelectorAll("[data-move-up]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      moveBottleOrder(button.dataset.moveUp, -1);
+    });
+  });
+
+  document.querySelectorAll("[data-move-down]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      moveBottleOrder(button.dataset.moveDown, 1);
     });
   });
 }
