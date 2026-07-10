@@ -4085,13 +4085,11 @@ async function uploadBottlePhoto(event) {
     return;
   }
 
-  els.formPhotoName.textContent = "Removing background — this can take a few seconds...";
+  els.formPhotoName.textContent = "Isolating bottle...";
   try {
-    let dataUrl = await cutoutBottlePhoto(file);
-    if (!dataUrl) {
-      els.formPhotoName.textContent = "Isolating bottle...";
-      ({ dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true }));
-    }
+    // On-device background removal hangs on iOS Safari (no WebGPU), so uploads use the
+    // instant pixel crop. True cutouts are handled server-side (see cutoutBottlePhoto).
+    const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
 
     let photoUrl;
     if (currentUser && storage) {
