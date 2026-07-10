@@ -1888,6 +1888,27 @@ select {
   margin: 12px 0;
 }
 
+.quick-add {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.quick-add.is-hidden {
+  display: none;
+}
+
+.quick-add input {
+  flex: 1;
+  height: 44px;
+  padding: 0 14px;
+}
+
+.quick-add .primary-action {
+  flex-shrink: 0;
+  padding: 0 20px;
+}
+
 .follow-form {
   display: flex;
   gap: 10px;

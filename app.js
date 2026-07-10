@@ -1279,6 +1279,8 @@ const els = {
   viewTitle: document.querySelector("#viewTitle"),
   viewBanner: document.querySelector("#viewBanner"),
   viewAddButton: document.querySelector("#viewAddButton"),
+  wishlistQuickAdd: document.querySelector("#wishlistQuickAdd"),
+  wishlistQuickName: document.querySelector("#wishlistQuickName"),
   toggleSelect: document.querySelector("#toggleSelect"),
   selectBar: document.querySelector("#selectBar"),
   selectCount: document.querySelector("#selectCount"),
@@ -1398,6 +1400,10 @@ const fields = {
 document.querySelector("#openBottleForm").addEventListener("click", () => openForm());
 document.querySelector("#inventoryAddBottle").addEventListener("click", () => openForm());
 els.viewAddButton.addEventListener("click", () => openFormWithStatus(els.viewAddButton.dataset.status));
+els.wishlistQuickAdd.addEventListener("submit", (event) => {
+  event.preventDefault();
+  addWishlistItem(els.wishlistQuickName.value);
+});
 els.toggleSelect.addEventListener("click", () => setSelectionMode(!selectionMode));
 els.selectCancel.addEventListener("click", () => setSelectionMode(false));
 els.selectDelete.addEventListener("click", bulkDeleteSelected);
@@ -2202,6 +2208,7 @@ function render() {
   els.hero.classList.toggle("is-hidden", bottles.length > 0);
   applyViewIdentity();
   renderBuyNextSuggestions();
+  renderWishlistQuickAdd();
   const inventoryToolsVisible = ["collection", "opened", "finished"].includes(activeView);
   document
     .querySelectorAll(".inventory-overview, .toolbar, .quick-filters, .filter-shell, .stats-grid")
@@ -2362,9 +2369,9 @@ function renderCards(shown) {
           <img class="catalog-thumb" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
           <div class="catalog-main">
             <h3>${escapeHtml(bottle.name)}</h3>
-            <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
+            <p>${escapeHtml([bottle.distillery, bottle.region].filter(Boolean).join(" · ") || "No details yet")}</p>
             <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
-              ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))} · ${numberOrDash(bottle.proof)}pf
+              ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
             </div>
           </div>
           ${
@@ -2493,6 +2500,29 @@ function renderBuyNextSuggestions() {
       addPickToBuyNext(buyNextPicks[Number(button.dataset.suggestAdd)]);
     });
   });
+}
+
+function renderWishlistQuickAdd() {
+  els.wishlistQuickAdd.classList.toggle("is-hidden", activeView !== "wishlist");
+}
+
+function addWishlistItem(rawName) {
+  const name = rawName.trim();
+  if (!name) return;
+  const bottle = normalizeBottle({
+    id: crypto.randomUUID(),
+    name,
+    distillery: "",
+    type: "Bourbon",
+    status: "wishlist",
+    flavors: [],
+    createdAt: Date.now(),
+  });
+  bottles = [bottle, ...bottles];
+  persist();
+  els.wishlistQuickName.value = "";
+  render();
+  els.wishlistQuickName.focus();
 }
 
 function addPickToBuyNext(pick) {
