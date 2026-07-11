@@ -2513,7 +2513,9 @@ function renderCards(shown) {
                  ${
                    customOrder
                      ? renderMoveControl(bottle, index, shown.length)
-                     : `<button class="catalog-fav${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" aria-label="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>`
+                     : bottle.status === "wishlist"
+                       ? `<button class="catalog-own-btn" data-mark-owned="${bottle.id}" type="button" title="Mark as owned">✓ Got it</button>`
+                       : `<button class="catalog-fav${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" aria-label="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>`
                  }`
           }
         </div>
@@ -2892,6 +2894,26 @@ function bindBottleActions() {
       moveBottleOrder(button.dataset.moveDown, 1);
     });
   });
+
+  document.querySelectorAll("[data-mark-owned]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      markBottleOwned(button.dataset.markOwned);
+    });
+  });
+}
+
+// Move a wish list bottle into the collection as owned (sealed) — one tap, no form.
+function markBottleOwned(id) {
+  let moved = false;
+  bottles = bottles.map((bottle) => {
+    if (bottle.id !== id || bottle.status !== "wishlist") return bottle;
+    moved = true;
+    return { ...bottle, status: "sealed" };
+  });
+  if (!moved) return;
+  persist();
+  render();
 }
 
 function setSelectionMode(on) {
@@ -3859,7 +3881,11 @@ function openBottleQuick(id) {
     </div>
     <div class="form-actions">
       <button class="secondary-action" id="quickEditBottle" type="button">Edit Bottle</button>
-      <button class="primary-action" id="quickLogPour" type="button">Log Pour</button>
+      ${
+        bottle.status === "wishlist"
+          ? `<button class="primary-action" id="quickMarkOwned" type="button">✓ Mark as Owned</button>`
+          : `<button class="primary-action" id="quickLogPour" type="button">Log Pour</button>`
+      }
     </div>
   `;
   els.quickBottleDialog.showModal();
@@ -3868,9 +3894,13 @@ function openBottleQuick(id) {
     els.quickBottleDialog.close();
     openForm(id);
   });
-  document.querySelector("#quickLogPour").addEventListener("click", () => {
+  document.querySelector("#quickLogPour")?.addEventListener("click", () => {
     els.quickBottleDialog.close();
     openPourForm(id);
+  });
+  document.querySelector("#quickMarkOwned")?.addEventListener("click", () => {
+    markBottleOwned(id);
+    els.quickBottleDialog.close();
   });
   els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((tabButton) => {
     tabButton.addEventListener("click", () => {

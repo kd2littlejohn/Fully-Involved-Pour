@@ -3098,6 +3098,7 @@ textarea {
 
 .bottle-grid.selecting .fav-btn,
 .bottle-grid.selecting .catalog-fav,
+.bottle-grid.selecting .catalog-own-btn,
 .bottle-grid.selecting .card-actions,
 .bottle-grid.selecting .quick-actions,
 .bottle-grid.selecting .priority-control {
@@ -3315,6 +3316,26 @@ textarea {
 
 .catalog-fav.is-fav {
   color: var(--danger);
+}
+
+.catalog-own-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--sage);
+  border-radius: 999px;
+  background: rgba(142, 169, 141, 0.12);
+  color: var(--sage);
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.catalog-own-btn:hover {
+  background: rgba(142, 169, 141, 0.24);
 }
 
 .catalog-row .priority-control {
