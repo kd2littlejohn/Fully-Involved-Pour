@@ -1498,6 +1498,7 @@ els.aiFillDistillery.addEventListener("click", fillDistilleryWithAi);
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
+document.querySelector("#importCollectionButton").addEventListener("click", () => document.querySelector("#importFile").click());
 document.querySelector("#importFile").addEventListener("change", importCollection);
 document.querySelector("#downloadImportTemplate").addEventListener("click", downloadImportTemplate);
 document.querySelector("#refreshAiTools").addEventListener("click", renderAiTools);

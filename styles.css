@@ -1078,7 +1078,7 @@ select {
   font-weight: 750;
 }
 
-.import-action input {
+.visually-hidden-file-input {
   position: absolute;
   inline-size: 1px;
   block-size: 1px;
