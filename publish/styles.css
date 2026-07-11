@@ -25,6 +25,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
   background: var(--charcoal);
   color: var(--ink);
@@ -142,6 +143,7 @@ textarea,
 
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-shell.is-hidden {
@@ -394,6 +396,7 @@ label {
 .main {
   min-width: 0;
   min-height: calc(100vh - 54px);
+  min-height: calc(100dvh - 54px);
   padding-bottom: 40px;
 }
 
