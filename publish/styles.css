@@ -951,6 +951,18 @@ select {
   background: var(--amber);
 }
 
+.view-mode-toggle {
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.view-mode-toggle button {
+  min-height: 28px;
+  min-width: 34px;
+  padding: 0;
+  font-size: 0.95rem;
+}
+
 .filter-drawer {
   display: grid;
   gap: 12px;
@@ -3701,6 +3713,101 @@ textarea {
   display: block;
   font-size: 1.2rem;
   line-height: 1;
+}
+
+/* Card view: a responsive photo-forward grid, alternative to the catalog-row list.
+   Uses the base .bottle-grid (display:grid) layout — only .catalog-view overrides it. */
+.bottle-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.bottle-tile:hover {
+  border-color: var(--amber);
+}
+
+.bottle-tile.is-core {
+  border-color: rgba(215, 138, 54, 0.5);
+}
+
+.bottle-tile.is-selected {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+  background: rgba(215, 138, 54, 0.08);
+}
+
+.tile-photo {
+  width: 100%;
+  height: 200px;
+  object-fit: contain;
+  background: #0f0b07;
+}
+
+.tile-photo.catalog-thumb-empty {
+  height: 200px;
+  font-size: 2.6rem;
+  border: none;
+  border-radius: 0;
+}
+
+.tile-core-ribbon {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(215, 138, 54, 0.92);
+  color: #140d08;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.tile-select-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+
+.tile-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 14px;
+}
+
+.tile-body h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.tile-body > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tile-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 
 .stats-grid {

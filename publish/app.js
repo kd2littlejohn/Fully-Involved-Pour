@@ -1277,7 +1277,8 @@ const selectedIds = new Set();
 let activeView = "collection";
 let previousViewBeforeFaceoff = "compare";
 let faceoffPair = null;
-let quickView = false;
+const VIEW_MODE_KEY = "fip-view-mode";
+let cardView = localStorage.getItem(VIEW_MODE_KEY) === "card";
 let formPhotoTimer;
 
 const els = {
@@ -1306,7 +1307,7 @@ const els = {
   openedSealedMeta: document.querySelector("#openedSealedMeta"),
   searchInput: document.querySelector("#searchInput"),
   sortSelect: document.querySelector("#sortSelect"),
-  toggleQuickView: document.querySelector("#toggleQuickView"),
+  viewModeToggle: document.querySelector("#viewModeToggle"),
   fetchBottlePhotos: document.querySelector("#fetchBottlePhotos"),
   bottleDialog: document.querySelector("#bottleDialog"),
   bottleForm: document.querySelector("#bottleForm"),
@@ -1485,8 +1486,11 @@ els.sortSelect.addEventListener("change", () => {
   localStorage.setItem(SORT_KEY, els.sortSelect.value);
   render();
 });
-els.toggleQuickView?.addEventListener("click", () => {
-  quickView = !quickView;
+els.viewModeToggle?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-view-mode]");
+  if (!button) return;
+  cardView = button.dataset.viewMode === "card";
+  localStorage.setItem(VIEW_MODE_KEY, cardView ? "card" : "list");
   render();
 });
 els.bottleForm.addEventListener("submit", saveBottle);
@@ -2456,10 +2460,9 @@ function renderStats() {
 
 function renderCards(shown) {
   els.resultCount.textContent = `${shown.length} shown`;
-  if (els.toggleQuickView) {
-    els.toggleQuickView.textContent = quickView ? "Card View" : "Quick View";
-  }
-  els.bottleGrid.classList.toggle("quick-view", quickView);
+  els.viewModeToggle?.querySelectorAll("[data-view-mode]").forEach((button) => {
+    button.classList.toggle("is-selected", (button.dataset.viewMode === "card") === cardView);
+  });
   els.bottleGrid.classList.toggle("selecting", selectionMode);
   updateSelectBar();
 
@@ -2486,98 +2489,93 @@ function renderCards(shown) {
     return;
   }
 
-  if (quickView) {
+  const isBuyNext = activeView === "buy-next";
+  const customOrder = !isBuyNext && !selectionMode && els.sortSelect.value === "custom";
+
+  if (cardView) {
+    els.bottleGrid.classList.remove("catalog-view");
+    els.bottleGrid.innerHTML = shown
+      .map((bottle, index) => renderBottleTile(bottle, index, shown.length, isBuyNext, customOrder))
+      .join("");
+  } else {
+    els.bottleGrid.classList.add("catalog-view");
     els.bottleGrid.innerHTML = `
-      <div class="quick-list" role="table" aria-label="Quick bottle view">
-        <div class="quick-row quick-head" role="row">
-          <span>Bottle</span>
-          <span>Proof</span>
-          <span>Rating</span>
-          <span>Status</span>
-          <span>Shelf</span>
-          <span>Flavor</span>
-          <span></span>
-        </div>
+      <div class="catalog-list">
         ${shown
           .map(
-            (bottle) => `
-              <div class="quick-row${selectionMode && selectedIds.has(bottle.id) ? " is-selected" : ""}" role="row" data-quick="${bottle.id}">
-                <div class="quick-bottle-cell">
-                  <img src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
-                  <div>
-                    <strong>${escapeHtml(bottle.name)}</strong>
-                    <small>${escapeHtml(bottle.type)} · ${numberOrDash(bottle.proof)} proof</small>
-                    <small>${labelBottleSize(bottle.bottleSize)}${bottle.ageStatement ? ` · ${escapeHtml(bottle.ageStatement)}` : ""}</small>
-                  </div>
-                </div>
-                <span>${numberOrDash(bottle.proof)}</span>
-                <span>${numberOrDash(bottle.rating)}</span>
-                <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
-                <span>${escapeHtml(bottle.shelf || "Main bar")} · ${labelBottleSize(bottle.bottleSize)} · ${labelFillLevel(bottle.fillLevel)}</span>
-                <div class="mini-radar">${renderBottleFlavorRadar(bottle)}</div>
-                <div class="quick-actions">
-                  <button class="secondary-action" type="button" data-edit="${bottle.id}">Edit</button>
-                  <button class="secondary-action" type="button" data-toggle="${bottle.id}">${bottle.status === "open" ? "Seal" : "Open"}</button>
-                </div>
+            (bottle, index) => `
+          <div class="catalog-row${bottle.coreBar ? " is-core" : ""}${selectionMode && selectedIds.has(bottle.id) ? " is-selected" : ""}" data-quick="${bottle.id}">
+            ${
+              selectionMode
+                ? `<span class="select-check${selectedIds.has(bottle.id) ? " is-checked" : ""}" aria-hidden="true">✓</span>`
+                : `<span class="catalog-index">${String(index + 1).padStart(2, "0")}</span>`
+            }
+            ${bottleThumb(bottle)}
+            <div class="catalog-main">
+              <h3>${escapeHtml(bottle.name)}</h3>
+              <p>${escapeHtml([bottle.distillery, bottle.region].filter(Boolean).join(" · ") || "No details yet")}</p>
+              <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
+                ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
               </div>
-            `,
+            </div>
+            ${renderBottleRowActions(bottle, index, shown.length, isBuyNext, customOrder)}
+          </div>
+        `,
           )
           .join("")}
       </div>
     `;
-    bindBottleActions();
-    return;
   }
 
-  const isBuyNext = activeView === "buy-next";
-  const customOrder = !isBuyNext && !selectionMode && els.sortSelect.value === "custom";
-  els.bottleGrid.classList.toggle("catalog-view", !quickView);
-  els.bottleGrid.innerHTML = `
-    <div class="catalog-list">
-      ${shown
-        .map(
-          (bottle, index) => `
-        <div class="catalog-row${bottle.coreBar ? " is-core" : ""}${selectionMode && selectedIds.has(bottle.id) ? " is-selected" : ""}" data-quick="${bottle.id}">
-          ${
-            selectionMode
-              ? `<span class="select-check${selectedIds.has(bottle.id) ? " is-checked" : ""}" aria-hidden="true">✓</span>`
-              : `<span class="catalog-index">${String(index + 1).padStart(2, "0")}</span>`
-          }
-          ${bottleThumb(bottle)}
-          <div class="catalog-main">
-            <h3>${escapeHtml(bottle.name)}</h3>
-            <p>${escapeHtml([bottle.distillery, bottle.region].filter(Boolean).join(" · ") || "No details yet")}</p>
-            <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
-              ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
-            </div>
-          </div>
-          ${
-            isBuyNext
-              ? `<div class="catalog-right">
-                   <strong class="catalog-priority">${escapeHtml(priorityLabel(bottle.priority).split(" ")[0])}</strong>
-                   <span>${bottle.price ? money(bottle.price) : ""}</span>
-                 </div>
-                 ${renderPriorityControlCompact(bottle)}`
-              : `<div class="catalog-right">
-                   <strong class="catalog-rating${Number(bottle.rating) > 0 ? "" : " is-empty"}">${numberOrDash(bottle.rating)}</strong>
-                   <span>${bottle.price ? money(bottle.price) : ""}</span>
-                 </div>
-                 ${
-                   customOrder
-                     ? renderMoveControl(bottle, index, shown.length)
-                     : bottle.status === "wishlist"
-                       ? `<button class="catalog-own-btn" data-mark-owned="${bottle.id}" type="button" title="Mark as owned">✓ Got it</button>`
-                       : `<button class="catalog-fav${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" aria-label="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>`
-                 }`
-          }
-        </div>
-      `,
-        )
-        .join("")}
-    </div>
-  `;
-
   bindBottleActions();
+}
+
+// Shared right-side action markup (priority/rating/favorite/mark-owned/reorder) used by
+// both the list rows and the card tiles, so the two layouts never drift out of parity.
+function renderBottleRowActions(bottle, index, total, isBuyNext, customOrder) {
+  if (isBuyNext) {
+    return `
+      <div class="catalog-right">
+        <strong class="catalog-priority">${escapeHtml(priorityLabel(bottle.priority).split(" ")[0])}</strong>
+        <span>${bottle.price ? money(bottle.price) : ""}</span>
+      </div>
+      ${renderPriorityControlCompact(bottle)}
+    `;
+  }
+  return `
+    <div class="catalog-right">
+      <strong class="catalog-rating${Number(bottle.rating) > 0 ? "" : " is-empty"}">${numberOrDash(bottle.rating)}</strong>
+      <span>${bottle.price ? money(bottle.price) : ""}</span>
+    </div>
+    ${
+      customOrder
+        ? renderMoveControl(bottle, index, total)
+        : bottle.status === "wishlist"
+          ? `<button class="catalog-own-btn" data-mark-owned="${bottle.id}" type="button" title="Mark as owned">✓ Got it</button>`
+          : `<button class="catalog-fav${bottle.favorite ? " is-fav" : ""}" data-favorite="${bottle.id}" type="button" aria-label="${bottle.favorite ? "Remove from favorites" : "Add to favorites"}">♥</button>`
+    }
+  `;
+}
+
+function renderBottleTile(bottle, index, total, isBuyNext, customOrder) {
+  const isSelected = selectionMode && selectedIds.has(bottle.id);
+  return `
+    <article class="bottle-tile${bottle.coreBar ? " is-core" : ""}${isSelected ? " is-selected" : ""}" data-quick="${bottle.id}">
+      ${selectionMode ? `<span class="select-check tile-select-check${isSelected ? " is-checked" : ""}" aria-hidden="true">✓</span>` : ""}
+      ${bottle.coreBar ? `<div class="tile-core-ribbon">🔥 Core Bar</div>` : ""}
+      ${bottleThumb(bottle, "tile-photo")}
+      <div class="tile-body">
+        <h3>${escapeHtml(bottle.name)}</h3>
+        <p>${escapeHtml([bottle.distillery, bottle.region].filter(Boolean).join(" · ") || "No details yet")}</p>
+        <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
+          ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
+        </div>
+        <div class="tile-footer">
+          ${renderBottleRowActions(bottle, index, total, isBuyNext, customOrder)}
+        </div>
+      </div>
+    </article>
+  `;
 }
 
 let buyNextPicks = [];
@@ -4333,13 +4331,14 @@ function bottleImage(bottle) {
 }
 
 // A real photo when we have one, otherwise a clean initial tile instead of a blank box.
-function bottleThumb(bottle) {
+function bottleThumb(bottle, extraClass = "") {
+  const cls = `catalog-thumb${extraClass ? ` ${extraClass}` : ""}`;
   const image = bottle.imageUrl || getCuratedBottleImage(bottle);
   if (image) {
-    return `<img class="catalog-thumb" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
+    return `<img class="${cls}" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
   }
   const initial = (bottle.name || "?").trim().charAt(0).toUpperCase() || "?";
-  return `<div class="catalog-thumb catalog-thumb-empty" aria-hidden="true">${escapeHtml(initial)}</div>`;
+  return `<div class="${cls} catalog-thumb-empty" aria-hidden="true">${escapeHtml(initial)}</div>`;
 }
 
 async function fetchBottlePhotos() {
