@@ -2878,6 +2878,31 @@ select {
   font-size: 0.82rem;
 }
 
+.quick-photo-upload-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #17120d;
+}
+
+.quick-photo-upload-panel > span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-photo-upload-panel .upload-photo-action {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
 .photo-source-links {
   display: flex;
   flex-wrap: wrap;

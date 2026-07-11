@@ -4278,9 +4278,12 @@ function openBottleQuick(id) {
       ${renderDistilleryInfoBlock(bottle)}
     </div>
 
-    <div class="photo-source-panel">
-      <span>Find actual bottle photo</span>
-      ${renderPhotoSourceLinks(bottle)}
+    <div class="quick-photo-upload-panel">
+      <span id="quickPhotoStatus">${bottle.imageUrl ? "Replace this bottle's photo" : "Add a photo of this bottle"}</span>
+      <label class="upload-photo-action">
+        Upload Photo
+        <input id="quickPhotoUpload" type="file" accept="image/*" />
+      </label>
     </div>
     <div class="form-actions">
       <button class="secondary-action" id="quickEditBottle" type="button">Edit Bottle</button>
@@ -4305,6 +4308,7 @@ function openBottleQuick(id) {
     markBottleOwned(id);
     els.quickBottleDialog.close();
   });
+  document.querySelector("#quickPhotoUpload").addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
   els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((tabButton) => {
     tabButton.addEventListener("click", () => {
       els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((btn) => btn.classList.remove("is-active"));
@@ -4724,6 +4728,63 @@ async function storeBottlePhoto(dataUrl, file, tag) {
     return uploadFileToStorage(blob, path);
   }
   return dataUrl;
+}
+
+function setBottlePhoto(id, imageUrl) {
+  bottles = bottles.map((bottle) => (bottle.id === id ? { ...bottle, imageUrl } : bottle));
+  persist();
+  render();
+}
+
+// Upload a photo directly from the Quick View for a bottle you already own — same
+// crop + background-removal pipeline as the Add/Edit form's Upload Photo, but writes
+// straight onto the saved bottle instead of a form draft.
+async function uploadQuickBottlePhoto(event, id) {
+  const [file] = event.target.files;
+  if (!file) return;
+
+  const statusEl = document.querySelector("#quickPhotoStatus");
+  const looksLikeImage = file.type.startsWith("image/") || isHeicFile(file) || /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(file.name || "");
+  if (!looksLikeImage) {
+    if (statusEl) statusEl.textContent = "Choose an image file.";
+    event.target.value = "";
+    return;
+  }
+
+  const isStillOpen = () => document.querySelector("#quickPhotoUpload") && els.quickBottleDialog.open;
+  const displayName = file.name.replace(/\.[^.]+$/, "") || "Uploaded bottle photo";
+  if (statusEl) statusEl.textContent = "Isolating bottle...";
+  try {
+    const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
+    const cropUrl = await storeBottlePhoto(dataUrl, file, "crop");
+    setBottlePhoto(id, cropUrl);
+    if (isStillOpen()) {
+      document.querySelector("#quickBottleDetail .quick-detail-photo").src = cropUrl;
+      document.querySelector("#quickPhotoStatus").textContent = displayName;
+    }
+
+    if (currentUser && cloudFunctions) {
+      if (isStillOpen()) document.querySelector("#quickPhotoStatus").textContent = `${displayName} · removing background…`;
+      cutoutBottlePhoto(file)
+        .then(async (cutoutDataUrl) => {
+          if (!cutoutDataUrl) return;
+          const cutoutUrl = await storeBottlePhoto(cutoutDataUrl, file, "cutout");
+          setBottlePhoto(id, cutoutUrl);
+          if (isStillOpen()) {
+            document.querySelector("#quickBottleDetail .quick-detail-photo").src = cutoutUrl;
+            document.querySelector("#quickPhotoStatus").textContent = `${displayName} · background removed`;
+          }
+        })
+        .catch(() => {
+          if (isStillOpen()) document.querySelector("#quickPhotoStatus").textContent = displayName;
+        });
+    }
+  } catch (error) {
+    console.error("Photo upload failed", error);
+    if (isStillOpen()) document.querySelector("#quickPhotoStatus").textContent = "Could not process that photo. Try a different file.";
+  } finally {
+    event.target.value = "";
+  }
 }
 
 let brandLogoPromise;
