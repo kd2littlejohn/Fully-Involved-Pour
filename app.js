@@ -1279,7 +1279,6 @@ let previousViewBeforeFaceoff = "compare";
 let faceoffPair = null;
 const VIEW_MODE_KEY = "fip-view-mode";
 let cardView = localStorage.getItem(VIEW_MODE_KEY) === "card";
-let formPhotoTimer;
 
 const els = {
   bottleGrid: document.querySelector("#bottleGrid"),
@@ -1308,7 +1307,6 @@ const els = {
   searchInput: document.querySelector("#searchInput"),
   sortSelect: document.querySelector("#sortSelect"),
   viewModeToggle: document.querySelector("#viewModeToggle"),
-  fetchBottlePhotos: document.querySelector("#fetchBottlePhotos"),
   bottleDialog: document.querySelector("#bottleDialog"),
   bottleForm: document.querySelector("#bottleForm"),
   formTitle: document.querySelector("#formTitle"),
@@ -1378,7 +1376,6 @@ const els = {
   formPhotoPanel: document.querySelector("#formPhotoPanel"),
   formPhotoPreview: document.querySelector("#formPhotoPreview"),
   formPhotoName: document.querySelector("#formPhotoName"),
-  formPhotoLinks: document.querySelector("#formPhotoLinks"),
   selectedBottlePreview: document.querySelector("#selectedBottlePreview"),
   selectedBottleImage: document.querySelector("#selectedBottleImage"),
   selectedBottleLabel: document.querySelector("#selectedBottleLabel"),
@@ -1465,7 +1462,6 @@ document.querySelector("#closePhotoZoom").addEventListener("click", () => els.ph
 els.photoZoomDialog.addEventListener("click", (event) => {
   if (event.target === els.photoZoomDialog) els.photoZoomDialog.close();
 });
-els.fetchBottlePhotos?.addEventListener("click", fetchBottlePhotos);
 els.categoryPicker.addEventListener("click", (event) => {
   const button = event.target.closest(".category-tag-btn");
   if (!button) return;
@@ -1534,19 +1530,16 @@ function applyMashBillSuggestion() {
 fields.name.addEventListener("input", () => {
   renderBottleSuggestions();
   updateFormPhotoTools();
-  queueAutoFormPhotoSearch();
   applyMashBillSuggestion();
 });
 fields.name.addEventListener("focus", renderBottleSuggestions);
 fields.distillery.addEventListener("input", () => {
   updateFormPhotoTools();
-  queueAutoFormPhotoSearch();
   applyMashBillSuggestion();
 });
 fields.imageUrl.addEventListener("input", updateFormPhotoTools);
 els.photoUpload.addEventListener("change", uploadBottlePhoto);
 els.labelScanInput.addEventListener("change", scanBottleLabel);
-document.querySelector("#autoFindPhoto").addEventListener("click", autoFindFormPhoto);
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".name-field")) {
     clearBottleSuggestions();
@@ -4341,50 +4334,6 @@ function bottleThumb(bottle, extraClass = "") {
   return `<div class="${cls} catalog-thumb-empty" aria-hidden="true">${escapeHtml(initial)}</div>`;
 }
 
-async function fetchBottlePhotos() {
-  els.fetchBottlePhotos.textContent = "Fetching...";
-  els.fetchBottlePhotos.disabled = true;
-  let updated = 0;
-
-  for (const bottle of bottles) {
-    if (bottle.imageUrl) continue;
-    const imageUrl = await findPublicBottleImage(bottle);
-    if (imageUrl) {
-      bottle.imageUrl = imageUrl;
-      updated += 1;
-    }
-  }
-
-  persist();
-  render();
-  els.fetchBottlePhotos.disabled = false;
-  els.fetchBottlePhotos.textContent = updated ? `Fetched ${updated}` : "Fetch Photos";
-}
-
-async function findPublicBottleImage(bottle) {
-  const query = encodeURIComponent(`${bottle.name} ${bottle.distillery} whiskey bottle`);
-  const sources = [
-    `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${query}&search_simple=1&action=process&json=1&page_size=5`,
-    `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${query}&gsrnamespace=6&gsrlimit=5&prop=imageinfo&iiprop=url&iiurlwidth=500&format=json&origin=*`,
-  ];
-
-  for (const source of sources) {
-    try {
-      const response = await fetch(source, { signal: AbortSignal.timeout(4000) });
-      const data = await response.json();
-      const image = source.includes("openfoodfacts")
-        ? data.products?.find((product) => product.image_front_url || product.image_url)
-        : Object.values(data.query?.pages || {}).find((page) => page.imageinfo?.[0]?.thumburl || page.imageinfo?.[0]?.url);
-      const url = image?.image_front_url || image?.image_url || image?.imageinfo?.[0]?.thumburl || image?.imageinfo?.[0]?.url;
-      if (url && isLikelyImageUrl(url)) return url;
-    } catch {
-      // Public image APIs can rate-limit or block CORS; keep the local fallback intact.
-    }
-  }
-
-  return "";
-}
-
 function googleImageSearchUrl(bottle) {
   return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`${bottle.name} ${bottle.distillery} bottle`)}`;
 }
@@ -4410,10 +4359,6 @@ function renderPhotoSourceLinks(bottle, variant = "") {
         .join("")}
     </div>
   `;
-}
-
-function isLikelyImageUrl(url) {
-  return /^https?:\/\//.test(url) && !url.includes("svg");
 }
 
 function openForm(id = "") {
@@ -4509,7 +4454,6 @@ function applyAiBottleInfo(info) {
   if (!fields.region.value.trim() && info.region) fields.region.value = info.region;
   if (!fields.proof.value && info.proof) fields.proof.value = info.proof;
   updateFormPhotoTools();
-  queueAutoFormPhotoSearch();
 }
 
 async function fillDistilleryWithAi() {
@@ -4660,7 +4604,6 @@ function applyBottleSuggestion(bottle) {
   }
   clearBottleSuggestions();
   updateFormPhotoTools(bottle);
-  queueAutoFormPhotoSearch(100);
   fields.status.focus();
 }
 
@@ -4704,42 +4647,6 @@ function updateFormPhotoTools(seed = {}) {
     els.selectedBottleImage.removeAttribute("src");
     els.selectedBottleLabel.textContent = "";
   }
-  els.formPhotoLinks.innerHTML = hasName
-    ? photoSourceLinks(draft)
-        .slice(0, 4)
-        .map(([label, href]) => `<a class="secondary-action" href="${href}" target="_blank" rel="noreferrer">${label}</a>`)
-        .join("")
-    : "";
-}
-
-function queueAutoFormPhotoSearch(delay = 700) {
-  window.clearTimeout(formPhotoTimer);
-  const draft = getFormBottleDraft();
-  if (fields.imageUrl.value.trim() || draft.name.length < 4) return;
-
-  formPhotoTimer = window.setTimeout(() => {
-    autoFindFormPhoto({ quiet: true });
-  }, delay);
-}
-
-async function autoFindFormPhoto(options = {}) {
-  const quiet = Boolean(options.quiet);
-  const draft = getFormBottleDraft();
-  if (!draft.name) {
-    els.formPhotoName.textContent = "Enter a bottle name first";
-    return;
-  }
-
-  if (!quiet) els.formPhotoName.textContent = "Looking for public bottle photo...";
-  const imageUrl = await findPublicBottleImage(draft);
-  if (imageUrl) {
-    fields.imageUrl.value = imageUrl;
-    updateFormPhotoTools({ ...draft, imageUrl });
-    return;
-  }
-
-  if (!quiet) els.formPhotoName.textContent = "No public photo found. Use a source link.";
-  updateFormPhotoTools(draft);
 }
 
 function isHeicFile(file) {
@@ -5152,19 +5059,6 @@ async function saveBottle(event) {
     notes: fields.notes.value.trim(),
   };
   bottle.imageUrl = bottle.imageUrl || getCuratedBottleImage(bottle);
-  if (!bottle.imageUrl) {
-    const submitButton = els.bottleForm.querySelector('button[type="submit"]');
-    const originalText = submitButton?.textContent;
-    if (submitButton) {
-      submitButton.disabled = true;
-      submitButton.textContent = "Finding photo...";
-    }
-    bottle.imageUrl = await findPublicBottleImage(bottle);
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.textContent = originalText;
-    }
-  }
 
   const existing = bottles.find((item) => item.id === id);
   if (existing) {
