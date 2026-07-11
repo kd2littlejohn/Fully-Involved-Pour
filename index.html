@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=63" />
+    <link rel="stylesheet" href="styles.css?v=64" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -239,7 +239,10 @@
             </div>
             <div class="view-banner is-hidden" id="viewBanner"></div>
             <form class="quick-add is-hidden" id="wishlistQuickAdd">
-              <input id="wishlistQuickName" placeholder="Add a bottle to your wish list…" autocomplete="off" />
+              <div class="name-field wishlist-name-field">
+                <input id="wishlistQuickName" placeholder="Add a bottle to your wish list…" autocomplete="off" />
+                <div class="ai-suggestions" id="wishlistQuickSuggestions" aria-live="polite"></div>
+              </div>
               <button class="primary-action" type="submit">Add</button>
             </form>
             <div class="buy-next-suggest is-hidden" id="buyNextSuggest"></div>
@@ -843,7 +846,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=79"></script>
+    <script src="app.js?v=80"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

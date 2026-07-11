@@ -1286,6 +1286,7 @@ const els = {
   viewAddButton: document.querySelector("#viewAddButton"),
   wishlistQuickAdd: document.querySelector("#wishlistQuickAdd"),
   wishlistQuickName: document.querySelector("#wishlistQuickName"),
+  wishlistQuickSuggestions: document.querySelector("#wishlistQuickSuggestions"),
   toggleSelect: document.querySelector("#toggleSelect"),
   selectBar: document.querySelector("#selectBar"),
   selectCount: document.querySelector("#selectCount"),
@@ -1409,6 +1410,8 @@ els.wishlistQuickAdd.addEventListener("submit", (event) => {
   event.preventDefault();
   addWishlistItem(els.wishlistQuickName.value);
 });
+els.wishlistQuickName.addEventListener("input", renderWishlistQuickSuggestions);
+els.wishlistQuickName.addEventListener("focus", renderWishlistQuickSuggestions);
 els.toggleSelect.addEventListener("click", () => setSelectionMode(!selectionMode));
 els.selectCancel.addEventListener("click", () => setSelectionMode(false));
 els.selectDelete.addEventListener("click", bulkDeleteSelected);
@@ -1484,6 +1487,9 @@ document.querySelector("#autoFindPhoto").addEventListener("click", autoFindFormP
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".name-field")) {
     clearBottleSuggestions();
+  }
+  if (!event.target.closest(".wishlist-name-field")) {
+    clearWishlistQuickSuggestions();
   }
 });
 
@@ -2550,26 +2556,79 @@ function renderBuyNextSuggestions() {
 }
 
 function renderWishlistQuickAdd() {
-  els.wishlistQuickAdd.classList.toggle("is-hidden", activeView !== "wishlist");
+  const isWishlist = activeView === "wishlist";
+  els.wishlistQuickAdd.classList.toggle("is-hidden", !isWishlist);
+  if (!isWishlist) clearWishlistQuickSuggestions();
 }
 
-function addWishlistItem(rawName) {
-  const name = rawName.trim();
+// Accepts a plain typed name (manual entry) or a matched bottle object from the
+// suggestions dropdown, in which case the known distillery/type/proof/flavors carry over.
+function addWishlistItem(input) {
+  const seed = typeof input === "string" ? { name: input } : input || {};
+  const name = (seed.name || "").trim();
   if (!name) return;
+  const imageUrl = seed.imageUrl || getCuratedBottleImage(seed) || "";
   const bottle = normalizeBottle({
     id: crypto.randomUUID(),
     name,
-    distillery: "",
-    type: "Bourbon",
+    distillery: seed.distillery || "",
+    type: seed.type || "Bourbon",
+    region: seed.region || "",
+    proof: seed.proof || 0,
+    price: seed.price || 0,
+    msrp: seed.price || 0,
+    flavors: seed.flavors || [],
+    imageUrl,
     status: "wishlist",
-    flavors: [],
     createdAt: Date.now(),
   });
   bottles = [bottle, ...bottles];
   persist();
   els.wishlistQuickName.value = "";
+  clearWishlistQuickSuggestions();
   render();
   els.wishlistQuickName.focus();
+}
+
+function renderWishlistQuickSuggestions() {
+  const query = els.wishlistQuickName.value.trim();
+  if (query.length < 2) {
+    clearWishlistQuickSuggestions();
+    return;
+  }
+
+  const matches = getBottleSuggestions(query);
+  if (!matches.length) {
+    els.wishlistQuickSuggestions.innerHTML = `
+      <div class="ai-empty">Not in the library yet — hit Add to save "${escapeHtml(query)}" manually.</div>
+    `;
+    return;
+  }
+
+  els.wishlistQuickSuggestions.innerHTML = `
+    <div class="ai-label">Bottle matches</div>
+    ${matches
+      .map(
+        (bottle, index) => `
+          <button class="ai-suggestion" type="button" data-wishlist-suggestion="${index}">
+            <img src="${bottleImage(bottle)}" alt="" />
+            <span>
+              <strong>${escapeHtml(bottle.name)}</strong>
+              <em>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${numberOrDash(bottle.proof)} proof</em>
+            </span>
+          </button>
+        `,
+      )
+      .join("")}
+  `;
+
+  els.wishlistQuickSuggestions.querySelectorAll("[data-wishlist-suggestion]").forEach((button) => {
+    button.addEventListener("click", () => addWishlistItem(matches[Number(button.dataset.wishlistSuggestion)]));
+  });
+}
+
+function clearWishlistQuickSuggestions() {
+  els.wishlistQuickSuggestions.innerHTML = "";
 }
 
 function addPickToBuyNext(pick) {
