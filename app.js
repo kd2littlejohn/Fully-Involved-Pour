@@ -1,5 +1,6 @@
 const STORAGE_KEY = "cellar-ledger-bottles";
 const POUR_STORAGE_KEY = "cellar-ledger-pours";
+const CUSTOM_LIBRARY_KEY = "fip-custom-library";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDJ6BpySxmM7bvZQYmLh0kmkPB18qxt47Q",
@@ -1237,6 +1238,7 @@ const availableDistilleries = [
 
 let bottles = loadBottles();
 let pours = loadPours();
+let customLibrary = loadCustomLibrary();
 let activeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
@@ -1639,6 +1641,18 @@ function loadPours() {
   }
 }
 
+function loadCustomLibrary() {
+  const saved = localStorage.getItem(CUSTOM_LIBRARY_KEY);
+  if (!saved) return [];
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function persistPours() {
   localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
   const newlyEarned = syncCoreBarScores();
@@ -1661,9 +1675,16 @@ async function pullCloudData(uid) {
       currentProfile = { username: data.username || "" };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
       localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+      // Merge the cloud's learned library with anything learned locally before sign-in.
+      let libraryChanged = false;
+      (data.customLibrary || []).forEach((entry) => {
+        if (learnBottleEntry(entry)) libraryChanged = true;
+      });
+      if (libraryChanged) renderDistilleryOptions();
+      persistCustomLibrary();
     } else {
       currentProfile = { username: "" };
-      await userDocRef(uid).set({ bottles, pours, username: "", updatedAt: Date.now() });
+      await userDocRef(uid).set({ bottles, pours, customLibrary, username: "", updatedAt: Date.now() });
     }
     syncCoreBarScores();
     updateAccountUI();
@@ -1679,12 +1700,67 @@ async function pushCloudData() {
   if (!currentUser || !db) return;
   try {
     await userDocRef(currentUser.uid).set(
-      { bottles, pours, username: currentProfile?.username || "", updatedAt: Date.now() },
+      { bottles, pours, customLibrary, username: currentProfile?.username || "", updatedAt: Date.now() },
       { merge: true },
     );
   } catch (error) {
     console.error("Cloud sync failed to save", error);
   }
+}
+
+function libraryKey(name, distillery) {
+  return `${(name || "").trim()}-${(distillery || "").trim()}`.toLowerCase();
+}
+
+// Record a newly-seen bottle name/distillery into the growing local library (mutates
+// in memory only — caller decides whether/when to persist). Returns true if it learned
+// something new, so a bottle that already exists in the curated or custom library is a
+// harmless no-op.
+function learnBottleEntry(bottle) {
+  const name = (bottle?.name || "").trim();
+  if (name.length < 2) return false;
+  const distillery = (bottle?.distillery || "").trim();
+  let changed = false;
+
+  const key = libraryKey(name, distillery);
+  const alreadyKnown =
+    aiBottleLibrary.some((entry) => libraryKey(entry.name, entry.distillery) === key) ||
+    customLibrary.some((entry) => libraryKey(entry.name, entry.distillery) === key);
+  if (!alreadyKnown) {
+    customLibrary.push({
+      name,
+      distillery,
+      type: bottle.type || "Bourbon",
+      region: bottle.region || "",
+      proof: Number(bottle.proof || 0),
+      price: Number(bottle.price || 0),
+      flavors: Array.isArray(bottle.flavors) ? bottle.flavors : [],
+      imageUrl: bottle.imageUrl || "",
+      learnedAt: Date.now(),
+    });
+    changed = true;
+  }
+
+  if (distillery && !availableDistilleries.some((known) => known.toLowerCase() === distillery.toLowerCase())) {
+    availableDistilleries.push(distillery);
+    availableDistilleries.sort((a, b) => a.localeCompare(b));
+    changed = true;
+  }
+
+  return changed;
+}
+
+// Learn a bottle just added/saved by the user, so it (and its distillery) become
+// suggestible for future adds even if this exact bottle is later edited or deleted.
+function learnBottle(bottle) {
+  if (!learnBottleEntry(bottle)) return;
+  renderDistilleryOptions();
+  persistCustomLibrary();
+}
+
+function persistCustomLibrary() {
+  localStorage.setItem(CUSTOM_LIBRARY_KEY, JSON.stringify(customLibrary));
+  pushCloudData();
 }
 
 function normalizeUsername(value) {
@@ -2584,6 +2660,7 @@ function addWishlistItem(input) {
   });
   bottles = [bottle, ...bottles];
   persist();
+  learnBottle(bottle);
   els.wishlistQuickName.value = "";
   clearWishlistQuickSuggestions();
   render();
@@ -4073,7 +4150,7 @@ function getBottleSuggestions(query) {
     ...bottle,
     source: "inventory",
   }));
-  const library = [...inventoryMatches, ...aiBottleLibrary];
+  const library = [...inventoryMatches, ...aiBottleLibrary, ...customLibrary];
   const seen = new Set();
 
   return library
@@ -4656,6 +4733,7 @@ async function saveBottle(event) {
   }
 
   persist();
+  learnBottle(bottle);
   els.bottleDialog.close();
   render();
 
@@ -4977,6 +5055,15 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+// Re-seed the distillery datalist with anything learned in a previous session.
+customLibrary.forEach((entry) => {
+  const distillery = (entry.distillery || "").trim();
+  if (distillery && !availableDistilleries.some((known) => known.toLowerCase() === distillery.toLowerCase())) {
+    availableDistilleries.push(distillery);
+  }
+});
+availableDistilleries.sort((a, b) => a.localeCompare(b));
 
 renderDistilleryOptions();
 syncCoreBarScores();
