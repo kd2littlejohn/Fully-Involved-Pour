@@ -372,8 +372,8 @@
           <div class="compare-panel">
             <div class="section-heading compact">
               <div>
-                <p>Compare</p>
-                <h2>Bottle comparison</h2>
+                <p>🔥 Fireground Faceoff</p>
+                <h2>Quick compare</h2>
               </div>
             </div>
             <div class="compare-controls">
@@ -382,6 +382,9 @@
               <button class="primary-action" data-ai-action="compare" type="button">Compare</button>
             </div>
             <div class="ai-output" id="compareOutput"></div>
+            <button class="secondary-action faceoff-launch is-hidden" id="viewFullFaceoff" type="button">
+              View Full Comparison →
+            </button>
           </div>
 
           <div class="tasting-board" id="tastingView">
@@ -464,6 +467,20 @@
           </div>
           <div class="ai-output" id="pourAnalysis"></div>
           <div class="pour-list" id="pourList"></div>
+        </section>
+
+        <section class="faceoff-board is-hidden" id="faceoffView">
+          <div class="section-heading">
+            <div>
+              <p>🔥 Fireground Faceoff</p>
+              <h2>Head-to-head comparison</h2>
+            </div>
+            <div class="faceoff-header-actions">
+              <button class="secondary-action" id="shareFaceoff" type="button">Share</button>
+              <button class="secondary-action" id="closeFaceoff" type="button">← Back</button>
+            </div>
+          </div>
+          <div id="faceoffBody"></div>
         </section>
 
         <footer class="brand-footer">
