@@ -849,8 +849,14 @@
       if ("serviceWorker" in navigator) {
         // Already-controlled means a SW was running before this load, so a swap is an update.
         const wasControlled = Boolean(navigator.serviceWorker.controller);
+        let registration;
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("sw.js").catch(() => {});
+          navigator.serviceWorker
+            .register("sw.js")
+            .then((reg) => {
+              registration = reg;
+            })
+            .catch(() => {});
         });
         let refreshing = false;
         navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -858,6 +864,18 @@
           refreshing = true;
           window.location.reload();
         });
+
+        // Browsers only check for a new sw.js on navigation by default, so a long-lived
+        // tab or installed PWA can sit on a stale version indefinitely. Proactively poll
+        // whenever the app is reopened/foregrounded so deploys land without a manual refresh.
+        function checkForUpdate() {
+          registration?.update().catch(() => {});
+        }
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") checkForUpdate();
+        });
+        window.addEventListener("focus", checkForUpdate);
+        window.setInterval(checkForUpdate, 20 * 60 * 1000);
       }
 
       // Custom "Add to Home Screen" experience.
