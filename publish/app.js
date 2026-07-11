@@ -698,7 +698,7 @@ const distilleryDatabase = [
 ];
 
 function normalizeBottle(bottle) {
-  return normalizeLegacyBottle({
+  const normalized = normalizeLegacyBottle({
     shelf: "Main bar",
     quantity: 1,
     fillLevel: bottle.status === "open" ? "three-quarter" : "full",
@@ -726,6 +726,16 @@ function normalizeBottle(bottle) {
     flavors: Array.isArray(bottle.flavors) ? bottle.flavors : [],
     notes: bottle.notes || "",
   });
+
+  // Bottles saved before multi-category tagging only had a single `category` string;
+  // migrate those into a one-item `categories` array and keep `category` as the primary
+  // tag so every older read-path (filters, chips, search) still works unchanged.
+  const categories = Array.isArray(normalized.categories) && normalized.categories.length
+    ? normalized.categories
+    : [normalized.category || "daily"];
+  normalized.categories = categories;
+  normalized.category = categories[0];
+  return normalized;
 }
 
 function normalizeLegacyBottle(bottle) {
@@ -779,6 +789,25 @@ function defaultCategory(bottle) {
   if (Number(bottle.proof) >= 115) return "high-proof";
   if (bottle.flavors?.some((flavor) => flavor.includes("wheat"))) return "wheated";
   return "daily";
+}
+
+// A bottle can carry several category tags (e.g. Wheated + Showstopper); the form's
+// picker is a set of toggle buttons rather than a single-value <select>.
+function getSelectedCategoryTags() {
+  return [...els.categoryPicker.querySelectorAll(".category-tag-btn.is-selected")].map(
+    (button) => button.dataset.categoryTag,
+  );
+}
+
+function setSelectedCategoryTags(categories) {
+  const selected = new Set((categories?.length ? categories : ["daily"]).filter(Boolean));
+  els.categoryPicker.querySelectorAll(".category-tag-btn").forEach((button) => {
+    button.classList.toggle("is-selected", selected.has(button.dataset.categoryTag));
+  });
+}
+
+function bottleCategories(bottle) {
+  return bottle?.categories?.length ? bottle.categories : [bottle?.category || "daily"];
 }
 
 const aiBottleLibrary = [
@@ -1346,6 +1375,7 @@ const els = {
   selectedBottleLabel: document.querySelector("#selectedBottleLabel"),
   photoUpload: document.querySelector("#photoUpload"),
   distilleryOptions: document.querySelector("#distilleryOptions"),
+  categoryPicker: document.querySelector("#categoryPicker"),
   signInButton: document.querySelector("#signInButton"),
   signOutButton: document.querySelector("#signOutButton"),
   accountChip: document.querySelector("#accountChip"),
@@ -1398,7 +1428,6 @@ const fields = {
   quantity: document.querySelector("#quantity"),
   fillLevel: document.querySelector("#fillLevel"),
   openedDate: document.querySelector("#openedDate"),
-  category: document.querySelector("#category"),
   pourStyle: document.querySelector("#pourStyle"),
   pourTier: document.querySelector("#pourTier"),
   bottleSize: document.querySelector("#bottleSize"),
@@ -1427,6 +1456,11 @@ els.photoZoomDialog.addEventListener("click", (event) => {
   if (event.target === els.photoZoomDialog) els.photoZoomDialog.close();
 });
 els.fetchBottlePhotos?.addEventListener("click", fetchBottlePhotos);
+els.categoryPicker.addEventListener("click", (event) => {
+  const button = event.target.closest(".category-tag-btn");
+  if (!button) return;
+  button.classList.toggle("is-selected");
+});
 document.querySelector("#openPourForm").addEventListener("click", openPourForm);
 document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
 document.querySelector("#analyzePours").addEventListener("click", analyzePours);
@@ -2074,7 +2108,7 @@ async function viewFriendInventory(targetUid, username) {
                       <div class="shelf-line">
                         <span>${numberOrDash(bottle.proof)} proof</span>
                         ${bottle.rating ? `<span>Rating ${numberOrDash(bottle.rating)}</span>` : ""}
-                        <span>${labelCategory(bottle.category)}</span>
+                        ${bottleCategories(bottle).map((category) => `<span>${labelCategory(category)}</span>`).join("")}
                         <span>${labelPourStyle(bottle.pourStyle)}</span>
                         <span>${labelPourTier(bottle.pourTier)}</span>
                       </div>
@@ -2205,7 +2239,7 @@ function visibleBottles() {
       bottle.status === activeFilter ||
       (activeFilter === "core-bar" && bottle.coreBar) ||
       (activeFilter === "favorites" && bottle.favorite);
-    const matchesCategory = activeCategory === "all" || bottle.category === activeCategory;
+    const matchesCategory = activeCategory === "all" || bottleCategories(bottle).includes(activeCategory);
     const matchesPour = activePourStyle === "all" || bottle.pourStyle === activePourStyle;
     const matchesProof = activeProofBand === "all" || proofBandFor(bottle.proof) === activeProofBand;
     const haystack = [
@@ -2215,7 +2249,7 @@ function visibleBottles() {
       bottle.region,
       bottle.ageStatement,
       bottle.storeLocation,
-      bottle.category,
+      bottleCategories(bottle).join(" "),
       bottle.pourStyle,
       bottle.notes,
       bottle.flavors.join(" "),
@@ -3871,7 +3905,7 @@ function openBottleQuick(id) {
             <span>${escapeHtml(bottle.shelf || "Main bar")}</span>
             <span>${labelFillLevel(bottle.fillLevel)}</span>
             <span>${labelBottleSize(bottle.bottleSize)}</span>
-            <span>${labelCategory(bottle.category)}</span>
+            ${bottleCategories(bottle).map((category) => `<span>${labelCategory(category)}</span>`).join("")}
             <span>${labelPourStyle(bottle.pourStyle)}</span>
             <span>${priorityLabel(bottle.priority)}</span>
           </div>
@@ -4054,7 +4088,7 @@ function openForm(id = "") {
   fields.quantity.value = bottle?.quantity || 1;
   fields.fillLevel.value = bottle?.fillLevel || "full";
   fields.openedDate.value = bottle?.openedDate || "";
-  fields.category.value = bottle?.category || "daily";
+  setSelectedCategoryTags(bottle ? bottleCategories(bottle) : ["daily"]);
   fields.pourStyle.value = bottle?.pourStyle || "daily";
   fields.pourTier.value = normalizePourTier(bottle?.pourTier || "crowd");
   fields.bottleSize.value = String(bottle?.bottleSize || 750);
@@ -4262,7 +4296,7 @@ function applyBottleSuggestion(bottle) {
   fields.proof.value = bottle.proof || "";
   fields.price.value = bottle.price || "";
   fields.flavors.value = bottle.flavors?.join(", ") || "";
-  fields.category.value = bottle.category || defaultCategory(bottle);
+  setSelectedCategoryTags(bottle.categories?.length ? bottle.categories : [bottle.category || defaultCategory(bottle)]);
   fields.pourStyle.value = bottle.pourStyle || "daily";
   fields.pourTier.value = normalizePourTier(bottle.pourTier || "crowd");
   fields.bottleSize.value = String(bottle.bottleSize || 750);
@@ -4728,6 +4762,7 @@ async function saveBottle(event) {
   event.preventDefault();
   const id = fields.id.value || crypto.randomUUID();
   const previousStatus = bottles.find((item) => item.id === id)?.status;
+  const categories = getSelectedCategoryTags();
   const bottle = {
     id,
     name: fields.name.value.trim(),
@@ -4750,7 +4785,8 @@ async function saveBottle(event) {
     fillLevel: fields.fillLevel.value,
     bottleSize: Number(fields.bottleSize.value || 750),
     openedDate: fields.openedDate.value,
-    category: fields.category.value,
+    categories: categories.length ? categories : ["daily"],
+    category: categories[0] || "daily",
     pourStyle: fields.pourStyle.value,
     pourTier: normalizePourTier(fields.pourTier.value),
     coreBar: false,

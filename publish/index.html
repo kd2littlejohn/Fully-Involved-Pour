@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=67" />
+    <link rel="stylesheet" href="styles.css?v=68" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -662,20 +662,20 @@
               Opened
               <input id="openedDate" type="date" />
             </label>
-            <label>
-              Category
-              <select id="category">
-                <option value="daily">Daily</option>
-                <option value="high-proof">High Proof</option>
-                <option value="wheated">Wheated</option>
-                <option value="rye">Rye</option>
-                <option value="special-occasion">Special Occasion</option>
-                <option value="finished">Finished</option>
-                <option value="showstopper">Showstopper</option>
-                <option value="crowd-pleaser">Crowd Pleaser</option>
-                <option value="other">Other</option>
-              </select>
-            </label>
+            <div class="category-field">
+              <span>Category (choose any that fit)</span>
+              <div class="category-tag-picker" id="categoryPicker" role="group" aria-label="Category tags">
+                <button class="category-tag-btn" data-category-tag="daily" type="button">Daily</button>
+                <button class="category-tag-btn" data-category-tag="high-proof" type="button">High Proof</button>
+                <button class="category-tag-btn" data-category-tag="wheated" type="button">Wheated</button>
+                <button class="category-tag-btn" data-category-tag="rye" type="button">Rye</button>
+                <button class="category-tag-btn" data-category-tag="special-occasion" type="button">Special Occasion</button>
+                <button class="category-tag-btn" data-category-tag="finished" type="button">Finished</button>
+                <button class="category-tag-btn" data-category-tag="showstopper" type="button">Showstopper</button>
+                <button class="category-tag-btn" data-category-tag="crowd-pleaser" type="button">Crowd Pleaser</button>
+                <button class="category-tag-btn" data-category-tag="other" type="button">Other</button>
+              </div>
+            </div>
             <label>
               Pour Style
               <select id="pourStyle">
@@ -851,7 +851,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=83"></script>
+    <script src="app.js?v=84"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

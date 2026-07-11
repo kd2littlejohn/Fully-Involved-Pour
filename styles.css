@@ -2665,6 +2665,40 @@ textarea {
   padding-top: 23px;
 }
 
+.category-field {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.category-field > span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.category-tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-tag-btn {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.category-tag-btn.is-selected {
+  color: #140d08;
+  background: var(--amber);
+  border-color: transparent;
+  font-weight: 700;
+}
+
 .core-score-field {
   display: grid;
   gap: 2px;
