@@ -1332,6 +1332,8 @@ const els = {
   compareOutput: document.querySelector("#compareOutput"),
   quickBottleDialog: document.querySelector("#quickBottleDialog"),
   quickBottleDetail: document.querySelector("#quickBottleDetail"),
+  photoZoomDialog: document.querySelector("#photoZoomDialog"),
+  photoZoomImage: document.querySelector("#photoZoomImage"),
   libraryDialog: document.querySelector("#libraryDialog"),
   librarySearch: document.querySelector("#librarySearch"),
   libraryList: document.querySelector("#libraryList"),
@@ -1420,6 +1422,10 @@ els.selectDelete.addEventListener("click", bulkDeleteSelected);
 document.querySelector("#closeDialog").addEventListener("click", () => els.bottleDialog.close());
 document.querySelector("#openLibrary").addEventListener("click", openLibrary);
 document.querySelector("#closeLibrary").addEventListener("click", () => els.libraryDialog.close());
+document.querySelector("#closePhotoZoom").addEventListener("click", () => els.photoZoomDialog.close());
+els.photoZoomDialog.addEventListener("click", (event) => {
+  if (event.target === els.photoZoomDialog) els.photoZoomDialog.close();
+});
 els.fetchBottlePhotos?.addEventListener("click", fetchBottlePhotos);
 document.querySelector("#openPourForm").addEventListener("click", openPourForm);
 document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
@@ -2846,6 +2852,16 @@ function bindBottleActions() {
     });
   });
 
+  // Tapping the bottle photo itself blows it up instead of opening the full quick view.
+  // In selection mode, leave the tap alone so it still toggles that row's checkbox.
+  document.querySelectorAll("img.catalog-thumb").forEach((img) => {
+    img.addEventListener("click", (event) => {
+      if (selectionMode) return;
+      event.stopPropagation();
+      openPhotoZoom(img.src, img.alt);
+    });
+  });
+
   document.querySelectorAll("[data-edit]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -3812,6 +3828,13 @@ function renderMashBillBlock(bottle) {
       </div>
     </div>
   `;
+}
+
+function openPhotoZoom(src, alt) {
+  if (!src) return;
+  els.photoZoomImage.src = src;
+  els.photoZoomImage.alt = alt || "";
+  els.photoZoomDialog.showModal();
 }
 
 function openBottleQuick(id) {
