@@ -77,9 +77,9 @@
             <span aria-hidden="true">▦</span>
             Inventory
           </button>
-          <button class="nav-item" data-view="favorites" type="button">
-            <span aria-hidden="true">♥</span>
-            Favorites
+          <button class="nav-item" data-view="compare" type="button">
+            <span aria-hidden="true">⚖</span>
+            Compare
           </button>
           <button class="nav-item" data-view="core-bar" type="button">
             <span aria-hidden="true">◈</span>
@@ -369,21 +369,6 @@
             </div>
           </div>
 
-          <div class="compare-panel">
-            <div class="section-heading compact">
-              <div>
-                <p>Compare</p>
-                <h2>Bottle comparison</h2>
-              </div>
-            </div>
-            <div class="compare-controls">
-              <select id="compareA" aria-label="Bottle A"></select>
-              <select id="compareB" aria-label="Bottle B"></select>
-              <button class="primary-action" data-ai-action="compare" type="button">Compare</button>
-            </div>
-            <div class="ai-output" id="compareOutput"></div>
-          </div>
-
           <div class="tasting-board" id="tastingView">
             <div class="section-heading">
               <div>
@@ -464,6 +449,40 @@
           </div>
           <div class="ai-output" id="pourAnalysis"></div>
           <div class="pour-list" id="pourList"></div>
+        </section>
+
+        <section class="compare-board is-hidden" id="compareView">
+          <div class="section-heading">
+            <div>
+              <p>🔥 Fireground Faceoff</p>
+              <h2>Compare</h2>
+            </div>
+          </div>
+          <div class="compare-panel">
+            <div class="compare-controls">
+              <select id="compareA" aria-label="Bottle A"></select>
+              <select id="compareB" aria-label="Bottle B"></select>
+              <button class="primary-action" data-ai-action="compare" type="button">Compare</button>
+            </div>
+            <div class="ai-output" id="compareOutput"></div>
+            <button class="secondary-action faceoff-launch is-hidden" id="viewFullFaceoff" type="button">
+              View Full Comparison →
+            </button>
+          </div>
+        </section>
+
+        <section class="faceoff-board is-hidden" id="faceoffView">
+          <div class="section-heading">
+            <div>
+              <p>🔥 Fireground Faceoff</p>
+              <h2>Head-to-head comparison</h2>
+            </div>
+            <div class="faceoff-header-actions">
+              <button class="secondary-action" id="shareFaceoff" type="button">Share</button>
+              <button class="secondary-action" id="closeFaceoff" type="button">← Back</button>
+            </div>
+          </div>
+          <div id="faceoffBody"></div>
         </section>
 
         <footer class="brand-footer">

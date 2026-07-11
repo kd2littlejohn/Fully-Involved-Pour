@@ -1275,6 +1275,8 @@ let activeProofBand = "all";
 let selectionMode = false;
 const selectedIds = new Set();
 let activeView = "collection";
+let previousViewBeforeFaceoff = "compare";
+let faceoffPair = null;
 let quickView = false;
 let formPhotoTimer;
 
@@ -1359,6 +1361,12 @@ const els = {
   compareA: document.querySelector("#compareA"),
   compareB: document.querySelector("#compareB"),
   compareOutput: document.querySelector("#compareOutput"),
+  viewFullFaceoff: document.querySelector("#viewFullFaceoff"),
+  compareView: document.querySelector("#compareView"),
+  faceoffView: document.querySelector("#faceoffView"),
+  faceoffBody: document.querySelector("#faceoffBody"),
+  shareFaceoff: document.querySelector("#shareFaceoff"),
+  closeFaceoff: document.querySelector("#closeFaceoff"),
   quickBottleDialog: document.querySelector("#quickBottleDialog"),
   quickBottleDetail: document.querySelector("#quickBottleDetail"),
   photoZoomDialog: document.querySelector("#photoZoomDialog"),
@@ -1500,6 +1508,11 @@ document.querySelectorAll("[data-assistant-prompt]").forEach((button) => {
 document.querySelectorAll("[data-ai-action]").forEach((button) => {
   button.addEventListener("click", () => runAiTool(button.dataset.aiAction));
 });
+els.viewFullFaceoff.addEventListener("click", () => openFaceoffView(els.compareA.value, els.compareB.value));
+els.closeFaceoff.addEventListener("click", closeFaceoffView);
+els.shareFaceoff.addEventListener("click", shareFaceoffCard);
+els.compareA.addEventListener("change", () => els.viewFullFaceoff.classList.add("is-hidden"));
+els.compareB.addEventListener("change", () => els.viewFullFaceoff.classList.add("is-hidden"));
 function applyMashBillSuggestion() {
   const hasMashBillEntered = fields.mashBillCorn.value || fields.mashBillRyeWheat.value || fields.mashBillMalted.value;
   if (hasMashBillEntered) return;
@@ -1577,7 +1590,6 @@ document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.add("is-active");
     const viewFilters = {
       wishlist: "wishlist",
-      favorites: "favorites",
       "core-bar": "core-bar",
       "buy-next": "buy-next",
       opened: "open",
@@ -2317,12 +2329,6 @@ function updateWelcomeVisibility() {
 
 const VIEW_META = {
   collection: { eyebrow: "Inventory", title: "Your cabinet", theme: "", banner: "" },
-  favorites: {
-    eyebrow: "Favorites",
-    title: "Bottles you love",
-    theme: "view-favorites",
-    banner: "♥ Your most-loved pours, all in one place.",
-  },
   "core-bar": {
     eyebrow: "Core Bar",
     title: "Earned the Core Bar 🔥",
@@ -2384,11 +2390,14 @@ function render() {
     els.toggleSelect.textContent = "Select";
     els.toggleSelect.classList.remove("is-selected");
   }
-  const collectionVisible = !["ai-tools", "pour-log", "dashboard"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log", "dashboard", "compare", "faceoff"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
+  els.compareView.classList.toggle("is-hidden", activeView !== "compare");
+  els.faceoffView.classList.toggle("is-hidden", activeView !== "faceoff");
+  if (activeView === "faceoff") renderFaceoffView();
 
   renderStats();
   renderCards(shown);
@@ -2452,7 +2461,6 @@ function renderCards(shown) {
 
   if (!shown.length) {
     const viewEmptyMessages = {
-      favorites: "No favorites yet. Hit the ♥ on any bottle card to add it here.",
       "core-bar": "No bottles have earned the Core Bar yet. Rate, pour, and rebuy — the ones that prove themselves show up here.",
       wishlist: "Your wish list is empty. Add a bottle with status Wish List to start the hunt.",
       "buy-next": "Nothing on the shortlist yet. Add bottles with status Buy Next, or grab a suggestion above.",
@@ -3623,7 +3631,24 @@ function renderAiTools() {
 function runAiTool(action) {
   if (action === "compare") {
     els.compareOutput.innerHTML = renderBottleComparison();
+    const validPair = els.compareA.value && els.compareB.value && els.compareA.value !== els.compareB.value;
+    els.viewFullFaceoff.classList.toggle("is-hidden", !validPair);
   }
+}
+
+function openFaceoffView(aId, bId) {
+  if (!aId || !bId || aId === bId) return;
+  faceoffPair = { aId, bId };
+  previousViewBeforeFaceoff = activeView;
+  activeView = "faceoff";
+  render();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function closeFaceoffView() {
+  activeView = previousViewBeforeFaceoff || "compare";
+  document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("is-active", item.dataset.view === activeView));
+  render();
 }
 
 function summarizeCollectionForAi() {
@@ -3803,6 +3828,332 @@ function renderComparisonFromPrompt(prompt) {
     `;
   }
   return aiMessage("Tell me two bottle names, or use the comparison selectors below.");
+}
+
+function renderFaceoffView() {
+  if (!faceoffPair) return;
+  const a = bottles.find((bottle) => bottle.id === faceoffPair.aId);
+  const b = bottles.find((bottle) => bottle.id === faceoffPair.bId);
+  if (!a || !b) {
+    els.faceoffBody.innerHTML = `<div class="empty-state">Select two bottles from Compare to start a Faceoff.</div>`;
+    return;
+  }
+
+  const aScore = faceoffScore(a);
+  const bScore = faceoffScore(b);
+  const winner = aScore === bScore ? null : aScore > bScore ? a : b;
+  const loser = winner ? (winner === a ? b : a) : null;
+  const tags = winner ? bestForTags(winner, loser) : [];
+  const profileA = faceoffFlavorProfile(a);
+  const profileB = faceoffFlavorProfile(b);
+  const similar = findSimilarFaceoffBottles(a, b);
+  const pairKey = faceoffPairKey(a, b);
+
+  els.faceoffBody.innerHTML = `
+    <div class="faceoff-matchup">
+      <div class="faceoff-side">
+        <img src="${bottleImage(a)}" alt="${escapeHtml(a.name)} bottle" />
+        <strong>${escapeHtml(a.name)}</strong>
+        <span>${escapeHtml(a.distillery)}</span>
+      </div>
+      <span class="faceoff-vs">VS</span>
+      <div class="faceoff-side">
+        <img src="${bottleImage(b)}" alt="${escapeHtml(b.name)} bottle" />
+        <strong>${escapeHtml(b.name)}</strong>
+        <span>${escapeHtml(b.distillery)}</span>
+      </div>
+    </div>
+
+    <div class="faceoff-section faceoff-winner">
+      <p class="faceoff-eyebrow">Overall Winner</p>
+      ${winner ? `<h3>🏆 ${escapeHtml(winner.name)}</h3>` : `<h3>Too close to call</h3>`}
+      ${tags.length ? `<div class="faceoff-tag-row">${tags.map((tag) => `<span class="flavor-chip">${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
+    </div>
+
+    <div class="faceoff-section">
+      <p class="faceoff-eyebrow">Scene Size-Up</p>
+      <div class="faceoff-spec-table">
+        <div class="faceoff-spec-row faceoff-spec-head"><span></span><span>${escapeHtml(a.name)}</span><span>${escapeHtml(b.name)}</span></div>
+        <div class="faceoff-spec-row"><span>Proof</span><span>${numberOrDash(a.proof)}</span><span>${numberOrDash(b.proof)}</span></div>
+        <div class="faceoff-spec-row"><span>Age</span><span>${escapeHtml(a.ageStatement || "NAS")}</span><span>${escapeHtml(b.ageStatement || "NAS")}</span></div>
+        <div class="faceoff-spec-row"><span>MSRP</span><span>${money(a.msrp || a.price)}</span><span>${money(b.msrp || b.price)}</span></div>
+        <div class="faceoff-spec-row"><span>Distillery</span><span>${escapeHtml(a.distillery)}</span><span>${escapeHtml(b.distillery)}</span></div>
+      </div>
+    </div>
+
+    <div class="faceoff-section">
+      <p class="faceoff-eyebrow">Flavor Comparison</p>
+      <div class="faceoff-flavor-grid">
+        <div></div><div>${escapeHtml(a.name)}</div><div>${escapeHtml(b.name)}</div>
+        <div>Nose</div><div>${escapeHtml(profileA.nose)}</div><div>${escapeHtml(profileB.nose)}</div>
+        <div>Palate</div><div>${escapeHtml(profileA.palate)}</div><div>${escapeHtml(profileB.palate)}</div>
+        <div>Finish</div><div>${escapeHtml(profileA.finish)}</div><div>${escapeHtml(profileB.finish)}</div>
+      </div>
+    </div>
+
+    <div class="faceoff-section">
+      <p class="faceoff-eyebrow">Flavor Radar</p>
+      <div class="faceoff-radar">
+        ${renderFaceoffRadar(a, b)}
+        <div class="faceoff-radar-legend">
+          <span class="legend-a">${escapeHtml(a.name)}</span>
+          <span class="legend-b">${escapeHtml(b.name)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="faceoff-section">
+      <p class="faceoff-eyebrow">AI Verdict</p>
+      <p class="faceoff-verdict">${faceoffVerdict(a, b, winner)}</p>
+    </div>
+
+    <div class="faceoff-section">
+      <p class="faceoff-eyebrow">Similar Bottles</p>
+      ${
+        similar.length
+          ? `<div class="faceoff-similar-grid">${similar
+              .map(
+                (bottle) => `
+                  <div class="faceoff-similar-card">
+                    ${bottleThumb(bottle)}
+                    <strong>${escapeHtml(bottle.name)}</strong>
+                    <span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof</span>
+                  </div>
+                `,
+              )
+              .join("")}</div>`
+          : `<div class="empty-state">Add more bottles to your collection to see suggestions.</div>`
+      }
+    </div>
+
+    <div class="faceoff-section">
+      <p class="faceoff-eyebrow">Community Ratings</p>
+      <div id="faceoffVotes"></div>
+    </div>
+
+    <div class="faceoff-section">
+      <p class="faceoff-eyebrow">Your Notes</p>
+      <div class="faceoff-notes-grid">
+        ${faceoffNotesHtml(a)}
+        ${faceoffNotesHtml(b)}
+      </div>
+    </div>
+  `;
+
+  renderFaceoffVotes(pairKey, a, b);
+  els.faceoffBody.querySelectorAll("[data-edit-notes]").forEach((button) => {
+    button.addEventListener("click", () => openForm(button.dataset.editNotes));
+  });
+}
+
+function faceoffScore(bottle) {
+  const rating = Number(bottle.rating) || 0;
+  const proof = Number(bottle.proof) || 0;
+  return rating * 10 + Math.min(proof, 140) / 20;
+}
+
+function bestForTags(bottle, other) {
+  const tags = [];
+  const proof = Number(bottle.proof) || 0;
+  const price = Number(bottle.price) || 0;
+  const otherPrice = Number(other.price) || 0;
+  const axes = flavorAxes();
+  const scores = Object.fromEntries(axes.map((axis) => [axis.key, scoreFlavorAxis([bottle], axis)]));
+  const topAxisKey = Object.entries(scores).sort((x, y) => y[1] - x[1])[0]?.[0];
+
+  if (proof >= 110) tags.push("🔥 High Proof");
+  if (price > 0 && (price <= 45 || (otherPrice > 0 && price < otherPrice * 0.75))) tags.push("💰 Value");
+  if ((scores.oak > 0 || scores.spice > 0) && proof >= 95) tags.push("🥃 Cigar Pairing");
+  if (proof < 95 && topAxisKey === "sweet") tags.push("🍯 Easy Sipper");
+  if (Number(bottle.rating) >= 9) tags.push("⭐ Crowd Favorite");
+  if (!tags.length) tags.push("🥃 Solid Pour");
+  return tags.slice(0, 3);
+}
+
+function faceoffFlavorProfile(bottle) {
+  const flavors = bottle.flavors.length ? bottle.flavors : ["oak", "caramel", "spice"];
+  return {
+    nose: flavors.slice(0, 2).join(" and "),
+    palate: flavors.slice(0, 3).join(", "),
+    finish: Number(bottle.proof) >= 110 ? "long, hot, and lingering" : "short-to-medium and easy",
+  };
+}
+
+function renderFaceoffRadar(a, b) {
+  const axes = flavorAxes();
+  const scoresA = axes.map((axis) => scoreFlavorAxis([a], axis));
+  const scoresB = axes.map((axis) => scoreFlavorAxis([b], axis));
+  const max = Math.max(...scoresA, ...scoresB, 1);
+  const center = 120;
+  const radius = 82;
+  const toPoints = (scores) =>
+    scores
+      .map((score, index) => {
+        const angle = -Math.PI / 2 + (index * Math.PI * 2) / axes.length;
+        const value = Math.max(0.14, score / max);
+        return `${center + Math.cos(angle) * radius * value},${center + Math.sin(angle) * radius * value}`;
+      })
+      .join(" ");
+  const rings = [0.33, 0.66, 1]
+    .map((scale) => polygonPoints(axes.length, center, radius * scale))
+    .map((ring) => `<polygon points="${ring}" class="radar-ring"></polygon>`)
+    .join("");
+  const spokes = axes
+    .map((_, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / axes.length;
+      return `<line x1="${center}" y1="${center}" x2="${center + Math.cos(angle) * radius}" y2="${center + Math.sin(angle) * radius}" class="radar-spoke"></line>`;
+    })
+    .join("");
+  const labels = axes
+    .map((axis, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / axes.length;
+      return `<text x="${center + Math.cos(angle) * 105}" y="${center + Math.sin(angle) * 105}" text-anchor="middle" dominant-baseline="middle">${axis.label}</text>`;
+    })
+    .join("");
+
+  return `
+    <svg viewBox="0 0 240 240" role="img" aria-label="Flavor radar comparing ${escapeHtml(a.name)} and ${escapeHtml(b.name)}">
+      ${rings}
+      ${spokes}
+      <polygon points="${toPoints(scoresA)}" class="radar-shape radar-shape-a"></polygon>
+      <polygon points="${toPoints(scoresB)}" class="radar-shape radar-shape-b"></polygon>
+      ${labels}
+    </svg>
+  `;
+}
+
+function faceoffVerdict(a, b, winner) {
+  const proofLead = Number(a.proof) > Number(b.proof) ? a : b;
+  const proofTrail = proofLead === a ? b : a;
+  const flavorOverlap = a.flavors.filter((flavor) => b.flavors.includes(flavor));
+  const overlapText = flavorOverlap.length
+    ? `They share notes of ${escapeHtml(flavorOverlap.slice(0, 3).join(", "))}, so the difference comes down to intensity and finish.`
+    : `Their flavor profiles barely overlap, so this is a real study in contrast.`;
+  const winnerText = winner
+    ? `${escapeHtml(winner.name)} takes it${Number(winner.rating) > 0 ? ` on the strength of its ${Number(winner.rating).toFixed(1)} rating` : " on proof and profile alone"}, but ${escapeHtml(winner === a ? b.name : a.name)} is far from a runner-up.`
+    : `Neither bottle has a logged rating yet, so call this one a coin flip until you pour both.`;
+  return `${escapeHtml(proofLead.name)} runs the hotter pour at ${numberOrDash(proofLead.proof)} proof versus ${numberOrDash(proofTrail.proof)} for ${escapeHtml(proofTrail.name)}. ${overlapText} ${winnerText}`;
+}
+
+function findSimilarFaceoffBottles(a, b) {
+  const ownedNames = new Set(bottles.map((bottle) => bottle.name.toLowerCase()));
+  const flavorPool = new Set([...a.flavors, ...b.flavors].map((flavor) => flavor.toLowerCase()));
+  const avgProof = (Number(a.proof) + Number(b.proof)) / 2;
+  return aiBottleLibrary
+    .filter((bottle) => !ownedNames.has(bottle.name.toLowerCase()))
+    .map((bottle) => {
+      const flavorOverlap = (bottle.flavors || []).filter((flavor) => flavorPool.has(flavor.toLowerCase())).length;
+      const proofDistance = Math.abs(Number(bottle.proof || 0) - avgProof);
+      const typeMatch = bottle.type === a.type || bottle.type === b.type ? 1 : 0;
+      return { ...bottle, score: flavorOverlap * 3 + typeMatch * 2 - proofDistance / 20 };
+    })
+    .sort((x, y) => y.score - x.score)
+    .slice(0, 4);
+}
+
+function faceoffNotesHtml(bottle) {
+  return `
+    <div class="faceoff-notes-card">
+      <strong>${escapeHtml(bottle.name)}</strong>
+      <p>${bottle.notes ? escapeHtml(bottle.notes) : "No notes yet."}</p>
+      <button class="secondary-action" data-edit-notes="${escapeHtml(bottle.id)}" type="button">Edit Notes</button>
+    </div>
+  `;
+}
+
+function faceoffPairKey(a, b) {
+  const keyA = slugify(`${a.name}-${a.distillery}`);
+  const keyB = slugify(`${b.name}-${b.distillery}`);
+  return [keyA, keyB].sort().join("__");
+}
+
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+async function loadFaceoffVotes(pairKey) {
+  const result = { aVotes: 0, bVotes: 0, myVote: null };
+  if (!db) return result;
+  try {
+    const snap = await db.collection("faceoffVotes").where("pairKey", "==", pairKey).get();
+    snap.docs.forEach((doc) => {
+      const data = doc.data();
+      if (data.winner === "a") result.aVotes += 1;
+      if (data.winner === "b") result.bVotes += 1;
+      if (currentUser && data.voterUid === currentUser.uid) result.myVote = data.winner;
+    });
+  } catch (error) {
+    console.error("Failed to load faceoff votes", error);
+  }
+  return result;
+}
+
+async function castFaceoffVote(pairKey, a, b, winnerSide) {
+  if (!currentUser || !db) {
+    alert("Sign in with Google to vote in the Faceoff.");
+    return;
+  }
+  const ref = db.collection("faceoffVotes").doc(`${pairKey}_${currentUser.uid}`);
+  try {
+    await ref.set({
+      pairKey,
+      aName: a.name,
+      bName: b.name,
+      winner: winnerSide,
+      voterUid: currentUser.uid,
+      voterUsername: currentProfile?.username || "",
+      createdAt: Date.now(),
+    });
+    renderFaceoffVotes(pairKey, a, b);
+  } catch (error) {
+    console.error("Faceoff vote failed", error);
+  }
+}
+
+async function renderFaceoffVotes(pairKey, a, b) {
+  const loadingTarget = document.querySelector("#faceoffVotes");
+  if (!loadingTarget) return;
+  loadingTarget.innerHTML = `<div class="empty-state">Loading community votes…</div>`;
+  const votes = await loadFaceoffVotes(pairKey);
+  // Re-query: the user may have navigated away and back while this awaited, replacing the node.
+  const target = document.querySelector("#faceoffVotes");
+  if (!target) return;
+  const total = votes.aVotes + votes.bVotes;
+  const aPct = total ? Math.round((votes.aVotes / total) * 100) : 50;
+  const bPct = total ? 100 - aPct : 50;
+  target.innerHTML = `
+    <div class="faceoff-vote-bar"><i style="width: ${aPct}%"></i></div>
+    <div class="faceoff-vote-row">
+      <button class="secondary-action${votes.myVote === "a" ? " is-voted" : ""}" data-vote="a" type="button">🏆 ${escapeHtml(a.name)} (${votes.aVotes})</button>
+      <button class="secondary-action${votes.myVote === "b" ? " is-voted" : ""}" data-vote="b" type="button">🏆 ${escapeHtml(b.name)} (${votes.bVotes})</button>
+    </div>
+    <span class="faceoff-vote-meta">${total ? `${total} pour${total === 1 ? "" : "s"} weighed in · ${aPct}% / ${bPct}%` : currentUser ? "Be the first to vote." : "Sign in to vote."}</span>
+  `;
+  target.querySelectorAll("[data-vote]").forEach((button) => {
+    button.addEventListener("click", () => castFaceoffVote(pairKey, a, b, button.dataset.vote));
+  });
+}
+
+function shareFaceoffCard() {
+  if (!faceoffPair) return;
+  const a = bottles.find((bottle) => bottle.id === faceoffPair.aId);
+  const b = bottles.find((bottle) => bottle.id === faceoffPair.bId);
+  if (!a || !b) return;
+  const text = `🔥 Fireground Faceoff: ${a.name} vs ${b.name} — see who wins on Fully Involved Pour.`;
+  if (navigator.share) {
+    navigator.share({ title: "Fireground Faceoff", text, url: location.href }).catch(() => {});
+    return;
+  }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(`${text} ${location.href}`);
+    alert("Faceoff link copied to clipboard.");
+    return;
+  }
+  alert(text);
 }
 
 function topFlavorText() {
