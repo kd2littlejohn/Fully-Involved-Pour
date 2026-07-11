@@ -1246,7 +1246,7 @@ let activeProofBand = "all";
 let selectionMode = false;
 const selectedIds = new Set();
 let activeView = "collection";
-let previousViewBeforeFaceoff = "ai-tools";
+let previousViewBeforeFaceoff = "compare";
 let faceoffPair = null;
 let quickView = false;
 let formPhotoTimer;
@@ -1333,6 +1333,7 @@ const els = {
   compareB: document.querySelector("#compareB"),
   compareOutput: document.querySelector("#compareOutput"),
   viewFullFaceoff: document.querySelector("#viewFullFaceoff"),
+  compareView: document.querySelector("#compareView"),
   faceoffView: document.querySelector("#faceoffView"),
   faceoffBody: document.querySelector("#faceoffBody"),
   shareFaceoff: document.querySelector("#shareFaceoff"),
@@ -1555,7 +1556,6 @@ document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.add("is-active");
     const viewFilters = {
       wishlist: "wishlist",
-      favorites: "favorites",
       "core-bar": "core-bar",
       "buy-next": "buy-next",
       opened: "open",
@@ -2295,12 +2295,6 @@ function updateWelcomeVisibility() {
 
 const VIEW_META = {
   collection: { eyebrow: "Inventory", title: "Your cabinet", theme: "", banner: "" },
-  favorites: {
-    eyebrow: "Favorites",
-    title: "Bottles you love",
-    theme: "view-favorites",
-    banner: "♥ Your most-loved pours, all in one place.",
-  },
   "core-bar": {
     eyebrow: "Core Bar",
     title: "Earned the Core Bar 🔥",
@@ -2362,11 +2356,12 @@ function render() {
     els.toggleSelect.textContent = "Select";
     els.toggleSelect.classList.remove("is-selected");
   }
-  const collectionVisible = !["ai-tools", "pour-log", "dashboard", "faceoff"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log", "dashboard", "compare", "faceoff"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
+  els.compareView.classList.toggle("is-hidden", activeView !== "compare");
   els.faceoffView.classList.toggle("is-hidden", activeView !== "faceoff");
   if (activeView === "faceoff") renderFaceoffView();
 
@@ -2432,7 +2427,6 @@ function renderCards(shown) {
 
   if (!shown.length) {
     const viewEmptyMessages = {
-      favorites: "No favorites yet. Hit the ♥ on any bottle card to add it here.",
       "core-bar": "No bottles have earned the Core Bar yet. Rate, pour, and rebuy — the ones that prove themselves show up here.",
       wishlist: "Your wish list is empty. Add a bottle with status Wish List to start the hunt.",
       "buy-next": "Nothing on the shortlist yet. Add bottles with status Buy Next, or grab a suggestion above.",
@@ -3618,7 +3612,7 @@ function openFaceoffView(aId, bId) {
 }
 
 function closeFaceoffView() {
-  activeView = previousViewBeforeFaceoff || "ai-tools";
+  activeView = previousViewBeforeFaceoff || "compare";
   document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("is-active", item.dataset.view === activeView));
   render();
 }
