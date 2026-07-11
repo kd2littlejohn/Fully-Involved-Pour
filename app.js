@@ -1384,6 +1384,7 @@ const els = {
   photoUpload: document.querySelector("#photoUpload"),
   distilleryOptions: document.querySelector("#distilleryOptions"),
   categoryPicker: document.querySelector("#categoryPicker"),
+  importActionLabel: document.querySelector("#importActionLabel"),
   signInButton: document.querySelector("#signInButton"),
   signOutButton: document.querySelector("#signOutButton"),
   accountChip: document.querySelector("#accountChip"),
@@ -1497,6 +1498,8 @@ els.aiFillDistillery.addEventListener("click", fillDistilleryWithAi);
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
+document.querySelector("#importFile").addEventListener("change", importCollection);
+document.querySelector("#downloadImportTemplate").addEventListener("click", downloadImportTemplate);
 document.querySelector("#refreshAiTools").addEventListener("click", renderAiTools);
 els.assistantForm.addEventListener("submit", sendAssistantMessage);
 document.querySelectorAll("[data-assistant-prompt]").forEach((button) => {
@@ -5321,6 +5324,74 @@ function spreadsheetRowToBottle(row) {
   };
 }
 
+// Dependency-free CSV parser (quoted fields, embedded commas/newlines/escaped quotes) so
+// the common CSV/template path never pays for the Excel library below.
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      row.push(field);
+      field = "";
+    } else if (char === "\n" || char === "\r") {
+      if (char === "\r" && text[i + 1] === "\n") i++;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+  if (field.length || row.length) {
+    row.push(field);
+    rows.push(row);
+  }
+
+  const nonEmptyRows = rows.filter((cells) => cells.some((cell) => cell.trim() !== ""));
+  if (!nonEmptyRows.length) return [];
+  const [headerRow, ...dataRows] = nonEmptyRows;
+  return dataRows.map((cells) => {
+    const record = {};
+    headerRow.forEach((header, index) => {
+      record[header] = cells[index] ?? "";
+    });
+    return record;
+  });
+}
+
+// Real .xlsx/.xls files need a real parser (binary zip+XML format) — load it lazily so
+// CSV/JSON imports, the common case, never download it.
+let xlsxLoadPromise;
+function loadXlsxLibrary() {
+  if (window.XLSX) return Promise.resolve();
+  if (!xlsxLoadPromise) {
+    xlsxLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mini.min.js";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Could not load the Excel import library."));
+      document.head.appendChild(script);
+    });
+  }
+  return xlsxLoadPromise;
+}
+
 function parseSpreadsheetFile(arrayBuffer) {
   const workbook = XLSX.read(arrayBuffer, { type: "array" });
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -5332,26 +5403,36 @@ async function importCollection(event) {
   const [file] = event.target.files;
   if (!file) return;
 
+  const label = els.importActionLabel;
+  const originalText = label?.textContent;
   try {
     const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
     let imported;
 
     if (isJson) {
       const payload = JSON.parse(await file.text());
       imported = Array.isArray(payload) ? payload : payload.bottles;
-    } else {
+    } else if (isExcel) {
+      if (label) label.textContent = "Loading Excel support...";
+      await loadXlsxLibrary();
+      if (label) label.textContent = "Importing...";
       imported = parseSpreadsheetFile(await file.arrayBuffer());
+    } else {
+      imported = parseCsv(await file.text()).map(spreadsheetRowToBottle).filter(Boolean);
     }
 
     if (!Array.isArray(imported) || !imported.length) throw new Error("Invalid backup");
     bottles = [...bottles, ...imported.map((bottle) => normalizeBottle({ ...bottle, id: bottle.id || crypto.randomUUID() }))];
     persist();
     render();
+    alert(`Imported ${imported.length} bottle${imported.length === 1 ? "" : "s"}.`);
   } catch (error) {
     console.error("Import failed", error);
     alert("That file could not be imported. Make sure it's a CSV, Excel, or JSON export with a header row including at least a bottle name.");
   } finally {
     event.target.value = "";
+    if (label) label.textContent = originalText;
   }
 }
 
