@@ -529,6 +529,20 @@ label {
   background: rgba(215, 138, 54, 0.12);
 }
 
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.field-label-row .ai-action {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+}
+
 .field-with-action {
   display: flex;
   gap: 8px;
