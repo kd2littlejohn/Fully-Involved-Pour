@@ -364,7 +364,14 @@
               </div>
             </div>
             <div class="spin-reel" id="spinReel">
-              <div class="spin-reel-empty">Hit spin and let fate pick tonight's pour.</div>
+              <div class="spin-reel-empty">Pick a number — it decides how many times the wheel flips before it stops.</div>
+            </div>
+            <div class="spin-number-picker">
+              <label>
+                Your number
+                <input id="spinNumber" type="number" min="1" max="50" placeholder="e.g. 7" />
+              </label>
+              <button class="field-ai-btn" id="spinRandomNumber" type="button" title="Pick a random number">🎲</button>
             </div>
             <div class="spin-actions">
               <button class="primary-action" id="spinBottleButton" type="button">🎰 Spin</button>
