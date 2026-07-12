@@ -1787,6 +1787,72 @@ select {
   gap: 10px;
 }
 
+.dashboard-prompt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.dashboard-prompt-chips button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.dashboard-prompt-chips button:hover {
+  border-color: var(--amber);
+}
+
+.dashboard-assistant-form {
+  display: flex;
+  gap: 8px;
+}
+
+.dashboard-assistant-form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-list {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.activity-item strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.activity-item span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.activity-meta {
+  color: var(--sage);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .shelf-item {
   display: flex;
   align-items: center;

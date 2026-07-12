@@ -1292,6 +1292,9 @@ const els = {
   topRatedHighlight: document.querySelector("#topRatedHighlight"),
   pourStreakHighlight: document.querySelector("#pourStreakHighlight"),
   recommendation: document.querySelector("#recommendation"),
+  recentActivity: document.querySelector("#recentActivity"),
+  dashboardAssistantForm: document.querySelector("#dashboardAssistantForm"),
+  dashboardAssistantPrompt: document.querySelector("#dashboardAssistantPrompt"),
   resultCount: document.querySelector("#resultCount"),
   inventoryRatio: document.querySelector("#inventoryRatio"),
   totalBottles: document.querySelector("#totalBottles"),
@@ -1511,6 +1514,13 @@ document.querySelector("#downloadImportTemplate").addEventListener("click", down
 document.querySelector("#refreshAiTools").addEventListener("click", renderAiTools);
 document.querySelector("#clearAssistantChat").addEventListener("click", clearAssistantChat);
 els.assistantForm.addEventListener("submit", sendAssistantMessage);
+els.dashboardAssistantForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  askFromDashboard();
+});
+document.querySelectorAll("[data-dashboard-prompt]").forEach((button) => {
+  button.addEventListener("click", () => askFromDashboard(button.dataset.dashboardPrompt));
+});
 document.querySelectorAll("[data-assistant-prompt]").forEach((button) => {
   button.addEventListener("click", () => {
     els.assistantPrompt.value = button.dataset.assistantPrompt;
@@ -1592,25 +1602,28 @@ document.querySelectorAll("[data-proof]").forEach((button) => {
   });
 });
 
+function navigateToView(view) {
+  activeView = view;
+  document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("is-active", item.dataset.view === view));
+  const viewFilters = {
+    wishlist: "wishlist",
+    "core-bar": "core-bar",
+    "buy-next": "buy-next",
+    opened: "open",
+    finished: "finished",
+    dashboard: "all",
+    collection: "all",
+  };
+  if (viewFilters[view]) {
+    activeFilter = viewFilters[view];
+    syncFilterButtons("[data-filter]", "filter", activeFilter);
+  }
+  render();
+}
+
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
-    activeView = button.dataset.view;
-    document.querySelectorAll("[data-view]").forEach((item) => item.classList.remove("is-active"));
-    button.classList.add("is-active");
-    const viewFilters = {
-      wishlist: "wishlist",
-      "core-bar": "core-bar",
-      "buy-next": "buy-next",
-      opened: "open",
-      finished: "finished",
-      dashboard: "all",
-      collection: "all",
-    };
-    if (viewFilters[activeView]) {
-      activeFilter = viewFilters[activeView];
-      syncFilterButtons("[data-filter]", "filter", activeFilter);
-    }
-    render();
+    navigateToView(button.dataset.view);
     if (window.matchMedia("(max-width: 640px)").matches) {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -2447,6 +2460,7 @@ function render() {
   renderTopRatedHighlight();
   renderPourStreakHighlight();
   renderRecommendation();
+  renderRecentActivity();
   renderNotes();
   renderTastingWorkspace();
   renderAiTools();
@@ -3405,6 +3419,60 @@ function renderRecommendation() {
   els.recommendation.innerHTML = pick
     ? `<strong>${escapeHtml(pick.name)}</strong><span>${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof · ${escapeHtml(pick.flavors.slice(0, 3).join(", "))}</span>`
     : `<span>Open a bottle to get a recommendation.</span>`;
+}
+
+function activityAddedLabel(status) {
+  if (status === "wishlist") return "Added to wish list";
+  if (status === "buy-next") return "Added to buy list";
+  return "Added to collection";
+}
+
+function renderRecentActivity() {
+  const bottleEvents = bottles
+    .filter((bottle) => Number(bottle.createdAt))
+    .map((bottle) => ({
+      time: Number(bottle.createdAt),
+      name: bottle.name,
+      label: activityAddedLabel(bottle.status),
+      meta: labelStatus(bottle.status) || "",
+    }));
+
+  const pourEvents = pours
+    .map((pour) => {
+      const bottle = bottles.find((item) => item.id === pour.bottleId);
+      const time = new Date(`${pour.date}T12:00:00`).getTime();
+      return bottle && Number.isFinite(time)
+        ? { time, name: bottle.name, label: "Poured", meta: `${numberOrDash(pour.ounces)} oz` }
+        : null;
+    })
+    .filter(Boolean);
+
+  const events = [...bottleEvents, ...pourEvents].sort((a, b) => b.time - a.time).slice(0, 6);
+
+  els.recentActivity.innerHTML = events.length
+    ? events
+        .map(
+          (event) => `
+            <div class="activity-item">
+              <div>
+                <strong>${escapeHtml(event.name)}</strong>
+                <span>${escapeHtml(event.label)} · ${timeAgo(event.time)}</span>
+              </div>
+              <span class="activity-meta">${escapeHtml(event.meta)}</span>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">No activity yet. Add a bottle or log a pour to get started.</div>`;
+}
+
+function askFromDashboard(promptText) {
+  const text = (promptText ?? els.dashboardAssistantPrompt.value).trim();
+  if (!text) return;
+  els.dashboardAssistantPrompt.value = "";
+  navigateToView("ai-tools");
+  els.assistantPrompt.value = text;
+  sendAssistantMessage();
 }
 
 function renderNotes() {
@@ -5645,6 +5713,19 @@ function formatDate(value) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(`${value}T12:00:00`));
+}
+
+function timeAgo(timestamp) {
+  const minutes = Math.floor((Date.now() - timestamp) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  return formatDate(new Date(timestamp).toISOString().slice(0, 10));
 }
 
 function escapeHtml(value) {

@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=74" />
+    <link rel="stylesheet" href="styles.css?v=75" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -308,6 +308,33 @@
           <div class="pour-streak-highlight" id="pourStreakHighlight"></div>
 
           <section class="dashboard-grid">
+          <div class="insights-card">
+            <div class="section-heading">
+              <div>
+                <p>Pour assistant</p>
+                <h2>Ask your assistant</h2>
+              </div>
+            </div>
+            <div class="dashboard-prompt-chips">
+              <button type="button" data-dashboard-prompt="What's the vibe tonight?">What's the vibe tonight?</button>
+              <button type="button" data-dashboard-prompt="What bottle should I buy next?">Buy picks</button>
+            </div>
+            <form class="dashboard-assistant-form" id="dashboardAssistantForm">
+              <input id="dashboardAssistantPrompt" type="text" placeholder="Ask about tonight's pour..." />
+              <button class="primary-action" type="submit">Ask</button>
+            </form>
+          </div>
+
+          <div class="insights-card">
+            <div class="section-heading">
+              <div>
+                <p>Activity</p>
+                <h2>Recent activity</h2>
+              </div>
+            </div>
+            <div class="activity-list" id="recentActivity"></div>
+          </div>
+
           <div class="insights-card">
             <div class="section-heading">
               <div>
@@ -885,7 +912,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=91"></script>
+    <script src="app.js?v=92"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
