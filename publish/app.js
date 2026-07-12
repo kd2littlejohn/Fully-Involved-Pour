@@ -3512,11 +3512,12 @@ function spinForBottle() {
 
   function tick() {
     tickCount += 1;
-    const candidate = eligible[Math.floor(Math.random() * eligible.length)];
     const isFinal = tickCount >= rounds;
-    renderSpinFrame(candidate, tickCount, rounds, isFinal);
+    // The bottle stays hidden behind a mystery card until the very last flip reveals it.
+    const winner = isFinal ? eligible[Math.floor(Math.random() * eligible.length)] : null;
+    renderSpinFrame(winner, tickCount, rounds, isFinal);
     if (isFinal) {
-      finishSpin(candidate);
+      finishSpin(winner);
       return;
     }
     // Ease from a fast flicker to a slow crawl as it approaches your number.
@@ -3531,11 +3532,11 @@ function renderSpinFrame(bottle, tickNumber, totalTicks, isFinal) {
   els.spinReel.innerHTML = `
     <div class="spin-reel-item${isFinal ? " is-final" : ""}">
       <div class="spin-number">Spin ${tickNumber} <span>of ${totalTicks}</span></div>
-      ${bottleThumb(bottle)}
+      ${isFinal ? bottleThumb(bottle) : `<div class="spin-mystery" aria-hidden="true">🥃</div>`}
       ${
         isFinal
           ? `<strong>${escapeHtml(bottle.name)}</strong><span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof</span>`
-          : ""
+          : `<span class="spin-mystery-label">???</span>`
       }
     </div>
   `;

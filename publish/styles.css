@@ -1832,9 +1832,34 @@ select {
   font-size: 2rem;
 }
 
-.spin-reel.is-spinning .catalog-thumb,
-.spin-reel.is-spinning .catalog-thumb-empty {
-  filter: grayscale(1) brightness(0.55);
+.spin-mystery {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 140px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: #0f0b07;
+  font-size: 2.4rem;
+  filter: grayscale(1) brightness(0.8);
+  animation: spin-mystery-wobble 0.3s ease-in-out infinite;
+}
+
+@keyframes spin-mystery-wobble {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+.spin-mystery-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
 }
 
 .spin-reel-item strong {
