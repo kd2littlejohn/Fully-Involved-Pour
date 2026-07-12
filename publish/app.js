@@ -1351,6 +1351,7 @@ const els = {
   generatedTastingNote: document.querySelector("#generatedTastingNote"),
   aiSuggestions: document.querySelector("#aiSuggestions"),
   aiFillDistillery: document.querySelector("#aiFillDistillery"),
+  formAiTastingNote: document.querySelector("#formAiTastingNote"),
   scanLabelAction: document.querySelector("#scanLabelAction"),
   scanLabelText: document.querySelector("#scanLabelText"),
   labelScanInput: document.querySelector("#labelScanInput"),
@@ -1495,6 +1496,7 @@ els.deleteBottle.addEventListener("click", deleteBottle);
 document.querySelector("#buildTastingNote").addEventListener("click", buildGuidedTastingNote);
 document.querySelector("#aiTastingNote").addEventListener("click", generateAiTastingNote);
 els.aiFillDistillery.addEventListener("click", fillDistilleryWithAi);
+els.formAiTastingNote.addEventListener("click", generateAiFormTastingNote);
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
@@ -4486,6 +4488,56 @@ async function fillDistilleryWithAi() {
   } catch (error) {
     console.error("AI distillery fill failed", error);
     els.aiSuggestions.innerHTML = `<div class="ai-empty">Could not reach the AI lookup. Try again.</div>`;
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
+async function generateAiFormTastingNote() {
+  const name = fields.name.value.trim();
+  if (!name) {
+    alert("Enter a bottle name first.");
+    return;
+  }
+  if (!currentUser || !cloudFunctions) {
+    alert("Sign in with Google to use AI tasting notes.");
+    return;
+  }
+
+  const button = els.formAiTastingNote;
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Asking the sommelier...";
+  try {
+    const typedFlavors = fields.flavors.value
+      .split(",")
+      .map((flavor) => flavor.trim())
+      .filter(Boolean);
+    const callable = cloudFunctions.httpsCallable("generateTastingProfile");
+    const result = await callable({
+      bottleName: name,
+      distillery: fields.distillery.value.trim(),
+      type: fields.type.value,
+      proof: Number(fields.proof.value) || 0,
+      flavors: typedFlavors,
+    });
+    const profile = result.data || {};
+    if (!profile.nose && !profile.palate && !profile.finish) {
+      alert("Could not generate an AI tasting note. Try again.");
+      return;
+    }
+
+    const noteText = `Nose: ${profile.nose || "—"}. Palate: ${profile.palate || "—"}. Finish: ${profile.finish || "—"}.`;
+    const existingNotes = fields.notes.value.trim();
+    fields.notes.value = existingNotes ? `${existingNotes}\n\n${noteText}` : noteText;
+
+    if (Array.isArray(profile.flavors) && profile.flavors.length) {
+      fields.flavors.value = [...new Set([...typedFlavors, ...profile.flavors])].join(", ");
+    }
+  } catch (error) {
+    console.error("AI tasting note failed", error);
+    alert("Could not generate an AI tasting note. Try again.");
   } finally {
     button.disabled = false;
     button.textContent = originalText;
