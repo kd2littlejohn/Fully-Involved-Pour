@@ -3490,7 +3490,9 @@ function spinForBottle() {
     return;
   }
 
-  const winner = eligible[Math.floor(Math.random() * eligible.length)];
+  // The pick is a random number 1..eligible.length; the bottle is just whatever sits at that slot.
+  const winnerNumber = 1 + Math.floor(Math.random() * eligible.length);
+  const winner = eligible[winnerNumber - 1];
   spinInProgress = true;
   els.spinBottleButton.disabled = true;
   els.spinLogPour.classList.add("is-hidden");
@@ -3503,25 +3505,26 @@ function spinForBottle() {
   function tick(now) {
     const elapsed = now - start;
     const progress = Math.min(elapsed / totalDuration, 1);
-    // Ease the reel from a fast flicker to a slow crawl before it settles on the winner.
+    // Ease the reel from a fast flicker to a slow crawl before it settles on the winning number.
     const interval = 60 + progress * progress * 220;
     if (now - lastTick >= interval) {
       lastTick = now;
-      const candidate = progress < 1 ? eligible[Math.floor(Math.random() * eligible.length)] : winner;
-      renderSpinFrame(candidate, false);
+      const rollNumber = progress < 1 ? 1 + Math.floor(Math.random() * eligible.length) : winnerNumber;
+      renderSpinFrame(eligible[rollNumber - 1], rollNumber, eligible.length, false);
     }
     if (progress < 1) {
       requestAnimationFrame(tick);
     } else {
-      finishSpin(winner);
+      finishSpin(winner, winnerNumber, eligible.length);
     }
   }
   requestAnimationFrame(tick);
 }
 
-function renderSpinFrame(bottle, isFinal) {
+function renderSpinFrame(bottle, number, total, isFinal) {
   els.spinReel.innerHTML = `
     <div class="spin-reel-item${isFinal ? " is-final" : ""}">
+      <div class="spin-number">No. ${number} <span>of ${total}</span></div>
       ${bottleThumb(bottle)}
       ${
         isFinal
@@ -3532,8 +3535,8 @@ function renderSpinFrame(bottle, isFinal) {
   `;
 }
 
-function finishSpin(winner) {
-  renderSpinFrame(winner, true);
+function finishSpin(winner, number, total) {
+  renderSpinFrame(winner, number, total, true);
   els.spinReel.classList.remove("is-spinning");
   els.spinBottleButton.disabled = false;
   els.spinBottleButton.textContent = "🎰 Spin Again";

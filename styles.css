@@ -1805,6 +1805,26 @@ select {
   gap: 6px;
 }
 
+.spin-number {
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+
+.spin-number span {
+  margin-left: 5px;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.spin-reel-item.is-final .spin-number {
+  color: #f0b16a;
+}
+
 .spin-reel-item .catalog-thumb,
 .spin-reel-item .catalog-thumb-empty {
   width: 96px;
