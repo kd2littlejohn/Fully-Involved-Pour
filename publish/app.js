@@ -1295,6 +1295,9 @@ const els = {
   recentActivity: document.querySelector("#recentActivity"),
   dashboardAssistantForm: document.querySelector("#dashboardAssistantForm"),
   dashboardAssistantPrompt: document.querySelector("#dashboardAssistantPrompt"),
+  spinReel: document.querySelector("#spinReel"),
+  spinBottleButton: document.querySelector("#spinBottleButton"),
+  spinLogPour: document.querySelector("#spinLogPour"),
   resultCount: document.querySelector("#resultCount"),
   inventoryRatio: document.querySelector("#inventoryRatio"),
   totalBottles: document.querySelector("#totalBottles"),
@@ -1505,6 +1508,8 @@ document.querySelector("#buildTastingNote").addEventListener("click", buildGuide
 document.querySelector("#aiTastingNote").addEventListener("click", generateAiTastingNote);
 els.aiFillDistillery.addEventListener("click", fillDistilleryWithAi);
 els.formAiTastingNote.addEventListener("click", generateAiFormTastingNote);
+els.spinBottleButton.addEventListener("click", spinForBottle);
+els.spinLogPour.addEventListener("click", () => openPourForm(els.spinLogPour.dataset.bottleId || ""));
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
@@ -3473,6 +3478,68 @@ function askFromDashboard(promptText) {
   navigateToView("ai-tools");
   els.assistantPrompt.value = text;
   sendAssistantMessage();
+}
+
+let spinInProgress = false;
+
+function spinForBottle() {
+  if (spinInProgress) return;
+  const eligible = bottles.filter((bottle) => ["open", "sealed"].includes(bottle.status) && bottle.fillLevel !== "empty");
+  if (!eligible.length) {
+    els.spinReel.innerHTML = `<div class="spin-reel-empty">No sealed or open bottles to spin for. Crack one open or add to your cabinet first.</div>`;
+    return;
+  }
+
+  const winner = eligible[Math.floor(Math.random() * eligible.length)];
+  spinInProgress = true;
+  els.spinBottleButton.disabled = true;
+  els.spinLogPour.classList.add("is-hidden");
+  els.spinReel.classList.add("is-spinning");
+
+  const totalDuration = 2200;
+  const start = performance.now();
+  let lastTick = 0;
+
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / totalDuration, 1);
+    // Ease the reel from a fast flicker to a slow crawl before it settles on the winner.
+    const interval = 60 + progress * progress * 220;
+    if (now - lastTick >= interval) {
+      lastTick = now;
+      const candidate = progress < 1 ? eligible[Math.floor(Math.random() * eligible.length)] : winner;
+      renderSpinFrame(candidate, false);
+    }
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      finishSpin(winner);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+function renderSpinFrame(bottle, isFinal) {
+  els.spinReel.innerHTML = `
+    <div class="spin-reel-item${isFinal ? " is-final" : ""}">
+      ${bottleThumb(bottle)}
+      ${
+        isFinal
+          ? `<strong>${escapeHtml(bottle.name)}</strong><span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof</span>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+function finishSpin(winner) {
+  renderSpinFrame(winner, true);
+  els.spinReel.classList.remove("is-spinning");
+  els.spinBottleButton.disabled = false;
+  els.spinBottleButton.textContent = "🎰 Spin Again";
+  els.spinLogPour.dataset.bottleId = winner.id;
+  els.spinLogPour.classList.remove("is-hidden");
+  spinInProgress = false;
 }
 
 function renderNotes() {
