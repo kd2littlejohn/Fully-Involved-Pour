@@ -1782,6 +1782,80 @@ select {
   margin-bottom: 6px;
 }
 
+.spin-reel {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #17120d;
+  text-align: center;
+  overflow: hidden;
+}
+
+.spin-reel-empty {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.spin-reel-item {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.spin-reel-item .catalog-thumb,
+.spin-reel-item .catalog-thumb-empty {
+  width: 96px;
+  height: 140px;
+  font-size: 2rem;
+}
+
+.spin-reel.is-spinning .catalog-thumb,
+.spin-reel.is-spinning .catalog-thumb-empty {
+  filter: grayscale(1) brightness(0.55);
+}
+
+.spin-reel-item strong {
+  margin-top: 4px;
+}
+
+.spin-reel-item span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.spin-reel-item.is-final {
+  animation: spin-settle 0.35s ease-out;
+}
+
+.spin-reel-item.is-final .catalog-thumb,
+.spin-reel-item.is-final .catalog-thumb-empty {
+  box-shadow: 0 0 0 2px var(--amber);
+}
+
+@keyframes spin-settle {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.spin-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 .shelf-list {
   display: grid;
   gap: 10px;
