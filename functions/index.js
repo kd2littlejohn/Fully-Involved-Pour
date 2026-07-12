@@ -4,7 +4,7 @@ const { defineSecret } = require("firebase-functions/params");
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
-async function callClaude(apiKey, { system, prompt, maxTokens, content }) {
+async function callClaude(apiKey, { system, prompt, maxTokens, content, messages }) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -16,7 +16,7 @@ async function callClaude(apiKey, { system, prompt, maxTokens, content }) {
       model: ANTHROPIC_MODEL,
       max_tokens: maxTokens || 400,
       system,
-      messages: [{ role: "user", content: content || prompt }],
+      messages: messages || [{ role: "user", content: content || prompt }],
     }),
   });
 
@@ -43,8 +43,18 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
     throw new HttpsError("invalid-argument", "A question or prompt is required.");
   }
 
+  // Prior turns from this chat, so the assistant actually remembers what was asked
+  // before instead of answering each message in isolation. Sanitized and capped so a
+  // malformed or oversized payload can't blow up token usage or the request shape.
+  const rawHistory = Array.isArray(request.data?.history) ? request.data.history : [];
+  const history = rawHistory
+    .filter((turn) => turn && (turn.role === "user" || turn.role === "assistant") && typeof turn.content === "string")
+    .slice(-16)
+    .map((turn) => ({ role: turn.role, content: turn.content.slice(0, 2000) }));
+
   const system = `${SOMMELIER_PERSONA}\n\nHere is a summary of their current collection:\n${collectionSummary || "(their collection is empty so far)"}`;
-  const reply = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 400 });
+  const messages = [...history, { role: "user", content: prompt }];
+  const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 400 });
   return { reply: reply || "I couldn't come up with a response just now — try rephrasing." };
 });
 

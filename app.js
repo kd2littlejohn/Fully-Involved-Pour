@@ -1,6 +1,7 @@
 const STORAGE_KEY = "cellar-ledger-bottles";
 const POUR_STORAGE_KEY = "cellar-ledger-pours";
 const CUSTOM_LIBRARY_KEY = "fip-custom-library";
+const ASSISTANT_HISTORY_KEY = "fip-assistant-history";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDJ6BpySxmM7bvZQYmLh0kmkPB18qxt47Q",
@@ -1268,6 +1269,7 @@ const availableDistilleries = [
 let bottles = loadBottles();
 let pours = loadPours();
 let customLibrary = loadCustomLibrary();
+let assistantHistory = loadAssistantHistory();
 let activeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
@@ -1502,6 +1504,7 @@ document.querySelector("#importCollectionButton").addEventListener("click", () =
 document.querySelector("#importFile").addEventListener("change", importCollection);
 document.querySelector("#downloadImportTemplate").addEventListener("click", downloadImportTemplate);
 document.querySelector("#refreshAiTools").addEventListener("click", renderAiTools);
+document.querySelector("#clearAssistantChat").addEventListener("click", clearAssistantChat);
 els.assistantForm.addEventListener("submit", sendAssistantMessage);
 document.querySelectorAll("[data-assistant-prompt]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -1704,6 +1707,37 @@ function loadCustomLibrary() {
   } catch {
     return [];
   }
+}
+
+function loadAssistantHistory() {
+  const saved = localStorage.getItem(ASSISTANT_HISTORY_KEY);
+  if (!saved) return [];
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed)
+      ? parsed.filter((turn) => turn && (turn.role === "user" || turn.role === "assistant") && typeof turn.content === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistAssistantHistory() {
+  // Keep the last 10 exchanges (20 turns) — enough context for a natural conversation
+  // without the payload growing without bound.
+  assistantHistory = assistantHistory.slice(-20);
+  localStorage.setItem(ASSISTANT_HISTORY_KEY, JSON.stringify(assistantHistory));
+}
+
+function clearAssistantChat() {
+  assistantHistory = [];
+  localStorage.removeItem(ASSISTANT_HISTORY_KEY);
+  els.assistantMessages.innerHTML = "";
+  appendAssistantMessage(
+    "assistant",
+    aiMessage("Dispatch ready. What's the call tonight? I can pick the right bottle by mood, occasion, flavor profile, or tier."),
+  );
 }
 
 function persistPours() {
@@ -3616,10 +3650,17 @@ function renderAiTools() {
   els.compareB.value = previousB;
 
   if (!els.assistantMessages.innerHTML) {
-    appendAssistantMessage(
-      "assistant",
-      `Dispatch ready. What's the call tonight? I can pick the right bottle by mood, occasion, flavor profile, or tier.`,
-    );
+    if (assistantHistory.length) {
+      // Continue the conversation from last time instead of starting over.
+      assistantHistory.forEach((turn) => {
+        appendAssistantMessage(turn.role, turn.role === "user" ? turn.content : aiMessage(turn.content));
+      });
+    } else {
+      appendAssistantMessage(
+        "assistant",
+        aiMessage("Dispatch ready. What's the call tonight? I can pick the right bottle by mood, occasion, flavor profile, or tier."),
+      );
+    }
   }
 }
 
@@ -3657,11 +3698,11 @@ function summarizeCollectionForAi() {
     .join("\n");
 }
 
-async function askSommelierAi(prompt) {
+async function askSommelierAi(prompt, history) {
   if (!currentUser || !cloudFunctions) return null;
   try {
     const callable = cloudFunctions.httpsCallable("askSommelier");
-    const result = await callable({ prompt, collectionSummary: summarizeCollectionForAi() });
+    const result = await callable({ prompt, history, collectionSummary: summarizeCollectionForAi() });
     return result.data?.reply || null;
   } catch (error) {
     console.error("AI sommelier call failed", error);
@@ -3679,10 +3720,12 @@ async function sendAssistantMessage(event) {
 
   if (currentUser && cloudFunctions) {
     const thinking = appendAssistantMessage("assistant", aiMessage("Thinking..."));
-    const aiReply = await askSommelierAi(prompt);
+    const aiReply = await askSommelierAi(prompt, assistantHistory);
     if (aiReply) {
       thinking.innerHTML = aiMessage(aiReply);
       els.assistantMessages.scrollTop = els.assistantMessages.scrollHeight;
+      assistantHistory.push({ role: "user", content: prompt }, { role: "assistant", content: aiReply });
+      persistAssistantHistory();
       return;
     }
     thinking.remove();
