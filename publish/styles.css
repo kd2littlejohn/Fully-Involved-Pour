@@ -1870,6 +1870,22 @@ select {
   }
 }
 
+.spin-number-picker {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.spin-number-picker label {
+  flex: 1;
+  min-width: 0;
+}
+
+.spin-number-picker input {
+  width: 100%;
+}
+
 .spin-actions {
   display: flex;
   gap: 10px;

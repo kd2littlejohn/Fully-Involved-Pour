@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=76" />
+    <link rel="stylesheet" href="styles.css?v=77" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -364,7 +364,14 @@
               </div>
             </div>
             <div class="spin-reel" id="spinReel">
-              <div class="spin-reel-empty">Hit spin and let fate pick tonight's pour.</div>
+              <div class="spin-reel-empty">Pick a number — it decides how many times the wheel flips before it stops.</div>
+            </div>
+            <div class="spin-number-picker">
+              <label>
+                Your number
+                <input id="spinNumber" type="number" min="1" max="50" placeholder="e.g. 7" />
+              </label>
+              <button class="field-ai-btn" id="spinRandomNumber" type="button" title="Pick a random number">🎲</button>
             </div>
             <div class="spin-actions">
               <button class="primary-action" id="spinBottleButton" type="button">🎰 Spin</button>
@@ -928,7 +935,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=94"></script>
+    <script src="app.js?v=95"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
