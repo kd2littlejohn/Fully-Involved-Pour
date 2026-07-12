@@ -3144,6 +3144,19 @@ textarea {
   gap: 12px;
 }
 
+.add-another-status {
+  display: block;
+  min-height: 1.2em;
+  margin: -4px 0 10px;
+  color: var(--sage);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.add-another-status:empty {
+  margin: 0;
+}
+
 
 .icon-button {
   width: 38px;

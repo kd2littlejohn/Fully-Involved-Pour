@@ -1313,6 +1313,8 @@ const els = {
   bottleForm: document.querySelector("#bottleForm"),
   formTitle: document.querySelector("#formTitle"),
   deleteBottle: document.querySelector("#deleteBottle"),
+  saveAndAddAnother: document.querySelector("#saveAndAddAnother"),
+  addAnotherStatus: document.querySelector("#addAnotherStatus"),
   collectionView: document.querySelector("#collectionView"),
   viewEyebrow: document.querySelector("#viewEyebrow"),
   viewTitle: document.querySelector("#viewTitle"),
@@ -1495,6 +1497,7 @@ els.viewModeToggle?.addEventListener("click", (event) => {
 els.bottleForm.addEventListener("submit", saveBottle);
 els.pourForm.addEventListener("submit", savePour);
 els.deleteBottle.addEventListener("click", deleteBottle);
+els.saveAndAddAnother.addEventListener("click", saveBottleAndAddAnother);
 document.querySelector("#buildTastingNote").addEventListener("click", buildGuidedTastingNote);
 document.querySelector("#aiTastingNote").addEventListener("click", generateAiTastingNote);
 els.aiFillDistillery.addEventListener("click", fillDistilleryWithAi);
@@ -4415,6 +4418,9 @@ function openForm(id = "") {
   const isExisting = typeof id === "string" && Boolean(id);
   els.formTitle.textContent = isExisting ? "Edit Bottle" : "Add Bottle";
   els.deleteBottle.classList.toggle("is-hidden", !isExisting);
+  els.saveAndAddAnother.classList.toggle("is-hidden", isExisting);
+  window.clearTimeout(addAnotherStatusTimer);
+  els.addAnotherStatus.textContent = "";
 
   fields.id.value = bottle?.id || "";
   fields.name.value = bottle?.name || "";
@@ -4451,7 +4457,7 @@ function openForm(id = "") {
     els.coreScoreDisplay.textContent = "Calculated after you save";
   }
 
-  els.bottleDialog.showModal();
+  if (!els.bottleDialog.open) els.bottleDialog.showModal();
   fields.name.focus();
   renderBottleSuggestions();
   updateFormPhotoTools();
@@ -5175,8 +5181,10 @@ function clearBottleSuggestions() {
   els.aiSuggestions.innerHTML = "";
 }
 
-async function saveBottle(event) {
-  event.preventDefault();
+// Builds a bottle from the current form fields, saves it, and returns it plus whatever
+// status it had before this save (used to decide whether to prompt "log a pour now?").
+// Shared by the normal Save Bottle submit and Save & Add Another, so the two stay in sync.
+function buildAndPersistBottleFromForm() {
   const id = fields.id.value || crypto.randomUUID();
   const previousStatus = bottles.find((item) => item.id === id)?.status;
   const categories = getSelectedCategoryTags();
@@ -5227,12 +5235,33 @@ async function saveBottle(event) {
 
   persist();
   learnBottle(bottle);
-  els.bottleDialog.close();
   render();
+  return { bottle, previousStatus };
+}
+
+function saveBottle(event) {
+  event.preventDefault();
+  const { bottle, previousStatus } = buildAndPersistBottleFromForm();
+  els.bottleDialog.close();
 
   if (bottle.status === "open" && previousStatus !== "open" && confirm("This bottle is now open. Log a pour now?")) {
-    openPourForm(id);
+    openPourForm(bottle.id);
   }
+}
+
+let addAnotherStatusTimer;
+
+// Saves the current bottle and immediately resets the form for the next one, keeping
+// the dialog open for rapid back-to-back entry instead of closing after every bottle.
+function saveBottleAndAddAnother() {
+  if (!els.bottleForm.reportValidity()) return;
+  const { bottle } = buildAndPersistBottleFromForm();
+  openForm();
+  window.clearTimeout(addAnotherStatusTimer);
+  els.addAnotherStatus.textContent = `✓ Added "${bottle.name}" — keep going`;
+  addAnotherStatusTimer = window.setTimeout(() => {
+    els.addAnotherStatus.textContent = "";
+  }, 4000);
 }
 
 function deleteBottle() {
