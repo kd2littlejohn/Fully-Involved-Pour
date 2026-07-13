@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=88" />
+    <link rel="stylesheet" href="styles.css?v=89" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -108,6 +108,10 @@
           <button class="nav-item" data-view="pour-log" type="button">
             <span aria-hidden="true">◍</span>
             Pour Log
+          </button>
+          <button class="nav-item" data-view="infinity" type="button">
+            <span aria-hidden="true">♾</span>
+            Infinity
           </button>
         </nav>
       </header>
@@ -539,6 +543,36 @@
           <div class="pour-list" id="pourList"></div>
         </section>
 
+        <section class="infinity-board is-hidden" id="infinityView">
+          <div class="section-heading">
+            <div>
+              <p>♾ Infinity Bottle</p>
+              <h2>Your Blends</h2>
+            </div>
+            <button class="primary-action" id="newInfinityBottle" type="button">+ New Infinity Bottle</button>
+          </div>
+
+          <details class="infinity-howto">
+            <summary>How infinity bottles work</summary>
+            <div class="infinity-howto-body">
+              <p>
+                An infinity bottle is a blending bottle you keep topping off with leftover pours instead of
+                letting the last ounce of every bottle go to waste. It never truly empties — every addition
+                changes the blend a little, so no batch tastes quite the same twice.
+              </p>
+              <ul>
+                <li>Start with any clean empty bottle — the size doesn't matter.</li>
+                <li>Pour in what's left of a bottle you're finishing, rather than dumping in full pours.</li>
+                <li>Keep proof roughly in the same range so one addition doesn't overpower the blend.</li>
+                <li>Log every addition — it's the only way to reverse-engineer why a batch turned out great.</li>
+                <li>There's no "finishing" it. Keep adding, keep tasting, keep logging.</li>
+              </ul>
+            </div>
+          </details>
+
+          <div class="infinity-grid" id="infinityGrid"></div>
+        </section>
+
         <section class="compare-board is-hidden" id="compareView">
           <div class="section-heading">
             <div>
@@ -852,6 +886,10 @@
       <div class="quick-detail" id="quickBottleDetail"></div>
     </dialog>
 
+    <dialog class="bottle-dialog" id="infinityDialog">
+      <div class="quick-detail" id="infinityDetail"></div>
+    </dialog>
+
     <dialog class="photo-zoom-dialog" id="photoZoomDialog" aria-label="Bottle photo">
       <button class="icon-button photo-zoom-close" id="closePhotoZoom" type="button" aria-label="Close">×</button>
       <img id="photoZoomImage" alt="" />
@@ -963,7 +1001,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=106"></script>
+    <script src="app.js?v=107"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
