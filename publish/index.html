@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=87" />
+    <link rel="stylesheet" href="styles.css?v=88" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -343,9 +343,33 @@
                 <h2>Flavor radar</h2>
               </div>
             </div>
-            <div class="flavor-radar" id="flavorRadar"></div>
-            <div class="flavor-list" id="flavorList"></div>
-            <div class="flavor-bottle-list" id="flavorBottleList"></div>
+
+            <div class="quick-tabs" role="tablist" id="profileTabs">
+              <button class="quick-tab is-active" data-profile-tab="radar" type="button">Radar</button>
+              <button class="quick-tab" data-profile-tab="cadence" type="button">Cadence</button>
+              <button class="quick-tab" data-profile-tab="seasons" type="button">Seasons</button>
+            </div>
+
+            <div class="quick-tab-panel" data-profile-tab-panel="radar">
+              <div class="flavor-radar" id="flavorRadar"></div>
+              <div class="flavor-list" id="flavorList"></div>
+              <div class="flavor-bottle-list" id="flavorBottleList"></div>
+            </div>
+
+            <div class="quick-tab-panel is-hidden" data-profile-tab-panel="cadence">
+              <div class="mini-cadence-block">
+                <h4>By day of week</h4>
+                <div class="mini-bars mb-dow" id="cadenceDowBars"></div>
+                <div class="mini-axis mb-dow" id="cadenceDowAxis"></div>
+              </div>
+              <div class="mini-cadence-block">
+                <h4>By month</h4>
+                <div class="mini-bars mb-month" id="cadenceMonthBars"></div>
+                <div class="mini-axis mb-month" id="cadenceMonthAxis"></div>
+              </div>
+            </div>
+
+            <div class="quick-tab-panel is-hidden" data-profile-tab-panel="seasons" id="seasonMoodBoard"></div>
           </div>
 
           <div class="insights-card">
@@ -939,7 +963,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=105"></script>
+    <script src="app.js?v=106"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

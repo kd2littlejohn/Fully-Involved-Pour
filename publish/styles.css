@@ -12,6 +12,13 @@
   --blue: #7697aa;
   --plum: #9a6b86;
   --danger: #df745f;
+  /* Season accents for the Flavor Profile mood board — same hue families as the
+     brand palette above, nudged into an OKLCH lightness/chroma band validated
+     for four-way categorical use against the dark surface. */
+  --spring: #4f9d63;
+  --summer: #bd8228;
+  --fall: #c96a3a;
+  --winter: #4a89c9;
   --radius: 8px;
   --serif: Georgia, "Times New Roman", "Iowan Old Style", serif;
   font-family:
@@ -1959,6 +1966,123 @@ select {
   color: var(--muted);
   font-size: 0.78rem;
   text-align: right;
+}
+
+/* ---- Profile card: Cadence tab (day-of-week / month-of-year pour counts) ---- */
+.mini-cadence-block + .mini-cadence-block {
+  margin-top: 18px;
+}
+
+.mini-cadence-block h4 {
+  margin: 0 0 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mini-bars {
+  display: grid;
+  align-items: end;
+  gap: 3px;
+  height: 64px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mini-bars.mb-dow {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.mini-bars.mb-month {
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.mini-bar-col {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 100%;
+}
+
+.mini-bar {
+  width: 100%;
+  max-width: 16px;
+  border-radius: 3px 3px 0 0;
+  background: rgba(215, 138, 54, 0.22);
+}
+
+.mini-bar.is-peak {
+  background: var(--amber);
+}
+
+.mini-axis {
+  display: grid;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+.mini-axis.mb-dow {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.mini-axis.mb-month {
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.mini-axis span {
+  font-size: 0.6rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ---- Profile card: Seasons tab (flavor mood board) ---- */
+.mini-season-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mini-season-row:last-child {
+  border-bottom: none;
+}
+
+.mini-season-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--season-color, var(--amber));
+}
+
+.mini-season-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.mini-season-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.mini-flavor-chip {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.mini-flavor-chip.is-lead {
+  color: var(--season-color, var(--amber));
+  border-color: var(--season-color, var(--amber));
 }
 
 .recommendation {

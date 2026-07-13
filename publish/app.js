@@ -1518,6 +1518,11 @@ const els = {
   flavorList: document.querySelector("#flavorList"),
   flavorBottleList: document.querySelector("#flavorBottleList"),
   flavorRadar: document.querySelector("#flavorRadar"),
+  cadenceDowBars: document.querySelector("#cadenceDowBars"),
+  cadenceDowAxis: document.querySelector("#cadenceDowAxis"),
+  cadenceMonthBars: document.querySelector("#cadenceMonthBars"),
+  cadenceMonthAxis: document.querySelector("#cadenceMonthAxis"),
+  seasonMoodBoard: document.querySelector("#seasonMoodBoard"),
   shelfList: document.querySelector("#shelfList"),
   coreBarHighlight: document.querySelector("#coreBarHighlight"),
   topRatedHighlight: document.querySelector("#topRatedHighlight"),
@@ -1732,6 +1737,15 @@ document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 document.querySelector("#deleteLastPour").addEventListener("click", deleteLastPour);
 els.searchInput.addEventListener("input", render);
 els.librarySearch.addEventListener("input", renderLibrary);
+document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((tabButton) => {
+  tabButton.addEventListener("click", () => {
+    document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((btn) => btn.classList.remove("is-active"));
+    tabButton.classList.add("is-active");
+    document.querySelectorAll("[data-profile-tab-panel]").forEach((panel) => {
+      panel.classList.toggle("is-hidden", panel.dataset.profileTabPanel !== tabButton.dataset.profileTab);
+    });
+  });
+});
 const SORT_KEY = "fip-sort";
 const savedSort = localStorage.getItem(SORT_KEY);
 if (savedSort && [...els.sortSelect.options].some((option) => option.value === savedSort)) {
@@ -2711,6 +2725,8 @@ function render() {
   renderStats();
   renderCards(shown);
   renderFlavorMap();
+  renderPourCadence();
+  renderSeasonalMoodBoard();
   renderShelfMap();
   renderCoreBarHighlight();
   renderTopRatedHighlight();
@@ -3514,6 +3530,102 @@ function renderFlavorMap() {
       )
       .join("")}
   `;
+}
+
+const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SEASON_DEFS = [
+  { name: "Spring", months: [2, 3, 4], color: "var(--spring)" },
+  { name: "Summer", months: [5, 6, 7], color: "var(--summer)" },
+  { name: "Fall", months: [8, 9, 10], color: "var(--fall)" },
+  { name: "Winter", months: [11, 0, 1], color: "var(--winter)" },
+];
+
+// Parsed at noon local time, same trick formatDate() uses, so a date-only string
+// never shifts a day off when the browser's timezone is behind UTC.
+function pourDateParts(pour) {
+  const date = new Date(`${pour.date}T12:00:00`);
+  return { dow: date.getDay(), month: date.getMonth() };
+}
+
+function renderMiniBars(barsEl, axisEl, data) {
+  const max = Math.max(...data.map((d) => d.value), 1);
+  barsEl.innerHTML = data
+    .map(
+      (d) => `
+        <div class="mini-bar-col">
+          <div class="mini-bar ${d.value > 0 && d.value === max ? "is-peak" : ""}" style="height:${Math.max(4, Math.round((d.value / max) * 100))}%" title="${d.label}: ${d.value} pour${d.value === 1 ? "" : "s"}"></div>
+        </div>
+      `,
+    )
+    .join("");
+  axisEl.innerHTML = data.map((d) => `<span>${escapeHtml(d.label[0])}</span>`).join("");
+}
+
+// Cadence tab on the Profile card: which day of the week and which month pours
+// cluster around, derived straight from the Pour Log's own dates.
+function renderPourCadence() {
+  if (!els.cadenceDowBars) return;
+  if (!pours.length) {
+    els.cadenceDowBars.innerHTML = `<div class="empty-state">Log a pour to see when you drink most.</div>`;
+    els.cadenceDowAxis.innerHTML = "";
+    els.cadenceMonthBars.innerHTML = "";
+    els.cadenceMonthAxis.innerHTML = "";
+    return;
+  }
+
+  const dowCounts = new Array(7).fill(0);
+  const monthCounts = new Array(12).fill(0);
+  pours.forEach((pour) => {
+    if (!pour.date) return;
+    const { dow, month } = pourDateParts(pour);
+    dowCounts[dow] += 1;
+    monthCounts[month] += 1;
+  });
+
+  // Display Monday-first even though Date#getDay() counts Sunday-first.
+  const dowOrder = [1, 2, 3, 4, 5, 6, 0];
+  const dowData = dowOrder.map((index) => ({ label: DOW_LABELS[index], value: dowCounts[index] }));
+  const monthData = MONTH_LABELS.map((label, index) => ({ label, value: monthCounts[index] }));
+
+  renderMiniBars(els.cadenceDowBars, els.cadenceDowAxis, dowData);
+  renderMiniBars(els.cadenceMonthBars, els.cadenceMonthAxis, monthData);
+}
+
+// Seasons tab on the Profile card: each logged pour's bottle contributes its
+// flavor tags to whichever season the pour's date falls in.
+function renderSeasonalMoodBoard() {
+  if (!els.seasonMoodBoard) return;
+  const seasonFlavorCounts = SEASON_DEFS.map(() => new Map());
+  pours.forEach((pour) => {
+    if (!pour.date) return;
+    const bottle = bottles.find((item) => item.id === pour.bottleId);
+    if (!bottle?.flavors?.length) return;
+    const { month } = pourDateParts(pour);
+    const seasonIndex = SEASON_DEFS.findIndex((season) => season.months.includes(month));
+    if (seasonIndex === -1) return;
+    const counts = seasonFlavorCounts[seasonIndex];
+    bottle.flavors.forEach((flavor) => counts.set(flavor, (counts.get(flavor) || 0) + 1));
+  });
+
+  if (!seasonFlavorCounts.some((counts) => counts.size > 0)) {
+    els.seasonMoodBoard.innerHTML = `<div class="empty-state">Log a few pours to build a seasonal flavor mood board.</div>`;
+    return;
+  }
+
+  els.seasonMoodBoard.innerHTML = SEASON_DEFS.map((season, index) => {
+    const top = [...seasonFlavorCounts[index].entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const chips = top.length
+      ? top.map(([flavor], i) => `<span class="mini-flavor-chip${i === 0 ? " is-lead" : ""}">${escapeHtml(flavor)}</span>`).join("")
+      : `<span class="mini-flavor-chip">no pours yet</span>`;
+    return `
+      <div class="mini-season-row" style="--season-color:${season.color}">
+        <span class="mini-season-dot"></span>
+        <span class="mini-season-name">${season.name}</span>
+        <span class="mini-season-chips">${chips}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderFlavorRadar() {
