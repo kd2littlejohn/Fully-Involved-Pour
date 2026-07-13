@@ -1,4 +1,4 @@
-const CACHE_NAME = "fip-shell-v48";
+const CACHE_NAME = "fip-shell-v49";
 
 const SHELL_ASSETS = [
   "./",
