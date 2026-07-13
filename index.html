@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=103" />
+    <link rel="stylesheet" href="styles.css?v=104" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -744,6 +744,14 @@
 
           <div class="section-heading compact">
             <div>
+              <p>What mattered, not just what scored highest</p>
+              <h2>Legacy Shelf</h2>
+            </div>
+          </div>
+          <div class="legacy-shelf-grid" id="profileLegacyShelf"></div>
+
+          <div class="section-heading compact">
+            <div>
               <p>Palate</p>
               <h2>Top flavor notes</h2>
             </div>
@@ -1044,6 +1052,19 @@
             </label>
           </div>
 
+          <div class="legacy-shelf-field">
+            <label class="legacy-shelf-toggle">
+              <input type="checkbox" id="legacyShelf" />
+              <span>⭐ Add to Legacy Shelf</span>
+            </label>
+            <input
+              id="legacyShelfReason"
+              type="text"
+              placeholder="Why it matters — e.g. First Bourbon I Loved, Shared with Dad"
+              maxlength="120"
+            />
+          </div>
+
           <div class="mash-bill-field">
             <span>Mash Bill</span>
             <div class="mash-bill-grid">
@@ -1191,7 +1212,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=116"></script>
+    <script src="app.js?v=117"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

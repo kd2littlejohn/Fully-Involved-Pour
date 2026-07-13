@@ -835,6 +835,8 @@ function normalizeBottle(bottle) {
     storeLocation: "",
     coreBar: false,
     favorite: false,
+    legacyShelf: false,
+    legacyShelfReason: "",
     priority: 3,
     rating: 0,
     price: 0,
@@ -1557,6 +1559,7 @@ const els = {
   profileFavoriteProof: document.querySelector("#profileFavoriteProof"),
   profileCollectionValue: document.querySelector("#profileCollectionValue"),
   profileFlavorTags: document.querySelector("#profileFlavorTags"),
+  profileLegacyShelf: document.querySelector("#profileLegacyShelf"),
   homeGreeting: document.querySelector("#homeGreeting"),
   continueStoryCard: document.querySelector("#continueStoryCard"),
   continueStoryBody: document.querySelector("#continueStoryBody"),
@@ -1737,6 +1740,8 @@ const fields = {
   pourTier: document.querySelector("#pourTier"),
   bottleSize: document.querySelector("#bottleSize"),
   priority: document.querySelector("#priority"),
+  legacyShelf: document.querySelector("#legacyShelf"),
+  legacyShelfReason: document.querySelector("#legacyShelfReason"),
   flavors: document.querySelector("#flavors"),
   notes: document.querySelector("#notes"),
 };
@@ -4036,6 +4041,33 @@ function renderProfile() {
   els.profileFlavorTags.innerHTML = topFlavors.length
     ? topFlavors.map(([flavor]) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")
     : `<div class="empty-state">Add flavor tags to your bottles to build your palate profile.</div>`;
+
+  renderProfileLegacyShelf();
+}
+
+// Bottles kept not for score, but for the moment they marked - a shelf next to,
+// not instead of, the highest-rated bottles.
+function renderProfileLegacyShelf() {
+  if (!els.profileLegacyShelf) return;
+  const legacyBottles = bottles.filter((bottle) => bottle.legacyShelf);
+
+  els.profileLegacyShelf.innerHTML = legacyBottles.length
+    ? legacyBottles
+        .map(
+          (bottle) => `
+            <article class="legacy-shelf-card" data-quick="${bottle.id}" role="button" tabindex="0">
+              ${bottleThumb(bottle, "preview-thumb")}
+              <strong>${escapeHtml(bottle.name)}</strong>
+              <span>${escapeHtml(bottle.legacyShelfReason || bottle.distillery || "")}</span>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">Star a bottle's Legacy Shelf box (in Edit Bottle) to keep the ones that mattered here.</div>`;
+
+  els.profileLegacyShelf.querySelectorAll("[data-quick]").forEach((card) => {
+    card.addEventListener("click", () => openBottleQuick(card.dataset.quick));
+  });
 }
 
 function renderCoreBarHighlight() {
@@ -5926,6 +5958,68 @@ function openAlternativeQuick(pick) {
   });
 }
 
+function formatEventDate(timestamp) {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(timestamp));
+}
+
+// Every bottle's arc, built from real data we already have - when it was added,
+// opened, each pour along the way, and whether it's been finished - rather than
+// a fabricated narrative. No event with an unknown date gets a guessed one.
+function renderBottleJourneyTimeline(bottle) {
+  const events = [];
+  if (Number(bottle.createdAt)) {
+    events.push({ time: Number(bottle.createdAt), icon: "🛒", label: "Added to collection", meta: labelStatus(bottle.status) });
+  }
+  if (bottle.openedDate) {
+    const time = new Date(`${bottle.openedDate}T12:00:00`).getTime();
+    if (Number.isFinite(time)) events.push({ time, icon: "🔓", label: "Opened", meta: "" });
+  }
+  bottlePoursFor(bottle.id).forEach((pour) => {
+    const time = new Date(`${pour.date}T12:00:00`).getTime();
+    if (Number.isFinite(time)) {
+      events.push({
+        time,
+        icon: "🥃",
+        label: pour.notes || pour.occasion || "Poured",
+        meta: `${numberOrDash(pour.ounces)} oz${Number(pour.rating) ? ` · ${pour.rating}` : ""}`,
+      });
+    }
+  });
+  events.sort((a, b) => a.time - b.time);
+
+  const isFinished = bottle.status === "finished" || bottle.fillLevel === "empty";
+  if (isFinished) {
+    events.push({ time: null, icon: "⚫", label: "Bottle Kill", meta: "Finished" });
+  }
+
+  const legacyBanner = bottle.legacyShelf
+    ? `<div class="legacy-shelf-banner">⭐ On the Legacy Shelf${bottle.legacyShelfReason ? ` — ${escapeHtml(bottle.legacyShelfReason)}` : ""}</div>`
+    : "";
+
+  if (!events.length) {
+    return `${legacyBanner}<div class="empty-state">No journey yet. Log a pour to start this bottle's story.</div>`;
+  }
+
+  return `
+    ${legacyBanner}
+    <div class="journey-timeline">
+      ${events
+        .map(
+          (event) => `
+            <div class="journey-timeline-item">
+              <span class="journey-timeline-icon">${event.icon}</span>
+              <div class="journey-timeline-body">
+                <strong>${escapeHtml(event.label)}</strong>
+                <span>${event.time ? formatEventDate(event.time) : ""}${event.meta ? ` · ${escapeHtml(event.meta)}` : ""}</span>
+              </div>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 function openBottleQuick(id) {
   const bottle = bottles.find((item) => item.id === id);
   if (!bottle) return;
@@ -5943,6 +6037,7 @@ function openBottleQuick(id) {
     <div class="quick-tabs" role="tablist">
       <button class="quick-tab is-active" data-tab="overview" type="button">Overview</button>
       <button class="quick-tab" data-tab="tasting" type="button">Tasting</button>
+      <button class="quick-tab" data-tab="journey" type="button">Journey</button>
       <button class="quick-tab" data-tab="specs" type="button">Specs</button>
     </div>
 
@@ -5979,6 +6074,10 @@ function openBottleQuick(id) {
     <div class="quick-tab-panel is-hidden" data-tab-panel="tasting">
       <div class="bottle-radar">${renderBottleFlavorRadar(bottle)}</div>
       ${renderTastingNoteBlock(bottle)}
+    </div>
+
+    <div class="quick-tab-panel is-hidden" data-tab-panel="journey">
+      ${renderBottleJourneyTimeline(bottle)}
     </div>
 
     <div class="quick-tab-panel is-hidden" data-tab-panel="specs">
@@ -6138,6 +6237,8 @@ function openForm(id = "") {
   fields.pourTier.value = normalizePourTier(bottle?.pourTier || "crowd");
   fields.bottleSize.value = String(bottle?.bottleSize || 750);
   fields.priority.value = bottle?.priority || 3;
+  fields.legacyShelf.checked = Boolean(bottle?.legacyShelf);
+  fields.legacyShelfReason.value = bottle?.legacyShelfReason || "";
   fields.flavors.value = bottle?.flavors.join(", ") || "";
   fields.notes.value = bottle?.notes || "";
 
@@ -6914,6 +7015,8 @@ function buildAndPersistBottleFromForm() {
     pourTier: normalizePourTier(fields.pourTier.value),
     coreBar: false,
     priority: Number(fields.priority.value || 3),
+    legacyShelf: fields.legacyShelf.checked,
+    legacyShelfReason: fields.legacyShelfReason.value.trim(),
     flavors: fields.flavors.value
       .split(",")
       .map((flavor) => flavor.trim().toLowerCase())
