@@ -13,18 +13,18 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=75" />
+    <link rel="stylesheet" href="styles.css?v=76" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
       <div class="welcome-card">
         <img
           class="brand-mark"
-          src="assets/fully-involved-pour-logo.png"
-          alt="Fully Involved Pour logo"
+          src="assets/compass-mark.png"
+          alt="Fully Involved Pour compass logo"
         />
         <strong>Fully Involved Pour</strong>
-        <span>Where there's proof, there's fire.</span>
+        <span>Drink what you enjoy. Share what matters.</span>
         <p>
           Track every bottle, every pour, and the ones that earn a permanent spot on your Core
           Bar. Start in seconds &mdash; no account needed.
@@ -44,12 +44,12 @@
         <div class="brand">
           <img
             class="brand-mark"
-            src="assets/fully-involved-pour-logo.png"
-            alt="Fully Involved Pour logo"
+            src="assets/compass-mark.png"
+            alt="Fully Involved Pour compass logo"
           />
           <div>
             <strong>Fully Involved Pour</strong>
-            <span>Where there's proof, there's fire.</span>
+            <span>Drink what you enjoy. Share what matters.</span>
           </div>
         </div>
 
@@ -69,11 +69,11 @@
         </div>
 
         <nav class="nav-list" aria-label="Views">
-          <button class="nav-item" data-view="dashboard" type="button">
+          <button class="nav-item is-active" data-view="dashboard" type="button">
             <span aria-hidden="true">▤</span>
-            Dashboard
+            Home
           </button>
-          <button class="nav-item is-active" data-view="collection" type="button">
+          <button class="nav-item" data-view="collection" type="button">
             <span aria-hidden="true">▦</span>
             Inventory
           </button>
@@ -119,11 +119,10 @@
             <div class="hero-copy">
               <p>Fully Involved Pour</p>
               <h1>Track every pour. Know every bottle.</h1>
-              <strong class="hero-slogan">Where there's proof, there's fire.</strong>
+              <strong class="hero-slogan">Drink what you enjoy. Share what matters.</strong>
               <span class="hero-description">
                 Organize what you own, what you love, and what deserves a spot on your Core Bar.
               </span>
-              <span class="hero-saying">Drink what you enjoy. Share what matters.</span>
             </div>
             <div class="hero-actions">
               <button class="primary-action" id="openBottleForm" type="button">
@@ -303,6 +302,28 @@
         </section>
 
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
+          <section class="pillar-nav" aria-label="Your whiskey journey">
+            <button class="pillar-card" data-pillar-view="buy-next" type="button">
+              <span class="pillar-icon" aria-hidden="true">🧭</span>
+              <strong>Discover</strong>
+              <span>Explore what's new</span>
+            </button>
+            <button class="pillar-card" data-pillar-view="pour-log" type="button">
+              <span class="pillar-icon" aria-hidden="true">🥃</span>
+              <strong>Experience</strong>
+              <span>Savor tonight's pour</span>
+            </button>
+            <button class="pillar-card" data-pillar-view="ai-tools" type="button">
+              <span class="pillar-icon" aria-hidden="true">📖</span>
+              <strong>Reflect</strong>
+              <span>Capture the moment</span>
+            </button>
+            <button class="pillar-card" data-pillar-action="share" type="button">
+              <span class="pillar-icon" aria-hidden="true">👥</span>
+              <strong>Share</strong>
+              <span>Pass it forward</span>
+            </button>
+          </section>
           <div class="core-bar-highlight" id="coreBarHighlight"></div>
           <div class="top-rated-highlight" id="topRatedHighlight"></div>
           <div class="pour-streak-highlight" id="pourStreakHighlight"></div>
@@ -912,7 +933,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=92"></script>
+    <script src="app.js?v=93"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

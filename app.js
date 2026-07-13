@@ -1276,7 +1276,7 @@ let activePourStyle = "all";
 let activeProofBand = "all";
 let selectionMode = false;
 const selectedIds = new Set();
-let activeView = "collection";
+let activeView = "dashboard";
 let previousViewBeforeFaceoff = "compare";
 let faceoffPair = null;
 const VIEW_MODE_KEY = "fip-view-mode";
@@ -1628,6 +1628,14 @@ document.querySelectorAll("[data-view]").forEach((button) => {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   });
+});
+
+document.querySelectorAll("[data-pillar-view]").forEach((button) => {
+  button.addEventListener("click", () => navigateToView(button.dataset.pillarView));
+});
+
+document.querySelectorAll("[data-pillar-action='share']").forEach((button) => {
+  button.addEventListener("click", () => els.friendsToggle?.click());
 });
 
 function loadBottles() {
