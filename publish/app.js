@@ -867,9 +867,10 @@ function normalizePourTier(tier) {
   }[tier || "crowd"];
 }
 
-// User-submitted photos, loaded from Firestore at startup so any signed-in user's
-// "Share Photo" pick shows up for every visitor without a code deploy. Falls back
-// behind the hand-curated list below since those are pre-verified.
+// User-uploaded photos, loaded from Firestore at startup. Every photo a signed-in
+// user uploads is published here automatically (see shareBottlePhoto) so it shows
+// up for every visitor without a code deploy. Falls back behind the hand-curated
+// list below since those are pre-verified.
 const sharedCuratedImages = new Map();
 
 function curatedImageKey(name, distillery) {
@@ -4903,13 +4904,10 @@ function openBottleQuick(id) {
 
     <div class="quick-photo-upload-panel">
       <span id="quickPhotoStatus">${bottle.imageUrl ? "Replace this bottle's photo" : "Add a photo of this bottle"}</span>
-      <div class="quick-photo-actions">
-        ${currentUser ? `<button class="secondary-action photo-share-action" id="quickShareBottlePhoto" type="button">🌍 Share Photo</button>` : ""}
-        <label class="upload-photo-action">
-          Upload Photo
-          <input id="quickPhotoUpload" type="file" accept="image/*" />
-        </label>
-      </div>
+      <label class="upload-photo-action">
+        Upload Photo
+        <input id="quickPhotoUpload" type="file" accept="image/*" />
+      </label>
     </div>
     <div class="form-actions">
       <button class="secondary-action" id="quickEditBottle" type="button">Edit Bottle</button>
@@ -4938,15 +4936,6 @@ function openBottleQuick(id) {
     els.quickBottleDialog.close();
   });
   document.querySelector("#quickPhotoUpload").addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
-  document.querySelector("#quickShareBottlePhoto")?.addEventListener("click", () => {
-    const current = bottles.find((item) => item.id === id);
-    if (!current?.imageUrl) {
-      const statusEl = document.querySelector("#quickPhotoStatus");
-      if (statusEl) statusEl.textContent = "Upload a photo first, then share it.";
-      return;
-    }
-    shareBottlePhoto(current);
-  });
   document.querySelector("#altOwnedCard")?.addEventListener("click", () => {
     els.quickBottleDialog.close();
     openBottleQuick(availabilityPick.id);
@@ -5019,6 +5008,7 @@ function openForm(id = "") {
   els.saveAndAddAnother.classList.toggle("is-hidden", isExisting);
   window.clearTimeout(addAnotherStatusTimer);
   els.addAnotherStatus.textContent = "";
+  formPhotoWasUploaded = false;
 
   fields.id.value = bottle?.id || "";
   fields.name.value = bottle?.name || "";
@@ -5371,6 +5361,10 @@ async function uploadFileToStorage(file, path) {
   return ref.getDownloadURL();
 }
 
+// Set once a fresh upload actually lands on the Add/Edit form, so buildAndPersistBottleFromForm
+// knows to publish the photo on save instead of re-sharing whatever imageUrl was already there.
+let formPhotoWasUploaded = false;
+
 async function uploadBottlePhoto(event) {
   const [file] = event.target.files;
   if (!file) return;
@@ -5389,6 +5383,7 @@ async function uploadBottlePhoto(event) {
     const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
     const cropUrl = await storeBottlePhoto(dataUrl, file, "crop");
     fields.imageUrl.value = cropUrl;
+    formPhotoWasUploaded = true;
     updateFormPhotoTools({ imageUrl: cropUrl });
     els.formPhotoName.textContent = displayName;
 
@@ -5433,6 +5428,8 @@ function setBottlePhoto(id, imageUrl) {
   bottles = bottles.map((bottle) => (bottle.id === id ? { ...bottle, imageUrl } : bottle));
   persist();
   render();
+  const bottle = bottles.find((item) => item.id === id);
+  if (bottle) shareBottlePhoto(bottle);
 }
 
 // Upload a photo directly from the Quick View for a bottle you already own — same
@@ -5834,6 +5831,8 @@ function buildAndPersistBottleFromForm() {
   persist();
   learnBottle(bottle);
   render();
+  if (formPhotoWasUploaded && bottle.imageUrl) shareBottlePhoto(bottle);
+  formPhotoWasUploaded = false;
   return { bottle, previousStatus };
 }
 
