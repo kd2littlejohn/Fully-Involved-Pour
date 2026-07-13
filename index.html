@@ -7,13 +7,16 @@
     <meta name="description" content="Track every bottle, every pour, and the ones that earn a permanent spot on your Core Bar." />
     <meta name="theme-color" content="#14100c" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="icon" type="image/png" href="assets/logo-badge-192.png" />
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=76" />
+    <link rel="stylesheet" href="styles.css?v=95" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -109,6 +112,10 @@
             <span aria-hidden="true">◍</span>
             Pour Log
           </button>
+          <button class="nav-item" data-view="infinity" type="button">
+            <span aria-hidden="true">♾</span>
+            Infinity
+          </button>
         </nav>
       </header>
 
@@ -200,6 +207,7 @@
             <button data-category="wheated" type="button">Wheated</button>
             <button data-category="rye" type="button">Rye</button>
             <button data-category="special-occasion" type="button">Special Occasion</button>
+            <button data-category="store-pick" type="button">Store Pick</button>
             <button data-category="daily" type="button">Daily</button>
             <button data-category="finished" type="button">Finished</button>
             <button data-category="showstopper" type="button">Showstopper</button>
@@ -363,8 +371,33 @@
                 <h2>Flavor radar</h2>
               </div>
             </div>
-            <div class="flavor-radar" id="flavorRadar"></div>
-            <div class="flavor-list" id="flavorList"></div>
+
+            <div class="quick-tabs" role="tablist" id="profileTabs">
+              <button class="quick-tab is-active" data-profile-tab="radar" type="button">Radar</button>
+              <button class="quick-tab" data-profile-tab="cadence" type="button">Cadence</button>
+              <button class="quick-tab" data-profile-tab="seasons" type="button">Seasons</button>
+            </div>
+
+            <div class="quick-tab-panel" data-profile-tab-panel="radar">
+              <div class="flavor-radar" id="flavorRadar"></div>
+              <div class="flavor-list" id="flavorList"></div>
+              <div class="flavor-bottle-list" id="flavorBottleList"></div>
+            </div>
+
+            <div class="quick-tab-panel is-hidden" data-profile-tab-panel="cadence">
+              <div class="mini-cadence-block">
+                <h4>By day of week</h4>
+                <div class="mini-bars mb-dow" id="cadenceDowBars"></div>
+                <div class="mini-axis mb-dow" id="cadenceDowAxis"></div>
+              </div>
+              <div class="mini-cadence-block">
+                <h4>By month</h4>
+                <div class="mini-bars mb-month" id="cadenceMonthBars"></div>
+                <div class="mini-axis mb-month" id="cadenceMonthAxis"></div>
+              </div>
+            </div>
+
+            <div class="quick-tab-panel is-hidden" data-profile-tab-panel="seasons" id="seasonMoodBoard"></div>
           </div>
 
           <div class="insights-card">
@@ -375,6 +408,29 @@
               </div>
             </div>
             <div class="recommendation" id="recommendation"></div>
+          </div>
+
+          <div class="insights-card">
+            <div class="section-heading">
+              <div>
+                <p>🎰 Random Pour</p>
+                <h2>Spin the Bar</h2>
+              </div>
+            </div>
+            <div class="spin-reel" id="spinReel">
+              <div class="spin-reel-empty">Pick a number — it decides how many times the wheel flips before it stops.</div>
+            </div>
+            <div class="spin-number-picker">
+              <label>
+                Your number
+                <input id="spinNumber" type="number" min="1" max="50" placeholder="e.g. 7" />
+              </label>
+              <button class="field-ai-btn" id="spinRandomNumber" type="button" title="Pick a random number">🎲</button>
+            </div>
+            <div class="spin-actions">
+              <button class="primary-action" id="spinBottleButton" type="button">🎰 Spin</button>
+              <button class="secondary-action is-hidden" id="spinLogPour" type="button">Log This Pour</button>
+            </div>
           </div>
 
           <div class="insights-card">
@@ -511,6 +567,36 @@
           <div class="pour-list" id="pourList"></div>
         </section>
 
+        <section class="infinity-board is-hidden" id="infinityView">
+          <div class="section-heading">
+            <div>
+              <p>♾ Infinity Bottle</p>
+              <h2>Your Blends</h2>
+            </div>
+            <button class="primary-action" id="newInfinityBottle" type="button">+ New Infinity Bottle</button>
+          </div>
+
+          <details class="infinity-howto">
+            <summary>How infinity bottles work</summary>
+            <div class="infinity-howto-body">
+              <p>
+                An infinity bottle is a blending bottle you keep topping off with leftover pours instead of
+                letting the last ounce of every bottle go to waste. It never truly empties — every addition
+                changes the blend a little, so no batch tastes quite the same twice.
+              </p>
+              <ul>
+                <li>Start with any clean empty bottle — the size doesn't matter.</li>
+                <li>Pour in what's left of a bottle you're finishing, rather than dumping in full pours.</li>
+                <li>Keep proof roughly in the same range so one addition doesn't overpower the blend.</li>
+                <li>Log every addition — it's the only way to reverse-engineer why a batch turned out great.</li>
+                <li>There's no "finishing" it. Keep adding, keep tasting, keep logging.</li>
+              </ul>
+            </div>
+          </details>
+
+          <div class="infinity-grid" id="infinityGrid"></div>
+        </section>
+
         <section class="compare-board is-hidden" id="compareView">
           <div class="section-heading">
             <div>
@@ -631,6 +717,7 @@
             <select id="type">
               <option>Bourbon</option>
               <option>Rye</option>
+              <option>Whiskey</option>
               <option>Scotch</option>
               <option>Irish</option>
               <option>Tequila</option>
@@ -750,6 +837,7 @@
                 <button class="category-tag-btn" data-category-tag="wheated" type="button">Wheated</button>
                 <button class="category-tag-btn" data-category-tag="rye" type="button">Rye</button>
                 <button class="category-tag-btn" data-category-tag="special-occasion" type="button">Special Occasion</button>
+                <button class="category-tag-btn" data-category-tag="store-pick" type="button">Store Pick</button>
                 <button class="category-tag-btn" data-category-tag="finished" type="button">Finished</button>
                 <button class="category-tag-btn" data-category-tag="showstopper" type="button">Showstopper</button>
                 <button class="category-tag-btn" data-category-tag="crowd-pleaser" type="button">Crowd Pleaser</button>
@@ -822,6 +910,10 @@
       <div class="quick-detail" id="quickBottleDetail"></div>
     </dialog>
 
+    <dialog class="bottle-dialog" id="infinityDialog">
+      <div class="quick-detail" id="infinityDetail"></div>
+    </dialog>
+
     <dialog class="photo-zoom-dialog" id="photoZoomDialog" aria-label="Bottle photo">
       <button class="icon-button photo-zoom-close" id="closePhotoZoom" type="button" aria-label="Close">×</button>
       <img id="photoZoomImage" alt="" />
@@ -857,7 +949,7 @@
       <div class="library-panel">
         <div class="form-head">
           <div>
-            <p>Open inventory</p>
+            <p>Bottles not in your collection</p>
             <h2>Whiskey library</h2>
           </div>
           <button class="icon-button" id="closeLibrary" type="button" aria-label="Close">×</button>
@@ -933,7 +1025,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=93"></script>
+    <script src="app.js?v=113"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

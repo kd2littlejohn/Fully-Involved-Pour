@@ -2,6 +2,34 @@ const STORAGE_KEY = "cellar-ledger-bottles";
 const POUR_STORAGE_KEY = "cellar-ledger-pours";
 const CUSTOM_LIBRARY_KEY = "fip-custom-library";
 const ASSISTANT_HISTORY_KEY = "fip-assistant-history";
+const INFINITY_STORAGE_KEY = "fip-infinity-bottles";
+
+const INFINITY_NAME_IDEAS = [
+  "The Neverending Pour",
+  "Groundhog Barrel",
+  "Whatever's Left",
+  "The Melting Pot",
+  "Last Call Reserve",
+  "Franken-Batch",
+  "The Continuum",
+  "Bottomless Barrel",
+  "Odds & Ends Reserve",
+  "The Kitchen Sink",
+  "Perpetual Blend",
+  "The Long Goodbye",
+  "Sunday Leftovers",
+  "The Collective",
+  "Shelf Scraps Reserve",
+  "Second Life Batch",
+  "The Loop",
+  "Waste Not Reserve",
+  "The Remainder",
+  "Barrel of Misfits",
+  "House Blend No. 1",
+  "The Understudy",
+  "Dregs & Legends",
+  "The Unfinished Business",
+];
 
 const firebaseConfig = {
   apiKey: "AIzaSyDJ6BpySxmM7bvZQYmLh0kmkPB18qxt47Q",
@@ -581,6 +609,101 @@ const distilleryProfiles = {
     founded: "2014",
     blurb: "Florida's oldest city's craft distillery, producing bourbon and rye finished in the Florida humidity.",
   },
+  balcones: {
+    location: "Waco, Texas",
+    founded: "2008",
+    blurb: "The first legal whisky distillery in Texas since Prohibition, known for its Texas Single Malt.",
+  },
+  westland: {
+    location: "Seattle, Washington",
+    founded: "2010",
+    blurb: "A pioneer of the American single malt category, using Pacific Northwest barley and peated malt.",
+  },
+  "stranahan's": {
+    location: "Denver, Colorado",
+    founded: "2004",
+    blurb: "Colorado's oldest legal whiskey distillery, aging a malted-barley whiskey at mile-high altitude.",
+  },
+  "high west": {
+    location: "Park City, Utah",
+    founded: "2006",
+    blurb: "Utah's first legal distillery since 1870, best known for blending sourced and house-made rye and bourbon.",
+  },
+  "smooth ambler": {
+    location: "Maxwelton, West Virginia",
+    founded: "2009",
+    blurb: "An Appalachian distillery blending its own distillate with sourced barrels under the Old Scout label.",
+  },
+  whistlepig: {
+    location: "Shoreham, Vermont",
+    founded: "2007",
+    blurb: "A Vermont farm distillery that built the modern craft-rye category, aging on a working farmstead.",
+  },
+  "chattanooga whiskey": {
+    location: "Chattanooga, Tennessee",
+    founded: "2011",
+    blurb: "Tennessee's first legal distillery in the city since Prohibition, using an unusual five-grain bourbon mash bill.",
+  },
+  "castle & key": {
+    location: "Frankfort, Kentucky",
+    founded: "2018 (distillery site dates to 1887)",
+    blurb: "A restored 19th-century distillery campus (formerly Old Taylor) revived as a modern craft producer.",
+  },
+  "rabbit hole": {
+    location: "Louisville, Kentucky",
+    founded: "2018",
+    blurb: "A Louisville distillery known for unconventional grain bills and wine-cask finishes.",
+  },
+  "jefferson's": {
+    location: "Louisville, Kentucky",
+    founded: "1997",
+    blurb: "A blending house founded by Trey Zoeller, known for aging bourbon barrels at sea aboard cargo ships.",
+  },
+  "james e. pepper": {
+    location: "Lexington, Kentucky",
+    founded: "Brand dates to 1780; distillery rebuilt in 2017",
+    blurb: "One of America's oldest bourbon brands, revived with a new distillery on its historic Lexington site.",
+  },
+  "old elk": {
+    location: "Fort Collins, Colorado",
+    founded: "2015",
+    blurb: "A Colorado distillery founded by New Belgium Brewing co-founder Curt Richardson, known for wheated bourbon.",
+  },
+  "milam & greene": {
+    location: "Blanco, Texas",
+    founded: "2019",
+    blurb: "A Texas Hill Country distillery known for triple-cask maturation and a female-led founding team.",
+  },
+  hillrock: {
+    location: "Ancram, New York",
+    founded: "2011",
+    blurb: "A Hudson Valley estate distillery that grows its own grain and uses a solera aging system.",
+  },
+  "a. smith bowman": {
+    location: "Fredericksburg, Virginia",
+    founded: "1935 (current distillery since 1988)",
+    blurb: "Virginia's oldest continuously operating distillery, known for the John J. Bowman single barrel line.",
+  },
+  reservoir: {
+    location: "Richmond, Virginia",
+    founded: "2008",
+    blurb: "A Richmond craft distillery producing 100% straight bourbon, rye, and wheat whiskies in small batches.",
+  },
+  "smoke wagon": {
+    location: "Las Vegas, Nevada",
+    founded: "2017",
+    blurb: "A Las Vegas whiskey house blending sourced barrels into bold, high-proof small-batch bourbons.",
+  },
+  starlight: {
+    location: "Starlight, Indiana",
+    founded: "2013 (Huber family farm dates to 1843)",
+    blurb: "A sixth-generation family farm distillery producing bourbon and rye alongside its orchard and winery.",
+  },
+  "limestone branch": {
+    location: "Lebanon, Kentucky",
+    founded: "2011",
+    blurb: "Founded by Beam-family descendants Steve and Paul Beam, best known for reviving the Yellowstone brand.",
+  },
 };
 
 const distilleryDatabase = [
@@ -772,9 +895,54 @@ function normalizePourTier(tier) {
   }[tier || "crowd"];
 }
 
+// User-uploaded photos, loaded from Firestore at startup. Every photo a signed-in
+// user uploads is published here automatically (see shareBottlePhoto) so it shows
+// up for every visitor without a code deploy. Falls back behind the hand-curated
+// list below since those are pre-verified.
+const sharedCuratedImages = new Map();
+
+function curatedImageKey(name, distillery) {
+  return `${name || ""}-${distillery || ""}`.toLowerCase();
+}
+
+async function loadSharedBottlePhotos() {
+  if (!db) return;
+  try {
+    const snap = await db.collection("sharedBottlePhotos").get();
+    snap.forEach((doc) => {
+      const imageUrl = doc.data()?.imageUrl;
+      if (imageUrl) sharedCuratedImages.set(doc.id, imageUrl);
+    });
+    if (sharedCuratedImages.size) render();
+  } catch (error) {
+    console.error("Failed to load shared bottle photos", error);
+  }
+}
+
+async function shareBottlePhoto(bottle) {
+  if (!currentUser || !db || !bottle.imageUrl) return;
+  const key = curatedImageKey(bottle.name, bottle.distillery).replaceAll("/", "-");
+  const statusEl = document.querySelector("#quickPhotoStatus");
+  try {
+    await db.collection("sharedBottlePhotos").doc(key).set({
+      name: bottle.name,
+      distillery: bottle.distillery,
+      imageUrl: bottle.imageUrl,
+      submittedBy: currentUser.uid,
+      submittedAt: Date.now(),
+    });
+    sharedCuratedImages.set(key, bottle.imageUrl);
+    if (statusEl) statusEl.textContent = "✓ Shared with everyone";
+  } catch (error) {
+    console.error("Failed to share bottle photo", error);
+    if (statusEl) statusEl.textContent = "Could not share this photo. Try again.";
+  }
+}
+
 function getCuratedBottleImage(bottle) {
-  const exactKey = `${bottle.name || ""}-${bottle.distillery || ""}`.toLowerCase();
+  const exactKey = curatedImageKey(bottle.name, bottle.distillery);
   if (curatedBottleImages[exactKey]) return curatedBottleImages[exactKey];
+  if (sharedCuratedImages.has(exactKey)) return sharedCuratedImages.get(exactKey);
 
   const normalizedName = String(bottle.name || "").toLowerCase();
   const normalizedDistillery = String(bottle.distillery || "").toLowerCase();
@@ -809,6 +977,10 @@ function setSelectedCategoryTags(categories) {
 
 function bottleCategories(bottle) {
   return bottle?.categories?.length ? bottle.categories : [bottle?.category || "daily"];
+}
+
+function isStorePick(bottle) {
+  return bottleCategories(bottle).includes("store-pick");
 }
 
 const aiBottleLibrary = [
@@ -1246,7 +1418,92 @@ const southernDistilleryLibrary = [
   { name: "J.W. Kelly Old Milford Straight Bourbon", distillery: "J.W. Kelly & Co.", type: "Bourbon", region: "Tennessee", proof: 90, price: 45, flavors: ["oak", "vanilla", "white pepper", "toffee"] },
 ];
 
-aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary, ...southernDistilleryLibrary);
+const craftWhiskeyLibrary = [
+  { name: "Balcones Baby Blue", distillery: "Balcones", type: "American Whiskey", region: "Texas", proof: 90, price: 45, flavors: ["blue corn", "caramel", "honey", "oak"] },
+  { name: "Balcones Rumble", distillery: "Balcones", type: "American Whiskey", region: "Texas", proof: 100, price: 55, flavors: ["mesquite", "honey", "caramel", "spice"] },
+  { name: "Balcones Pot Still Bourbon", distillery: "Balcones", type: "Bourbon", region: "Texas", proof: 92, price: 50, flavors: ["caramel", "corn", "oak", "vanilla"] },
+  { name: "Balcones Texas Rye 100", distillery: "Balcones", type: "Rye", region: "Texas", proof: 100, price: 50, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "Balcones True Blue Cask Strength", distillery: "Balcones", type: "American Whiskey", region: "Texas", proof: 122, price: 70, flavors: ["blue corn", "caramel", "heat", "oak"] },
+
+  { name: "Westland Peated", distillery: "Westland", type: "American Single Malt", region: "Washington", proof: 92, price: 80, flavors: ["smoke", "malt", "honey", "oak"] },
+  { name: "Westland Garryana", distillery: "Westland", type: "American Single Malt", region: "Washington", proof: 116, price: 150, flavors: ["malt", "dark fruit", "oak", "spice"] },
+  { name: "Westland Sherry Wood", distillery: "Westland", type: "American Single Malt", region: "Washington", proof: 92, price: 90, flavors: ["sherry", "dried fruit", "malt", "oak"] },
+
+  { name: "Stranahan's Blue Peak", distillery: "Stranahan's", type: "American Single Malt", region: "Colorado", proof: 94, price: 45, flavors: ["malt", "honey", "oak", "apple"] },
+  { name: "Stranahan's Diamond Peak", distillery: "Stranahan's", type: "American Single Malt", region: "Colorado", proof: 94, price: 55, flavors: ["malt", "caramel", "oak", "citrus"] },
+  { name: "Stranahan's Sherry Cask", distillery: "Stranahan's", type: "American Single Malt", region: "Colorado", proof: 94, price: 90, flavors: ["sherry", "dark fruit", "malt", "oak"] },
+
+  { name: "High West Double Rye", distillery: "High West", type: "Rye", region: "Utah", proof: 92, price: 45, flavors: ["rye spice", "mint", "citrus", "oak"] },
+  { name: "High West Rendezvous Rye", distillery: "High West", type: "Rye", region: "Utah", proof: 92, price: 55, flavors: ["rye spice", "oak", "caramel", "citrus"] },
+  { name: "High West Campfire", distillery: "High West", type: "American Whiskey", region: "Utah", proof: 92, price: 60, flavors: ["smoke", "caramel", "spice", "oak"] },
+  { name: "High West American Prairie Bourbon", distillery: "High West", type: "Bourbon", region: "Utah", proof: 92, price: 45, flavors: ["caramel", "corn", "oak", "vanilla"] },
+
+  { name: "Smooth Ambler Old Scout Bourbon", distillery: "Smooth Ambler", type: "Bourbon", region: "West Virginia", proof: 100, price: 45, flavors: ["caramel", "corn", "oak", "vanilla"] },
+  { name: "Smooth Ambler Old Scout Rye", distillery: "Smooth Ambler", type: "Rye", region: "West Virginia", proof: 100, price: 45, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "Smooth Ambler Contradiction", distillery: "Smooth Ambler", type: "Bourbon", region: "West Virginia", proof: 100, price: 40, flavors: ["brown sugar", "spice", "oak", "vanilla"] },
+  { name: "Smooth Ambler Big Level Wheated Bourbon", distillery: "Smooth Ambler", type: "Bourbon", region: "West Virginia", proof: 100, price: 45, flavors: ["wheat", "honey", "oak", "vanilla"] },
+
+  { name: "WhistlePig 10 Year Rye", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 100, price: 80, flavors: ["rye spice", "oak", "vanilla", "fruit"] },
+  { name: "WhistlePig PiggyBack 6 Year Rye", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 100, price: 50, flavors: ["rye spice", "citrus", "vanilla", "oak"] },
+  { name: "WhistlePig FarmStock Rye", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 86, price: 65, flavors: ["rye spice", "grain", "oak", "honey"] },
+  { name: "WhistlePig Boss Hog", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 128, price: 300, flavors: ["rye spice", "dark fruit", "oak", "heat"] },
+
+  { name: "Chattanooga Whiskey 91 Proof Bourbon", distillery: "Chattanooga Whiskey", type: "Bourbon", region: "Tennessee", proof: 91, price: 40, flavors: ["caramel", "honey", "oak", "spice"] },
+  { name: "Chattanooga Whiskey Cask 111", distillery: "Chattanooga Whiskey", type: "Bourbon", region: "Tennessee", proof: 111, price: 55, flavors: ["oak", "caramel", "spice", "heat"] },
+  { name: "Chattanooga Whiskey 1816 Reserve", distillery: "Chattanooga Whiskey", type: "Bourbon", region: "Tennessee", proof: 92, price: 60, flavors: ["caramel", "dried fruit", "oak", "vanilla"] },
+
+  { name: "Castle & Key Small Batch Bourbon", distillery: "Castle & Key", type: "Bourbon", region: "Kentucky", proof: 105, price: 45, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Castle & Key Restoration Rye", distillery: "Castle & Key", type: "Rye", region: "Kentucky", proof: 92, price: 45, flavors: ["rye spice", "citrus", "mint", "oak"] },
+  { name: "Castle & Key Bottled in Bond Bourbon", distillery: "Castle & Key", type: "Bourbon", region: "Kentucky", proof: 100, price: 55, flavors: ["caramel", "oak", "vanilla", "honey"] },
+
+  { name: "Rabbit Hole Cavehill Bourbon", distillery: "Rabbit Hole", type: "Bourbon", region: "Kentucky", proof: 95, price: 45, flavors: ["caramel", "dried fruit", "oak", "vanilla"] },
+  { name: "Rabbit Hole Dareringer", distillery: "Rabbit Hole", type: "Bourbon", region: "Kentucky", proof: 93, price: 60, flavors: ["sherry", "dark fruit", "caramel", "oak"] },
+  { name: "Rabbit Hole Heigold", distillery: "Rabbit Hole", type: "Bourbon", region: "Kentucky", proof: 94, price: 55, flavors: ["caramel", "spice", "oak", "fruit"] },
+  { name: "Rabbit Hole Boxergrail", distillery: "Rabbit Hole", type: "Rye", region: "Kentucky", proof: 95, price: 55, flavors: ["rye spice", "sherry", "citrus", "oak"] },
+
+  { name: "Jefferson's Very Small Batch", distillery: "Jefferson's", type: "Bourbon", region: "Kentucky", proof: 82.3, price: 35, flavors: ["caramel", "vanilla", "oak", "honey"] },
+  { name: "Jefferson's Ocean", distillery: "Jefferson's", type: "Bourbon", region: "Kentucky", proof: 90, price: 65, flavors: ["sea salt", "caramel", "oak", "vanilla"] },
+  { name: "Jefferson's Reserve Very Old", distillery: "Jefferson's", type: "Bourbon", region: "Kentucky", proof: 90.2, price: 50, flavors: ["caramel", "dried fruit", "oak", "spice"] },
+  { name: "Jefferson's Rye", distillery: "Jefferson's", type: "Rye", region: "Kentucky", proof: 84, price: 35, flavors: ["rye spice", "citrus", "oak", "honey"] },
+
+  { name: "James E. Pepper 1776 Straight Bourbon", distillery: "James E. Pepper", type: "Bourbon", region: "Kentucky", proof: 100, price: 30, flavors: ["caramel", "rye spice", "oak", "vanilla"] },
+  { name: "James E. Pepper 1776 Straight Rye", distillery: "James E. Pepper", type: "Rye", region: "Kentucky", proof: 100, price: 32, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "James E. Pepper 1776 Barrel Proof Rye", distillery: "James E. Pepper", type: "Rye", region: "Kentucky", proof: 120, price: 55, flavors: ["rye spice", "oak", "heat", "citrus"] },
+
+  { name: "Old Elk Wheated Bourbon", distillery: "Old Elk", type: "Bourbon", region: "Colorado", proof: 86, price: 55, flavors: ["wheat", "honey", "vanilla", "oak"] },
+  { name: "Old Elk Straight Bourbon", distillery: "Old Elk", type: "Bourbon", region: "Colorado", proof: 94, price: 60, flavors: ["caramel", "oak", "spice", "fruit"] },
+  { name: "Old Elk Cask Strength Wheated Bourbon", distillery: "Old Elk", type: "Bourbon", region: "Colorado", proof: 116, price: 90, flavors: ["wheat", "caramel", "oak", "heat"] },
+
+  { name: "Milam & Greene Triple Cask Bourbon", distillery: "Milam & Greene", type: "Bourbon", region: "Texas", proof: 90, price: 55, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Milam & Greene Port Cask Finished", distillery: "Milam & Greene", type: "Bourbon", region: "Texas", proof: 90, price: 65, flavors: ["port wine", "dark fruit", "caramel", "oak"] },
+  { name: "Milam & Greene Straight Rye", distillery: "Milam & Greene", type: "Rye", region: "Texas", proof: 90, price: 55, flavors: ["rye spice", "citrus", "oak", "honey"] },
+
+  { name: "Hillrock Solera Aged Bourbon", distillery: "Hillrock", type: "Bourbon", region: "New York", proof: 92, price: 90, flavors: ["caramel", "dried fruit", "oak", "spice"] },
+  { name: "Hillrock Double Cask Rye", distillery: "Hillrock", type: "Rye", region: "New York", proof: 92, price: 90, flavors: ["rye spice", "dark fruit", "oak", "honey"] },
+  { name: "Hillrock Single Malt", distillery: "Hillrock", type: "American Single Malt", region: "New York", proof: 92, price: 100, flavors: ["malt", "honey", "oak", "dried fruit"] },
+
+  { name: "Bowman Brothers Small Batch", distillery: "A. Smith Bowman", type: "Bourbon", region: "Virginia", proof: 90, price: 30, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "John J. Bowman Single Barrel", distillery: "A. Smith Bowman", type: "Bourbon", region: "Virginia", proof: 100, price: 50, flavors: ["caramel", "leather", "oak", "dark fruit"] },
+  { name: "Abraham Bowman Limited Edition", distillery: "A. Smith Bowman", type: "Bourbon", region: "Virginia", proof: 100, price: 80, flavors: ["caramel", "dark fruit", "oak", "spice"] },
+
+  { name: "Reservoir Straight Bourbon", distillery: "Reservoir", type: "Bourbon", region: "Virginia", proof: 92, price: 45, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Reservoir Straight Rye", distillery: "Reservoir", type: "Rye", region: "Virginia", proof: 92, price: 45, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "Reservoir Straight Wheat Whiskey", distillery: "Reservoir", type: "American Whiskey", region: "Virginia", proof: 92, price: 45, flavors: ["wheat", "honey", "oak", "vanilla"] },
+
+  { name: "Smoke Wagon Small Batch Bourbon", distillery: "Smoke Wagon", type: "Bourbon", region: "Nevada", proof: 96, price: 45, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Smoke Wagon Uncut Unfiltered", distillery: "Smoke Wagon", type: "Bourbon", region: "Nevada", proof: 118, price: 65, flavors: ["dark fruit", "oak", "caramel", "heat"] },
+  { name: "Smoke Wagon 7 Year Small Batch", distillery: "Smoke Wagon", type: "Bourbon", region: "Nevada", proof: 100, price: 55, flavors: ["caramel", "oak", "leather", "spice"] },
+
+  { name: "Starlight Carriage House Bourbon", distillery: "Starlight", type: "Bourbon", region: "Indiana", proof: 92, price: 40, flavors: ["caramel", "corn", "oak", "vanilla"] },
+  { name: "Starlight Rye", distillery: "Starlight", type: "Rye", region: "Indiana", proof: 92, price: 40, flavors: ["rye spice", "oak", "citrus", "pepper"] },
+  { name: "Starlight 111 Cask Strength Bourbon", distillery: "Starlight", type: "Bourbon", region: "Indiana", proof: 111, price: 55, flavors: ["caramel", "oak", "spice", "heat"] },
+
+  { name: "Yellowstone Select", distillery: "Limestone Branch", type: "Bourbon", region: "Kentucky", proof: 93, price: 35, flavors: ["caramel", "oak", "spice", "dried fruit"] },
+  { name: "Yellowstone Bottled in Bond", distillery: "Limestone Branch", type: "Bourbon", region: "Kentucky", proof: 100, price: 50, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Yellowstone Limited Edition", distillery: "Limestone Branch", type: "Bourbon", region: "Kentucky", proof: 101, price: 90, flavors: ["caramel", "dark fruit", "oak", "spice"] },
+];
+
+aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary, ...southernDistilleryLibrary, ...craftWhiskeyLibrary);
 const uniqueLibrary = new Map();
 aiBottleLibrary.forEach((bottle) => {
   uniqueLibrary.set(`${bottle.name}-${bottle.distillery}`.toLowerCase(), bottle);
@@ -1268,12 +1525,14 @@ const availableDistilleries = [
 
 let bottles = loadBottles();
 let pours = loadPours();
+let infinityBottles = loadInfinityBottles();
 let customLibrary = loadCustomLibrary();
 let assistantHistory = loadAssistantHistory();
 let activeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
 let activeProofBand = "all";
+let activeFlavorFilter = null;
 let selectionMode = false;
 const selectedIds = new Set();
 let activeView = "dashboard";
@@ -1286,7 +1545,13 @@ const els = {
   bottleGrid: document.querySelector("#bottleGrid"),
   noteList: document.querySelector("#noteList"),
   flavorList: document.querySelector("#flavorList"),
+  flavorBottleList: document.querySelector("#flavorBottleList"),
   flavorRadar: document.querySelector("#flavorRadar"),
+  cadenceDowBars: document.querySelector("#cadenceDowBars"),
+  cadenceDowAxis: document.querySelector("#cadenceDowAxis"),
+  cadenceMonthBars: document.querySelector("#cadenceMonthBars"),
+  cadenceMonthAxis: document.querySelector("#cadenceMonthAxis"),
+  seasonMoodBoard: document.querySelector("#seasonMoodBoard"),
   shelfList: document.querySelector("#shelfList"),
   coreBarHighlight: document.querySelector("#coreBarHighlight"),
   topRatedHighlight: document.querySelector("#topRatedHighlight"),
@@ -1295,6 +1560,11 @@ const els = {
   recentActivity: document.querySelector("#recentActivity"),
   dashboardAssistantForm: document.querySelector("#dashboardAssistantForm"),
   dashboardAssistantPrompt: document.querySelector("#dashboardAssistantPrompt"),
+  spinReel: document.querySelector("#spinReel"),
+  spinNumber: document.querySelector("#spinNumber"),
+  spinRandomNumber: document.querySelector("#spinRandomNumber"),
+  spinBottleButton: document.querySelector("#spinBottleButton"),
+  spinLogPour: document.querySelector("#spinLogPour"),
   resultCount: document.querySelector("#resultCount"),
   inventoryRatio: document.querySelector("#inventoryRatio"),
   totalBottles: document.querySelector("#totalBottles"),
@@ -1336,6 +1606,10 @@ const els = {
   tastingView: document.querySelector("#tastingView"),
   aiToolsView: document.querySelector("#aiToolsView"),
   pourLogView: document.querySelector("#pourLogView"),
+  infinityView: document.querySelector("#infinityView"),
+  infinityGrid: document.querySelector("#infinityGrid"),
+  infinityDialog: document.querySelector("#infinityDialog"),
+  infinityDetail: document.querySelector("#infinityDetail"),
   pourDialog: document.querySelector("#pourDialog"),
   pourForm: document.querySelector("#pourForm"),
   pourBottle: document.querySelector("#pourBottle"),
@@ -1466,6 +1740,7 @@ els.selectDelete.addEventListener("click", bulkDeleteSelected);
 document.querySelector("#closeDialog").addEventListener("click", () => els.bottleDialog.close());
 document.querySelector("#openLibrary").addEventListener("click", openLibrary);
 document.querySelector("#closeLibrary").addEventListener("click", () => els.libraryDialog.close());
+document.querySelector("#newInfinityBottle").addEventListener("click", createInfinityBottle);
 document.querySelector("#closePhotoZoom").addEventListener("click", () => els.photoZoomDialog.close());
 els.photoZoomDialog.addEventListener("click", (event) => {
   if (event.target === els.photoZoomDialog) els.photoZoomDialog.close();
@@ -1475,12 +1750,43 @@ els.categoryPicker.addEventListener("click", (event) => {
   if (!button) return;
   button.classList.toggle("is-selected");
 });
+els.flavorList.addEventListener("click", (event) => {
+  const bar = event.target.closest(".flavor-bar");
+  if (!bar) return;
+  activeFlavorFilter = activeFlavorFilter === bar.dataset.flavor ? null : bar.dataset.flavor;
+  renderFlavorMap();
+});
+els.flavorBottleList.addEventListener("click", (event) => {
+  if (event.target.closest("[data-clear-flavor-filter]")) {
+    activeFlavorFilter = null;
+    renderFlavorMap();
+    return;
+  }
+  const item = event.target.closest("[data-flavor-bottle]");
+  if (item) openBottleQuick(item.dataset.flavorBottle);
+});
 document.querySelector("#openPourForm").addEventListener("click", openPourForm);
 document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
 document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 document.querySelector("#deleteLastPour").addEventListener("click", deleteLastPour);
 els.searchInput.addEventListener("input", render);
 els.librarySearch.addEventListener("input", renderLibrary);
+function switchProfileTab(tab) {
+  document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.profileTab === tab));
+  document.querySelectorAll("[data-profile-tab-panel]").forEach((panel) => {
+    panel.classList.toggle("is-hidden", panel.dataset.profileTabPanel !== tab);
+  });
+}
+document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((tabButton) => {
+  tabButton.addEventListener("click", () => switchProfileTab(tabButton.dataset.profileTab));
+});
+els.seasonMoodBoard?.addEventListener("click", (event) => {
+  const chip = event.target.closest(".mini-flavor-chip[data-flavor]");
+  if (!chip) return;
+  activeFlavorFilter = activeFlavorFilter === chip.dataset.flavor ? null : chip.dataset.flavor;
+  switchProfileTab("radar");
+  renderFlavorMap();
+});
 const SORT_KEY = "fip-sort";
 const savedSort = localStorage.getItem(SORT_KEY);
 if (savedSort && [...els.sortSelect.options].some((option) => option.value === savedSort)) {
@@ -1505,6 +1811,11 @@ document.querySelector("#buildTastingNote").addEventListener("click", buildGuide
 document.querySelector("#aiTastingNote").addEventListener("click", generateAiTastingNote);
 els.aiFillDistillery.addEventListener("click", fillDistilleryWithAi);
 els.formAiTastingNote.addEventListener("click", generateAiFormTastingNote);
+els.spinBottleButton.addEventListener("click", spinForBottle);
+els.spinRandomNumber.addEventListener("click", () => {
+  els.spinNumber.value = 1 + Math.floor(Math.random() * 30);
+});
+els.spinLogPour.addEventListener("click", () => openPourForm(els.spinLogPour.dataset.bottleId || ""));
 document.querySelector("#saveTastingNote").addEventListener("click", saveGuidedTastingNote);
 document.querySelector("#logTastingPour").addEventListener("click", logGuidedTastingPour);
 document.querySelector("#exportCollection").addEventListener("click", exportCollection);
@@ -1723,6 +2034,25 @@ function loadPours() {
   }
 }
 
+function loadInfinityBottles() {
+  const saved = localStorage.getItem(INFINITY_STORAGE_KEY);
+  if (!saved) return [];
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed)
+      ? parsed.map((entry) => ({ additions: [], notes: "", ...entry }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistInfinityBottles() {
+  localStorage.setItem(INFINITY_STORAGE_KEY, JSON.stringify(infinityBottles));
+  pushCloudData();
+}
+
 function loadCustomLibrary() {
   const saved = localStorage.getItem(CUSTOM_LIBRARY_KEY);
   if (!saved) return [];
@@ -1785,9 +2115,11 @@ async function pullCloudData(uid) {
       const data = snap.data();
       bottles = (data.bottles || []).map(normalizeBottle);
       pours = data.pours || [];
+      infinityBottles = (data.infinityBottles || []).map((entry) => ({ additions: [], notes: "", ...entry }));
       currentProfile = { username: data.username || "" };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
       localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+      localStorage.setItem(INFINITY_STORAGE_KEY, JSON.stringify(infinityBottles));
       // Merge the cloud's learned library with anything learned locally before sign-in.
       let libraryChanged = false;
       (data.customLibrary || []).forEach((entry) => {
@@ -1797,7 +2129,7 @@ async function pullCloudData(uid) {
       persistCustomLibrary();
     } else {
       currentProfile = { username: "" };
-      await userDocRef(uid).set({ bottles, pours, customLibrary, username: "", updatedAt: Date.now() });
+      await userDocRef(uid).set({ bottles, pours, infinityBottles, customLibrary, username: "", updatedAt: Date.now() });
     }
     syncCoreBarScores();
     updateAccountUI();
@@ -1813,7 +2145,7 @@ async function pushCloudData() {
   if (!currentUser || !db) return;
   try {
     await userDocRef(currentUser.uid).set(
-      { bottles, pours, customLibrary, username: currentProfile?.username || "", updatedAt: Date.now() },
+      { bottles, pours, infinityBottles, customLibrary, username: currentProfile?.username || "", updatedAt: Date.now() },
       { merge: true },
     );
   } catch (error) {
@@ -2322,6 +2654,7 @@ function visibleBottles() {
       bottle.region,
       bottle.ageStatement,
       bottle.storeLocation,
+      bottle.shelf,
       bottleCategories(bottle).join(" "),
       bottle.pourStyle,
       bottle.notes,
@@ -2451,18 +2784,22 @@ function render() {
     els.toggleSelect.textContent = "Select";
     els.toggleSelect.classList.remove("is-selected");
   }
-  const collectionVisible = !["ai-tools", "pour-log", "dashboard", "compare", "faceoff"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log", "infinity", "dashboard", "compare", "faceoff"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
+  els.infinityView.classList.toggle("is-hidden", activeView !== "infinity");
   els.compareView.classList.toggle("is-hidden", activeView !== "compare");
   els.faceoffView.classList.toggle("is-hidden", activeView !== "faceoff");
   if (activeView === "faceoff") renderFaceoffView();
+  if (activeView === "infinity") renderInfinityGrid();
 
   renderStats();
   renderCards(shown);
   renderFlavorMap();
+  renderPourCadence();
+  renderSeasonalMoodBoard();
   renderShelfMap();
   renderCoreBarHighlight();
   renderTopRatedHighlight();
@@ -2571,6 +2908,7 @@ function renderCards(shown) {
               <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
                 ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
               </div>
+              ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
             </div>
             ${renderBottleRowActions(bottle, index, shown.length, isBuyNext, customOrder)}
           </div>
@@ -2624,6 +2962,7 @@ function renderBottleTile(bottle, index, total, isBuyNext, customOrder) {
         <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
           ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
         </div>
+        ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
         <div class="tile-footer">
           ${renderBottleRowActions(bottle, index, total, isBuyNext, customOrder)}
         </div>
@@ -3030,6 +3369,95 @@ function markBottleOwned(id) {
   render();
 }
 
+function changeBottleStatus(id, status) {
+  if (!STATUS_OPTIONS.includes(status)) return;
+  let changed = false;
+  bottles = bottles.map((bottle) => {
+    if (bottle.id !== id || bottle.status === status) return bottle;
+    changed = true;
+    // Changing status from the header is a bulk action — it applies to every individual
+    // bottle in this entry, so any per-bottle overrides below are cleared.
+    const next = { ...bottle, status };
+    delete next.units;
+    return next;
+  });
+  if (!changed) return;
+  persist();
+  render();
+  openBottleQuick(id);
+}
+
+// Per-unit status/fill tracking for entries with quantity > 1. Units aren't stored until
+// someone edits one individually — until then they're derived from the entry's own status/fillLevel.
+const UNIT_STATUS_OPTIONS = ["sealed", "open", "finished"];
+
+function getBottleUnits(bottle) {
+  const quantity = Math.max(1, Number(bottle.quantity) || 1);
+  const stored = Array.isArray(bottle.units) ? bottle.units : [];
+  return Array.from({ length: quantity }, (_, index) => ({
+    status: stored[index]?.status || bottle.status,
+    fillLevel: stored[index]?.fillLevel || bottle.fillLevel || "full",
+  }));
+}
+
+function updateBottleUnit(id, index, patch) {
+  bottles = bottles.map((bottle) => {
+    if (bottle.id !== id) return bottle;
+    const units = getBottleUnits(bottle).map((unit, unitIndex) =>
+      unitIndex === index ? { ...unit, ...patch } : unit,
+    );
+    const aggregateStatus = units.some((unit) => unit.status === "open")
+      ? "open"
+      : units.some((unit) => unit.status === "sealed")
+        ? "sealed"
+        : "finished";
+    return { ...bottle, units, status: aggregateStatus, fillLevel: units[0].fillLevel };
+  });
+  persist();
+  render();
+  openBottleQuick(id);
+}
+
+function renderBottleUnitsBlock(bottle) {
+  if (["wishlist", "buy-next"].includes(bottle.status)) return "";
+  const quantity = Math.max(1, Number(bottle.quantity) || 1);
+  if (quantity <= 1) return "";
+  const units = getBottleUnits(bottle);
+  return `
+    <div class="unit-list">
+      <p class="unit-list-heading">${quantity} bottles in this entry — track each one</p>
+      ${units
+        .map(
+          (unit, index) => `
+        <div class="unit-card">
+          <div class="unit-card-head">
+            ${bottleThumb(bottle, "unit-card-thumb")}
+            <div class="unit-card-info">
+              <h4>${escapeHtml(bottle.name)}</h4>
+              <p>${escapeHtml(bottle.type)} · Bottle ${index + 1} of ${quantity}</p>
+            </div>
+          </div>
+          <div class="unit-card-pills">
+            <select class="status-pill status-pill-select ${unit.status}" data-unit-status="${index}" aria-label="Status for bottle ${index + 1}">
+              ${UNIT_STATUS_OPTIONS.map(
+                (status) => `<option value="${status}" ${unit.status === status ? "selected" : ""}>${labelStatus(status)}</option>`,
+              ).join("")}
+            </select>
+            <select class="type-pill unit-fill-select" data-unit-fill="${index}" aria-label="Fill level for bottle ${index + 1}">
+              ${["full", "three-quarter", "half", "low", "empty"].map(
+                (level) => `<option value="${level}" ${unit.fillLevel === level ? "selected" : ""}>${labelFillLevel(level)}</option>`,
+              ).join("")}
+            </select>
+            <span class="type-pill">${labelBottleSize(bottle.bottleSize)}</span>
+          </div>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
 function setSelectionMode(on) {
   selectionMode = on;
   if (!on) selectedIds.clear();
@@ -3079,6 +3507,7 @@ function renderLibrary() {
   const query = els.librarySearch.value.trim().toLowerCase();
   const owned = new Set(bottles.map((bottle) => `${bottle.name}-${bottle.distillery}`.toLowerCase()));
   const matches = aiBottleLibrary
+    .filter((bottle) => !owned.has(`${bottle.name}-${bottle.distillery}`.toLowerCase()))
     .filter((bottle) => {
       const haystack = `${bottle.name} ${bottle.distillery} ${bottle.type} ${bottle.region} ${bottle.flavors.join(" ")}`.toLowerCase();
       return !query || haystack.includes(query);
@@ -3087,9 +3516,8 @@ function renderLibrary() {
 
   els.libraryList.innerHTML = matches.length
     ? matches
-        .map((bottle, index) => {
-          const key = `${bottle.name}-${bottle.distillery}`.toLowerCase();
-          return `
+        .map(
+          (bottle, index) => `
             <article class="library-item">
               <img class="library-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
               <div>
@@ -3097,12 +3525,12 @@ function renderLibrary() {
                 <span>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${numberOrDash(bottle.proof)} proof · ${money(bottle.price)}</span>
               </div>
               ${renderPhotoSourceLinks(bottle, "compact")}
-              <button class="secondary-action" type="button" data-library-index="${index}" ${owned.has(key) ? "disabled" : ""}>${owned.has(key) ? "Added" : "Add"}</button>
+              <button class="secondary-action" type="button" data-library-index="${index}">Add</button>
             </article>
-          `;
-        })
+          `,
+        )
         .join("")
-    : `<div class="empty-state">No library bottles match that search.</div>`;
+    : `<div class="empty-state">${query ? "No library bottles match that search." : "You already own every bottle in the library."}</div>`;
 
   els.libraryList.querySelectorAll("[data-library-index]").forEach((button) => {
     button.addEventListener("click", () => addLibraryBottle(matches[Number(button.dataset.libraryIndex)]));
@@ -3127,28 +3555,155 @@ function addLibraryBottle(source) {
 
 function renderFlavorMap() {
   renderFlavorRadar();
+  const profileBottles = bottles.filter((bottle) => bottle.status !== "wishlist");
   const counts = new Map();
-  bottles
-    .filter((bottle) => bottle.status !== "wishlist")
-    .flatMap((bottle) => bottle.flavors)
-    .forEach((flavor) => counts.set(flavor, (counts.get(flavor) || 0) + 1));
+  profileBottles.flatMap((bottle) => bottle.flavors).forEach((flavor) => counts.set(flavor, (counts.get(flavor) || 0) + 1));
 
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   const max = top[0]?.[1] || 1;
+
+  // Clicking a flavor bar isn't useful once it's no longer one of the top ones shown.
+  if (activeFlavorFilter && !top.some(([flavor]) => flavor === activeFlavorFilter)) {
+    activeFlavorFilter = null;
+  }
 
   els.flavorList.innerHTML = top.length
     ? top
         .map(
           ([flavor, count]) => `
-            <div class="flavor-bar">
+            <button class="flavor-bar${flavor === activeFlavorFilter ? " is-active" : ""}" data-flavor="${escapeHtml(flavor)}" type="button">
               <span>${escapeHtml(flavor)}</span>
               <i style="width: ${Math.max(18, (count / max) * 100)}%"></i>
               <strong>${count}</strong>
-            </div>
+            </button>
           `,
         )
         .join("")
     : `<div class="empty-state">Add flavor tags to build your profile.</div>`;
+
+  if (!activeFlavorFilter) {
+    els.flavorBottleList.innerHTML = "";
+    return;
+  }
+
+  const matches = profileBottles.filter((bottle) => bottle.flavors.includes(activeFlavorFilter));
+  els.flavorBottleList.innerHTML = `
+    <div class="flavor-bottle-list-head">
+      <span>${matches.length} bottle${matches.length === 1 ? "" : "s"} with "${escapeHtml(activeFlavorFilter)}"</span>
+      <button data-clear-flavor-filter type="button">Clear ×</button>
+    </div>
+    ${matches
+      .map(
+        (bottle) => `
+          <button class="flavor-bottle-item" data-flavor-bottle="${escapeHtml(bottle.id)}" type="button">
+            <strong>${escapeHtml(bottle.name)}</strong>
+            <span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof</span>
+          </button>
+        `,
+      )
+      .join("")}
+  `;
+}
+
+const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SEASON_DEFS = [
+  { name: "Spring", months: [2, 3, 4], color: "var(--spring)" },
+  { name: "Summer", months: [5, 6, 7], color: "var(--summer)" },
+  { name: "Fall", months: [8, 9, 10], color: "var(--fall)" },
+  { name: "Winter", months: [11, 0, 1], color: "var(--winter)" },
+];
+
+// Parsed at noon local time, same trick formatDate() uses, so a date-only string
+// never shifts a day off when the browser's timezone is behind UTC.
+function pourDateParts(pour) {
+  const date = new Date(`${pour.date}T12:00:00`);
+  return { dow: date.getDay(), month: date.getMonth() };
+}
+
+function renderMiniBars(barsEl, axisEl, data) {
+  const max = Math.max(...data.map((d) => d.value), 1);
+  barsEl.innerHTML = data
+    .map(
+      (d) => `
+        <div class="mini-bar-col">
+          <div class="mini-bar ${d.value > 0 && d.value === max ? "is-peak" : ""}" style="height:${Math.max(4, Math.round((d.value / max) * 100))}%" title="${d.label}: ${d.value} pour${d.value === 1 ? "" : "s"}"></div>
+        </div>
+      `,
+    )
+    .join("");
+  axisEl.innerHTML = data.map((d) => `<span>${escapeHtml(d.label[0])}</span>`).join("");
+}
+
+// Cadence tab on the Profile card: which day of the week and which month pours
+// cluster around, derived straight from the Pour Log's own dates.
+function renderPourCadence() {
+  if (!els.cadenceDowBars) return;
+  if (!pours.length) {
+    els.cadenceDowBars.innerHTML = `<div class="empty-state">Log a pour to see when you drink most.</div>`;
+    els.cadenceDowAxis.innerHTML = "";
+    els.cadenceMonthBars.innerHTML = "";
+    els.cadenceMonthAxis.innerHTML = "";
+    return;
+  }
+
+  const dowCounts = new Array(7).fill(0);
+  const monthCounts = new Array(12).fill(0);
+  pours.forEach((pour) => {
+    if (!pour.date) return;
+    const { dow, month } = pourDateParts(pour);
+    dowCounts[dow] += 1;
+    monthCounts[month] += 1;
+  });
+
+  // Display Monday-first even though Date#getDay() counts Sunday-first.
+  const dowOrder = [1, 2, 3, 4, 5, 6, 0];
+  const dowData = dowOrder.map((index) => ({ label: DOW_LABELS[index], value: dowCounts[index] }));
+  const monthData = MONTH_LABELS.map((label, index) => ({ label, value: monthCounts[index] }));
+
+  renderMiniBars(els.cadenceDowBars, els.cadenceDowAxis, dowData);
+  renderMiniBars(els.cadenceMonthBars, els.cadenceMonthAxis, monthData);
+}
+
+// Seasons tab on the Profile card: each logged pour's bottle contributes its
+// flavor tags to whichever season the pour's date falls in.
+function renderSeasonalMoodBoard() {
+  if (!els.seasonMoodBoard) return;
+  const seasonFlavorCounts = SEASON_DEFS.map(() => new Map());
+  pours.forEach((pour) => {
+    if (!pour.date) return;
+    const bottle = bottles.find((item) => item.id === pour.bottleId);
+    if (!bottle?.flavors?.length) return;
+    const { month } = pourDateParts(pour);
+    const seasonIndex = SEASON_DEFS.findIndex((season) => season.months.includes(month));
+    if (seasonIndex === -1) return;
+    const counts = seasonFlavorCounts[seasonIndex];
+    bottle.flavors.forEach((flavor) => counts.set(flavor, (counts.get(flavor) || 0) + 1));
+  });
+
+  if (!seasonFlavorCounts.some((counts) => counts.size > 0)) {
+    els.seasonMoodBoard.innerHTML = `<div class="empty-state">Log a few pours to build a seasonal flavor mood board.</div>`;
+    return;
+  }
+
+  els.seasonMoodBoard.innerHTML = SEASON_DEFS.map((season, index) => {
+    const top = [...seasonFlavorCounts[index].entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const chips = top.length
+      ? top
+          .map(
+            ([flavor], i) =>
+              `<button class="mini-flavor-chip${i === 0 ? " is-lead" : ""}" data-flavor="${escapeHtml(flavor)}" type="button">${escapeHtml(flavor)}</button>`,
+          )
+          .join("")
+      : `<span class="mini-flavor-chip">no pours yet</span>`;
+    return `
+      <div class="mini-season-row" style="--season-color:${season.color}">
+        <span class="mini-season-dot"></span>
+        <span class="mini-season-name">${season.name}</span>
+        <span class="mini-season-chips">${chips}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderFlavorRadar() {
@@ -3262,7 +3817,7 @@ function renderShelfMap() {
     ? rows
         .map(
           ([shelf, entry]) => `
-            <div class="shelf-item">
+            <div class="shelf-item" data-shelf="${escapeHtml(shelf)}" role="button" tabindex="0">
               <div>
                 <strong>${escapeHtml(shelf)}</strong>
                 <span>${entry.count} bottles · ${money(entry.value)}</span>
@@ -3273,6 +3828,20 @@ function renderShelfMap() {
         )
         .join("")
     : `<div class="empty-state">Add shelf locations to map your collection.</div>`;
+
+  els.shelfList.querySelectorAll("[data-shelf]").forEach((item) => {
+    const open = () => {
+      els.searchInput.value = item.dataset.shelf;
+      navigateToView("collection");
+    };
+    item.addEventListener("click", open);
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 function renderCoreBarHighlight() {
@@ -3425,8 +3994,20 @@ function renderRecommendation() {
   const pick = candidates[0] || bottles.find((bottle) => bottle.status === "open");
 
   els.recommendation.innerHTML = pick
-    ? `<strong>${escapeHtml(pick.name)}</strong><span>${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof · ${escapeHtml(pick.flavors.slice(0, 3).join(", "))}</span>`
+    ? `<div data-quick="${escapeHtml(pick.id)}" role="button" tabindex="0"><strong>${escapeHtml(pick.name)}</strong><span>${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof · ${escapeHtml(pick.flavors.slice(0, 3).join(", "))}</span></div>`
     : `<span>Open a bottle to get a recommendation.</span>`;
+
+  const target = els.recommendation.querySelector("[data-quick]");
+  if (target) {
+    const open = () => openBottleQuick(target.dataset.quick);
+    target.addEventListener("click", open);
+    target.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
 }
 
 function activityAddedLabel(status) {
@@ -3440,6 +4021,7 @@ function renderRecentActivity() {
     .filter((bottle) => Number(bottle.createdAt))
     .map((bottle) => ({
       time: Number(bottle.createdAt),
+      id: bottle.id,
       name: bottle.name,
       label: activityAddedLabel(bottle.status),
       meta: labelStatus(bottle.status) || "",
@@ -3450,7 +4032,7 @@ function renderRecentActivity() {
       const bottle = bottles.find((item) => item.id === pour.bottleId);
       const time = new Date(`${pour.date}T12:00:00`).getTime();
       return bottle && Number.isFinite(time)
-        ? { time, name: bottle.name, label: "Poured", meta: `${numberOrDash(pour.ounces)} oz` }
+        ? { time, id: bottle.id, name: bottle.name, label: "Poured", meta: `${numberOrDash(pour.ounces)} oz` }
         : null;
     })
     .filter(Boolean);
@@ -3461,7 +4043,7 @@ function renderRecentActivity() {
     ? events
         .map(
           (event) => `
-            <div class="activity-item">
+            <div class="activity-item" data-quick="${escapeHtml(event.id)}" role="button" tabindex="0">
               <div>
                 <strong>${escapeHtml(event.name)}</strong>
                 <span>${escapeHtml(event.label)} · ${timeAgo(event.time)}</span>
@@ -3472,6 +4054,17 @@ function renderRecentActivity() {
         )
         .join("")
     : `<div class="empty-state">No activity yet. Add a bottle or log a pour to get started.</div>`;
+
+  els.recentActivity.querySelectorAll("[data-quick]").forEach((item) => {
+    const open = () => openBottleQuick(item.dataset.quick);
+    item.addEventListener("click", open);
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 function askFromDashboard(promptText) {
@@ -3481,6 +4074,84 @@ function askFromDashboard(promptText) {
   navigateToView("ai-tools");
   els.assistantPrompt.value = text;
   sendAssistantMessage();
+}
+
+let spinInProgress = false;
+
+function spinForBottle() {
+  if (spinInProgress) return;
+  const eligible = bottles.filter((bottle) => ["open", "sealed"].includes(bottle.status) && bottle.fillLevel !== "empty");
+  if (!eligible.length) {
+    els.spinReel.innerHTML = `<div class="spin-reel-empty">No sealed or open bottles to spin for. Crack one open or add to your cabinet first.</div>`;
+    return;
+  }
+
+  // Your number just sets how many times the wheel flips -- it never maps to a specific bottle.
+  let rounds = Math.floor(Number(els.spinNumber.value));
+  if (!Number.isFinite(rounds) || rounds < 1) {
+    rounds = 1 + Math.floor(Math.random() * 30);
+  }
+  rounds = Math.min(rounds, 50);
+  els.spinNumber.value = rounds;
+
+  spinInProgress = true;
+  els.spinBottleButton.disabled = true;
+  els.spinLogPour.classList.add("is-hidden");
+  els.spinReel.classList.add("is-spinning");
+
+  let tickCount = 0;
+
+  function tick() {
+    tickCount += 1;
+    const isFinal = tickCount >= rounds;
+    // The bottle stays hidden behind a mystery card until the very last flip reveals it.
+    const winner = isFinal ? eligible[Math.floor(Math.random() * eligible.length)] : null;
+    renderSpinFrame(winner, tickCount, rounds, isFinal);
+    if (isFinal) {
+      finishSpin(winner);
+      return;
+    }
+    // Ease from a fast flicker to a slow crawl as it approaches your number.
+    const progress = tickCount / rounds;
+    const delay = 50 + progress * progress * 210;
+    setTimeout(tick, delay);
+  }
+  tick();
+}
+
+function renderSpinFrame(bottle, tickNumber, totalTicks, isFinal) {
+  els.spinReel.innerHTML = `
+    <div class="spin-reel-item${isFinal ? " is-final" : ""}"${isFinal ? ` data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0"` : ""}>
+      <div class="spin-number">Spin ${tickNumber} <span>of ${totalTicks}</span></div>
+      ${isFinal ? bottleThumb(bottle) : `<div class="spin-mystery" aria-hidden="true">🥃</div>`}
+      ${
+        isFinal
+          ? `<strong>${escapeHtml(bottle.name)}</strong><span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof</span>`
+          : `<span class="spin-mystery-label">???</span>`
+      }
+    </div>
+  `;
+
+  const target = els.spinReel.querySelector("[data-quick]");
+  if (target) {
+    const open = () => openBottleQuick(target.dataset.quick);
+    target.addEventListener("click", open);
+    target.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
+}
+
+function finishSpin(winner) {
+  els.spinReel.classList.remove("is-spinning");
+  els.spinBottleButton.disabled = false;
+  els.spinBottleButton.textContent = "🎰 Spin Again";
+  els.spinLogPour.dataset.bottleId = winner.id;
+  els.spinLogPour.classList.remove("is-hidden");
+  spinInProgress = false;
 }
 
 function renderNotes() {
@@ -3694,6 +4365,507 @@ function deleteLastPour() {
   persistPours();
   els.pourDialog.close();
   render();
+}
+
+// ---- Infinity Bottle ----
+// A blending bottle the user keeps topping off with leftover pours over time.
+// Unlike `bottles`, these aren't products with a catalog entry — just a name,
+// an addition log, and whatever flavor data the logged source bottles carry.
+
+function renderInfinityGrid() {
+  if (!els.infinityGrid) return;
+  if (!infinityBottles.length) {
+    els.infinityGrid.innerHTML = `<div class="empty-state">No infinity bottles yet. Start one from your next near-empty pour.</div>`;
+    return;
+  }
+
+  els.infinityGrid.innerHTML = infinityBottles
+    .map((infinity) => {
+      const stats = computeInfinityStats(infinity);
+      return `
+        <article class="infinity-card" data-infinity="${escapeHtml(infinity.id)}" role="button" tabindex="0">
+          <h3>${escapeHtml(infinity.name)}</h3>
+          <p>${stats.additionCount} addition${stats.additionCount === 1 ? "" : "s"} · ${stats.totalOunces.toFixed(1)} oz · ${stats.daysAging}d aging</p>
+          ${infinity.notes ? `<p class="infinity-card-notes">${escapeHtml(infinity.notes)}</p>` : ""}
+        </article>
+      `;
+    })
+    .join("");
+
+  els.infinityGrid.querySelectorAll("[data-infinity]").forEach((card) => {
+    const open = () => openInfinityDetail(card.dataset.infinity);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+function computeInfinityStats(infinity) {
+  const additions = infinity.additions || [];
+  const totalOunces = additions.reduce((sum, entry) => sum + (Number(entry.ounces) || 0), 0);
+  const daysAging = Math.max(0, Math.floor((Date.now() - (infinity.createdAt || Date.now())) / 86400000));
+  const hasUnknownProofEntries = additions.some((entry) => !(Number(entry.sourceProof) > 0));
+  return {
+    additionCount: additions.length,
+    totalOunces,
+    daysAging,
+    blendProof: computeInfinityBlendProof(additions),
+    hasUnknownProofEntries,
+  };
+}
+
+// Volume-weighted average proof across every addition that has a known proof (i.e. was
+// logged against a real inventory bottle) — freeform "typed a name" entries have no known
+// proof and are simply excluded from the average rather than dragging it toward 0.
+function computeInfinityBlendProof(additions) {
+  let weightedSum = 0;
+  let knownOunces = 0;
+  additions.forEach((entry) => {
+    const proof = Number(entry.sourceProof);
+    const ounces = Number(entry.ounces) || 0;
+    if (proof > 0 && ounces > 0) {
+      weightedSum += proof * ounces;
+      knownOunces += ounces;
+    }
+  });
+  return knownOunces ? weightedSum / knownOunces : null;
+}
+
+// Only additions logged against a real inventory bottle carry flavor tags (snapshotted
+// at add-time), so a freeform "typed a name" entry simply doesn't weigh in the blend profile.
+function getInfinityBlendItems(infinity) {
+  return (infinity.additions || [])
+    .filter((entry) => Array.isArray(entry.sourceFlavors) && entry.sourceFlavors.length)
+    .map((entry) => ({ flavors: entry.sourceFlavors, notes: "", type: "", category: "" }));
+}
+
+function randomInfinityName() {
+  const used = new Set(infinityBottles.map((infinity) => infinity.name));
+  const available = INFINITY_NAME_IDEAS.filter((name) => !used.has(name));
+  const pool = available.length ? available : INFINITY_NAME_IDEAS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function createInfinityBottle() {
+  const infinity = {
+    id: crypto.randomUUID(),
+    name: randomInfinityName(),
+    notes: "",
+    createdAt: Date.now(),
+    additions: [],
+  };
+  infinityBottles = [infinity, ...infinityBottles];
+  persistInfinityBottles();
+  renderInfinityGrid();
+  openInfinityDetail(infinity.id, "log");
+}
+
+function renderInfinityRadar(items) {
+  const axes = flavorAxes();
+  const scores = axes.map((axis) => scoreFlavorAxis(items, axis));
+  const max = Math.max(...scores, 1);
+  const center = 120;
+  const radius = 82;
+  const points = scores.map((score, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / axes.length;
+    const value = Math.max(0.18, score / max);
+    return `${center + Math.cos(angle) * radius * value},${center + Math.sin(angle) * radius * value}`;
+  });
+  const rings = [0.33, 0.66, 1]
+    .map((scale) => polygonPoints(axes.length, center, radius * scale))
+    .map((ring) => `<polygon points="${ring}" class="radar-ring"></polygon>`)
+    .join("");
+  const labels = axes
+    .map((axis, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / axes.length;
+      return `<text x="${center + Math.cos(angle) * 105}" y="${center + Math.sin(angle) * 105}" text-anchor="middle" dominant-baseline="middle">${axis.label}</text>`;
+    })
+    .join("");
+
+  return `
+    <svg viewBox="0 0 240 240" role="img" aria-label="Infinity blend flavor profile">
+      ${rings}
+      <polygon points="${points.join(" ")}" class="radar-shape"></polygon>
+      ${labels}
+    </svg>
+  `;
+}
+
+// Ranks currently-open bottles as candidates for the next addition: near-empty
+// bottles score highest (that's the whole point — use up the dregs), and a bottle
+// that fills whatever flavor axis the blend is currently lightest on gets a boost.
+function computeInfinitySuggestions(infinity) {
+  const openBottles = bottles.filter((bottle) => bottle.status === "open");
+  if (!openBottles.length) return [];
+
+  const blendItems = getInfinityBlendItems(infinity);
+  let weakestAxis = null;
+  if (blendItems.length) {
+    const axes = flavorAxes();
+    const scores = axes.map((axis) => scoreFlavorAxis(blendItems, axis));
+    weakestAxis = axes[scores.indexOf(Math.min(...scores))];
+  }
+
+  const fillUrgency = { empty: 4, low: 3, half: 2, "three-quarter": 1, full: 0 };
+  return openBottles
+    .map((bottle) => {
+      const urgency = fillUrgency[bottle.fillLevel] ?? 1;
+      const complement = weakestAxis ? scoreFlavorAxis([bottle], weakestAxis) : 0;
+      let reason = "open and ready to pour in";
+      if (complement > 0 && weakestAxis) reason = `adds ${weakestAxis.label.toLowerCase()} notes this blend is light on`;
+      if (urgency >= 3) reason = "almost empty — good one to top off from";
+      return { bottle, score: urgency * 3 + complement * 2, reason };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
+function renderInfinitySuggestions(infinity) {
+  const picks = computeInfinitySuggestions(infinity);
+  if (!picks.length) {
+    return `
+      <div class="infinity-suggestions">
+        <span class="section-label">What to Add Next</span>
+        <div class="empty-state">Open a bottle in your inventory to get suggestions here.</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="infinity-suggestions">
+      <span class="section-label">What to Add Next</span>
+      <div class="suggest-grid">
+        ${picks
+          .map(
+            (pick) => `
+          <article class="suggest-card" data-infinity-add="${escapeHtml(pick.bottle.id)}" role="button" tabindex="0" title="Log this pour">
+            <img class="suggest-photo" src="${bottleImage(pick.bottle)}" alt="${escapeHtml(pick.bottle.name)} bottle" />
+            <h4>${escapeHtml(pick.bottle.name)}</h4>
+            <p>${escapeHtml(pick.bottle.distillery)} · ${labelFillLevel(pick.bottle.fillLevel)}</p>
+            <em>${escapeHtml(pick.reason)}</em>
+          </article>
+        `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function availableInfinitySourceBottles() {
+  return bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+}
+
+// One row of the "Add to Blend" form — a single ingredient (source + amount). The
+// form can hold several of these so one blending session can log every pour at once.
+function renderInfinityIngredientRow(preselectBottleId) {
+  const availableBottles = availableInfinitySourceBottles();
+  return `
+    <div class="infinity-ingredient-row" data-row>
+      <select class="infinity-row-source" aria-label="Source bottle">
+        <option value="">Type a name instead…</option>
+        ${availableBottles
+          .map(
+            (bottle) =>
+              `<option value="${escapeHtml(bottle.id)}" ${bottle.id === preselectBottleId ? "selected" : ""}>${escapeHtml(bottle.name)} — ${escapeHtml(bottle.distillery)}</option>`,
+          )
+          .join("")}
+      </select>
+      <input class="infinity-row-freename" type="text" placeholder="Or type a name" aria-label="Ingredient name" />
+      <input class="infinity-row-ounces" type="number" min="0" step="0.01" placeholder="oz" aria-label="Ounces" />
+      <button class="icon-button infinity-row-remove" type="button" aria-label="Remove ingredient">×</button>
+    </div>
+  `;
+}
+
+function renderInfinityLogTab(infinity, preselectBottleId) {
+  const additions = [...(infinity.additions || [])].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  return `
+    <form class="infinity-add-form" id="infinityAddForm">
+      <div class="infinity-ingredient-rows" id="infinityIngredientRows">
+        ${renderInfinityIngredientRow(preselectBottleId)}
+      </div>
+      <button class="secondary-action" id="infinityAddRow" type="button">+ Add Another Ingredient</button>
+
+      <div class="form-grid">
+        <label>
+          Date
+          <input type="date" id="infinityEntryDate" value="${new Date().toISOString().slice(0, 10)}" />
+        </label>
+        <label>
+          Notes
+          <input type="text" id="infinityEntryNotes" placeholder="Optional, applies to everything added now" />
+        </label>
+      </div>
+      <button class="primary-action" type="submit">+ Add to Blend</button>
+    </form>
+
+    <div class="infinity-log-list">
+      ${
+        additions.length
+          ? additions
+              .map(
+                (entry) => `
+          <div class="infinity-log-item">
+            <div>
+              <strong>${escapeHtml(entry.sourceName || "Unnamed pour")}</strong>
+              <span>${entry.date ? formatDate(entry.date) : "No date"} · ${Number(entry.ounces || 0).toFixed(2)} oz</span>
+              ${entry.notes ? `<p>${escapeHtml(entry.notes)}</p>` : ""}
+            </div>
+            <button class="icon-button" data-delete-infinity-entry="${escapeHtml(entry.id)}" type="button" aria-label="Delete entry">×</button>
+          </div>
+        `,
+              )
+              .join("")
+          : `<div class="empty-state">No additions logged yet.</div>`
+      }
+    </div>
+  `;
+}
+
+// Re-assigning .onclick (rather than addEventListener) keeps this idempotent — safe
+// to call again every time a row is added without stacking duplicate listeners.
+function bindInfinityRowRemove() {
+  document.querySelectorAll(".infinity-row-remove").forEach((button) => {
+    button.onclick = () => {
+      const rows = document.querySelectorAll("#infinityIngredientRows [data-row]");
+      if (rows.length <= 1) return;
+      button.closest("[data-row]").remove();
+    };
+  });
+}
+
+function openInfinityDetail(id, tab, preselectBottleId) {
+  const infinity = infinityBottles.find((item) => item.id === id);
+  if (!infinity) return;
+  const activeTab = tab || els.infinityDetail.querySelector("[data-itab].is-active")?.dataset.itab || "overview";
+  const stats = computeInfinityStats(infinity);
+  const blendItems = getInfinityBlendItems(infinity);
+
+  els.infinityDetail.innerHTML = `
+    <div class="form-head">
+      <div>
+        <p>Infinity Bottle</p>
+        <h2>${escapeHtml(infinity.name)}</h2>
+      </div>
+      <button class="icon-button" id="closeInfinityDetail" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="quick-tabs" role="tablist">
+      <button class="quick-tab${activeTab === "overview" ? " is-active" : ""}" data-itab="overview" type="button">Overview</button>
+      <button class="quick-tab${activeTab === "log" ? " is-active" : ""}" data-itab="log" type="button">Log</button>
+    </div>
+
+    <div class="quick-tab-panel${activeTab === "overview" ? "" : " is-hidden"}" data-itab-panel="overview">
+      <label class="infinity-name-field">
+        Name
+        <div class="infinity-name-row">
+          <input type="text" id="infinityNameInput" value="${escapeHtml(infinity.name)}" />
+          <button class="secondary-action" id="infinityShuffleName" type="button" title="Suggest a name">🎲</button>
+        </div>
+      </label>
+
+      ${renderInfinityDecanter(stats.totalOunces)}
+
+      <div class="bottle-meta infinity-meta">
+        <div><span>Total Added</span><strong>${stats.totalOunces.toFixed(1)} oz</strong></div>
+        <div><span>Additions</span><strong>${stats.additionCount}</strong></div>
+        <div><span>Aging</span><strong>${stats.daysAging}d</strong></div>
+        <div><span>Est. Proof</span><strong>${stats.blendProof ? stats.blendProof.toFixed(1) : "—"}</strong></div>
+      </div>
+      ${
+        stats.blendProof && stats.hasUnknownProofEntries
+          ? `<p class="infinity-proof-note">Estimate excludes ingredients not linked to an inventory bottle.</p>`
+          : ""
+      }
+
+      <div class="bottle-radar">
+        ${blendItems.length ? renderInfinityRadar(blendItems) : `<div class="empty-state">Log an addition to see this blend's flavor profile.</div>`}
+      </div>
+
+      <label>
+        Notes
+        <textarea id="infinityNotesInput" rows="3" placeholder="Tasting notes, what's working, what to try next…">${escapeHtml(infinity.notes || "")}</textarea>
+      </label>
+
+      ${renderInfinitySuggestions(infinity)}
+
+      <div class="form-actions">
+        <button class="secondary-action" id="deleteInfinityBottle" type="button">Delete Infinity Bottle</button>
+      </div>
+    </div>
+
+    <div class="quick-tab-panel${activeTab === "log" ? "" : " is-hidden"}" data-itab-panel="log">
+      ${renderInfinityLogTab(infinity, preselectBottleId)}
+    </div>
+  `;
+
+  if (!els.infinityDialog.open) els.infinityDialog.showModal();
+
+  document.querySelector("#closeInfinityDetail").addEventListener("click", () => els.infinityDialog.close());
+  els.infinityDetail.querySelectorAll("[data-itab]").forEach((tabButton) => {
+    tabButton.addEventListener("click", () => openInfinityDetail(id, tabButton.dataset.itab));
+  });
+
+  document.querySelector("#infinityNameInput")?.addEventListener("change", (event) => {
+    renameInfinityBottle(id, event.target.value);
+  });
+  document.querySelector("#infinityShuffleName")?.addEventListener("click", () => {
+    document.querySelector("#infinityNameInput").value = randomInfinityName();
+  });
+  document.querySelector("#infinityNotesInput")?.addEventListener("change", (event) => {
+    updateInfinityNotes(id, event.target.value);
+  });
+  document.querySelector("#deleteInfinityBottle")?.addEventListener("click", () => deleteInfinityBottleConfirm(id));
+
+  els.infinityDetail.querySelectorAll("[data-infinity-add]").forEach((card) => {
+    card.addEventListener("click", () => openInfinityDetail(id, "log", card.dataset.infinityAdd));
+  });
+
+  bindInfinityRowRemove();
+  document.querySelector("#infinityAddRow")?.addEventListener("click", () => {
+    document.querySelector("#infinityIngredientRows").insertAdjacentHTML("beforeend", renderInfinityIngredientRow());
+    bindInfinityRowRemove();
+  });
+
+  document.querySelector("#infinityAddForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitInfinityEntry(id);
+  });
+
+  els.infinityDetail.querySelectorAll("[data-delete-infinity-entry]").forEach((button) => {
+    button.addEventListener("click", () => deleteInfinityEntry(id, button.dataset.deleteInfinityEntry));
+  });
+}
+
+function renameInfinityBottle(id, name) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  infinityBottles = infinityBottles.map((infinity) => (infinity.id === id ? { ...infinity, name: trimmed } : infinity));
+  persistInfinityBottles();
+  renderInfinityGrid();
+}
+
+function updateInfinityNotes(id, notes) {
+  infinityBottles = infinityBottles.map((infinity) => (infinity.id === id ? { ...infinity, notes } : infinity));
+  persistInfinityBottles();
+}
+
+function deleteInfinityBottleConfirm(id) {
+  if (!confirm("Delete this infinity bottle and its whole addition log? This can't be undone.")) return;
+  infinityBottles = infinityBottles.filter((infinity) => infinity.id !== id);
+  persistInfinityBottles();
+  els.infinityDialog.close();
+  renderInfinityGrid();
+}
+
+// One submit can log several ingredients at once (one blending session, several
+// pours) — every filled row becomes its own addition, all sharing the form's date/notes.
+function submitInfinityEntry(id) {
+  const date = document.querySelector("#infinityEntryDate").value || new Date().toISOString().slice(0, 10);
+  const notes = document.querySelector("#infinityEntryNotes").value.trim();
+
+  const rows = [...document.querySelectorAll("#infinityIngredientRows [data-row]")];
+  const entries = [];
+  let hadIncompleteRow = false;
+
+  rows.forEach((row) => {
+    const sourceSelect = row.querySelector(".infinity-row-source");
+    const freeName = row.querySelector(".infinity-row-freename").value.trim();
+    const ounces = Number(row.querySelector(".infinity-row-ounces").value || 0);
+    const sourceBottle = sourceSelect.value ? bottles.find((bottle) => bottle.id === sourceSelect.value) : null;
+    const sourceName = sourceBottle ? sourceBottle.name : freeName;
+
+    if (ounces <= 0 && !sourceName) return; // a fully blank row is just an unused slot, not an error
+    if (ounces <= 0 || !sourceName) {
+      hadIncompleteRow = true;
+      return;
+    }
+
+    entries.push({
+      id: crypto.randomUUID(),
+      date,
+      ounces,
+      notes,
+      sourceBottleId: sourceBottle?.id || null,
+      sourceName,
+      sourceFlavors: sourceBottle?.flavors || [],
+      sourceProof: sourceBottle?.proof || null,
+    });
+  });
+
+  if (!entries.length) {
+    alert(hadIncompleteRow ? "Each ingredient needs both a name and an ounce amount." : "Add at least one ingredient.");
+    return;
+  }
+  if (hadIncompleteRow && !confirm("One row is missing a name or ounces and will be skipped. Add the rest anyway?")) {
+    return;
+  }
+
+  infinityBottles = infinityBottles.map((infinity) =>
+    infinity.id === id ? { ...infinity, additions: [...entries, ...(infinity.additions || [])] } : infinity,
+  );
+  persistInfinityBottles();
+  renderInfinityGrid();
+  openInfinityDetail(id, "log");
+}
+
+// A decanter that visually fills as ounces accumulate, scaled to whichever standard
+// bottle size the current total is closest to (375ml/750ml/1L/1.75L).
+// Squared, faceted crystal decanter (wide angular body, short neck, tall block
+// stopper) rather than a rounded flask — modeled on a reference decanter photo.
+function renderInfinityDecanter(totalOunces) {
+  const tiers = [
+    { oz: 12.7, label: "375ml" },
+    { oz: 25.4, label: "750ml" },
+    { oz: 33.8, label: "1L" },
+    { oz: 59.2, label: "1.75L" },
+  ];
+  const tier = tiers.find((t) => totalOunces <= t.oz) || tiers[tiers.length - 1];
+  const fillPercent = Math.max(0, Math.min(100, (totalOunces / tier.oz) * 100));
+  const bodyTop = 72;
+  const bodyBottom = 190;
+  const maxFillHeight = bodyBottom - bodyTop;
+  const fillHeight = (maxFillHeight * fillPercent) / 100;
+  const fillY = (bodyBottom - fillHeight).toFixed(1);
+  // Neck bottom -> shoulder facet -> straight sides -> rounded base corners -> back
+  // up the left side -> Z closes with the mirrored shoulder facet on the left.
+  const bodyPath =
+    "M48,55 L72,55 L106,72 L106,178 C106,185 100,190 92,190 L28,190 C20,190 14,185 14,178 L14,72 Z";
+
+  return `
+    <div class="infinity-decanter">
+      <svg viewBox="0 0 120 200" role="img" aria-label="${totalOunces.toFixed(1)} ounces added, about ${Math.round(fillPercent)}% of a ${tier.label} bottle">
+        <defs>
+          <clipPath id="decanterClip"><path d="${bodyPath}"></path></clipPath>
+        </defs>
+        <rect class="decanter-fill" x="0" y="${fillY}" width="120" height="${fillHeight.toFixed(1)}" clip-path="url(#decanterClip)"></rect>
+        <path class="decanter-outline" d="${bodyPath}"></path>
+        <line class="decanter-facet" x1="40" y1="78" x2="40" y2="186"></line>
+        <line class="decanter-facet" x1="80" y1="78" x2="80" y2="186"></line>
+        <rect class="decanter-glass" x="48" y="30" width="24" height="26"></rect>
+        <rect class="decanter-glass" x="42" y="22" width="36" height="10" rx="2"></rect>
+        <rect class="decanter-glass" x="46" y="0" width="28" height="26" rx="2"></rect>
+      </svg>
+      <p class="infinity-decanter-caption">${totalOunces.toFixed(1)} oz · about ${Math.round(fillPercent)}% of a ${tier.label} bottle</p>
+    </div>
+  `;
+}
+
+function deleteInfinityEntry(id, entryId) {
+  if (!confirm("Delete this addition from the log?")) return;
+  infinityBottles = infinityBottles.map((infinity) =>
+    infinity.id === id
+      ? { ...infinity, additions: (infinity.additions || []).filter((entry) => entry.id !== entryId) }
+      : infinity,
+  );
+  persistInfinityBottles();
+  renderInfinityGrid();
+  openInfinityDetail(id, "log");
 }
 
 function analyzePours() {
@@ -4341,9 +5513,148 @@ function openPhotoZoom(src, alt) {
   els.photoZoomDialog.showModal();
 }
 
+// Pick the closest substitute already sitting on the user's own shelf (owned or open,
+// not a wishlist/buy-next placeholder), so it's a pour they can reach for tonight.
+function getAvailabilityAlternative(bottle) {
+  return bottles
+    .filter((candidate) => candidate.id !== bottle.id && !["wishlist", "buy-next"].includes(candidate.status))
+    .map((candidate) => {
+      const flavorOverlap = (candidate.flavors || []).filter((flavor) => (bottle.flavors || []).includes(flavor)).length;
+      const typeMatch = candidate.type === bottle.type ? 1 : 0;
+      const categoryMatch = bottleCategories(candidate).some((category) => bottleCategories(bottle).includes(category)) ? 1 : 0;
+      const proofDistance = Math.abs(Number(candidate.proof || 0) - Number(bottle.proof || 0));
+      return { ...candidate, score: flavorOverlap * 3 + typeMatch * 4 + categoryMatch * 2 - proofDistance / 30 };
+    })
+    .sort((a, b) => b.score - a.score)[0];
+}
+
+// Pick the closest flavor/type match from the full bottle library that the user doesn't
+// already own, for when they want to shop for something that tastes similar.
+function getProfileAlternative(bottle) {
+  const ownedNames = new Set(bottles.map((item) => item.name.toLowerCase()));
+  return aiBottleLibrary
+    .filter((candidate) => candidate.name.toLowerCase() !== bottle.name.toLowerCase() && !ownedNames.has(candidate.name.toLowerCase()))
+    .map((candidate) => {
+      const flavorOverlap = (candidate.flavors || []).filter((flavor) => (bottle.flavors || []).includes(flavor)).length;
+      const proofDistance = Math.abs(Number(candidate.proof || 0) - Number(bottle.proof || 0));
+      const typeMatch = candidate.type === bottle.type ? 1 : 0;
+      return { ...candidate, score: flavorOverlap * 3 + typeMatch * 2 - proofDistance / 20 };
+    })
+    .sort((a, b) => b.score - a.score)[0];
+}
+
+function alternativeMatchReason(bottle, pick) {
+  const overlap = (pick.flavors || []).filter((flavor) => (bottle.flavors || []).includes(flavor));
+  if (overlap.length) return `shares ${overlap.slice(0, 2).join(" & ")} notes`;
+  if (pick.type === bottle.type && pick.distillery === bottle.distillery) return `same ${pick.type} style from ${pick.distillery}`;
+  if (pick.type === bottle.type) return `same ${pick.type} style`;
+  if (pick.distillery === bottle.distillery) return `also from ${pick.distillery}`;
+  return "closest match in the library";
+}
+
+function renderBottleAlternativesBlock(bottle, availabilityPick, profilePick) {
+  if (!availabilityPick && !profilePick) return "";
+  return `
+    <div class="bottle-alternatives">
+      <div class="suggest-head"><span>Suggested Alternatives</span></div>
+      <div class="suggest-grid">
+        ${
+          availabilityPick
+            ? `
+          <article class="suggest-card" id="altOwnedCard" role="button" tabindex="0" title="View details">
+            <span class="alt-card-label">📦 On Your Shelf</span>
+            <img class="suggest-photo" src="${bottleImage(availabilityPick)}" alt="${escapeHtml(availabilityPick.name)} bottle" />
+            <h4>${escapeHtml(availabilityPick.name)}</h4>
+            <p>${escapeHtml(availabilityPick.distillery)} · ${escapeHtml(availabilityPick.type)}</p>
+            <em>Already ${labelStatus(availabilityPick.status).toLowerCase()} — ${alternativeMatchReason(bottle, availabilityPick)}</em>
+          </article>
+        `
+            : ""
+        }
+        ${
+          profilePick
+            ? `
+          <article class="suggest-card" id="altLibraryCard" role="button" tabindex="0" title="View details">
+            <span class="alt-card-label">🎯 Similar Profile</span>
+            <img class="suggest-photo" src="${bottleImage(profilePick)}" alt="${escapeHtml(profilePick.name)} bottle" />
+            <h4>${escapeHtml(profilePick.name)}</h4>
+            <p>${escapeHtml(profilePick.distillery)} · ${escapeHtml(profilePick.type)}</p>
+            <em>Not in your bar yet — ${alternativeMatchReason(bottle, profilePick)}</em>
+          </article>
+        `
+            : ""
+        }
+      </div>
+    </div>
+  `;
+}
+
+function addAlternativeToWishlist(pick) {
+  if (!pick) return;
+  const bottle = normalizeBottle({
+    id: crypto.randomUUID(),
+    name: pick.name,
+    distillery: pick.distillery || "",
+    type: pick.type || "Bourbon",
+    region: pick.region || "",
+    proof: pick.proof || 0,
+    price: pick.price || 0,
+    msrp: pick.price || 0,
+    flavors: pick.flavors || [],
+    status: "wishlist",
+    createdAt: Date.now(),
+  });
+  bottles = [bottle, ...bottles];
+  persist();
+  render();
+}
+
+function openAlternativeQuick(pick) {
+  if (!pick) return;
+  const flavors = (pick.flavors || []).slice(0, 6);
+  els.quickBottleDetail.innerHTML = `
+    <div class="form-head">
+      <div>
+        <p>Suggested alternative</p>
+        <h2>${escapeHtml(pick.name)}</h2>
+      </div>
+      <button class="icon-button" id="closeAlternativeQuick" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="quick-detail-grid">
+      <img class="quick-detail-photo" src="${bottleImage(pick)}" alt="${escapeHtml(pick.name)} bottle" />
+      <div>
+        <span class="status-pill wishlist">Similar profile pick</span>
+        <p>${escapeHtml(pick.distillery)} · ${escapeHtml(pick.type)} · ${escapeHtml(pick.region || "Unknown region")}</p>
+        <div class="bottle-meta">
+          <div><span>Proof</span><strong>${numberOrDash(pick.proof)}</strong></div>
+          <div><span>Est. Price</span><strong>${pick.price ? money(pick.price) : "—"}</strong></div>
+        </div>
+        ${flavors.length ? `<div class="flavor-row">${flavors.map((flavor) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")}</div>` : ""}
+      </div>
+    </div>
+
+    <div class="photo-source-panel">
+      <span>Find actual bottle photo</span>
+      ${renderPhotoSourceLinks(pick)}
+    </div>
+    <div class="form-actions">
+      <button class="primary-action" id="quickAddAlternativeWishlist" type="button">＋ Add to Wishlist</button>
+    </div>
+  `;
+  els.quickBottleDialog.showModal();
+  document.querySelector("#closeAlternativeQuick").addEventListener("click", () => els.quickBottleDialog.close());
+  document.querySelector("#quickAddAlternativeWishlist").addEventListener("click", () => {
+    addAlternativeToWishlist(pick);
+    els.quickBottleDialog.close();
+  });
+}
+
 function openBottleQuick(id) {
   const bottle = bottles.find((item) => item.id === id);
   if (!bottle) return;
+  const availabilityPick = getAvailabilityAlternative(bottle);
+  const profilePick = getProfileAlternative(bottle);
   els.quickBottleDetail.innerHTML = `
     <div class="form-head">
       <div>
@@ -4363,7 +5674,11 @@ function openBottleQuick(id) {
       <div class="quick-detail-grid">
         <img class="quick-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
         <div>
-          <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
+          <select class="status-pill status-pill-select ${bottle.status}" id="quickStatusSelect" aria-label="Bottle status">
+            ${STATUS_OPTIONS.map(
+              (status) => `<option value="${status}" ${bottle.status === status ? "selected" : ""}>${labelStatus(status)}</option>`,
+            ).join("")}
+          </select>
           ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
           <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
           <div class="bottle-meta">
@@ -4381,6 +5696,8 @@ function openBottleQuick(id) {
           </div>
         </div>
       </div>
+      ${renderBottleUnitsBlock(bottle)}
+      ${renderBottleAlternativesBlock(bottle, availabilityPick, profilePick)}
     </div>
 
     <div class="quick-tab-panel is-hidden" data-tab-panel="tasting">
@@ -4418,8 +5735,21 @@ function openBottleQuick(id) {
       }
     </div>
   `;
-  els.quickBottleDialog.showModal();
+  if (!els.quickBottleDialog.open) els.quickBottleDialog.showModal();
   document.querySelector("#closeQuickBottle").addEventListener("click", () => els.quickBottleDialog.close());
+  document.querySelector("#quickStatusSelect").addEventListener("change", (event) => {
+    changeBottleStatus(id, event.target.value);
+  });
+  els.quickBottleDetail.querySelectorAll("[data-unit-status]").forEach((select) => {
+    select.addEventListener("change", (event) => {
+      updateBottleUnit(id, Number(select.dataset.unitStatus), { status: event.target.value });
+    });
+  });
+  els.quickBottleDetail.querySelectorAll("[data-unit-fill]").forEach((select) => {
+    select.addEventListener("change", (event) => {
+      updateBottleUnit(id, Number(select.dataset.unitFill), { fillLevel: event.target.value });
+    });
+  });
   document.querySelector("#quickEditBottle").addEventListener("click", () => {
     els.quickBottleDialog.close();
     openForm(id);
@@ -4433,6 +5763,14 @@ function openBottleQuick(id) {
     els.quickBottleDialog.close();
   });
   document.querySelector("#quickPhotoUpload").addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
+  document.querySelector("#altOwnedCard")?.addEventListener("click", () => {
+    els.quickBottleDialog.close();
+    openBottleQuick(availabilityPick.id);
+  });
+  document.querySelector("#altLibraryCard")?.addEventListener("click", () => {
+    els.quickBottleDialog.close();
+    openAlternativeQuick(profilePick);
+  });
   els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((tabButton) => {
     tabButton.addEventListener("click", () => {
       els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((btn) => btn.classList.remove("is-active"));
@@ -4497,6 +5835,7 @@ function openForm(id = "") {
   els.saveAndAddAnother.classList.toggle("is-hidden", isExisting);
   window.clearTimeout(addAnotherStatusTimer);
   els.addAnotherStatus.textContent = "";
+  formPhotoWasUploaded = false;
 
   fields.id.value = bottle?.id || "";
   fields.name.value = bottle?.name || "";
@@ -4849,6 +6188,10 @@ async function uploadFileToStorage(file, path) {
   return ref.getDownloadURL();
 }
 
+// Set once a fresh upload actually lands on the Add/Edit form, so buildAndPersistBottleFromForm
+// knows to publish the photo on save instead of re-sharing whatever imageUrl was already there.
+let formPhotoWasUploaded = false;
+
 async function uploadBottlePhoto(event) {
   const [file] = event.target.files;
   if (!file) return;
@@ -4867,6 +6210,7 @@ async function uploadBottlePhoto(event) {
     const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
     const cropUrl = await storeBottlePhoto(dataUrl, file, "crop");
     fields.imageUrl.value = cropUrl;
+    formPhotoWasUploaded = true;
     updateFormPhotoTools({ imageUrl: cropUrl });
     els.formPhotoName.textContent = displayName;
 
@@ -4911,6 +6255,8 @@ function setBottlePhoto(id, imageUrl) {
   bottles = bottles.map((bottle) => (bottle.id === id ? { ...bottle, imageUrl } : bottle));
   persist();
   render();
+  const bottle = bottles.find((item) => item.id === id);
+  if (bottle) shareBottlePhoto(bottle);
 }
 
 // Upload a photo directly from the Quick View for a bottle you already own — same
@@ -5312,6 +6658,8 @@ function buildAndPersistBottleFromForm() {
   persist();
   learnBottle(bottle);
   render();
+  if (formPhotoWasUploaded && bottle.imageUrl) shareBottlePhoto(bottle);
+  formPhotoWasUploaded = false;
   return { bottle, previousStatus };
 }
 
@@ -5646,6 +6994,8 @@ function numberOrDash(value) {
   return Number.isFinite(number) && number > 0 ? number.toLocaleString() : "—";
 }
 
+const STATUS_OPTIONS = ["sealed", "open", "finished", "buy-next", "wishlist"];
+
 function labelStatus(status) {
   return {
     open: "Open",
@@ -5673,6 +7023,7 @@ function labelCategory(category) {
     wheated: "Wheated",
     rye: "Rye",
     "special-occasion": "Special Occasion",
+    "store-pick": "Store Pick",
     finished: "Finished",
     showstopper: "Showstopper",
     "crowd-pleaser": "Crowd Pleaser",
@@ -5757,6 +7108,7 @@ availableDistilleries.sort((a, b) => a.localeCompare(b));
 renderDistilleryOptions();
 syncCoreBarScores();
 render();
+loadSharedBottlePhotos();
 
 // Home-screen shortcut deep links from the PWA manifest.
 const launchAction = new URLSearchParams(window.location.search).get("action");
