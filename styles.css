@@ -687,13 +687,17 @@ label {
 }
 
 .home-hero {
-  min-height: 480px;
-  margin-bottom: 24px;
+  width: 100%;
+  min-height: 640px;
+  margin: 0 0 24px;
+  border: none;
+  border-radius: 0;
 }
 
 .home-hero .hero-overlay {
-  min-height: 480px;
+  min-height: 640px;
   align-items: center;
+  padding: 24px max(18px, calc((100vw - 1200px) / 2));
 }
 
 .home-hero-title {
