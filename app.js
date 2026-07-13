@@ -581,6 +581,101 @@ const distilleryProfiles = {
     founded: "2014",
     blurb: "Florida's oldest city's craft distillery, producing bourbon and rye finished in the Florida humidity.",
   },
+  balcones: {
+    location: "Waco, Texas",
+    founded: "2008",
+    blurb: "The first legal whisky distillery in Texas since Prohibition, known for its Texas Single Malt.",
+  },
+  westland: {
+    location: "Seattle, Washington",
+    founded: "2010",
+    blurb: "A pioneer of the American single malt category, using Pacific Northwest barley and peated malt.",
+  },
+  "stranahan's": {
+    location: "Denver, Colorado",
+    founded: "2004",
+    blurb: "Colorado's oldest legal whiskey distillery, aging a malted-barley whiskey at mile-high altitude.",
+  },
+  "high west": {
+    location: "Park City, Utah",
+    founded: "2006",
+    blurb: "Utah's first legal distillery since 1870, best known for blending sourced and house-made rye and bourbon.",
+  },
+  "smooth ambler": {
+    location: "Maxwelton, West Virginia",
+    founded: "2009",
+    blurb: "An Appalachian distillery blending its own distillate with sourced barrels under the Old Scout label.",
+  },
+  whistlepig: {
+    location: "Shoreham, Vermont",
+    founded: "2007",
+    blurb: "A Vermont farm distillery that built the modern craft-rye category, aging on a working farmstead.",
+  },
+  "chattanooga whiskey": {
+    location: "Chattanooga, Tennessee",
+    founded: "2011",
+    blurb: "Tennessee's first legal distillery in the city since Prohibition, using an unusual five-grain bourbon mash bill.",
+  },
+  "castle & key": {
+    location: "Frankfort, Kentucky",
+    founded: "2018 (distillery site dates to 1887)",
+    blurb: "A restored 19th-century distillery campus (formerly Old Taylor) revived as a modern craft producer.",
+  },
+  "rabbit hole": {
+    location: "Louisville, Kentucky",
+    founded: "2018",
+    blurb: "A Louisville distillery known for unconventional grain bills and wine-cask finishes.",
+  },
+  "jefferson's": {
+    location: "Louisville, Kentucky",
+    founded: "1997",
+    blurb: "A blending house founded by Trey Zoeller, known for aging bourbon barrels at sea aboard cargo ships.",
+  },
+  "james e. pepper": {
+    location: "Lexington, Kentucky",
+    founded: "Brand dates to 1780; distillery rebuilt in 2017",
+    blurb: "One of America's oldest bourbon brands, revived with a new distillery on its historic Lexington site.",
+  },
+  "old elk": {
+    location: "Fort Collins, Colorado",
+    founded: "2015",
+    blurb: "A Colorado distillery founded by New Belgium Brewing co-founder Curt Richardson, known for wheated bourbon.",
+  },
+  "milam & greene": {
+    location: "Blanco, Texas",
+    founded: "2019",
+    blurb: "A Texas Hill Country distillery known for triple-cask maturation and a female-led founding team.",
+  },
+  hillrock: {
+    location: "Ancram, New York",
+    founded: "2011",
+    blurb: "A Hudson Valley estate distillery that grows its own grain and uses a solera aging system.",
+  },
+  "a. smith bowman": {
+    location: "Fredericksburg, Virginia",
+    founded: "1935 (current distillery since 1988)",
+    blurb: "Virginia's oldest continuously operating distillery, known for the John J. Bowman single barrel line.",
+  },
+  reservoir: {
+    location: "Richmond, Virginia",
+    founded: "2008",
+    blurb: "A Richmond craft distillery producing 100% straight bourbon, rye, and wheat whiskies in small batches.",
+  },
+  "smoke wagon": {
+    location: "Las Vegas, Nevada",
+    founded: "2017",
+    blurb: "A Las Vegas whiskey house blending sourced barrels into bold, high-proof small-batch bourbons.",
+  },
+  starlight: {
+    location: "Starlight, Indiana",
+    founded: "2013 (Huber family farm dates to 1843)",
+    blurb: "A sixth-generation family farm distillery producing bourbon and rye alongside its orchard and winery.",
+  },
+  "limestone branch": {
+    location: "Lebanon, Kentucky",
+    founded: "2011",
+    blurb: "Founded by Beam-family descendants Steve and Paul Beam, best known for reviving the Yellowstone brand.",
+  },
 };
 
 const distilleryDatabase = [
@@ -772,9 +867,54 @@ function normalizePourTier(tier) {
   }[tier || "crowd"];
 }
 
+// User-uploaded photos, loaded from Firestore at startup. Every photo a signed-in
+// user uploads is published here automatically (see shareBottlePhoto) so it shows
+// up for every visitor without a code deploy. Falls back behind the hand-curated
+// list below since those are pre-verified.
+const sharedCuratedImages = new Map();
+
+function curatedImageKey(name, distillery) {
+  return `${name || ""}-${distillery || ""}`.toLowerCase();
+}
+
+async function loadSharedBottlePhotos() {
+  if (!db) return;
+  try {
+    const snap = await db.collection("sharedBottlePhotos").get();
+    snap.forEach((doc) => {
+      const imageUrl = doc.data()?.imageUrl;
+      if (imageUrl) sharedCuratedImages.set(doc.id, imageUrl);
+    });
+    if (sharedCuratedImages.size) render();
+  } catch (error) {
+    console.error("Failed to load shared bottle photos", error);
+  }
+}
+
+async function shareBottlePhoto(bottle) {
+  if (!currentUser || !db || !bottle.imageUrl) return;
+  const key = curatedImageKey(bottle.name, bottle.distillery).replaceAll("/", "-");
+  const statusEl = document.querySelector("#quickPhotoStatus");
+  try {
+    await db.collection("sharedBottlePhotos").doc(key).set({
+      name: bottle.name,
+      distillery: bottle.distillery,
+      imageUrl: bottle.imageUrl,
+      submittedBy: currentUser.uid,
+      submittedAt: Date.now(),
+    });
+    sharedCuratedImages.set(key, bottle.imageUrl);
+    if (statusEl) statusEl.textContent = "✓ Shared with everyone";
+  } catch (error) {
+    console.error("Failed to share bottle photo", error);
+    if (statusEl) statusEl.textContent = "Could not share this photo. Try again.";
+  }
+}
+
 function getCuratedBottleImage(bottle) {
-  const exactKey = `${bottle.name || ""}-${bottle.distillery || ""}`.toLowerCase();
+  const exactKey = curatedImageKey(bottle.name, bottle.distillery);
   if (curatedBottleImages[exactKey]) return curatedBottleImages[exactKey];
+  if (sharedCuratedImages.has(exactKey)) return sharedCuratedImages.get(exactKey);
 
   const normalizedName = String(bottle.name || "").toLowerCase();
   const normalizedDistillery = String(bottle.distillery || "").toLowerCase();
@@ -1250,7 +1390,92 @@ const southernDistilleryLibrary = [
   { name: "J.W. Kelly Old Milford Straight Bourbon", distillery: "J.W. Kelly & Co.", type: "Bourbon", region: "Tennessee", proof: 90, price: 45, flavors: ["oak", "vanilla", "white pepper", "toffee"] },
 ];
 
-aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary, ...southernDistilleryLibrary);
+const craftWhiskeyLibrary = [
+  { name: "Balcones Baby Blue", distillery: "Balcones", type: "American Whiskey", region: "Texas", proof: 90, price: 45, flavors: ["blue corn", "caramel", "honey", "oak"] },
+  { name: "Balcones Rumble", distillery: "Balcones", type: "American Whiskey", region: "Texas", proof: 100, price: 55, flavors: ["mesquite", "honey", "caramel", "spice"] },
+  { name: "Balcones Pot Still Bourbon", distillery: "Balcones", type: "Bourbon", region: "Texas", proof: 92, price: 50, flavors: ["caramel", "corn", "oak", "vanilla"] },
+  { name: "Balcones Texas Rye 100", distillery: "Balcones", type: "Rye", region: "Texas", proof: 100, price: 50, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "Balcones True Blue Cask Strength", distillery: "Balcones", type: "American Whiskey", region: "Texas", proof: 122, price: 70, flavors: ["blue corn", "caramel", "heat", "oak"] },
+
+  { name: "Westland Peated", distillery: "Westland", type: "American Single Malt", region: "Washington", proof: 92, price: 80, flavors: ["smoke", "malt", "honey", "oak"] },
+  { name: "Westland Garryana", distillery: "Westland", type: "American Single Malt", region: "Washington", proof: 116, price: 150, flavors: ["malt", "dark fruit", "oak", "spice"] },
+  { name: "Westland Sherry Wood", distillery: "Westland", type: "American Single Malt", region: "Washington", proof: 92, price: 90, flavors: ["sherry", "dried fruit", "malt", "oak"] },
+
+  { name: "Stranahan's Blue Peak", distillery: "Stranahan's", type: "American Single Malt", region: "Colorado", proof: 94, price: 45, flavors: ["malt", "honey", "oak", "apple"] },
+  { name: "Stranahan's Diamond Peak", distillery: "Stranahan's", type: "American Single Malt", region: "Colorado", proof: 94, price: 55, flavors: ["malt", "caramel", "oak", "citrus"] },
+  { name: "Stranahan's Sherry Cask", distillery: "Stranahan's", type: "American Single Malt", region: "Colorado", proof: 94, price: 90, flavors: ["sherry", "dark fruit", "malt", "oak"] },
+
+  { name: "High West Double Rye", distillery: "High West", type: "Rye", region: "Utah", proof: 92, price: 45, flavors: ["rye spice", "mint", "citrus", "oak"] },
+  { name: "High West Rendezvous Rye", distillery: "High West", type: "Rye", region: "Utah", proof: 92, price: 55, flavors: ["rye spice", "oak", "caramel", "citrus"] },
+  { name: "High West Campfire", distillery: "High West", type: "American Whiskey", region: "Utah", proof: 92, price: 60, flavors: ["smoke", "caramel", "spice", "oak"] },
+  { name: "High West American Prairie Bourbon", distillery: "High West", type: "Bourbon", region: "Utah", proof: 92, price: 45, flavors: ["caramel", "corn", "oak", "vanilla"] },
+
+  { name: "Smooth Ambler Old Scout Bourbon", distillery: "Smooth Ambler", type: "Bourbon", region: "West Virginia", proof: 100, price: 45, flavors: ["caramel", "corn", "oak", "vanilla"] },
+  { name: "Smooth Ambler Old Scout Rye", distillery: "Smooth Ambler", type: "Rye", region: "West Virginia", proof: 100, price: 45, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "Smooth Ambler Contradiction", distillery: "Smooth Ambler", type: "Bourbon", region: "West Virginia", proof: 100, price: 40, flavors: ["brown sugar", "spice", "oak", "vanilla"] },
+  { name: "Smooth Ambler Big Level Wheated Bourbon", distillery: "Smooth Ambler", type: "Bourbon", region: "West Virginia", proof: 100, price: 45, flavors: ["wheat", "honey", "oak", "vanilla"] },
+
+  { name: "WhistlePig 10 Year Rye", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 100, price: 80, flavors: ["rye spice", "oak", "vanilla", "fruit"] },
+  { name: "WhistlePig PiggyBack 6 Year Rye", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 100, price: 50, flavors: ["rye spice", "citrus", "vanilla", "oak"] },
+  { name: "WhistlePig FarmStock Rye", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 86, price: 65, flavors: ["rye spice", "grain", "oak", "honey"] },
+  { name: "WhistlePig Boss Hog", distillery: "WhistlePig", type: "Rye", region: "Vermont", proof: 128, price: 300, flavors: ["rye spice", "dark fruit", "oak", "heat"] },
+
+  { name: "Chattanooga Whiskey 91 Proof Bourbon", distillery: "Chattanooga Whiskey", type: "Bourbon", region: "Tennessee", proof: 91, price: 40, flavors: ["caramel", "honey", "oak", "spice"] },
+  { name: "Chattanooga Whiskey Cask 111", distillery: "Chattanooga Whiskey", type: "Bourbon", region: "Tennessee", proof: 111, price: 55, flavors: ["oak", "caramel", "spice", "heat"] },
+  { name: "Chattanooga Whiskey 1816 Reserve", distillery: "Chattanooga Whiskey", type: "Bourbon", region: "Tennessee", proof: 92, price: 60, flavors: ["caramel", "dried fruit", "oak", "vanilla"] },
+
+  { name: "Castle & Key Small Batch Bourbon", distillery: "Castle & Key", type: "Bourbon", region: "Kentucky", proof: 105, price: 45, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Castle & Key Restoration Rye", distillery: "Castle & Key", type: "Rye", region: "Kentucky", proof: 92, price: 45, flavors: ["rye spice", "citrus", "mint", "oak"] },
+  { name: "Castle & Key Bottled in Bond Bourbon", distillery: "Castle & Key", type: "Bourbon", region: "Kentucky", proof: 100, price: 55, flavors: ["caramel", "oak", "vanilla", "honey"] },
+
+  { name: "Rabbit Hole Cavehill Bourbon", distillery: "Rabbit Hole", type: "Bourbon", region: "Kentucky", proof: 95, price: 45, flavors: ["caramel", "dried fruit", "oak", "vanilla"] },
+  { name: "Rabbit Hole Dareringer", distillery: "Rabbit Hole", type: "Bourbon", region: "Kentucky", proof: 93, price: 60, flavors: ["sherry", "dark fruit", "caramel", "oak"] },
+  { name: "Rabbit Hole Heigold", distillery: "Rabbit Hole", type: "Bourbon", region: "Kentucky", proof: 94, price: 55, flavors: ["caramel", "spice", "oak", "fruit"] },
+  { name: "Rabbit Hole Boxergrail", distillery: "Rabbit Hole", type: "Rye", region: "Kentucky", proof: 95, price: 55, flavors: ["rye spice", "sherry", "citrus", "oak"] },
+
+  { name: "Jefferson's Very Small Batch", distillery: "Jefferson's", type: "Bourbon", region: "Kentucky", proof: 82.3, price: 35, flavors: ["caramel", "vanilla", "oak", "honey"] },
+  { name: "Jefferson's Ocean", distillery: "Jefferson's", type: "Bourbon", region: "Kentucky", proof: 90, price: 65, flavors: ["sea salt", "caramel", "oak", "vanilla"] },
+  { name: "Jefferson's Reserve Very Old", distillery: "Jefferson's", type: "Bourbon", region: "Kentucky", proof: 90.2, price: 50, flavors: ["caramel", "dried fruit", "oak", "spice"] },
+  { name: "Jefferson's Rye", distillery: "Jefferson's", type: "Rye", region: "Kentucky", proof: 84, price: 35, flavors: ["rye spice", "citrus", "oak", "honey"] },
+
+  { name: "James E. Pepper 1776 Straight Bourbon", distillery: "James E. Pepper", type: "Bourbon", region: "Kentucky", proof: 100, price: 30, flavors: ["caramel", "rye spice", "oak", "vanilla"] },
+  { name: "James E. Pepper 1776 Straight Rye", distillery: "James E. Pepper", type: "Rye", region: "Kentucky", proof: 100, price: 32, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "James E. Pepper 1776 Barrel Proof Rye", distillery: "James E. Pepper", type: "Rye", region: "Kentucky", proof: 120, price: 55, flavors: ["rye spice", "oak", "heat", "citrus"] },
+
+  { name: "Old Elk Wheated Bourbon", distillery: "Old Elk", type: "Bourbon", region: "Colorado", proof: 86, price: 55, flavors: ["wheat", "honey", "vanilla", "oak"] },
+  { name: "Old Elk Straight Bourbon", distillery: "Old Elk", type: "Bourbon", region: "Colorado", proof: 94, price: 60, flavors: ["caramel", "oak", "spice", "fruit"] },
+  { name: "Old Elk Cask Strength Wheated Bourbon", distillery: "Old Elk", type: "Bourbon", region: "Colorado", proof: 116, price: 90, flavors: ["wheat", "caramel", "oak", "heat"] },
+
+  { name: "Milam & Greene Triple Cask Bourbon", distillery: "Milam & Greene", type: "Bourbon", region: "Texas", proof: 90, price: 55, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Milam & Greene Port Cask Finished", distillery: "Milam & Greene", type: "Bourbon", region: "Texas", proof: 90, price: 65, flavors: ["port wine", "dark fruit", "caramel", "oak"] },
+  { name: "Milam & Greene Straight Rye", distillery: "Milam & Greene", type: "Rye", region: "Texas", proof: 90, price: 55, flavors: ["rye spice", "citrus", "oak", "honey"] },
+
+  { name: "Hillrock Solera Aged Bourbon", distillery: "Hillrock", type: "Bourbon", region: "New York", proof: 92, price: 90, flavors: ["caramel", "dried fruit", "oak", "spice"] },
+  { name: "Hillrock Double Cask Rye", distillery: "Hillrock", type: "Rye", region: "New York", proof: 92, price: 90, flavors: ["rye spice", "dark fruit", "oak", "honey"] },
+  { name: "Hillrock Single Malt", distillery: "Hillrock", type: "American Single Malt", region: "New York", proof: 92, price: 100, flavors: ["malt", "honey", "oak", "dried fruit"] },
+
+  { name: "Bowman Brothers Small Batch", distillery: "A. Smith Bowman", type: "Bourbon", region: "Virginia", proof: 90, price: 30, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "John J. Bowman Single Barrel", distillery: "A. Smith Bowman", type: "Bourbon", region: "Virginia", proof: 100, price: 50, flavors: ["caramel", "leather", "oak", "dark fruit"] },
+  { name: "Abraham Bowman Limited Edition", distillery: "A. Smith Bowman", type: "Bourbon", region: "Virginia", proof: 100, price: 80, flavors: ["caramel", "dark fruit", "oak", "spice"] },
+
+  { name: "Reservoir Straight Bourbon", distillery: "Reservoir", type: "Bourbon", region: "Virginia", proof: 92, price: 45, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Reservoir Straight Rye", distillery: "Reservoir", type: "Rye", region: "Virginia", proof: 92, price: 45, flavors: ["rye spice", "citrus", "oak", "pepper"] },
+  { name: "Reservoir Straight Wheat Whiskey", distillery: "Reservoir", type: "American Whiskey", region: "Virginia", proof: 92, price: 45, flavors: ["wheat", "honey", "oak", "vanilla"] },
+
+  { name: "Smoke Wagon Small Batch Bourbon", distillery: "Smoke Wagon", type: "Bourbon", region: "Nevada", proof: 96, price: 45, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Smoke Wagon Uncut Unfiltered", distillery: "Smoke Wagon", type: "Bourbon", region: "Nevada", proof: 118, price: 65, flavors: ["dark fruit", "oak", "caramel", "heat"] },
+  { name: "Smoke Wagon 7 Year Small Batch", distillery: "Smoke Wagon", type: "Bourbon", region: "Nevada", proof: 100, price: 55, flavors: ["caramel", "oak", "leather", "spice"] },
+
+  { name: "Starlight Carriage House Bourbon", distillery: "Starlight", type: "Bourbon", region: "Indiana", proof: 92, price: 40, flavors: ["caramel", "corn", "oak", "vanilla"] },
+  { name: "Starlight Rye", distillery: "Starlight", type: "Rye", region: "Indiana", proof: 92, price: 40, flavors: ["rye spice", "oak", "citrus", "pepper"] },
+  { name: "Starlight 111 Cask Strength Bourbon", distillery: "Starlight", type: "Bourbon", region: "Indiana", proof: 111, price: 55, flavors: ["caramel", "oak", "spice", "heat"] },
+
+  { name: "Yellowstone Select", distillery: "Limestone Branch", type: "Bourbon", region: "Kentucky", proof: 93, price: 35, flavors: ["caramel", "oak", "spice", "dried fruit"] },
+  { name: "Yellowstone Bottled in Bond", distillery: "Limestone Branch", type: "Bourbon", region: "Kentucky", proof: 100, price: 50, flavors: ["caramel", "oak", "vanilla", "spice"] },
+  { name: "Yellowstone Limited Edition", distillery: "Limestone Branch", type: "Bourbon", region: "Kentucky", proof: 101, price: 90, flavors: ["caramel", "dark fruit", "oak", "spice"] },
+];
+
+aiBottleLibrary.push(...expandedWhiskeyLibrary, ...expressionLineupLibrary, ...southernDistilleryLibrary, ...craftWhiskeyLibrary);
 const uniqueLibrary = new Map();
 aiBottleLibrary.forEach((bottle) => {
   uniqueLibrary.set(`${bottle.name}-${bottle.distillery}`.toLowerCase(), bottle);
@@ -4869,6 +5094,7 @@ function openForm(id = "") {
   els.saveAndAddAnother.classList.toggle("is-hidden", isExisting);
   window.clearTimeout(addAnotherStatusTimer);
   els.addAnotherStatus.textContent = "";
+  formPhotoWasUploaded = false;
 
   fields.id.value = bottle?.id || "";
   fields.name.value = bottle?.name || "";
@@ -5221,6 +5447,10 @@ async function uploadFileToStorage(file, path) {
   return ref.getDownloadURL();
 }
 
+// Set once a fresh upload actually lands on the Add/Edit form, so buildAndPersistBottleFromForm
+// knows to publish the photo on save instead of re-sharing whatever imageUrl was already there.
+let formPhotoWasUploaded = false;
+
 async function uploadBottlePhoto(event) {
   const [file] = event.target.files;
   if (!file) return;
@@ -5239,6 +5469,7 @@ async function uploadBottlePhoto(event) {
     const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: true, isolate: true });
     const cropUrl = await storeBottlePhoto(dataUrl, file, "crop");
     fields.imageUrl.value = cropUrl;
+    formPhotoWasUploaded = true;
     updateFormPhotoTools({ imageUrl: cropUrl });
     els.formPhotoName.textContent = displayName;
 
@@ -5283,6 +5514,8 @@ function setBottlePhoto(id, imageUrl) {
   bottles = bottles.map((bottle) => (bottle.id === id ? { ...bottle, imageUrl } : bottle));
   persist();
   render();
+  const bottle = bottles.find((item) => item.id === id);
+  if (bottle) shareBottlePhoto(bottle);
 }
 
 // Upload a photo directly from the Quick View for a bottle you already own — same
@@ -5684,6 +5917,8 @@ function buildAndPersistBottleFromForm() {
   persist();
   learnBottle(bottle);
   render();
+  if (formPhotoWasUploaded && bottle.imageUrl) shareBottlePhoto(bottle);
+  formPhotoWasUploaded = false;
   return { bottle, previousStatus };
 }
 
@@ -6132,6 +6367,7 @@ availableDistilleries.sort((a, b) => a.localeCompare(b));
 renderDistilleryOptions();
 syncCoreBarScores();
 render();
+loadSharedBottlePhotos();
 
 // Home-screen shortcut deep links from the PWA manifest.
 const launchAction = new URLSearchParams(window.location.search).get("action");
