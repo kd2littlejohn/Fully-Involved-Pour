@@ -789,6 +789,20 @@ label {
   font-size: 0.82rem;
 }
 
+.bottle-alternatives {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.alt-card-label {
+  color: var(--amber);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .toolbar,
 .inventory-overview,
 .stats-grid,

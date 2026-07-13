@@ -4458,9 +4458,148 @@ function openPhotoZoom(src, alt) {
   els.photoZoomDialog.showModal();
 }
 
+// Pick the closest substitute already sitting on the user's own shelf (owned or open,
+// not a wishlist/buy-next placeholder), so it's a pour they can reach for tonight.
+function getAvailabilityAlternative(bottle) {
+  return bottles
+    .filter((candidate) => candidate.id !== bottle.id && !["wishlist", "buy-next"].includes(candidate.status))
+    .map((candidate) => {
+      const flavorOverlap = (candidate.flavors || []).filter((flavor) => (bottle.flavors || []).includes(flavor)).length;
+      const typeMatch = candidate.type === bottle.type ? 1 : 0;
+      const categoryMatch = bottleCategories(candidate).some((category) => bottleCategories(bottle).includes(category)) ? 1 : 0;
+      const proofDistance = Math.abs(Number(candidate.proof || 0) - Number(bottle.proof || 0));
+      return { ...candidate, score: flavorOverlap * 3 + typeMatch * 4 + categoryMatch * 2 - proofDistance / 30 };
+    })
+    .sort((a, b) => b.score - a.score)[0];
+}
+
+// Pick the closest flavor/type match from the full bottle library that the user doesn't
+// already own, for when they want to shop for something that tastes similar.
+function getProfileAlternative(bottle) {
+  const ownedNames = new Set(bottles.map((item) => item.name.toLowerCase()));
+  return aiBottleLibrary
+    .filter((candidate) => candidate.name.toLowerCase() !== bottle.name.toLowerCase() && !ownedNames.has(candidate.name.toLowerCase()))
+    .map((candidate) => {
+      const flavorOverlap = (candidate.flavors || []).filter((flavor) => (bottle.flavors || []).includes(flavor)).length;
+      const proofDistance = Math.abs(Number(candidate.proof || 0) - Number(bottle.proof || 0));
+      const typeMatch = candidate.type === bottle.type ? 1 : 0;
+      return { ...candidate, score: flavorOverlap * 3 + typeMatch * 2 - proofDistance / 20 };
+    })
+    .sort((a, b) => b.score - a.score)[0];
+}
+
+function alternativeMatchReason(bottle, pick) {
+  const overlap = (pick.flavors || []).filter((flavor) => (bottle.flavors || []).includes(flavor));
+  if (overlap.length) return `shares ${overlap.slice(0, 2).join(" & ")} notes`;
+  if (pick.type === bottle.type && pick.distillery === bottle.distillery) return `same ${pick.type} style from ${pick.distillery}`;
+  if (pick.type === bottle.type) return `same ${pick.type} style`;
+  if (pick.distillery === bottle.distillery) return `also from ${pick.distillery}`;
+  return "closest match in the library";
+}
+
+function renderBottleAlternativesBlock(bottle, availabilityPick, profilePick) {
+  if (!availabilityPick && !profilePick) return "";
+  return `
+    <div class="bottle-alternatives">
+      <div class="suggest-head"><span>Suggested Alternatives</span></div>
+      <div class="suggest-grid">
+        ${
+          availabilityPick
+            ? `
+          <article class="suggest-card" id="altOwnedCard" role="button" tabindex="0" title="View details">
+            <span class="alt-card-label">📦 On Your Shelf</span>
+            <img class="suggest-photo" src="${bottleImage(availabilityPick)}" alt="${escapeHtml(availabilityPick.name)} bottle" />
+            <h4>${escapeHtml(availabilityPick.name)}</h4>
+            <p>${escapeHtml(availabilityPick.distillery)} · ${escapeHtml(availabilityPick.type)}</p>
+            <em>Already ${labelStatus(availabilityPick.status).toLowerCase()} — ${alternativeMatchReason(bottle, availabilityPick)}</em>
+          </article>
+        `
+            : ""
+        }
+        ${
+          profilePick
+            ? `
+          <article class="suggest-card" id="altLibraryCard" role="button" tabindex="0" title="View details">
+            <span class="alt-card-label">🎯 Similar Profile</span>
+            <img class="suggest-photo" src="${bottleImage(profilePick)}" alt="${escapeHtml(profilePick.name)} bottle" />
+            <h4>${escapeHtml(profilePick.name)}</h4>
+            <p>${escapeHtml(profilePick.distillery)} · ${escapeHtml(profilePick.type)}</p>
+            <em>Not in your bar yet — ${alternativeMatchReason(bottle, profilePick)}</em>
+          </article>
+        `
+            : ""
+        }
+      </div>
+    </div>
+  `;
+}
+
+function addAlternativeToWishlist(pick) {
+  if (!pick) return;
+  const bottle = normalizeBottle({
+    id: crypto.randomUUID(),
+    name: pick.name,
+    distillery: pick.distillery || "",
+    type: pick.type || "Bourbon",
+    region: pick.region || "",
+    proof: pick.proof || 0,
+    price: pick.price || 0,
+    msrp: pick.price || 0,
+    flavors: pick.flavors || [],
+    status: "wishlist",
+    createdAt: Date.now(),
+  });
+  bottles = [bottle, ...bottles];
+  persist();
+  render();
+}
+
+function openAlternativeQuick(pick) {
+  if (!pick) return;
+  const flavors = (pick.flavors || []).slice(0, 6);
+  els.quickBottleDetail.innerHTML = `
+    <div class="form-head">
+      <div>
+        <p>Suggested alternative</p>
+        <h2>${escapeHtml(pick.name)}</h2>
+      </div>
+      <button class="icon-button" id="closeAlternativeQuick" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="quick-detail-grid">
+      <img class="quick-detail-photo" src="${bottleImage(pick)}" alt="${escapeHtml(pick.name)} bottle" />
+      <div>
+        <span class="status-pill wishlist">Similar profile pick</span>
+        <p>${escapeHtml(pick.distillery)} · ${escapeHtml(pick.type)} · ${escapeHtml(pick.region || "Unknown region")}</p>
+        <div class="bottle-meta">
+          <div><span>Proof</span><strong>${numberOrDash(pick.proof)}</strong></div>
+          <div><span>Est. Price</span><strong>${pick.price ? money(pick.price) : "—"}</strong></div>
+        </div>
+        ${flavors.length ? `<div class="flavor-row">${flavors.map((flavor) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")}</div>` : ""}
+      </div>
+    </div>
+
+    <div class="photo-source-panel">
+      <span>Find actual bottle photo</span>
+      ${renderPhotoSourceLinks(pick)}
+    </div>
+    <div class="form-actions">
+      <button class="primary-action" id="quickAddAlternativeWishlist" type="button">＋ Add to Wishlist</button>
+    </div>
+  `;
+  els.quickBottleDialog.showModal();
+  document.querySelector("#closeAlternativeQuick").addEventListener("click", () => els.quickBottleDialog.close());
+  document.querySelector("#quickAddAlternativeWishlist").addEventListener("click", () => {
+    addAlternativeToWishlist(pick);
+    els.quickBottleDialog.close();
+  });
+}
+
 function openBottleQuick(id) {
   const bottle = bottles.find((item) => item.id === id);
   if (!bottle) return;
+  const availabilityPick = getAvailabilityAlternative(bottle);
+  const profilePick = getProfileAlternative(bottle);
   els.quickBottleDetail.innerHTML = `
     <div class="form-head">
       <div>
@@ -4498,6 +4637,7 @@ function openBottleQuick(id) {
           </div>
         </div>
       </div>
+      ${renderBottleAlternativesBlock(bottle, availabilityPick, profilePick)}
     </div>
 
     <div class="quick-tab-panel is-hidden" data-tab-panel="tasting">
@@ -4550,6 +4690,14 @@ function openBottleQuick(id) {
     els.quickBottleDialog.close();
   });
   document.querySelector("#quickPhotoUpload").addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
+  document.querySelector("#altOwnedCard")?.addEventListener("click", () => {
+    els.quickBottleDialog.close();
+    openBottleQuick(availabilityPick.id);
+  });
+  document.querySelector("#altLibraryCard")?.addEventListener("click", () => {
+    els.quickBottleDialog.close();
+    openAlternativeQuick(profilePick);
+  });
   els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((tabButton) => {
     tabButton.addEventListener("click", () => {
       els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((btn) => btn.classList.remove("is-active"));
