@@ -867,9 +867,53 @@ function normalizePourTier(tier) {
   }[tier || "crowd"];
 }
 
+// User-submitted photos, loaded from Firestore at startup so any signed-in user's
+// "Share Photo" pick shows up for every visitor without a code deploy. Falls back
+// behind the hand-curated list below since those are pre-verified.
+const sharedCuratedImages = new Map();
+
+function curatedImageKey(name, distillery) {
+  return `${name || ""}-${distillery || ""}`.toLowerCase();
+}
+
+async function loadSharedBottlePhotos() {
+  if (!db) return;
+  try {
+    const snap = await db.collection("sharedBottlePhotos").get();
+    snap.forEach((doc) => {
+      const imageUrl = doc.data()?.imageUrl;
+      if (imageUrl) sharedCuratedImages.set(doc.id, imageUrl);
+    });
+    if (sharedCuratedImages.size) render();
+  } catch (error) {
+    console.error("Failed to load shared bottle photos", error);
+  }
+}
+
+async function shareBottlePhoto(bottle) {
+  if (!currentUser || !db || !bottle.imageUrl) return;
+  const key = curatedImageKey(bottle.name, bottle.distillery).replaceAll("/", "-");
+  const statusEl = document.querySelector("#quickPhotoStatus");
+  try {
+    await db.collection("sharedBottlePhotos").doc(key).set({
+      name: bottle.name,
+      distillery: bottle.distillery,
+      imageUrl: bottle.imageUrl,
+      submittedBy: currentUser.uid,
+      submittedAt: Date.now(),
+    });
+    sharedCuratedImages.set(key, bottle.imageUrl);
+    if (statusEl) statusEl.textContent = "✓ Shared with everyone";
+  } catch (error) {
+    console.error("Failed to share bottle photo", error);
+    if (statusEl) statusEl.textContent = "Could not share this photo. Try again.";
+  }
+}
+
 function getCuratedBottleImage(bottle) {
-  const exactKey = `${bottle.name || ""}-${bottle.distillery || ""}`.toLowerCase();
+  const exactKey = curatedImageKey(bottle.name, bottle.distillery);
   if (curatedBottleImages[exactKey]) return curatedBottleImages[exactKey];
+  if (sharedCuratedImages.has(exactKey)) return sharedCuratedImages.get(exactKey);
 
   const normalizedName = String(bottle.name || "").toLowerCase();
   const normalizedDistillery = String(bottle.distillery || "").toLowerCase();
@@ -4859,10 +4903,13 @@ function openBottleQuick(id) {
 
     <div class="quick-photo-upload-panel">
       <span id="quickPhotoStatus">${bottle.imageUrl ? "Replace this bottle's photo" : "Add a photo of this bottle"}</span>
-      <label class="upload-photo-action">
-        Upload Photo
-        <input id="quickPhotoUpload" type="file" accept="image/*" />
-      </label>
+      <div class="quick-photo-actions">
+        ${currentUser ? `<button class="secondary-action photo-share-action" id="quickShareBottlePhoto" type="button">🌍 Share Photo</button>` : ""}
+        <label class="upload-photo-action">
+          Upload Photo
+          <input id="quickPhotoUpload" type="file" accept="image/*" />
+        </label>
+      </div>
     </div>
     <div class="form-actions">
       <button class="secondary-action" id="quickEditBottle" type="button">Edit Bottle</button>
@@ -4891,6 +4938,15 @@ function openBottleQuick(id) {
     els.quickBottleDialog.close();
   });
   document.querySelector("#quickPhotoUpload").addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
+  document.querySelector("#quickShareBottlePhoto")?.addEventListener("click", () => {
+    const current = bottles.find((item) => item.id === id);
+    if (!current?.imageUrl) {
+      const statusEl = document.querySelector("#quickPhotoStatus");
+      if (statusEl) statusEl.textContent = "Upload a photo first, then share it.";
+      return;
+    }
+    shareBottlePhoto(current);
+  });
   document.querySelector("#altOwnedCard")?.addEventListener("click", () => {
     els.quickBottleDialog.close();
     openBottleQuick(availabilityPick.id);
@@ -6226,6 +6282,7 @@ availableDistilleries.sort((a, b) => a.localeCompare(b));
 renderDistilleryOptions();
 syncCoreBarScores();
 render();
+loadSharedBottlePhotos();
 
 // Home-screen shortcut deep links from the PWA manifest.
 const launchAction = new URLSearchParams(window.location.search).get("action");
