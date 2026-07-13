@@ -3418,6 +3418,7 @@ function renderLibrary() {
   const query = els.librarySearch.value.trim().toLowerCase();
   const owned = new Set(bottles.map((bottle) => `${bottle.name}-${bottle.distillery}`.toLowerCase()));
   const matches = aiBottleLibrary
+    .filter((bottle) => !owned.has(`${bottle.name}-${bottle.distillery}`.toLowerCase()))
     .filter((bottle) => {
       const haystack = `${bottle.name} ${bottle.distillery} ${bottle.type} ${bottle.region} ${bottle.flavors.join(" ")}`.toLowerCase();
       return !query || haystack.includes(query);
@@ -3426,9 +3427,8 @@ function renderLibrary() {
 
   els.libraryList.innerHTML = matches.length
     ? matches
-        .map((bottle, index) => {
-          const key = `${bottle.name}-${bottle.distillery}`.toLowerCase();
-          return `
+        .map(
+          (bottle, index) => `
             <article class="library-item">
               <img class="library-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
               <div>
@@ -3436,12 +3436,12 @@ function renderLibrary() {
                 <span>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${numberOrDash(bottle.proof)} proof · ${money(bottle.price)}</span>
               </div>
               ${renderPhotoSourceLinks(bottle, "compact")}
-              <button class="secondary-action" type="button" data-library-index="${index}" ${owned.has(key) ? "disabled" : ""}>${owned.has(key) ? "Added" : "Add"}</button>
+              <button class="secondary-action" type="button" data-library-index="${index}">Add</button>
             </article>
-          `;
-        })
+          `,
+        )
         .join("")
-    : `<div class="empty-state">No library bottles match that search.</div>`;
+    : `<div class="empty-state">${query ? "No library bottles match that search." : "You already own every bottle in the library."}</div>`;
 
   els.libraryList.querySelectorAll("[data-library-index]").forEach((button) => {
     button.addEventListener("click", () => addLibraryBottle(matches[Number(button.dataset.libraryIndex)]));
