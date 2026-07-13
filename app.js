@@ -1549,6 +1549,7 @@ const els = {
   homeHeroLogPour: document.querySelector("#homeHeroLogPour"),
   headerSearchButton: document.querySelector("#headerSearchButton"),
   profileView: document.querySelector("#profileView"),
+  aboutView: document.querySelector("#aboutView"),
   profileBottleCount: document.querySelector("#profileBottleCount"),
   profilePourCount: document.querySelector("#profilePourCount"),
   profileBottleKills: document.querySelector("#profileBottleKills"),
@@ -1684,10 +1685,8 @@ const els = {
   categoryPicker: document.querySelector("#categoryPicker"),
   importActionLabel: document.querySelector("#importActionLabel"),
   signInButton: document.querySelector("#signInButton"),
-  signOutButton: document.querySelector("#signOutButton"),
-  accountChip: document.querySelector("#accountChip"),
-  accountAvatar: document.querySelector("#accountAvatar"),
-  accountName: document.querySelector("#accountName"),
+  accountAvatarBadge: document.querySelector("#accountAvatarBadge"),
+  accountInitials: document.querySelector("#accountInitials"),
   appShell: document.querySelector("#appShell"),
   welcomeScreen: document.querySelector("#welcomeScreen"),
   hero: document.querySelector(".hero"),
@@ -1697,7 +1696,6 @@ const els = {
   usernameInput: document.querySelector("#usernameInput"),
   usernameError: document.querySelector("#usernameError"),
   saveUsername: document.querySelector("#saveUsername"),
-  editUsernameButton: document.querySelector("#editUsernameButton"),
   friendsDrawer: document.querySelector("#friendsDrawer"),
   friendsBackdrop: document.querySelector("#friendsBackdrop"),
   friendsToggle: document.querySelector("#friendsToggle"),
@@ -1798,11 +1796,15 @@ function switchProfileTab(tab) {
 document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((tabButton) => {
   tabButton.addEventListener("click", () => switchProfileTab(tabButton.dataset.profileTab));
 });
+let currentPourTab = "sessions";
+
 function switchPourStoriesTab(tab) {
+  currentPourTab = tab;
   document.querySelectorAll("#pourStoriesTabs [data-story-tab]").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.storyTab === tab));
   document.querySelectorAll("[data-story-tab-panel]").forEach((panel) => {
     panel.classList.toggle("is-hidden", panel.dataset.storyTabPanel !== tab);
   });
+  updateNavActiveStates(activeView);
 }
 document.querySelectorAll("#pourStoriesTabs [data-story-tab]").forEach((tabButton) => {
   tabButton.addEventListener("click", () => switchPourStoriesTab(tabButton.dataset.storyTab));
@@ -1941,31 +1943,41 @@ document.querySelectorAll("[data-proof]").forEach((button) => {
 });
 
 // Maps every underlying activeView value to the top-level nav tab it lives under,
-// since Collection and Discover each fan out into several legacy view states.
+// since Inventory and Collections each fan out into several legacy view states.
+// "pour-log" is deliberately absent - Reviews and Journal share that one activeView
+// and are disambiguated by which Pour Stories tab is currently open (see below).
 const NAV_GROUPS = {
   dashboard: "dashboard",
   collection: "collection",
-  "core-bar": "collection",
-  opened: "collection",
-  finished: "collection",
-  compare: "collection",
-  faceoff: "collection",
-  infinity: "collection",
-  "pour-log": "pour-log",
-  "buy-next": "buy-next",
-  wishlist: "buy-next",
+  "core-bar": "collections",
+  opened: "collections",
+  finished: "collections",
+  compare: "collections",
+  faceoff: "collections",
+  infinity: "collections",
+  "buy-next": "collections",
+  wishlist: "collections",
   profile: "profile",
+  about: "about",
 };
 
-function navigateToView(view) {
-  activeView = view;
+function updateNavActiveStates(view) {
   const group = NAV_GROUPS[view] || view;
-  document
-    .querySelectorAll(".nav-item[data-view]")
-    .forEach((item) => item.classList.toggle("is-active", (NAV_GROUPS[item.dataset.view] || item.dataset.view) === group));
+  document.querySelectorAll(".nav-item[data-view]").forEach((item) => {
+    if (item.dataset.view === "pour-log") {
+      item.classList.toggle("is-active", view === "pour-log" && (item.dataset.navTab || "sessions") === currentPourTab);
+    } else {
+      item.classList.toggle("is-active", (NAV_GROUPS[item.dataset.view] || item.dataset.view) === group);
+    }
+  });
   document
     .querySelectorAll(".sub-nav-item[data-view]")
     .forEach((item) => item.classList.toggle("is-active", item.dataset.view === view));
+}
+
+function navigateToView(view) {
+  activeView = view;
+  updateNavActiveStates(view);
   const viewFilters = {
     wishlist: "wishlist",
     "core-bar": "core-bar",
@@ -1985,6 +1997,7 @@ function navigateToView(view) {
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
     navigateToView(button.dataset.view);
+    if (button.dataset.navTab) switchPourStoriesTab(button.dataset.navTab);
     if (window.matchMedia("(max-width: 640px)").matches) {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -2019,7 +2032,7 @@ els.headerSearchButton?.addEventListener("click", () => {
   els.searchInput?.focus();
 });
 
-document.querySelector("#discoverLibraryButton")?.addEventListener("click", () => openLibrary());
+document.querySelector("#collectionsLibraryButton")?.addEventListener("click", () => openLibrary());
 
 function loadBottles() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -2610,15 +2623,24 @@ async function viewFriendInventory(targetUid, username) {
   }
 }
 
+function computeInitials(name) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
 function updateAccountUI() {
   if (currentUser) {
     els.signInButton.classList.add("is-hidden");
-    els.accountChip.classList.remove("is-hidden");
-    els.accountAvatar.src = currentUser.photoURL || "";
-    els.accountName.textContent = currentProfile?.username || currentUser.displayName || currentUser.email || "Signed in";
+    els.accountAvatarBadge.classList.remove("is-hidden");
+    els.accountInitials.textContent = computeInitials(
+      currentProfile?.username || currentUser.displayName || currentUser.email,
+    );
   } else {
     els.signInButton.classList.remove("is-hidden");
-    els.accountChip.classList.add("is-hidden");
+    els.accountAvatarBadge.classList.add("is-hidden");
   }
 }
 
@@ -2660,11 +2682,8 @@ els.signInButton?.addEventListener("click", signInWithGoogle);
 els.welcomeSignIn?.addEventListener("click", signInWithGoogle);
 els.welcomeAddBottle?.addEventListener("click", () => openForm());
 
-els.signOutButton?.addEventListener("click", () => {
-  auth?.signOut();
-});
+els.accountAvatarBadge?.addEventListener("click", () => navigateToView("profile"));
 
-els.editUsernameButton?.addEventListener("click", () => openUsernameSetup());
 els.saveUsername?.addEventListener("click", () => claimUsername(els.usernameInput.value));
 els.followButton?.addEventListener("click", () => followUsername(els.followUsernameInput.value));
 
@@ -2860,7 +2879,7 @@ function render() {
     els.toggleSelect.textContent = "Select";
     els.toggleSelect.classList.remove("is-selected");
   }
-  const collectionVisible = !["pour-log", "infinity", "dashboard", "compare", "faceoff", "profile"].includes(activeView);
+  const collectionVisible = !["pour-log", "infinity", "dashboard", "compare", "faceoff", "profile", "about"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
@@ -2868,13 +2887,13 @@ function render() {
   els.compareView.classList.toggle("is-hidden", activeView !== "compare");
   els.faceoffView.classList.toggle("is-hidden", activeView !== "faceoff");
   els.profileView.classList.toggle("is-hidden", activeView !== "profile");
+  els.aboutView.classList.toggle("is-hidden", activeView !== "about");
   if (activeView === "faceoff") renderFaceoffView();
   if (activeView === "infinity") renderInfinityGrid();
   if (activeView === "profile") renderProfile();
 
-  const collectionGroupViews = ["collection", "core-bar", "opened", "finished", "compare", "infinity", "faceoff"];
-  document.querySelector("#collectionSubNav")?.classList.toggle("is-hidden", !collectionGroupViews.includes(activeView));
-  document.querySelector("#discoverSubNav")?.classList.toggle("is-hidden", !["buy-next", "wishlist"].includes(activeView));
+  const collectionsGroupViews = ["core-bar", "buy-next", "wishlist", "opened", "finished", "compare", "infinity", "faceoff"];
+  document.querySelector("#collectionsSubNav")?.classList.toggle("is-hidden", !collectionsGroupViews.includes(activeView));
 
   renderStats();
   renderCollectionPreview();

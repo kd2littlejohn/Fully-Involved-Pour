@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=100" />
+    <link rel="stylesheet" href="styles.css?v=101" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -59,42 +59,35 @@
 
         <nav class="nav-list" aria-label="Views">
           <button class="nav-item is-active" data-view="dashboard" type="button">Home</button>
-          <button class="nav-item" data-view="collection" type="button">Collection</button>
-          <button class="nav-item" data-view="pour-log" type="button">Pour Stories</button>
-          <button class="nav-item" data-view="buy-next" type="button">Discover</button>
-          <button class="nav-item" data-view="profile" type="button">Profile</button>
+          <button class="nav-item" data-view="collection" type="button">Inventory</button>
+          <button class="nav-item" data-view="pour-log" data-nav-tab="notes" type="button">Reviews</button>
+          <button class="nav-item" data-view="core-bar" type="button">Collections</button>
+          <button class="nav-item" data-view="pour-log" data-nav-tab="sessions" type="button">Journal</button>
+          <button class="nav-item" data-view="about" type="button">About</button>
         </nav>
 
         <div class="account-box" id="accountBox" aria-label="Account">
           <button class="icon-button" id="headerSearchButton" type="button" aria-label="Search your collection">🔍</button>
-          <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
-          <div class="account-chip is-hidden" id="accountChip">
-            <img id="accountAvatar" alt="" />
-            <button class="account-name-button" id="editUsernameButton" type="button">
-              <span id="accountName"></span>
-            </button>
-            <button class="icon-button" id="signOutButton" type="button" aria-label="Sign out">⏏</button>
-          </div>
           <button class="icon-button friends-toggle" id="friendsToggle" type="button" aria-label="Friends">
             <span aria-hidden="true">🔔</span>
             <span class="nav-badge is-hidden" id="friendsBadge"></span>
           </button>
+          <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
+          <button class="account-avatar-badge is-hidden" id="accountAvatarBadge" type="button" aria-label="My Profile">
+            <span id="accountInitials"></span>
+          </button>
         </div>
       </header>
 
-      <nav class="sub-nav is-hidden" id="collectionSubNav" aria-label="Collection views">
-        <button class="sub-nav-item" data-view="collection" type="button">All</button>
+      <nav class="sub-nav is-hidden" id="collectionsSubNav" aria-label="Collections views">
         <button class="sub-nav-item" data-view="core-bar" type="button">Core Bar</button>
+        <button class="sub-nav-item" data-view="buy-next" type="button">🎯 Buy Next</button>
+        <button class="sub-nav-item" data-view="wishlist" type="button">☆ Wish List</button>
         <button class="sub-nav-item" data-view="opened" type="button">Opened</button>
         <button class="sub-nav-item" data-view="finished" type="button">Finished</button>
         <button class="sub-nav-item" data-view="compare" type="button">Compare</button>
         <button class="sub-nav-item" data-view="infinity" type="button">Infinity Bottle</button>
-      </nav>
-
-      <nav class="sub-nav is-hidden" id="discoverSubNav" aria-label="Discover views">
-        <button class="sub-nav-item" data-view="buy-next" type="button">🎯 Buy Next</button>
-        <button class="sub-nav-item" data-view="wishlist" type="button">☆ Wish List</button>
-        <button class="sub-nav-item" id="discoverLibraryButton" type="button">📚 Whiskey Library</button>
+        <button class="sub-nav-item" id="collectionsLibraryButton" type="button">📚 Whiskey Library</button>
       </nav>
 
       <main class="main">
@@ -288,21 +281,6 @@
         </section>
 
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
-          <section class="home-greeting" aria-label="Greeting">
-            <h1 id="homeGreeting">Good evening.</h1>
-            <p>What story will you add today?</p>
-          </section>
-
-          <section class="insights-card continue-story is-hidden" id="continueStoryCard" aria-label="Continue your pour story">
-            <div class="section-heading">
-              <div>
-                <p>In Progress</p>
-                <h2>Continue Pour Story</h2>
-              </div>
-            </div>
-            <div class="continue-story-body" id="continueStoryBody"></div>
-          </section>
-
           <section class="hero home-hero" aria-label="Fully Involved Pour">
             <img src="assets/home-hero.png" alt="A Glencairn glass etched with the Fully Involved Pour compass, on a warm home bar" />
             <div class="hero-overlay">
@@ -326,6 +304,21 @@
                 </div>
               </div>
             </div>
+          </section>
+
+          <section class="home-greeting" aria-label="Greeting">
+            <h1 id="homeGreeting">Good evening.</h1>
+            <p>What story will you add today?</p>
+          </section>
+
+          <section class="insights-card continue-story is-hidden" id="continueStoryCard" aria-label="Continue your pour story">
+            <div class="section-heading">
+              <div>
+                <p>In Progress</p>
+                <h2>Continue Pour Story</h2>
+              </div>
+            </div>
+            <div class="continue-story-body" id="continueStoryBody"></div>
           </section>
 
           <section class="pillar-nav" aria-label="Today's Journey">
@@ -770,6 +763,40 @@
           </div>
         </section>
 
+        <section class="about-board is-hidden" id="aboutView">
+          <div class="section-heading">
+            <div>
+              <p>About</p>
+              <h2>Fully Involved Pour</h2>
+            </div>
+          </div>
+          <p class="about-lede">
+            Fully Involved Pour is a personal whiskey journal designed around the journey of discovering whiskey,
+            experiencing great pours, reflecting on meaningful moments, and sharing those experiences with others.
+          </p>
+
+          <div class="about-pillars">
+            <article>
+              <h3>🧭 Discover</h3>
+              <p>Explore what's new. Every journey starts with curiosity.</p>
+            </article>
+            <article>
+              <h3>🥃 Experience</h3>
+              <p>Savor the moment. Great whiskey is meant to be enjoyed.</p>
+            </article>
+            <article>
+              <h3>📖 Reflect</h3>
+              <p>Capture what mattered. Every pour has a story.</p>
+            </article>
+            <article>
+              <h3>👥 Share</h3>
+              <p>Whiskey is better together. Pass the story forward.</p>
+            </article>
+          </div>
+
+          <p class="about-tagline">Drink what you enjoy. Share what matters.</p>
+        </section>
+
         <footer class="brand-footer">
           <strong>Drink what you enjoy. Share what matters.</strong>
         </footer>
@@ -1164,7 +1191,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=115"></script>
+    <script src="app.js?v=116"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
