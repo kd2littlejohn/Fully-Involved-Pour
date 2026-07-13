@@ -811,6 +811,10 @@ function bottleCategories(bottle) {
   return bottle?.categories?.length ? bottle.categories : [bottle?.category || "daily"];
 }
 
+function isStorePick(bottle) {
+  return bottleCategories(bottle).includes("store-pick");
+}
+
 const aiBottleLibrary = [
   ...Object.values(bottleCatalog),
   {
@@ -2573,6 +2577,7 @@ function renderCards(shown) {
               <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
                 ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
               </div>
+              ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
             </div>
             ${renderBottleRowActions(bottle, index, shown.length, isBuyNext, customOrder)}
           </div>
@@ -2626,6 +2631,7 @@ function renderBottleTile(bottle, index, total, isBuyNext, customOrder) {
         <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
           ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
         </div>
+        ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
         <div class="tile-footer">
           ${renderBottleRowActions(bottle, index, total, isBuyNext, customOrder)}
         </div>
@@ -5741,6 +5747,7 @@ function labelCategory(category) {
     wheated: "Wheated",
     rye: "Rye",
     "special-occasion": "Special Occasion",
+    "store-pick": "Store Pick",
     finished: "Finished",
     showstopper: "Showstopper",
     "crowd-pleaser": "Crowd Pleaser",

@@ -13,7 +13,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=78" />
+    <link rel="stylesheet" href="styles.css?v=79" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -201,6 +201,7 @@
             <button data-category="wheated" type="button">Wheated</button>
             <button data-category="rye" type="button">Rye</button>
             <button data-category="special-occasion" type="button">Special Occasion</button>
+            <button data-category="store-pick" type="button">Store Pick</button>
             <button data-category="daily" type="button">Daily</button>
             <button data-category="finished" type="button">Finished</button>
             <button data-category="showstopper" type="button">Showstopper</button>
@@ -633,6 +634,7 @@
             <select id="type">
               <option>Bourbon</option>
               <option>Rye</option>
+              <option>Whiskey</option>
               <option>Scotch</option>
               <option>Irish</option>
               <option>Tequila</option>
@@ -752,6 +754,7 @@
                 <button class="category-tag-btn" data-category-tag="wheated" type="button">Wheated</button>
                 <button class="category-tag-btn" data-category-tag="rye" type="button">Rye</button>
                 <button class="category-tag-btn" data-category-tag="special-occasion" type="button">Special Occasion</button>
+                <button class="category-tag-btn" data-category-tag="store-pick" type="button">Store Pick</button>
                 <button class="category-tag-btn" data-category-tag="finished" type="button">Finished</button>
                 <button class="category-tag-btn" data-category-tag="showstopper" type="button">Showstopper</button>
                 <button class="category-tag-btn" data-category-tag="crowd-pleaser" type="button">Crowd Pleaser</button>
@@ -935,7 +938,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=96"></script>
+    <script src="app.js?v=97"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
