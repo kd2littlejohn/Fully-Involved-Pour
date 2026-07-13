@@ -517,17 +517,6 @@ label {
   align-items: center;
 }
 
-.home-hero-mark {
-  position: absolute;
-  right: 24px;
-  bottom: 24px;
-  z-index: 1;
-  width: 96px;
-  height: 96px;
-  opacity: 0.55;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
-}
-
 .home-hero-title {
   margin: 0;
   max-width: none;
