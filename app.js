@@ -4487,7 +4487,7 @@ function renderInfinityLogTab(infinity, preselectBottleId) {
       <div class="form-grid">
         <label>
           Ounces
-          <input type="number" id="infinityEntryOunces" min="0.25" step="0.25" placeholder="1.5" />
+          <input type="number" id="infinityEntryOunces" min="0" step="0.01" placeholder="1.5" />
         </label>
         <label>
           Date
