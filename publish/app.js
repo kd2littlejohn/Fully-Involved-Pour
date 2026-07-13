@@ -1771,14 +1771,21 @@ document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 document.querySelector("#deleteLastPour").addEventListener("click", deleteLastPour);
 els.searchInput.addEventListener("input", render);
 els.librarySearch.addEventListener("input", renderLibrary);
-document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((tabButton) => {
-  tabButton.addEventListener("click", () => {
-    document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((btn) => btn.classList.remove("is-active"));
-    tabButton.classList.add("is-active");
-    document.querySelectorAll("[data-profile-tab-panel]").forEach((panel) => {
-      panel.classList.toggle("is-hidden", panel.dataset.profileTabPanel !== tabButton.dataset.profileTab);
-    });
+function switchProfileTab(tab) {
+  document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.profileTab === tab));
+  document.querySelectorAll("[data-profile-tab-panel]").forEach((panel) => {
+    panel.classList.toggle("is-hidden", panel.dataset.profileTabPanel !== tab);
   });
+}
+document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((tabButton) => {
+  tabButton.addEventListener("click", () => switchProfileTab(tabButton.dataset.profileTab));
+});
+els.seasonMoodBoard?.addEventListener("click", (event) => {
+  const chip = event.target.closest(".mini-flavor-chip[data-flavor]");
+  if (!chip) return;
+  activeFlavorFilter = activeFlavorFilter === chip.dataset.flavor ? null : chip.dataset.flavor;
+  switchProfileTab("radar");
+  renderFlavorMap();
 });
 const SORT_KEY = "fip-sort";
 const savedSort = localStorage.getItem(SORT_KEY);
@@ -2639,6 +2646,7 @@ function visibleBottles() {
       bottle.region,
       bottle.ageStatement,
       bottle.storeLocation,
+      bottle.shelf,
       bottleCategories(bottle).join(" "),
       bottle.pourStyle,
       bottle.notes,
@@ -3673,7 +3681,12 @@ function renderSeasonalMoodBoard() {
   els.seasonMoodBoard.innerHTML = SEASON_DEFS.map((season, index) => {
     const top = [...seasonFlavorCounts[index].entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
     const chips = top.length
-      ? top.map(([flavor], i) => `<span class="mini-flavor-chip${i === 0 ? " is-lead" : ""}">${escapeHtml(flavor)}</span>`).join("")
+      ? top
+          .map(
+            ([flavor], i) =>
+              `<button class="mini-flavor-chip${i === 0 ? " is-lead" : ""}" data-flavor="${escapeHtml(flavor)}" type="button">${escapeHtml(flavor)}</button>`,
+          )
+          .join("")
       : `<span class="mini-flavor-chip">no pours yet</span>`;
     return `
       <div class="mini-season-row" style="--season-color:${season.color}">
@@ -3796,7 +3809,7 @@ function renderShelfMap() {
     ? rows
         .map(
           ([shelf, entry]) => `
-            <div class="shelf-item">
+            <div class="shelf-item" data-shelf="${escapeHtml(shelf)}" role="button" tabindex="0">
               <div>
                 <strong>${escapeHtml(shelf)}</strong>
                 <span>${entry.count} bottles · ${money(entry.value)}</span>
@@ -3807,6 +3820,20 @@ function renderShelfMap() {
         )
         .join("")
     : `<div class="empty-state">Add shelf locations to map your collection.</div>`;
+
+  els.shelfList.querySelectorAll("[data-shelf]").forEach((item) => {
+    const open = () => {
+      els.searchInput.value = item.dataset.shelf;
+      navigateToView("collection");
+    };
+    item.addEventListener("click", open);
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 function renderCoreBarHighlight() {
@@ -3959,8 +3986,20 @@ function renderRecommendation() {
   const pick = candidates[0] || bottles.find((bottle) => bottle.status === "open");
 
   els.recommendation.innerHTML = pick
-    ? `<strong>${escapeHtml(pick.name)}</strong><span>${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof · ${escapeHtml(pick.flavors.slice(0, 3).join(", "))}</span>`
+    ? `<div data-quick="${escapeHtml(pick.id)}" role="button" tabindex="0"><strong>${escapeHtml(pick.name)}</strong><span>${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof · ${escapeHtml(pick.flavors.slice(0, 3).join(", "))}</span></div>`
     : `<span>Open a bottle to get a recommendation.</span>`;
+
+  const target = els.recommendation.querySelector("[data-quick]");
+  if (target) {
+    const open = () => openBottleQuick(target.dataset.quick);
+    target.addEventListener("click", open);
+    target.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
 }
 
 function activityAddedLabel(status) {
@@ -3974,6 +4013,7 @@ function renderRecentActivity() {
     .filter((bottle) => Number(bottle.createdAt))
     .map((bottle) => ({
       time: Number(bottle.createdAt),
+      id: bottle.id,
       name: bottle.name,
       label: activityAddedLabel(bottle.status),
       meta: labelStatus(bottle.status) || "",
@@ -3984,7 +4024,7 @@ function renderRecentActivity() {
       const bottle = bottles.find((item) => item.id === pour.bottleId);
       const time = new Date(`${pour.date}T12:00:00`).getTime();
       return bottle && Number.isFinite(time)
-        ? { time, name: bottle.name, label: "Poured", meta: `${numberOrDash(pour.ounces)} oz` }
+        ? { time, id: bottle.id, name: bottle.name, label: "Poured", meta: `${numberOrDash(pour.ounces)} oz` }
         : null;
     })
     .filter(Boolean);
@@ -3995,7 +4035,7 @@ function renderRecentActivity() {
     ? events
         .map(
           (event) => `
-            <div class="activity-item">
+            <div class="activity-item" data-quick="${escapeHtml(event.id)}" role="button" tabindex="0">
               <div>
                 <strong>${escapeHtml(event.name)}</strong>
                 <span>${escapeHtml(event.label)} · ${timeAgo(event.time)}</span>
@@ -4006,6 +4046,17 @@ function renderRecentActivity() {
         )
         .join("")
     : `<div class="empty-state">No activity yet. Add a bottle or log a pour to get started.</div>`;
+
+  els.recentActivity.querySelectorAll("[data-quick]").forEach((item) => {
+    const open = () => openBottleQuick(item.dataset.quick);
+    item.addEventListener("click", open);
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 function askFromDashboard(promptText) {
@@ -4062,7 +4113,7 @@ function spinForBottle() {
 
 function renderSpinFrame(bottle, tickNumber, totalTicks, isFinal) {
   els.spinReel.innerHTML = `
-    <div class="spin-reel-item${isFinal ? " is-final" : ""}">
+    <div class="spin-reel-item${isFinal ? " is-final" : ""}"${isFinal ? ` data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0"` : ""}>
       <div class="spin-number">Spin ${tickNumber} <span>of ${totalTicks}</span></div>
       ${isFinal ? bottleThumb(bottle) : `<div class="spin-mystery" aria-hidden="true">🥃</div>`}
       ${
@@ -4072,6 +4123,18 @@ function renderSpinFrame(bottle, tickNumber, totalTicks, isFinal) {
       }
     </div>
   `;
+
+  const target = els.spinReel.querySelector("[data-quick]");
+  if (target) {
+    const open = () => openBottleQuick(target.dataset.quick);
+    target.addEventListener("click", open);
+    target.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
 }
 
 function finishSpin(winner) {

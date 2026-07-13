@@ -2072,12 +2072,25 @@ select {
 }
 
 .mini-flavor-chip {
+  font: inherit;
   font-size: 0.7rem;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--line);
+  background: transparent;
   color: var(--muted);
   white-space: nowrap;
+}
+
+button.mini-flavor-chip {
+  cursor: pointer;
+}
+
+button.mini-flavor-chip:hover,
+button.mini-flavor-chip:focus-visible {
+  border-color: var(--amber);
+  color: var(--amber);
+  outline: none;
 }
 
 .mini-flavor-chip.is-lead {
@@ -2090,6 +2103,16 @@ select {
   border-radius: var(--radius);
   background: #17120d;
   border: 1px solid var(--line);
+}
+
+.recommendation [data-quick] {
+  cursor: pointer;
+}
+
+.recommendation [data-quick]:hover strong,
+.recommendation [data-quick]:focus-visible strong {
+  color: var(--amber);
+  outline: none;
 }
 
 .recommendation strong {
@@ -2188,6 +2211,13 @@ select {
 
 .spin-reel-item.is-final {
   animation: spin-settle 0.35s ease-out;
+  cursor: pointer;
+}
+
+.spin-reel-item.is-final:hover strong,
+.spin-reel-item.is-final:focus-visible strong {
+  color: var(--amber);
+  outline: none;
 }
 
 .spin-reel-item.is-final .catalog-thumb,
@@ -2282,6 +2312,13 @@ select {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.activity-item:hover,
+.activity-item:focus-visible {
+  border-color: var(--amber);
+  outline: none;
 }
 
 .activity-item strong {
@@ -2312,6 +2349,13 @@ select {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #17120d;
+  cursor: pointer;
+}
+
+.shelf-item:hover,
+.shelf-item:focus-visible {
+  border-color: var(--amber);
+  outline: none;
 }
 
 .shelf-item strong,
