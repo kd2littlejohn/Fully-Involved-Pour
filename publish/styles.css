@@ -660,12 +660,12 @@ label {
 }
 
 .home-hero {
-  min-height: 420px;
+  min-height: 480px;
   margin-bottom: 24px;
 }
 
 .home-hero .hero-overlay {
-  min-height: 420px;
+  min-height: 480px;
   align-items: center;
 }
 
@@ -687,6 +687,14 @@ label {
 
 .home-hero-title span.accent {
   color: var(--amber);
+}
+
+.home-hero-divider {
+  width: 48px;
+  height: 2px;
+  margin: 16px 0;
+  background: var(--amber);
+  border: none;
 }
 
 .home-hero-actions {
