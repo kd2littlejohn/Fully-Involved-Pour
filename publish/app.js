@@ -3055,6 +3055,20 @@ function markBottleOwned(id) {
   render();
 }
 
+function changeBottleStatus(id, status) {
+  if (!STATUS_OPTIONS.includes(status)) return;
+  let changed = false;
+  bottles = bottles.map((bottle) => {
+    if (bottle.id !== id || bottle.status === status) return bottle;
+    changed = true;
+    return { ...bottle, status };
+  });
+  if (!changed) return;
+  persist();
+  render();
+  openBottleQuick(id);
+}
+
 function setSelectionMode(on) {
   selectionMode = on;
   if (!on) selectedIds.clear();
@@ -4619,7 +4633,11 @@ function openBottleQuick(id) {
       <div class="quick-detail-grid">
         <img class="quick-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
         <div>
-          <span class="status-pill ${bottle.status}">${labelStatus(bottle.status)}</span>
+          <select class="status-pill status-pill-select ${bottle.status}" id="quickStatusSelect" aria-label="Bottle status">
+            ${STATUS_OPTIONS.map(
+              (status) => `<option value="${status}" ${bottle.status === status ? "selected" : ""}>${labelStatus(status)}</option>`,
+            ).join("")}
+          </select>
           ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
           <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
           <div class="bottle-meta">
@@ -4675,8 +4693,11 @@ function openBottleQuick(id) {
       }
     </div>
   `;
-  els.quickBottleDialog.showModal();
+  if (!els.quickBottleDialog.open) els.quickBottleDialog.showModal();
   document.querySelector("#closeQuickBottle").addEventListener("click", () => els.quickBottleDialog.close());
+  document.querySelector("#quickStatusSelect").addEventListener("change", (event) => {
+    changeBottleStatus(id, event.target.value);
+  });
   document.querySelector("#quickEditBottle").addEventListener("click", () => {
     els.quickBottleDialog.close();
     openForm(id);
@@ -5910,6 +5931,8 @@ function numberOrDash(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number.toLocaleString() : "—";
 }
+
+const STATUS_OPTIONS = ["sealed", "open", "finished", "buy-next", "wishlist"];
 
 function labelStatus(status) {
   return {
