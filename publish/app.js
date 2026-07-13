@@ -1543,6 +1543,11 @@ let cardView = localStorage.getItem(VIEW_MODE_KEY) === "card";
 
 const els = {
   bottleGrid: document.querySelector("#bottleGrid"),
+  collectionPreviewRow: document.querySelector("#collectionPreviewRow"),
+  collectionPreviewViewAll: document.querySelector("#collectionPreviewViewAll"),
+  homeHeroBrowse: document.querySelector("#homeHeroBrowse"),
+  homeHeroLogPour: document.querySelector("#homeHeroLogPour"),
+  headerSearchButton: document.querySelector("#headerSearchButton"),
   noteList: document.querySelector("#noteList"),
   flavorList: document.querySelector("#flavorList"),
   flavorBottleList: document.querySelector("#flavorBottleList"),
@@ -1947,6 +1952,19 @@ document.querySelectorAll("[data-pillar-view]").forEach((button) => {
 
 document.querySelectorAll("[data-pillar-action='share']").forEach((button) => {
   button.addEventListener("click", () => els.friendsToggle?.click());
+});
+
+els.homeHeroBrowse?.addEventListener("click", () => navigateToView("collection"));
+els.collectionPreviewViewAll?.addEventListener("click", () => navigateToView("collection"));
+
+els.homeHeroLogPour?.addEventListener("click", () => {
+  navigateToView("pour-log");
+  openPourForm();
+});
+
+els.headerSearchButton?.addEventListener("click", () => {
+  navigateToView("collection");
+  els.searchInput?.focus();
 });
 
 function loadBottles() {
@@ -2796,6 +2814,7 @@ function render() {
   if (activeView === "infinity") renderInfinityGrid();
 
   renderStats();
+  renderCollectionPreview();
   renderCards(shown);
   renderFlavorMap();
   renderPourCadence();
@@ -3842,6 +3861,34 @@ function renderShelfMap() {
       }
     });
   });
+}
+
+function renderCollectionPreview() {
+  if (!els.collectionPreviewRow) return;
+  const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+  const picks = [...owned]
+    .sort((a, b) => {
+      const rank = (bottle) => (bottle.coreBar ? 2 : bottle.favorite ? 1 : 0);
+      return rank(b) - rank(a) || Number(b.rating || 0) - Number(a.rating || 0);
+    })
+    .slice(0, 8);
+
+  els.collectionPreviewRow.innerHTML = picks.length
+    ? picks
+        .map((bottle) => {
+          const badge = bottle.coreBar ? "🔥" : bottle.favorite ? "⭐" : "";
+          return `
+            <article class="collection-preview-card" data-quick="${bottle.id}" role="button" tabindex="0">
+              ${badge ? `<span class="collection-preview-badge" aria-hidden="true">${badge}</span>` : ""}
+              ${bottleThumb(bottle, "preview-thumb")}
+              <strong>${escapeHtml(bottle.name)}</strong>
+              <span>${escapeHtml(bottle.distillery || "")}</span>
+              <span>${numberOrDash(bottle.proof)} proof</span>
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="collection-preview-empty">Add a bottle to start building your collection.</p>`;
 }
 
 function renderCoreBarHighlight() {

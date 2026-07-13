@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=95" />
+    <link rel="stylesheet" href="styles.css?v=96" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -52,11 +52,11 @@
           />
           <div>
             <strong>Fully Involved Pour</strong>
-            <span>Drink what you enjoy. Share what matters.</span>
           </div>
         </div>
 
         <div class="account-box" id="accountBox" aria-label="Account">
+          <button class="icon-button" id="headerSearchButton" type="button" aria-label="Search your collection">🔍</button>
           <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
           <div class="account-chip is-hidden" id="accountChip">
             <img id="accountAvatar" alt="" />
@@ -66,7 +66,7 @@
             <button class="icon-button" id="signOutButton" type="button" aria-label="Sign out">⏏</button>
           </div>
           <button class="icon-button friends-toggle" id="friendsToggle" type="button" aria-label="Friends">
-            <span aria-hidden="true">⚇</span>
+            <span aria-hidden="true">🔔</span>
             <span class="nav-badge is-hidden" id="friendsBadge"></span>
           </button>
         </div>
@@ -310,6 +310,31 @@
         </section>
 
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
+          <section class="hero home-hero" aria-label="Fully Involved Pour">
+            <img src="assets/hero-bar.png" alt="Bourbon and spirits bottles arranged on a warm home bar" />
+            <img class="home-hero-mark" src="assets/compass-mark.png" alt="" aria-hidden="true" />
+            <div class="hero-overlay">
+              <div class="hero-copy home-hero-copy">
+                <h1 class="home-hero-title">
+                  <span>Drink what you enjoy.</span>
+                  <span class="accent">Share what matters.</span>
+                </h1>
+                <p class="hero-description">
+                  Fully Involved Pour is your space to discover great whiskey, track your collection, and share
+                  reviews that connect.
+                </p>
+                <div class="home-hero-actions">
+                  <button class="primary-action" id="homeHeroBrowse" type="button">
+                    <span aria-hidden="true">🥃</span> Browse Collection
+                  </button>
+                  <button class="secondary-action" id="homeHeroLogPour" type="button">
+                    <span aria-hidden="true">✎</span> Log Your Pour
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section class="pillar-nav" aria-label="Your whiskey journey">
             <button class="pillar-card" data-pillar-view="buy-next" type="button">
               <span class="pillar-icon" aria-hidden="true">🧭</span>
@@ -332,6 +357,17 @@
               <span>Pass it forward</span>
             </button>
           </section>
+
+          <section class="collection-preview" aria-label="Browse your collection">
+            <div class="section-heading">
+              <div>
+                <h2>Browse your collection</h2>
+              </div>
+              <button class="text-link" id="collectionPreviewViewAll" type="button">View All →</button>
+            </div>
+            <div class="collection-preview-row" id="collectionPreviewRow"></div>
+          </section>
+
           <div class="core-bar-highlight" id="coreBarHighlight"></div>
           <div class="top-rated-highlight" id="topRatedHighlight"></div>
           <div class="pour-streak-highlight" id="pourStreakHighlight"></div>
@@ -1025,7 +1061,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=113"></script>
+    <script src="app.js?v=114"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
