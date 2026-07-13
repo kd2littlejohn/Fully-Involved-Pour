@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=97" />
+    <link rel="stylesheet" href="styles.css?v=98" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -72,52 +72,28 @@
         </div>
 
         <nav class="nav-list" aria-label="Views">
-          <button class="nav-item is-active" data-view="dashboard" type="button">
-            <span aria-hidden="true">▤</span>
-            Home
-          </button>
-          <button class="nav-item" data-view="collection" type="button">
-            <span aria-hidden="true">▦</span>
-            Inventory
-          </button>
-          <button class="nav-item" data-view="compare" type="button">
-            <span aria-hidden="true">⚖</span>
-            Compare
-          </button>
-          <button class="nav-item" data-view="core-bar" type="button">
-            <span aria-hidden="true">◈</span>
-            Core Bar
-          </button>
-          <button class="nav-item" data-view="buy-next" type="button">
-            <span aria-hidden="true">＋</span>
-            Buy Next
-          </button>
-          <button class="nav-item optional-nav" data-view="opened" type="button">
-            <span aria-hidden="true">◒</span>
-            Opened
-          </button>
-          <button class="nav-item optional-nav" data-view="finished" type="button">
-            <span aria-hidden="true">✓</span>
-            Finished
-          </button>
-          <button class="nav-item" data-view="ai-tools" type="button">
-            <span aria-hidden="true">✦</span>
-            AI Tools
-          </button>
-          <button class="nav-item" data-view="wishlist" type="button">
-            <span aria-hidden="true">☆</span>
-            Wish List
-          </button>
-          <button class="nav-item" data-view="pour-log" type="button">
-            <span aria-hidden="true">◍</span>
-            Pour Log
-          </button>
-          <button class="nav-item" data-view="infinity" type="button">
-            <span aria-hidden="true">♾</span>
-            Infinity
-          </button>
+          <button class="nav-item is-active" data-view="dashboard" type="button">Home</button>
+          <button class="nav-item" data-view="collection" type="button">Collection</button>
+          <button class="nav-item" data-view="pour-log" type="button">Pour Stories</button>
+          <button class="nav-item" data-view="buy-next" type="button">Discover</button>
+          <button class="nav-item" data-view="profile" type="button">Profile</button>
         </nav>
       </header>
+
+      <nav class="sub-nav is-hidden" id="collectionSubNav" aria-label="Collection views">
+        <button class="sub-nav-item" data-view="collection" type="button">All</button>
+        <button class="sub-nav-item" data-view="core-bar" type="button">Core Bar</button>
+        <button class="sub-nav-item" data-view="opened" type="button">Opened</button>
+        <button class="sub-nav-item" data-view="finished" type="button">Finished</button>
+        <button class="sub-nav-item" data-view="compare" type="button">Compare</button>
+        <button class="sub-nav-item" data-view="infinity" type="button">Infinity Bottle</button>
+      </nav>
+
+      <nav class="sub-nav is-hidden" id="discoverSubNav" aria-label="Discover views">
+        <button class="sub-nav-item" data-view="buy-next" type="button">🎯 Buy Next</button>
+        <button class="sub-nav-item" data-view="wishlist" type="button">☆ Wish List</button>
+        <button class="sub-nav-item" id="discoverLibraryButton" type="button">📚 Whiskey Library</button>
+      </nav>
 
       <main class="main">
         <section class="hero" aria-label="Collection overview">
@@ -310,6 +286,21 @@
         </section>
 
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
+          <section class="home-greeting" aria-label="Greeting">
+            <h1 id="homeGreeting">Good evening.</h1>
+            <p>What story will you add today?</p>
+          </section>
+
+          <section class="insights-card continue-story is-hidden" id="continueStoryCard" aria-label="Continue your pour story">
+            <div class="section-heading">
+              <div>
+                <p>In Progress</p>
+                <h2>Continue Pour Story</h2>
+              </div>
+            </div>
+            <div class="continue-story-body" id="continueStoryBody"></div>
+          </section>
+
           <section class="hero home-hero" aria-label="Fully Involved Pour">
             <img src="assets/home-hero.png" alt="A Glencairn glass etched with the Fully Involved Pour compass, on a warm home bar" />
             <div class="hero-overlay">
@@ -334,27 +325,37 @@
             </div>
           </section>
 
-          <section class="pillar-nav" aria-label="Your whiskey journey">
+          <section class="pillar-nav" aria-label="Today's Journey">
             <button class="pillar-card" data-pillar-view="buy-next" type="button">
               <span class="pillar-icon" aria-hidden="true">🧭</span>
               <strong>Discover</strong>
-              <span>Explore what's new</span>
+              <span>Explore something new</span>
             </button>
             <button class="pillar-card" data-pillar-view="pour-log" type="button">
               <span class="pillar-icon" aria-hidden="true">🥃</span>
               <strong>Experience</strong>
-              <span>Savor tonight's pour</span>
+              <span>Enjoy today's pour</span>
             </button>
-            <button class="pillar-card" data-pillar-view="ai-tools" type="button">
+            <button class="pillar-card" data-pillar-tab="notes" type="button">
               <span class="pillar-icon" aria-hidden="true">📖</span>
               <strong>Reflect</strong>
-              <span>Capture the moment</span>
+              <span>Add tasting notes</span>
             </button>
             <button class="pillar-card" data-pillar-action="share" type="button">
               <span class="pillar-icon" aria-hidden="true">👥</span>
               <strong>Share</strong>
-              <span>Pass it forward</span>
+              <span>Recommend today's favorite</span>
             </button>
+          </section>
+
+          <section class="dashboard-section" aria-label="Collection snapshot">
+            <div class="section-heading">
+              <div>
+                <p>Snapshot</p>
+                <h2>Collection Snapshot</h2>
+              </div>
+            </div>
+            <div class="profile-journey-grid" id="collectionSnapshotGrid"></div>
           </section>
 
           <section class="collection-preview" aria-label="Browse your collection">
@@ -370,6 +371,26 @@
           <div class="core-bar-highlight" id="coreBarHighlight"></div>
           <div class="top-rated-highlight" id="topRatedHighlight"></div>
           <div class="pour-streak-highlight" id="pourStreakHighlight"></div>
+
+          <section class="insights-card" aria-label="Recent Pour Stories">
+            <div class="section-heading">
+              <div>
+                <p>Memories</p>
+                <h2>Recent Pour Stories</h2>
+              </div>
+            </div>
+            <div class="pour-story-list" id="recentPourStories"></div>
+          </section>
+
+          <section class="insights-card" aria-label="Journey insights">
+            <div class="section-heading">
+              <div>
+                <p>Journey Insights</p>
+                <h2>Your journey so far</h2>
+              </div>
+            </div>
+            <div class="journey-insights-grid" id="journeyInsightsGrid"></div>
+          </section>
 
           <section class="dashboard-grid">
           <div class="insights-card">
@@ -387,16 +408,6 @@
               <input id="dashboardAssistantPrompt" type="text" placeholder="Ask about tonight's pour..." />
               <button class="primary-action" type="submit">Ask</button>
             </form>
-          </div>
-
-          <div class="insights-card">
-            <div class="section-heading">
-              <div>
-                <p>Activity</p>
-                <h2>Recent activity</h2>
-              </div>
-            </div>
-            <div class="activity-list" id="recentActivity"></div>
           </div>
 
           <div class="insights-card">
@@ -480,126 +491,136 @@
           </section>
         </div>
 
-        <section class="ai-tools-board is-hidden" id="aiToolsView">
-          <div class="section-heading">
-            <div>
-              <p>AI Tools</p>
-              <h2>Pour assistant</h2>
-            </div>
-            <div class="section-heading-actions">
-              <button class="secondary-action" id="clearAssistantChat" type="button">New Chat</button>
-              <button class="secondary-action" id="refreshAiTools" type="button">Refresh</button>
-            </div>
-          </div>
-
-          <div class="assistant-shell">
-            <aside class="assistant-rail">
-              <button data-assistant-prompt="What's the vibe tonight?" type="button">Dispatch</button>
-              <button data-assistant-prompt="What should I try next based on my collection?" type="button">
-                Next Pour
-              </button>
-              <button data-assistant-prompt="What bottle should I buy next?" type="button">Buy Picks</button>
-              <button data-assistant-prompt="Help me write tasting notes for what I'm sipping." type="button">
-                Tasting
-              </button>
-              <button data-assistant-prompt="I love high-proof bourbons. What am I missing?" type="button">
-                Expert
-              </button>
-            </aside>
-
-            <div class="assistant-chat">
-              <div class="assistant-messages" id="assistantMessages" aria-live="polite"></div>
-              <form class="assistant-input" id="assistantForm">
-                <textarea
-                  id="assistantPrompt"
-                  rows="2"
-                  placeholder="Ask your pour assistant about tonight's pour, buy picks, tasting notes, or comparisons..."
-                ></textarea>
-                <button class="primary-action" type="submit">Send</button>
-              </form>
-            </div>
-          </div>
-
-          <div class="tasting-board" id="tastingView">
-            <div class="section-heading">
-              <div>
-                <p>Bottle Reviews</p>
-                <h2>Guided notes</h2>
-              </div>
-              <button class="secondary-action" id="saveTastingNote" type="button">Save Note</button>
-            </div>
-            <div class="tasting-workspace">
-              <div class="tasting-form">
-                <label>
-                  Bottle
-                  <select id="tastingBottle"></select>
-                </label>
-                <div class="tasting-grid">
-                  <label>
-                    Nose
-                    <textarea id="tastingNose" rows="3" placeholder="Caramel, cherry, ethanol, oak..."></textarea>
-                  </label>
-                  <label>
-                    Palate
-                    <textarea id="tastingPalate" rows="3" placeholder="Sweet entry, spice, fruit, proof..."></textarea>
-                  </label>
-                  <label>
-                    Finish
-                    <textarea id="tastingFinish" rows="3" placeholder="Short, drying, warm, long oak..."></textarea>
-                  </label>
-                  <label>
-                    Score
-                    <input id="tastingScore" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
-                  </label>
-                </div>
-                <div class="form-actions">
-                  <button class="secondary-action" id="buildTastingNote" type="button">Build Note</button>
-                  <button class="secondary-action ai-action" id="aiTastingNote" type="button">✨ AI Tasting Note</button>
-                  <button class="primary-action" id="logTastingPour" type="button">Log Pour</button>
-                </div>
-              </div>
-              <div class="tasting-preview">
-                <span>Generated Note</span>
-                <p id="generatedTastingNote">Build a note from your tasting inputs.</p>
-              </div>
-            </div>
-            <div class="note-list" id="noteList"></div>
-          </div>
-        </section>
-
         <section class="pour-log-board is-hidden" id="pourLogView">
           <div class="section-heading">
             <div>
-              <p>Pour Log</p>
-              <h2>Sessions</h2>
+              <p>Pour Stories</p>
+              <h2>Your whiskey journey, in moments</h2>
             </div>
             <button class="primary-action" id="openPourForm" type="button">Log Pour</button>
           </div>
 
-          <section class="pour-stats" aria-label="Pour log stats">
-            <article>
-              <span>Total Pours</span>
-              <strong id="totalPours">0</strong>
-            </article>
-            <article>
-              <span>This Week</span>
-              <strong id="weeklyPours">0</strong>
-            </article>
-            <article>
-              <span>Ounces This Week</span>
-              <strong id="weeklyOunces">0</strong>
-            </article>
-            <article>
-              <span>Bottle Alerts</span>
-              <strong id="bottleAlerts">0</strong>
-            </article>
-          </section>
-
-          <div class="pour-actions">
-            <button class="secondary-action" id="analyzePours" type="button">Analyze</button>
+          <div class="quick-tabs" role="tablist" id="pourStoriesTabs">
+            <button class="quick-tab is-active" data-story-tab="sessions" type="button">Sessions</button>
+            <button class="quick-tab" data-story-tab="notes" type="button">Tasting Notes</button>
+            <button class="quick-tab" data-story-tab="assistant" type="button">Ask Assistant</button>
           </div>
-          <div class="ai-output" id="pourAnalysis"></div>
-          <div class="pour-list" id="pourList"></div>
+
+          <div class="quick-tab-panel" data-story-tab-panel="sessions">
+            <section class="pour-stats" aria-label="Pour log stats">
+              <article>
+                <span>Total Pours</span>
+                <strong id="totalPours">0</strong>
+              </article>
+              <article>
+                <span>This Week</span>
+                <strong id="weeklyPours">0</strong>
+              </article>
+              <article>
+                <span>Ounces This Week</span>
+                <strong id="weeklyOunces">0</strong>
+              </article>
+              <article>
+                <span>Bottle Alerts</span>
+                <strong id="bottleAlerts">0</strong>
+              </article>
+            </section>
+
+            <div class="pour-actions">
+              <button class="secondary-action" id="analyzePours" type="button">Analyze</button>
+            </div>
+            <div class="ai-output" id="pourAnalysis"></div>
+            <div class="pour-list" id="pourList"></div>
+          </div>
+
+          <div class="quick-tab-panel is-hidden" data-story-tab-panel="notes">
+            <div class="tasting-board" id="tastingView">
+              <div class="section-heading">
+                <div>
+                  <p>Bottle Reviews</p>
+                  <h2>Guided notes</h2>
+                </div>
+                <button class="secondary-action" id="saveTastingNote" type="button">Save Note</button>
+              </div>
+              <div class="tasting-workspace">
+                <div class="tasting-form">
+                  <label>
+                    Bottle
+                    <select id="tastingBottle"></select>
+                  </label>
+                  <div class="tasting-grid">
+                    <label>
+                      Nose
+                      <textarea id="tastingNose" rows="3" placeholder="Caramel, cherry, ethanol, oak..."></textarea>
+                    </label>
+                    <label>
+                      Palate
+                      <textarea id="tastingPalate" rows="3" placeholder="Sweet entry, spice, fruit, proof..."></textarea>
+                    </label>
+                    <label>
+                      Finish
+                      <textarea id="tastingFinish" rows="3" placeholder="Short, drying, warm, long oak..."></textarea>
+                    </label>
+                    <label>
+                      Score
+                      <input id="tastingScore" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button class="secondary-action" id="buildTastingNote" type="button">Build Note</button>
+                    <button class="secondary-action ai-action" id="aiTastingNote" type="button">✨ AI Tasting Note</button>
+                    <button class="primary-action" id="logTastingPour" type="button">Log Pour</button>
+                  </div>
+                </div>
+                <div class="tasting-preview">
+                  <span>Generated Note</span>
+                  <p id="generatedTastingNote">Build a note from your tasting inputs.</p>
+                </div>
+              </div>
+              <div class="note-list" id="noteList"></div>
+            </div>
+          </div>
+
+          <div class="quick-tab-panel is-hidden" data-story-tab-panel="assistant">
+            <div class="section-heading compact">
+              <div>
+                <p>AI Tools</p>
+                <h2>Pour assistant</h2>
+              </div>
+              <div class="section-heading-actions">
+                <button class="secondary-action" id="clearAssistantChat" type="button">New Chat</button>
+                <button class="secondary-action" id="refreshAiTools" type="button">Refresh</button>
+              </div>
+            </div>
+
+            <div class="assistant-shell">
+              <aside class="assistant-rail">
+                <button data-assistant-prompt="What's the vibe tonight?" type="button">Dispatch</button>
+                <button data-assistant-prompt="What should I try next based on my collection?" type="button">
+                  Next Pour
+                </button>
+                <button data-assistant-prompt="What bottle should I buy next?" type="button">Buy Picks</button>
+                <button data-assistant-prompt="Help me write tasting notes for what I'm sipping." type="button">
+                  Tasting
+                </button>
+                <button data-assistant-prompt="I love high-proof bourbons. What am I missing?" type="button">
+                  Expert
+                </button>
+              </aside>
+
+              <div class="assistant-chat">
+                <div class="assistant-messages" id="assistantMessages" aria-live="polite"></div>
+                <form class="assistant-input" id="assistantForm">
+                  <textarea
+                    id="assistantPrompt"
+                    rows="2"
+                    placeholder="Ask your pour assistant about tonight's pour, buy picks, tasting notes, or comparisons..."
+                  ></textarea>
+                  <button class="primary-action" type="submit">Send</button>
+                </form>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section class="infinity-board is-hidden" id="infinityView">
@@ -664,6 +685,62 @@
             </div>
           </div>
           <div id="faceoffBody"></div>
+        </section>
+
+        <section class="profile-board is-hidden" id="profileView">
+          <div class="section-heading">
+            <div>
+              <p>Profile</p>
+              <h2>My Journey</h2>
+            </div>
+          </div>
+
+          <div class="profile-journey-grid">
+            <article>
+              <span>Bottles</span>
+              <strong id="profileBottleCount">0</strong>
+            </article>
+            <article>
+              <span>Pour Stories</span>
+              <strong id="profilePourCount">0</strong>
+            </article>
+            <article>
+              <span>Bottle Kills</span>
+              <strong id="profileBottleKills">0</strong>
+            </article>
+            <article>
+              <span>Favorite Distillery</span>
+              <strong id="profileFavoriteDistillery">—</strong>
+            </article>
+            <article>
+              <span>Favorite Proof Range</span>
+              <strong id="profileFavoriteProof">—</strong>
+            </article>
+            <article>
+              <span>Collection Value</span>
+              <strong id="profileCollectionValue">$0</strong>
+            </article>
+          </div>
+
+          <div class="section-heading compact">
+            <div>
+              <p>Palate</p>
+              <h2>Top flavor notes</h2>
+            </div>
+          </div>
+          <div class="profile-flavor-tags" id="profileFlavorTags"></div>
+
+          <div class="section-heading compact">
+            <div>
+              <p>Account</p>
+              <h2>Settings</h2>
+            </div>
+          </div>
+          <div class="profile-account-actions">
+            <button class="secondary-action" id="profileEditUsername" type="button">Edit Username</button>
+            <button class="secondary-action" id="profileFriendsButton" type="button">Friends</button>
+            <button class="secondary-action" id="profileSignOut" type="button">Sign Out</button>
+          </div>
         </section>
 
         <footer class="brand-footer">
@@ -1060,7 +1137,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=114"></script>
+    <script src="app.js?v=115"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

@@ -1548,6 +1548,20 @@ const els = {
   homeHeroBrowse: document.querySelector("#homeHeroBrowse"),
   homeHeroLogPour: document.querySelector("#homeHeroLogPour"),
   headerSearchButton: document.querySelector("#headerSearchButton"),
+  profileView: document.querySelector("#profileView"),
+  profileBottleCount: document.querySelector("#profileBottleCount"),
+  profilePourCount: document.querySelector("#profilePourCount"),
+  profileBottleKills: document.querySelector("#profileBottleKills"),
+  profileFavoriteDistillery: document.querySelector("#profileFavoriteDistillery"),
+  profileFavoriteProof: document.querySelector("#profileFavoriteProof"),
+  profileCollectionValue: document.querySelector("#profileCollectionValue"),
+  profileFlavorTags: document.querySelector("#profileFlavorTags"),
+  homeGreeting: document.querySelector("#homeGreeting"),
+  continueStoryCard: document.querySelector("#continueStoryCard"),
+  continueStoryBody: document.querySelector("#continueStoryBody"),
+  collectionSnapshotGrid: document.querySelector("#collectionSnapshotGrid"),
+  recentPourStories: document.querySelector("#recentPourStories"),
+  journeyInsightsGrid: document.querySelector("#journeyInsightsGrid"),
   noteList: document.querySelector("#noteList"),
   flavorList: document.querySelector("#flavorList"),
   flavorBottleList: document.querySelector("#flavorBottleList"),
@@ -1609,7 +1623,6 @@ const els = {
   buyNextSuggest: document.querySelector("#buyNextSuggest"),
   dashboardView: document.querySelector("#dashboardView"),
   tastingView: document.querySelector("#tastingView"),
-  aiToolsView: document.querySelector("#aiToolsView"),
   pourLogView: document.querySelector("#pourLogView"),
   infinityView: document.querySelector("#infinityView"),
   infinityGrid: document.querySelector("#infinityGrid"),
@@ -1785,6 +1798,15 @@ function switchProfileTab(tab) {
 document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((tabButton) => {
   tabButton.addEventListener("click", () => switchProfileTab(tabButton.dataset.profileTab));
 });
+function switchPourStoriesTab(tab) {
+  document.querySelectorAll("#pourStoriesTabs [data-story-tab]").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.storyTab === tab));
+  document.querySelectorAll("[data-story-tab-panel]").forEach((panel) => {
+    panel.classList.toggle("is-hidden", panel.dataset.storyTabPanel !== tab);
+  });
+}
+document.querySelectorAll("#pourStoriesTabs [data-story-tab]").forEach((tabButton) => {
+  tabButton.addEventListener("click", () => switchPourStoriesTab(tabButton.dataset.storyTab));
+});
 els.seasonMoodBoard?.addEventListener("click", (event) => {
   const chip = event.target.closest(".mini-flavor-chip[data-flavor]");
   if (!chip) return;
@@ -1918,9 +1940,32 @@ document.querySelectorAll("[data-proof]").forEach((button) => {
   });
 });
 
+// Maps every underlying activeView value to the top-level nav tab it lives under,
+// since Collection and Discover each fan out into several legacy view states.
+const NAV_GROUPS = {
+  dashboard: "dashboard",
+  collection: "collection",
+  "core-bar": "collection",
+  opened: "collection",
+  finished: "collection",
+  compare: "collection",
+  faceoff: "collection",
+  infinity: "collection",
+  "pour-log": "pour-log",
+  "buy-next": "buy-next",
+  wishlist: "buy-next",
+  profile: "profile",
+};
+
 function navigateToView(view) {
   activeView = view;
-  document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("is-active", item.dataset.view === view));
+  const group = NAV_GROUPS[view] || view;
+  document
+    .querySelectorAll(".nav-item[data-view]")
+    .forEach((item) => item.classList.toggle("is-active", (NAV_GROUPS[item.dataset.view] || item.dataset.view) === group));
+  document
+    .querySelectorAll(".sub-nav-item[data-view]")
+    .forEach((item) => item.classList.toggle("is-active", item.dataset.view === view));
   const viewFilters = {
     wishlist: "wishlist",
     "core-bar": "core-bar",
@@ -1950,6 +1995,13 @@ document.querySelectorAll("[data-pillar-view]").forEach((button) => {
   button.addEventListener("click", () => navigateToView(button.dataset.pillarView));
 });
 
+document.querySelectorAll("[data-pillar-tab]").forEach((button) => {
+  button.addEventListener("click", () => {
+    navigateToView("pour-log");
+    switchPourStoriesTab(button.dataset.pillarTab);
+  });
+});
+
 document.querySelectorAll("[data-pillar-action='share']").forEach((button) => {
   button.addEventListener("click", () => els.friendsToggle?.click());
 });
@@ -1966,6 +2018,8 @@ els.headerSearchButton?.addEventListener("click", () => {
   navigateToView("collection");
   els.searchInput?.focus();
 });
+
+document.querySelector("#discoverLibraryButton")?.addEventListener("click", () => openLibrary());
 
 function loadBottles() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -2614,6 +2668,10 @@ els.editUsernameButton?.addEventListener("click", () => openUsernameSetup());
 els.saveUsername?.addEventListener("click", () => claimUsername(els.usernameInput.value));
 els.followButton?.addEventListener("click", () => followUsername(els.followUsernameInput.value));
 
+document.querySelector("#profileEditUsername")?.addEventListener("click", () => openUsernameSetup());
+document.querySelector("#profileFriendsButton")?.addEventListener("click", () => els.friendsToggle?.click());
+document.querySelector("#profileSignOut")?.addEventListener("click", () => auth?.signOut());
+
 function openFriendsDrawer() {
   els.friendsDrawer.classList.add("is-open");
   els.friendsBackdrop.classList.remove("is-hidden");
@@ -2802,16 +2860,21 @@ function render() {
     els.toggleSelect.textContent = "Select";
     els.toggleSelect.classList.remove("is-selected");
   }
-  const collectionVisible = !["ai-tools", "pour-log", "infinity", "dashboard", "compare", "faceoff"].includes(activeView);
+  const collectionVisible = !["pour-log", "infinity", "dashboard", "compare", "faceoff", "profile"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
-  els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
   els.infinityView.classList.toggle("is-hidden", activeView !== "infinity");
   els.compareView.classList.toggle("is-hidden", activeView !== "compare");
   els.faceoffView.classList.toggle("is-hidden", activeView !== "faceoff");
+  els.profileView.classList.toggle("is-hidden", activeView !== "profile");
   if (activeView === "faceoff") renderFaceoffView();
   if (activeView === "infinity") renderInfinityGrid();
+  if (activeView === "profile") renderProfile();
+
+  const collectionGroupViews = ["collection", "core-bar", "opened", "finished", "compare", "infinity", "faceoff"];
+  document.querySelector("#collectionSubNav")?.classList.toggle("is-hidden", !collectionGroupViews.includes(activeView));
+  document.querySelector("#discoverSubNav")?.classList.toggle("is-hidden", !["buy-next", "wishlist"].includes(activeView));
 
   renderStats();
   renderCollectionPreview();
@@ -2824,7 +2887,11 @@ function render() {
   renderTopRatedHighlight();
   renderPourStreakHighlight();
   renderRecommendation();
-  renderRecentActivity();
+  renderHomeGreeting();
+  renderContinueStoryCard();
+  renderCollectionSnapshot();
+  renderRecentPourStories();
+  renderJourneyInsights();
   renderNotes();
   renderTastingWorkspace();
   renderAiTools();
@@ -2927,6 +2994,7 @@ function renderCards(shown) {
               <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
                 ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
               </div>
+              ${journeyStatusBadge(bottle)}
               ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
             </div>
             ${renderBottleRowActions(bottle, index, shown.length, isBuyNext, customOrder)}
@@ -2939,6 +3007,21 @@ function renderCards(shown) {
   }
 
   bindBottleActions();
+}
+
+// Where a bottle sits on its own arc, from unopened to finished — shown as a small
+// badge on every card so the collection reads as a set of journeys, not just stock.
+function journeyStatus(bottle) {
+  if (["wishlist", "buy-next"].includes(bottle.status)) return null;
+  if (bottle.status === "finished" || bottle.fillLevel === "empty") return { emoji: "⚫", label: "Bottle Kill" };
+  if (bottle.status === "sealed") return { emoji: "🟢", label: "New" };
+  if (["half", "low"].includes(bottle.fillLevel)) return { emoji: "🟠", label: "Peak" };
+  return { emoji: "🟡", label: "Opening Up" };
+}
+
+function journeyStatusBadge(bottle) {
+  const status = journeyStatus(bottle);
+  return status ? `<span class="journey-status-badge" title="${escapeHtml(status.label)}">${status.emoji} ${escapeHtml(status.label)}</span>` : "";
 }
 
 // Shared right-side action markup (priority/rating/favorite/mark-owned/reorder) used by
@@ -2981,6 +3064,7 @@ function renderBottleTile(bottle, index, total, isBuyNext, customOrder) {
         <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
           ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
         </div>
+        ${journeyStatusBadge(bottle)}
         ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
         <div class="tile-footer">
           ${renderBottleRowActions(bottle, index, total, isBuyNext, customOrder)}
@@ -3891,6 +3975,50 @@ function renderCollectionPreview() {
     : `<p class="collection-preview-empty">Add a bottle to start building your collection.</p>`;
 }
 
+function proofRangeLabel(proof) {
+  const value = Number(proof || 0);
+  if (!value) return null;
+  const bandStart = Math.floor(value / 10) * 10;
+  return `${bandStart}-${bandStart + 9.9}`;
+}
+
+function renderProfile() {
+  if (!els.profileView) return;
+  const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+
+  els.profileBottleCount.textContent = owned.reduce((sum, bottle) => sum + Number(bottle.quantity || 1), 0);
+  els.profilePourCount.textContent = pours.length;
+  els.profileBottleKills.textContent = owned.filter(
+    (bottle) => bottle.status === "finished" || bottle.fillLevel === "empty",
+  ).length;
+
+  const distilleries = new Map();
+  owned.forEach((bottle) => {
+    if (!bottle.distillery) return;
+    distilleries.set(bottle.distillery, (distilleries.get(bottle.distillery) || 0) + Number(bottle.quantity || 1));
+  });
+  const topDistillery = [...distilleries.entries()].sort((a, b) => b[1] - a[1])[0];
+  els.profileFavoriteDistillery.textContent = topDistillery ? topDistillery[0] : "—";
+
+  const proofBands = new Map();
+  owned.forEach((bottle) => {
+    const label = proofRangeLabel(bottle.proof);
+    if (label) proofBands.set(label, (proofBands.get(label) || 0) + 1);
+  });
+  const topProofBand = [...proofBands.entries()].sort((a, b) => b[1] - a[1])[0];
+  els.profileFavoriteProof.textContent = topProofBand ? `${topProofBand[0]} proof` : "—";
+
+  const value = owned.reduce((sum, bottle) => sum + Number(bottle.price || 0) * Number(bottle.quantity || 1), 0);
+  els.profileCollectionValue.textContent = money(value);
+
+  const flavorCounts = new Map();
+  owned.flatMap((bottle) => bottle.flavors).forEach((flavor) => flavorCounts.set(flavor, (flavorCounts.get(flavor) || 0) + 1));
+  const topFlavors = [...flavorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  els.profileFlavorTags.innerHTML = topFlavors.length
+    ? topFlavors.map(([flavor]) => `<span class="flavor-chip">${escapeHtml(flavor)}</span>`).join("")
+    : `<div class="empty-state">Add flavor tags to your bottles to build your palate profile.</div>`;
+}
+
 function renderCoreBarHighlight() {
   const earned = bottles
     .filter((bottle) => bottle.coreBar)
@@ -4057,68 +4185,150 @@ function renderRecommendation() {
   }
 }
 
-function activityAddedLabel(status) {
-  if (status === "wishlist") return "Added to wish list";
-  if (status === "buy-next") return "Added to buy list";
-  return "Added to collection";
+function renderHomeGreeting() {
+  if (!els.homeGreeting) return;
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
+  const name = currentProfile?.username || currentUser?.displayName || "";
+  els.homeGreeting.textContent = name ? `Good ${timeOfDay}, ${name}.` : `Good ${timeOfDay}.`;
 }
 
-function renderRecentActivity() {
-  const bottleEvents = bottles
-    .filter((bottle) => Number(bottle.createdAt))
-    .map((bottle) => ({
-      time: Number(bottle.createdAt),
-      id: bottle.id,
-      name: bottle.name,
-      label: activityAddedLabel(bottle.status),
-      meta: labelStatus(bottle.status) || "",
-    }));
+function renderContinueStoryCard() {
+  if (!els.continueStoryCard) return;
+  const open = bottles.filter((bottle) => bottle.status === "open");
+  const lastPourTime = new Map();
+  pours.forEach((pour) => {
+    const time = new Date(`${pour.date}T12:00:00`).getTime();
+    if (Number.isFinite(time) && (!lastPourTime.has(pour.bottleId) || time > lastPourTime.get(pour.bottleId))) {
+      lastPourTime.set(pour.bottleId, time);
+    }
+  });
+  const candidate = [...open].sort((a, b) => (lastPourTime.get(b.id) || Number(b.createdAt) || 0) - (lastPourTime.get(a.id) || Number(a.createdAt) || 0))[0];
 
-  const pourEvents = pours
+  if (!candidate) {
+    els.continueStoryCard.classList.add("is-hidden");
+    return;
+  }
+  els.continueStoryCard.classList.remove("is-hidden");
+
+  const daysOpen = candidate.openedDate
+    ? Math.max(0, Math.round((Date.now() - new Date(`${candidate.openedDate}T12:00:00`).getTime()) / 86400000))
+    : null;
+
+  els.continueStoryBody.innerHTML = `
+    ${bottleThumb(candidate, "preview-thumb")}
+    <div class="continue-story-info">
+      <strong>${escapeHtml(candidate.name)}</strong>
+      <span>${escapeHtml(candidate.distillery || "")}</span>
+      <div class="continue-story-stats">
+        <div><span>Current Score</span><strong>${numberOrDash(candidate.rating)}</strong></div>
+        <div><span>Days Open</span><strong>${daysOpen === null ? "—" : daysOpen}</strong></div>
+        <div><span>Journey Stage</span><strong>${journeyStatus(candidate)?.emoji || ""} ${escapeHtml(journeyStatus(candidate)?.label || "—")}</strong></div>
+      </div>
+      <button class="primary-action" data-quick="${candidate.id}" type="button">Continue Pour Story</button>
+    </div>
+  `;
+  els.continueStoryBody.querySelectorAll("[data-quick]").forEach((item) => {
+    item.addEventListener("click", () => openBottleQuick(item.dataset.quick));
+  });
+}
+
+function renderCollectionSnapshot() {
+  if (!els.collectionSnapshotGrid) return;
+  const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+  const rated = owned.filter((bottle) => Number(bottle.rating) > 0);
+  const avgScore = rated.length ? rated.reduce((sum, bottle) => sum + Number(bottle.rating), 0) / rated.length : 0;
+
+  const distilleries = new Map();
+  owned.forEach((bottle) => {
+    if (!bottle.distillery) return;
+    distilleries.set(bottle.distillery, (distilleries.get(bottle.distillery) || 0) + Number(bottle.quantity || 1));
+  });
+  const topDistillery = [...distilleries.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  const proofBands = new Map();
+  owned.forEach((bottle) => {
+    const label = proofRangeLabel(bottle.proof);
+    if (label) proofBands.set(label, (proofBands.get(label) || 0) + 1);
+  });
+  const topProofBand = [...proofBands.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  const journeyCounts = new Map();
+  owned.forEach((bottle) => {
+    const status = journeyStatus(bottle);
+    if (status) journeyCounts.set(status.label, (journeyCounts.get(status.label) || 0) + 1);
+  });
+  const journeySummary = [...journeyCounts.entries()].map(([label, count]) => `${count} ${label}`).join(" · ") || "—";
+
+  els.collectionSnapshotGrid.innerHTML = `
+    <article><span>Bottle Count</span><strong>${owned.reduce((sum, bottle) => sum + Number(bottle.quantity || 1), 0)}</strong></article>
+    <article><span>Average Score</span><strong>${avgScore ? avgScore.toFixed(1) : "—"}</strong></article>
+    <article><span>Favorite Distillery</span><strong>${topDistillery ? escapeHtml(topDistillery[0]) : "—"}</strong></article>
+    <article><span>Favorite Proof Range</span><strong>${topProofBand ? topProofBand[0] : "—"}</strong></article>
+    <article><span>Current Journey</span><strong class="journey-summary">${journeySummary}</strong></article>
+  `;
+}
+
+function renderRecentPourStories() {
+  if (!els.recentPourStories) return;
+  const stories = [...pours]
     .map((pour) => {
       const bottle = bottles.find((item) => item.id === pour.bottleId);
       const time = new Date(`${pour.date}T12:00:00`).getTime();
-      return bottle && Number.isFinite(time)
-        ? { time, id: bottle.id, name: bottle.name, label: "Poured", meta: `${numberOrDash(pour.ounces)} oz` }
-        : null;
+      return bottle && Number.isFinite(time) ? { pour, bottle, time } : null;
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 6);
 
-  const events = [...bottleEvents, ...pourEvents].sort((a, b) => b.time - a.time).slice(0, 6);
-
-  els.recentActivity.innerHTML = events.length
-    ? events
+  els.recentPourStories.innerHTML = stories.length
+    ? stories
         .map(
-          (event) => `
-            <div class="activity-item" data-quick="${escapeHtml(event.id)}" role="button" tabindex="0">
+          ({ pour, bottle }) => `
+            <div class="pour-story-item" data-quick="${bottle.id}" role="button" tabindex="0">
               <div>
-                <strong>${escapeHtml(event.name)}</strong>
-                <span>${escapeHtml(event.label)} · ${timeAgo(event.time)}</span>
+                <strong>${escapeHtml(bottle.name)}</strong>
+                <span>${escapeHtml(pour.notes || pour.occasion || "Logged a pour")} · ${timeAgo(new Date(`${pour.date}T12:00:00`).getTime())}</span>
               </div>
-              <span class="activity-meta">${escapeHtml(event.meta)}</span>
+              <span class="pour-story-score">${numberOrDash(pour.rating || bottle.rating)}</span>
             </div>
           `,
         )
         .join("")
-    : `<div class="empty-state">No activity yet. Add a bottle or log a pour to get started.</div>`;
+    : `<div class="empty-state">No pour stories yet. Log a pour to start your journal.</div>`;
 
-  els.recentActivity.querySelectorAll("[data-quick]").forEach((item) => {
-    const open = () => openBottleQuick(item.dataset.quick);
-    item.addEventListener("click", open);
-    item.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        open();
-      }
-    });
+  els.recentPourStories.querySelectorAll("[data-quick]").forEach((item) => {
+    item.addEventListener("click", () => openBottleQuick(item.dataset.quick));
   });
+}
+
+function renderJourneyInsights() {
+  if (!els.journeyInsightsGrid) return;
+  const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+  const documentedStories =
+    pours.filter((pour) => pour.notes?.trim() || pour.occasion?.trim()).length +
+    owned.filter((bottle) => bottle.notes?.trim()).length;
+
+  const proofBands = new Map();
+  owned.forEach((bottle) => {
+    const label = proofRangeLabel(bottle.proof);
+    if (label) proofBands.set(label, (proofBands.get(label) || 0) + 1);
+  });
+  const topProofBand = [...proofBands.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  els.journeyInsightsGrid.innerHTML = `
+    <article><span>You've shared</span><strong>${pours.length} pours</strong></article>
+    <article><span>You've documented</span><strong>${documentedStories} stories</strong></article>
+    <article><span>Favorite proof</span><strong>${topProofBand ? topProofBand[0] : "—"}</strong></article>
+  `;
 }
 
 function askFromDashboard(promptText) {
   const text = (promptText ?? els.dashboardAssistantPrompt.value).trim();
   if (!text) return;
   els.dashboardAssistantPrompt.value = "";
-  navigateToView("ai-tools");
+  navigateToView("pour-log");
+  switchPourStoriesTab("assistant");
   els.assistantPrompt.value = text;
   sendAssistantMessage();
 }

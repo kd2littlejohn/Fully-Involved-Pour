@@ -507,6 +507,158 @@ label {
   letter-spacing: 0;
 }
 
+.home-greeting {
+  margin-bottom: 16px;
+}
+
+.home-greeting h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  color: var(--cream);
+}
+
+.home-greeting p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.continue-story {
+  margin-bottom: 24px;
+}
+
+.continue-story.is-hidden {
+  display: none;
+}
+
+.continue-story-body {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.continue-story-body .catalog-thumb,
+.continue-story-body .catalog-thumb-empty {
+  width: 100px;
+  height: 140px;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.continue-story-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.continue-story-info strong {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+
+.continue-story-info > span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.continue-story-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 8px 0;
+}
+
+.continue-story-stats span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.continue-story-stats strong {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.continue-story-info .primary-action {
+  width: fit-content;
+}
+
+.dashboard-section {
+  margin-bottom: 24px;
+}
+
+.journey-summary {
+  font-size: 0.95rem !important;
+}
+
+.pour-story-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pour-story-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.pour-story-item strong {
+  font-size: 0.95rem;
+}
+
+.pour-story-item span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.pour-story-score {
+  font-family: var(--serif);
+  font-weight: 700;
+  color: var(--amber);
+  font-size: 1.1rem;
+}
+
+.journey-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.journey-insights-grid article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.journey-insights-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.journey-insights-grid strong {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--cream);
+}
+
 .home-hero {
   min-height: 420px;
   margin-bottom: 24px;
@@ -1872,6 +2024,86 @@ select {
 .tasting-board {
   padding: 18px;
   box-shadow: var(--shadow-soft);
+}
+
+.sub-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px max(18px, calc((100vw - 1200px) / 2));
+  border-bottom: 1px solid var(--line);
+  background: rgba(17, 17, 18, 0.7);
+}
+
+.sub-nav.is-hidden {
+  display: none;
+}
+
+.sub-nav-item {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.sub-nav-item:hover {
+  color: var(--cream);
+  border-color: var(--brass);
+}
+
+.sub-nav-item.is-active {
+  color: var(--charcoal);
+  background: var(--amber);
+  border-color: var(--amber);
+}
+
+.profile-journey-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.profile-journey-grid article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.profile-journey-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.profile-journey-grid strong {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.4rem;
+}
+
+.profile-flavor-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.profile-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .text-link {
@@ -4698,6 +4930,22 @@ textarea {
 
 .catalog-tag.is-core {
   color: var(--amber);
+}
+
+.journey-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  min-height: 20px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
 .store-pick-pill {
