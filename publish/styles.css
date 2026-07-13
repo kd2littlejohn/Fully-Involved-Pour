@@ -1140,7 +1140,9 @@ select {
 .catalog-main h3,
 .quick-detail h2,
 .form-head h2,
-.welcome-card > strong {
+.welcome-card > strong,
+.assistant-message.assistant p,
+.infinity-log-item strong {
   font-family: var(--serif);
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -2895,6 +2897,18 @@ button.mini-flavor-chip:focus-visible {
   color: var(--muted);
   font-size: 0.8rem;
   text-align: center;
+}
+
+.infinity-meta {
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 16px;
+}
+
+.infinity-proof-note {
+  margin: -10px 0 16px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-style: italic;
 }
 
 .ai-tools-board,

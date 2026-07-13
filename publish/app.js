@@ -4400,7 +4400,31 @@ function computeInfinityStats(infinity) {
   const additions = infinity.additions || [];
   const totalOunces = additions.reduce((sum, entry) => sum + (Number(entry.ounces) || 0), 0);
   const daysAging = Math.max(0, Math.floor((Date.now() - (infinity.createdAt || Date.now())) / 86400000));
-  return { additionCount: additions.length, totalOunces, daysAging };
+  const hasUnknownProofEntries = additions.some((entry) => !(Number(entry.sourceProof) > 0));
+  return {
+    additionCount: additions.length,
+    totalOunces,
+    daysAging,
+    blendProof: computeInfinityBlendProof(additions),
+    hasUnknownProofEntries,
+  };
+}
+
+// Volume-weighted average proof across every addition that has a known proof (i.e. was
+// logged against a real inventory bottle) — freeform "typed a name" entries have no known
+// proof and are simply excluded from the average rather than dragging it toward 0.
+function computeInfinityBlendProof(additions) {
+  let weightedSum = 0;
+  let knownOunces = 0;
+  additions.forEach((entry) => {
+    const proof = Number(entry.sourceProof);
+    const ounces = Number(entry.ounces) || 0;
+    if (proof > 0 && ounces > 0) {
+      weightedSum += proof * ounces;
+      knownOunces += ounces;
+    }
+  });
+  return knownOunces ? weightedSum / knownOunces : null;
 }
 
 // Only additions logged against a real inventory bottle carry flavor tags (snapshotted
@@ -4639,11 +4663,17 @@ function openInfinityDetail(id, tab, preselectBottleId) {
 
       ${renderInfinityDecanter(stats.totalOunces)}
 
-      <div class="bottle-meta">
+      <div class="bottle-meta infinity-meta">
         <div><span>Total Added</span><strong>${stats.totalOunces.toFixed(1)} oz</strong></div>
         <div><span>Additions</span><strong>${stats.additionCount}</strong></div>
         <div><span>Aging</span><strong>${stats.daysAging}d</strong></div>
+        <div><span>Est. Proof</span><strong>${stats.blendProof ? stats.blendProof.toFixed(1) : "—"}</strong></div>
       </div>
+      ${
+        stats.blendProof && stats.hasUnknownProofEntries
+          ? `<p class="infinity-proof-note">Estimate excludes ingredients not linked to an inventory bottle.</p>`
+          : ""
+      }
 
       <div class="bottle-radar">
         ${blendItems.length ? renderInfinityRadar(blendItems) : `<div class="empty-state">Log an addition to see this blend's flavor profile.</div>`}
@@ -4756,6 +4786,7 @@ function submitInfinityEntry(id) {
       sourceBottleId: sourceBottle?.id || null,
       sourceName,
       sourceFlavors: sourceBottle?.flavors || [],
+      sourceProof: sourceBottle?.proof || null,
     });
   });
 
