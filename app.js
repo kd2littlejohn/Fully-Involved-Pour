@@ -4714,6 +4714,8 @@ function submitInfinityEntry(id) {
 
 // A decanter that visually fills as ounces accumulate, scaled to whichever standard
 // bottle size the current total is closest to (375ml/750ml/1L/1.75L).
+// Squared, faceted crystal decanter (wide angular body, short neck, tall block
+// stopper) rather than a rounded flask — modeled on a reference decanter photo.
 function renderInfinityDecanter(totalOunces) {
   const tiers = [
     { oz: 12.7, label: "375ml" },
@@ -4723,21 +4725,29 @@ function renderInfinityDecanter(totalOunces) {
   ];
   const tier = tiers.find((t) => totalOunces <= t.oz) || tiers[tiers.length - 1];
   const fillPercent = Math.max(0, Math.min(100, (totalOunces / tier.oz) * 100));
-  const maxFillHeight = 187;
+  const bodyTop = 72;
+  const bodyBottom = 190;
+  const maxFillHeight = bodyBottom - bodyTop;
   const fillHeight = (maxFillHeight * fillPercent) / 100;
-  const fillY = (192 - fillHeight).toFixed(1);
-  const bottlePath =
-    "M45,5 L75,5 L75,50 C75,50 108,62 108,92 L108,176 C108,184 100,192 92,192 L28,192 C20,192 12,184 12,176 L12,92 C12,62 45,50 45,50 Z";
+  const fillY = (bodyBottom - fillHeight).toFixed(1);
+  // Neck bottom -> shoulder facet -> straight sides -> rounded base corners -> back
+  // up the left side -> Z closes with the mirrored shoulder facet on the left.
+  const bodyPath =
+    "M48,55 L72,55 L106,72 L106,178 C106,185 100,190 92,190 L28,190 C20,190 14,185 14,178 L14,72 Z";
 
   return `
     <div class="infinity-decanter">
       <svg viewBox="0 0 120 200" role="img" aria-label="${totalOunces.toFixed(1)} ounces added, about ${Math.round(fillPercent)}% of a ${tier.label} bottle">
         <defs>
-          <clipPath id="decanterClip"><path d="${bottlePath}"></path></clipPath>
+          <clipPath id="decanterClip"><path d="${bodyPath}"></path></clipPath>
         </defs>
         <rect class="decanter-fill" x="0" y="${fillY}" width="120" height="${fillHeight.toFixed(1)}" clip-path="url(#decanterClip)"></rect>
-        <path class="decanter-outline" d="${bottlePath}"></path>
-        <rect class="decanter-cap" x="43" y="0" width="34" height="9" rx="3"></rect>
+        <path class="decanter-outline" d="${bodyPath}"></path>
+        <line class="decanter-facet" x1="40" y1="78" x2="40" y2="186"></line>
+        <line class="decanter-facet" x1="80" y1="78" x2="80" y2="186"></line>
+        <rect class="decanter-glass" x="48" y="30" width="24" height="26"></rect>
+        <rect class="decanter-glass" x="42" y="22" width="36" height="10" rx="2"></rect>
+        <rect class="decanter-glass" x="46" y="0" width="28" height="26" rx="2"></rect>
       </svg>
       <p class="infinity-decanter-caption">${totalOunces.toFixed(1)} oz · about ${Math.round(fillPercent)}% of a ${tier.label} bottle</p>
     </div>
