@@ -1,9 +1,9 @@
-const CACHE_NAME = "fip-shell-v62";
+const CACHE_NAME = "fip-shell-v63";
 
 const SHELL_ASSETS = [
   "./",
   "index.html",
-  "styles.css?v=99",
+  "styles.css?v=100",
   "app.js?v=115",
   "manifest.webmanifest",
   "assets/compass-mark.png",
@@ -12,6 +12,7 @@ const SHELL_ASSETS = [
   "assets/logo-badge-512.png",
   "assets/apple-touch-icon.png",
   "assets/fonts/fraunces-variable.woff2",
+  "assets/fonts/alex-brush.woff2",
 ];
 
 self.addEventListener("install", (event) => {
