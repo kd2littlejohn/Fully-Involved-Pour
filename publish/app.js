@@ -4460,44 +4460,52 @@ function renderInfinitySuggestions(infinity) {
   `;
 }
 
+function availableInfinitySourceBottles() {
+  return bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+}
+
+// One row of the "Add to Blend" form — a single ingredient (source + amount). The
+// form can hold several of these so one blending session can log every pour at once.
+function renderInfinityIngredientRow(preselectBottleId) {
+  const availableBottles = availableInfinitySourceBottles();
+  return `
+    <div class="infinity-ingredient-row" data-row>
+      <select class="infinity-row-source" aria-label="Source bottle">
+        <option value="">Type a name instead…</option>
+        ${availableBottles
+          .map(
+            (bottle) =>
+              `<option value="${escapeHtml(bottle.id)}" ${bottle.id === preselectBottleId ? "selected" : ""}>${escapeHtml(bottle.name)} — ${escapeHtml(bottle.distillery)}</option>`,
+          )
+          .join("")}
+      </select>
+      <input class="infinity-row-freename" type="text" placeholder="Or type a name" aria-label="Ingredient name" />
+      <input class="infinity-row-ounces" type="number" min="0" step="0.01" placeholder="oz" aria-label="Ounces" />
+      <button class="icon-button infinity-row-remove" type="button" aria-label="Remove ingredient">×</button>
+    </div>
+  `;
+}
+
 function renderInfinityLogTab(infinity, preselectBottleId) {
-  const availableBottles = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
   const additions = [...(infinity.additions || [])].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
   return `
     <form class="infinity-add-form" id="infinityAddForm">
-      <div class="form-grid">
-        <label>
-          Source bottle
-          <select id="infinityEntrySource">
-            <option value="">Type a name instead…</option>
-            ${availableBottles
-              .map(
-                (bottle) =>
-                  `<option value="${escapeHtml(bottle.id)}" ${bottle.id === preselectBottleId ? "selected" : ""}>${escapeHtml(bottle.name)} — ${escapeHtml(bottle.distillery)}</option>`,
-              )
-              .join("")}
-          </select>
-        </label>
-        <label>
-          Or type a name
-          <input type="text" id="infinityEntryFreeName" placeholder="e.g. leftover Larceny" />
-        </label>
+      <div class="infinity-ingredient-rows" id="infinityIngredientRows">
+        ${renderInfinityIngredientRow(preselectBottleId)}
       </div>
+      <button class="secondary-action" id="infinityAddRow" type="button">+ Add Another Ingredient</button>
+
       <div class="form-grid">
-        <label>
-          Ounces
-          <input type="number" id="infinityEntryOunces" min="0" step="0.01" placeholder="1.5" />
-        </label>
         <label>
           Date
           <input type="date" id="infinityEntryDate" value="${new Date().toISOString().slice(0, 10)}" />
         </label>
+        <label>
+          Notes
+          <input type="text" id="infinityEntryNotes" placeholder="Optional, applies to everything added now" />
+        </label>
       </div>
-      <label>
-        Notes
-        <input type="text" id="infinityEntryNotes" placeholder="Optional" />
-      </label>
       <button class="primary-action" type="submit">+ Add to Blend</button>
     </form>
 
@@ -4522,6 +4530,18 @@ function renderInfinityLogTab(infinity, preselectBottleId) {
       }
     </div>
   `;
+}
+
+// Re-assigning .onclick (rather than addEventListener) keeps this idempotent — safe
+// to call again every time a row is added without stacking duplicate listeners.
+function bindInfinityRowRemove() {
+  document.querySelectorAll(".infinity-row-remove").forEach((button) => {
+    button.onclick = () => {
+      const rows = document.querySelectorAll("#infinityIngredientRows [data-row]");
+      if (rows.length <= 1) return;
+      button.closest("[data-row]").remove();
+    };
+  });
 }
 
 function openInfinityDetail(id, tab, preselectBottleId) {
@@ -4553,6 +4573,8 @@ function openInfinityDetail(id, tab, preselectBottleId) {
           <button class="secondary-action" id="infinityShuffleName" type="button" title="Suggest a name">🎲</button>
         </div>
       </label>
+
+      ${renderInfinityDecanter(stats.totalOunces)}
 
       <div class="bottle-meta">
         <div><span>Total Added</span><strong>${stats.totalOunces.toFixed(1)} oz</strong></div>
@@ -4603,6 +4625,12 @@ function openInfinityDetail(id, tab, preselectBottleId) {
     card.addEventListener("click", () => openInfinityDetail(id, "log", card.dataset.infinityAdd));
   });
 
+  bindInfinityRowRemove();
+  document.querySelector("#infinityAddRow")?.addEventListener("click", () => {
+    document.querySelector("#infinityIngredientRows").insertAdjacentHTML("beforeend", renderInfinityIngredientRow());
+    bindInfinityRowRemove();
+  });
+
   document.querySelector("#infinityAddForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     submitInfinityEntry(id);
@@ -4634,41 +4662,86 @@ function deleteInfinityBottleConfirm(id) {
   renderInfinityGrid();
 }
 
+// One submit can log several ingredients at once (one blending session, several
+// pours) — every filled row becomes its own addition, all sharing the form's date/notes.
 function submitInfinityEntry(id) {
-  const sourceSelect = document.querySelector("#infinityEntrySource");
-  const freeName = document.querySelector("#infinityEntryFreeName").value.trim();
-  const ounces = Number(document.querySelector("#infinityEntryOunces").value || 0);
   const date = document.querySelector("#infinityEntryDate").value || new Date().toISOString().slice(0, 10);
   const notes = document.querySelector("#infinityEntryNotes").value.trim();
 
-  if (ounces <= 0) {
-    alert("Enter how many ounces you added.");
+  const rows = [...document.querySelectorAll("#infinityIngredientRows [data-row]")];
+  const entries = [];
+  let hadIncompleteRow = false;
+
+  rows.forEach((row) => {
+    const sourceSelect = row.querySelector(".infinity-row-source");
+    const freeName = row.querySelector(".infinity-row-freename").value.trim();
+    const ounces = Number(row.querySelector(".infinity-row-ounces").value || 0);
+    const sourceBottle = sourceSelect.value ? bottles.find((bottle) => bottle.id === sourceSelect.value) : null;
+    const sourceName = sourceBottle ? sourceBottle.name : freeName;
+
+    if (ounces <= 0 && !sourceName) return; // a fully blank row is just an unused slot, not an error
+    if (ounces <= 0 || !sourceName) {
+      hadIncompleteRow = true;
+      return;
+    }
+
+    entries.push({
+      id: crypto.randomUUID(),
+      date,
+      ounces,
+      notes,
+      sourceBottleId: sourceBottle?.id || null,
+      sourceName,
+      sourceFlavors: sourceBottle?.flavors || [],
+    });
+  });
+
+  if (!entries.length) {
+    alert(hadIncompleteRow ? "Each ingredient needs both a name and an ounce amount." : "Add at least one ingredient.");
     return;
   }
-
-  const sourceBottle = sourceSelect.value ? bottles.find((bottle) => bottle.id === sourceSelect.value) : null;
-  const sourceName = sourceBottle ? sourceBottle.name : freeName;
-  if (!sourceName) {
-    alert("Pick a bottle or type a name for what you added.");
+  if (hadIncompleteRow && !confirm("One row is missing a name or ounces and will be skipped. Add the rest anyway?")) {
     return;
   }
-
-  const entry = {
-    id: crypto.randomUUID(),
-    date,
-    ounces,
-    notes,
-    sourceBottleId: sourceBottle?.id || null,
-    sourceName,
-    sourceFlavors: sourceBottle?.flavors || [],
-  };
 
   infinityBottles = infinityBottles.map((infinity) =>
-    infinity.id === id ? { ...infinity, additions: [entry, ...(infinity.additions || [])] } : infinity,
+    infinity.id === id ? { ...infinity, additions: [...entries, ...(infinity.additions || [])] } : infinity,
   );
   persistInfinityBottles();
   renderInfinityGrid();
   openInfinityDetail(id, "log");
+}
+
+// A decanter that visually fills as ounces accumulate, scaled to whichever standard
+// bottle size the current total is closest to (375ml/750ml/1L/1.75L).
+function renderInfinityDecanter(totalOunces) {
+  const tiers = [
+    { oz: 12.7, label: "375ml" },
+    { oz: 25.4, label: "750ml" },
+    { oz: 33.8, label: "1L" },
+    { oz: 59.2, label: "1.75L" },
+  ];
+  const tier = tiers.find((t) => totalOunces <= t.oz) || tiers[tiers.length - 1];
+  const fillPercent = Math.max(0, Math.min(100, (totalOunces / tier.oz) * 100));
+  const maxFillHeight = 187;
+  const fillHeight = (maxFillHeight * fillPercent) / 100;
+  const fillY = (192 - fillHeight).toFixed(1);
+  const bottlePath =
+    "M45,5 L75,5 L75,50 C75,50 108,62 108,92 L108,176 C108,184 100,192 92,192 L28,192 C20,192 12,184 12,176 L12,92 C12,62 45,50 45,50 Z";
+
+  return `
+    <div class="infinity-decanter">
+      <svg viewBox="0 0 120 200" role="img" aria-label="${totalOunces.toFixed(1)} ounces added, about ${Math.round(fillPercent)}% of a ${tier.label} bottle">
+        <defs>
+          <clipPath id="decanterClip"><path d="${bottlePath}"></path></clipPath>
+        </defs>
+        <rect class="decanter-fill" x="0" y="${fillY}" width="120" height="${fillHeight.toFixed(1)}" clip-path="url(#decanterClip)"></rect>
+        <path class="decanter-outline" d="${bottlePath}"></path>
+        <rect class="decanter-cap" x="43" y="0" width="34" height="9" rx="3"></rect>
+      </svg>
+      <p class="infinity-decanter-caption">${totalOunces.toFixed(1)} oz · about ${Math.round(fillPercent)}% of a ${tier.label} bottle</p>
+    </div>
+  `;
 }
 
 function deleteInfinityEntry(id, entryId) {
