@@ -3061,12 +3061,87 @@ function changeBottleStatus(id, status) {
   bottles = bottles.map((bottle) => {
     if (bottle.id !== id || bottle.status === status) return bottle;
     changed = true;
-    return { ...bottle, status };
+    // Changing status from the header is a bulk action — it applies to every individual
+    // bottle in this entry, so any per-bottle overrides below are cleared.
+    const next = { ...bottle, status };
+    delete next.units;
+    return next;
   });
   if (!changed) return;
   persist();
   render();
   openBottleQuick(id);
+}
+
+// Per-unit status/fill tracking for entries with quantity > 1. Units aren't stored until
+// someone edits one individually — until then they're derived from the entry's own status/fillLevel.
+const UNIT_STATUS_OPTIONS = ["sealed", "open", "finished"];
+
+function getBottleUnits(bottle) {
+  const quantity = Math.max(1, Number(bottle.quantity) || 1);
+  const stored = Array.isArray(bottle.units) ? bottle.units : [];
+  return Array.from({ length: quantity }, (_, index) => ({
+    status: stored[index]?.status || bottle.status,
+    fillLevel: stored[index]?.fillLevel || bottle.fillLevel || "full",
+  }));
+}
+
+function updateBottleUnit(id, index, patch) {
+  bottles = bottles.map((bottle) => {
+    if (bottle.id !== id) return bottle;
+    const units = getBottleUnits(bottle).map((unit, unitIndex) =>
+      unitIndex === index ? { ...unit, ...patch } : unit,
+    );
+    const aggregateStatus = units.some((unit) => unit.status === "open")
+      ? "open"
+      : units.some((unit) => unit.status === "sealed")
+        ? "sealed"
+        : "finished";
+    return { ...bottle, units, status: aggregateStatus, fillLevel: units[0].fillLevel };
+  });
+  persist();
+  render();
+  openBottleQuick(id);
+}
+
+function renderBottleUnitsBlock(bottle) {
+  if (["wishlist", "buy-next"].includes(bottle.status)) return "";
+  const quantity = Math.max(1, Number(bottle.quantity) || 1);
+  if (quantity <= 1) return "";
+  const units = getBottleUnits(bottle);
+  return `
+    <div class="unit-list">
+      <p class="unit-list-heading">${quantity} bottles in this entry — track each one</p>
+      ${units
+        .map(
+          (unit, index) => `
+        <div class="unit-card">
+          <div class="unit-card-head">
+            ${bottleThumb(bottle, "unit-card-thumb")}
+            <div class="unit-card-info">
+              <h4>${escapeHtml(bottle.name)}</h4>
+              <p>${escapeHtml(bottle.type)} · Bottle ${index + 1} of ${quantity}</p>
+            </div>
+          </div>
+          <div class="unit-card-pills">
+            <select class="status-pill status-pill-select ${unit.status}" data-unit-status="${index}" aria-label="Status for bottle ${index + 1}">
+              ${UNIT_STATUS_OPTIONS.map(
+                (status) => `<option value="${status}" ${unit.status === status ? "selected" : ""}>${labelStatus(status)}</option>`,
+              ).join("")}
+            </select>
+            <select class="type-pill unit-fill-select" data-unit-fill="${index}" aria-label="Fill level for bottle ${index + 1}">
+              ${["full", "three-quarter", "half", "low", "empty"].map(
+                (level) => `<option value="${level}" ${unit.fillLevel === level ? "selected" : ""}>${labelFillLevel(level)}</option>`,
+              ).join("")}
+            </select>
+            <span class="type-pill">${labelBottleSize(bottle.bottleSize)}</span>
+          </div>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 function setSelectionMode(on) {
@@ -4655,6 +4730,7 @@ function openBottleQuick(id) {
           </div>
         </div>
       </div>
+      ${renderBottleUnitsBlock(bottle)}
       ${renderBottleAlternativesBlock(bottle, availabilityPick, profilePick)}
     </div>
 
@@ -4697,6 +4773,16 @@ function openBottleQuick(id) {
   document.querySelector("#closeQuickBottle").addEventListener("click", () => els.quickBottleDialog.close());
   document.querySelector("#quickStatusSelect").addEventListener("change", (event) => {
     changeBottleStatus(id, event.target.value);
+  });
+  els.quickBottleDetail.querySelectorAll("[data-unit-status]").forEach((select) => {
+    select.addEventListener("change", (event) => {
+      updateBottleUnit(id, Number(select.dataset.unitStatus), { status: event.target.value });
+    });
+  });
+  els.quickBottleDetail.querySelectorAll("[data-unit-fill]").forEach((select) => {
+    select.addEventListener("change", (event) => {
+      updateBottleUnit(id, Number(select.dataset.unitFill), { fillLevel: event.target.value });
+    });
   });
   document.querySelector("#quickEditBottle").addEventListener("click", () => {
     els.quickBottleDialog.close();
