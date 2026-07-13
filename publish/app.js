@@ -2,6 +2,34 @@ const STORAGE_KEY = "cellar-ledger-bottles";
 const POUR_STORAGE_KEY = "cellar-ledger-pours";
 const CUSTOM_LIBRARY_KEY = "fip-custom-library";
 const ASSISTANT_HISTORY_KEY = "fip-assistant-history";
+const INFINITY_STORAGE_KEY = "fip-infinity-bottles";
+
+const INFINITY_NAME_IDEAS = [
+  "The Neverending Pour",
+  "Groundhog Barrel",
+  "Whatever's Left",
+  "The Melting Pot",
+  "Last Call Reserve",
+  "Franken-Batch",
+  "The Continuum",
+  "Bottomless Barrel",
+  "Odds & Ends Reserve",
+  "The Kitchen Sink",
+  "Perpetual Blend",
+  "The Long Goodbye",
+  "Sunday Leftovers",
+  "The Collective",
+  "Shelf Scraps Reserve",
+  "Second Life Batch",
+  "The Loop",
+  "Waste Not Reserve",
+  "The Remainder",
+  "Barrel of Misfits",
+  "House Blend No. 1",
+  "The Understudy",
+  "Dregs & Legends",
+  "The Unfinished Business",
+];
 
 const firebaseConfig = {
   apiKey: "AIzaSyDJ6BpySxmM7bvZQYmLh0kmkPB18qxt47Q",
@@ -1497,6 +1525,7 @@ const availableDistilleries = [
 
 let bottles = loadBottles();
 let pours = loadPours();
+let infinityBottles = loadInfinityBottles();
 let customLibrary = loadCustomLibrary();
 let assistantHistory = loadAssistantHistory();
 let activeFilter = "all";
@@ -1577,6 +1606,10 @@ const els = {
   tastingView: document.querySelector("#tastingView"),
   aiToolsView: document.querySelector("#aiToolsView"),
   pourLogView: document.querySelector("#pourLogView"),
+  infinityView: document.querySelector("#infinityView"),
+  infinityGrid: document.querySelector("#infinityGrid"),
+  infinityDialog: document.querySelector("#infinityDialog"),
+  infinityDetail: document.querySelector("#infinityDetail"),
   pourDialog: document.querySelector("#pourDialog"),
   pourForm: document.querySelector("#pourForm"),
   pourBottle: document.querySelector("#pourBottle"),
@@ -1707,6 +1740,7 @@ els.selectDelete.addEventListener("click", bulkDeleteSelected);
 document.querySelector("#closeDialog").addEventListener("click", () => els.bottleDialog.close());
 document.querySelector("#openLibrary").addEventListener("click", openLibrary);
 document.querySelector("#closeLibrary").addEventListener("click", () => els.libraryDialog.close());
+document.querySelector("#newInfinityBottle").addEventListener("click", createInfinityBottle);
 document.querySelector("#closePhotoZoom").addEventListener("click", () => els.photoZoomDialog.close());
 els.photoZoomDialog.addEventListener("click", (event) => {
   if (event.target === els.photoZoomDialog) els.photoZoomDialog.close();
@@ -1985,6 +2019,25 @@ function loadPours() {
   }
 }
 
+function loadInfinityBottles() {
+  const saved = localStorage.getItem(INFINITY_STORAGE_KEY);
+  if (!saved) return [];
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed)
+      ? parsed.map((entry) => ({ additions: [], notes: "", ...entry }))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistInfinityBottles() {
+  localStorage.setItem(INFINITY_STORAGE_KEY, JSON.stringify(infinityBottles));
+  pushCloudData();
+}
+
 function loadCustomLibrary() {
   const saved = localStorage.getItem(CUSTOM_LIBRARY_KEY);
   if (!saved) return [];
@@ -2047,9 +2100,11 @@ async function pullCloudData(uid) {
       const data = snap.data();
       bottles = (data.bottles || []).map(normalizeBottle);
       pours = data.pours || [];
+      infinityBottles = (data.infinityBottles || []).map((entry) => ({ additions: [], notes: "", ...entry }));
       currentProfile = { username: data.username || "" };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
       localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+      localStorage.setItem(INFINITY_STORAGE_KEY, JSON.stringify(infinityBottles));
       // Merge the cloud's learned library with anything learned locally before sign-in.
       let libraryChanged = false;
       (data.customLibrary || []).forEach((entry) => {
@@ -2059,7 +2114,7 @@ async function pullCloudData(uid) {
       persistCustomLibrary();
     } else {
       currentProfile = { username: "" };
-      await userDocRef(uid).set({ bottles, pours, customLibrary, username: "", updatedAt: Date.now() });
+      await userDocRef(uid).set({ bottles, pours, infinityBottles, customLibrary, username: "", updatedAt: Date.now() });
     }
     syncCoreBarScores();
     updateAccountUI();
@@ -2075,7 +2130,7 @@ async function pushCloudData() {
   if (!currentUser || !db) return;
   try {
     await userDocRef(currentUser.uid).set(
-      { bottles, pours, customLibrary, username: currentProfile?.username || "", updatedAt: Date.now() },
+      { bottles, pours, infinityBottles, customLibrary, username: currentProfile?.username || "", updatedAt: Date.now() },
       { merge: true },
     );
   } catch (error) {
@@ -2713,14 +2768,16 @@ function render() {
     els.toggleSelect.textContent = "Select";
     els.toggleSelect.classList.remove("is-selected");
   }
-  const collectionVisible = !["ai-tools", "pour-log", "dashboard", "compare", "faceoff"].includes(activeView);
+  const collectionVisible = !["ai-tools", "pour-log", "infinity", "dashboard", "compare", "faceoff"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.aiToolsView.classList.toggle("is-hidden", activeView !== "ai-tools");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
+  els.infinityView.classList.toggle("is-hidden", activeView !== "infinity");
   els.compareView.classList.toggle("is-hidden", activeView !== "compare");
   els.faceoffView.classList.toggle("is-hidden", activeView !== "faceoff");
   if (activeView === "faceoff") renderFaceoffView();
+  if (activeView === "infinity") renderInfinityGrid();
 
   renderStats();
   renderCards(shown);
@@ -4237,6 +4294,393 @@ function deleteLastPour() {
   persistPours();
   els.pourDialog.close();
   render();
+}
+
+// ---- Infinity Bottle ----
+// A blending bottle the user keeps topping off with leftover pours over time.
+// Unlike `bottles`, these aren't products with a catalog entry — just a name,
+// an addition log, and whatever flavor data the logged source bottles carry.
+
+function renderInfinityGrid() {
+  if (!els.infinityGrid) return;
+  if (!infinityBottles.length) {
+    els.infinityGrid.innerHTML = `<div class="empty-state">No infinity bottles yet. Start one from your next near-empty pour.</div>`;
+    return;
+  }
+
+  els.infinityGrid.innerHTML = infinityBottles
+    .map((infinity) => {
+      const stats = computeInfinityStats(infinity);
+      return `
+        <article class="infinity-card" data-infinity="${escapeHtml(infinity.id)}" role="button" tabindex="0">
+          <h3>${escapeHtml(infinity.name)}</h3>
+          <p>${stats.additionCount} addition${stats.additionCount === 1 ? "" : "s"} · ${stats.totalOunces.toFixed(1)} oz · ${stats.daysAging}d aging</p>
+          ${infinity.notes ? `<p class="infinity-card-notes">${escapeHtml(infinity.notes)}</p>` : ""}
+        </article>
+      `;
+    })
+    .join("");
+
+  els.infinityGrid.querySelectorAll("[data-infinity]").forEach((card) => {
+    const open = () => openInfinityDetail(card.dataset.infinity);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+function computeInfinityStats(infinity) {
+  const additions = infinity.additions || [];
+  const totalOunces = additions.reduce((sum, entry) => sum + (Number(entry.ounces) || 0), 0);
+  const daysAging = Math.max(0, Math.floor((Date.now() - (infinity.createdAt || Date.now())) / 86400000));
+  return { additionCount: additions.length, totalOunces, daysAging };
+}
+
+// Only additions logged against a real inventory bottle carry flavor tags (snapshotted
+// at add-time), so a freeform "typed a name" entry simply doesn't weigh in the blend profile.
+function getInfinityBlendItems(infinity) {
+  return (infinity.additions || [])
+    .filter((entry) => Array.isArray(entry.sourceFlavors) && entry.sourceFlavors.length)
+    .map((entry) => ({ flavors: entry.sourceFlavors, notes: "", type: "", category: "" }));
+}
+
+function randomInfinityName() {
+  const used = new Set(infinityBottles.map((infinity) => infinity.name));
+  const available = INFINITY_NAME_IDEAS.filter((name) => !used.has(name));
+  const pool = available.length ? available : INFINITY_NAME_IDEAS;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function createInfinityBottle() {
+  const infinity = {
+    id: crypto.randomUUID(),
+    name: randomInfinityName(),
+    notes: "",
+    createdAt: Date.now(),
+    additions: [],
+  };
+  infinityBottles = [infinity, ...infinityBottles];
+  persistInfinityBottles();
+  renderInfinityGrid();
+  openInfinityDetail(infinity.id, "log");
+}
+
+function renderInfinityRadar(items) {
+  const axes = flavorAxes();
+  const scores = axes.map((axis) => scoreFlavorAxis(items, axis));
+  const max = Math.max(...scores, 1);
+  const center = 120;
+  const radius = 82;
+  const points = scores.map((score, index) => {
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / axes.length;
+    const value = Math.max(0.18, score / max);
+    return `${center + Math.cos(angle) * radius * value},${center + Math.sin(angle) * radius * value}`;
+  });
+  const rings = [0.33, 0.66, 1]
+    .map((scale) => polygonPoints(axes.length, center, radius * scale))
+    .map((ring) => `<polygon points="${ring}" class="radar-ring"></polygon>`)
+    .join("");
+  const labels = axes
+    .map((axis, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / axes.length;
+      return `<text x="${center + Math.cos(angle) * 105}" y="${center + Math.sin(angle) * 105}" text-anchor="middle" dominant-baseline="middle">${axis.label}</text>`;
+    })
+    .join("");
+
+  return `
+    <svg viewBox="0 0 240 240" role="img" aria-label="Infinity blend flavor profile">
+      ${rings}
+      <polygon points="${points.join(" ")}" class="radar-shape"></polygon>
+      ${labels}
+    </svg>
+  `;
+}
+
+// Ranks currently-open bottles as candidates for the next addition: near-empty
+// bottles score highest (that's the whole point — use up the dregs), and a bottle
+// that fills whatever flavor axis the blend is currently lightest on gets a boost.
+function computeInfinitySuggestions(infinity) {
+  const openBottles = bottles.filter((bottle) => bottle.status === "open");
+  if (!openBottles.length) return [];
+
+  const blendItems = getInfinityBlendItems(infinity);
+  let weakestAxis = null;
+  if (blendItems.length) {
+    const axes = flavorAxes();
+    const scores = axes.map((axis) => scoreFlavorAxis(blendItems, axis));
+    weakestAxis = axes[scores.indexOf(Math.min(...scores))];
+  }
+
+  const fillUrgency = { empty: 4, low: 3, half: 2, "three-quarter": 1, full: 0 };
+  return openBottles
+    .map((bottle) => {
+      const urgency = fillUrgency[bottle.fillLevel] ?? 1;
+      const complement = weakestAxis ? scoreFlavorAxis([bottle], weakestAxis) : 0;
+      let reason = "open and ready to pour in";
+      if (complement > 0 && weakestAxis) reason = `adds ${weakestAxis.label.toLowerCase()} notes this blend is light on`;
+      if (urgency >= 3) reason = "almost empty — good one to top off from";
+      return { bottle, score: urgency * 3 + complement * 2, reason };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
+function renderInfinitySuggestions(infinity) {
+  const picks = computeInfinitySuggestions(infinity);
+  if (!picks.length) {
+    return `
+      <div class="infinity-suggestions">
+        <span class="section-label">What to Add Next</span>
+        <div class="empty-state">Open a bottle in your inventory to get suggestions here.</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="infinity-suggestions">
+      <span class="section-label">What to Add Next</span>
+      <div class="suggest-grid">
+        ${picks
+          .map(
+            (pick) => `
+          <article class="suggest-card" data-infinity-add="${escapeHtml(pick.bottle.id)}" role="button" tabindex="0" title="Log this pour">
+            <img class="suggest-photo" src="${bottleImage(pick.bottle)}" alt="${escapeHtml(pick.bottle.name)} bottle" />
+            <h4>${escapeHtml(pick.bottle.name)}</h4>
+            <p>${escapeHtml(pick.bottle.distillery)} · ${labelFillLevel(pick.bottle.fillLevel)}</p>
+            <em>${escapeHtml(pick.reason)}</em>
+          </article>
+        `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderInfinityLogTab(infinity, preselectBottleId) {
+  const availableBottles = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+  const additions = [...(infinity.additions || [])].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  return `
+    <form class="infinity-add-form" id="infinityAddForm">
+      <div class="form-grid">
+        <label>
+          Source bottle
+          <select id="infinityEntrySource">
+            <option value="">Type a name instead…</option>
+            ${availableBottles
+              .map(
+                (bottle) =>
+                  `<option value="${escapeHtml(bottle.id)}" ${bottle.id === preselectBottleId ? "selected" : ""}>${escapeHtml(bottle.name)} — ${escapeHtml(bottle.distillery)}</option>`,
+              )
+              .join("")}
+          </select>
+        </label>
+        <label>
+          Or type a name
+          <input type="text" id="infinityEntryFreeName" placeholder="e.g. leftover Larceny" />
+        </label>
+      </div>
+      <div class="form-grid">
+        <label>
+          Ounces
+          <input type="number" id="infinityEntryOunces" min="0.25" step="0.25" placeholder="1.5" />
+        </label>
+        <label>
+          Date
+          <input type="date" id="infinityEntryDate" value="${new Date().toISOString().slice(0, 10)}" />
+        </label>
+      </div>
+      <label>
+        Notes
+        <input type="text" id="infinityEntryNotes" placeholder="Optional" />
+      </label>
+      <button class="primary-action" type="submit">+ Add to Blend</button>
+    </form>
+
+    <div class="infinity-log-list">
+      ${
+        additions.length
+          ? additions
+              .map(
+                (entry) => `
+          <div class="infinity-log-item">
+            <div>
+              <strong>${escapeHtml(entry.sourceName || "Unnamed pour")}</strong>
+              <span>${entry.date ? formatDate(entry.date) : "No date"} · ${Number(entry.ounces || 0).toFixed(2)} oz</span>
+              ${entry.notes ? `<p>${escapeHtml(entry.notes)}</p>` : ""}
+            </div>
+            <button class="icon-button" data-delete-infinity-entry="${escapeHtml(entry.id)}" type="button" aria-label="Delete entry">×</button>
+          </div>
+        `,
+              )
+              .join("")
+          : `<div class="empty-state">No additions logged yet.</div>`
+      }
+    </div>
+  `;
+}
+
+function openInfinityDetail(id, tab, preselectBottleId) {
+  const infinity = infinityBottles.find((item) => item.id === id);
+  if (!infinity) return;
+  const activeTab = tab || els.infinityDetail.querySelector("[data-itab].is-active")?.dataset.itab || "overview";
+  const stats = computeInfinityStats(infinity);
+  const blendItems = getInfinityBlendItems(infinity);
+
+  els.infinityDetail.innerHTML = `
+    <div class="form-head">
+      <div>
+        <p>Infinity Bottle</p>
+        <h2>${escapeHtml(infinity.name)}</h2>
+      </div>
+      <button class="icon-button" id="closeInfinityDetail" type="button" aria-label="Close">×</button>
+    </div>
+
+    <div class="quick-tabs" role="tablist">
+      <button class="quick-tab${activeTab === "overview" ? " is-active" : ""}" data-itab="overview" type="button">Overview</button>
+      <button class="quick-tab${activeTab === "log" ? " is-active" : ""}" data-itab="log" type="button">Log</button>
+    </div>
+
+    <div class="quick-tab-panel${activeTab === "overview" ? "" : " is-hidden"}" data-itab-panel="overview">
+      <label class="infinity-name-field">
+        Name
+        <div class="infinity-name-row">
+          <input type="text" id="infinityNameInput" value="${escapeHtml(infinity.name)}" />
+          <button class="secondary-action" id="infinityShuffleName" type="button" title="Suggest a name">🎲</button>
+        </div>
+      </label>
+
+      <div class="bottle-meta">
+        <div><span>Total Added</span><strong>${stats.totalOunces.toFixed(1)} oz</strong></div>
+        <div><span>Additions</span><strong>${stats.additionCount}</strong></div>
+        <div><span>Aging</span><strong>${stats.daysAging}d</strong></div>
+      </div>
+
+      <div class="bottle-radar">
+        ${blendItems.length ? renderInfinityRadar(blendItems) : `<div class="empty-state">Log an addition to see this blend's flavor profile.</div>`}
+      </div>
+
+      <label>
+        Notes
+        <textarea id="infinityNotesInput" rows="3" placeholder="Tasting notes, what's working, what to try next…">${escapeHtml(infinity.notes || "")}</textarea>
+      </label>
+
+      ${renderInfinitySuggestions(infinity)}
+
+      <div class="form-actions">
+        <button class="secondary-action" id="deleteInfinityBottle" type="button">Delete Infinity Bottle</button>
+      </div>
+    </div>
+
+    <div class="quick-tab-panel${activeTab === "log" ? "" : " is-hidden"}" data-itab-panel="log">
+      ${renderInfinityLogTab(infinity, preselectBottleId)}
+    </div>
+  `;
+
+  if (!els.infinityDialog.open) els.infinityDialog.showModal();
+
+  document.querySelector("#closeInfinityDetail").addEventListener("click", () => els.infinityDialog.close());
+  els.infinityDetail.querySelectorAll("[data-itab]").forEach((tabButton) => {
+    tabButton.addEventListener("click", () => openInfinityDetail(id, tabButton.dataset.itab));
+  });
+
+  document.querySelector("#infinityNameInput")?.addEventListener("change", (event) => {
+    renameInfinityBottle(id, event.target.value);
+  });
+  document.querySelector("#infinityShuffleName")?.addEventListener("click", () => {
+    document.querySelector("#infinityNameInput").value = randomInfinityName();
+  });
+  document.querySelector("#infinityNotesInput")?.addEventListener("change", (event) => {
+    updateInfinityNotes(id, event.target.value);
+  });
+  document.querySelector("#deleteInfinityBottle")?.addEventListener("click", () => deleteInfinityBottleConfirm(id));
+
+  els.infinityDetail.querySelectorAll("[data-infinity-add]").forEach((card) => {
+    card.addEventListener("click", () => openInfinityDetail(id, "log", card.dataset.infinityAdd));
+  });
+
+  document.querySelector("#infinityAddForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitInfinityEntry(id);
+  });
+
+  els.infinityDetail.querySelectorAll("[data-delete-infinity-entry]").forEach((button) => {
+    button.addEventListener("click", () => deleteInfinityEntry(id, button.dataset.deleteInfinityEntry));
+  });
+}
+
+function renameInfinityBottle(id, name) {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  infinityBottles = infinityBottles.map((infinity) => (infinity.id === id ? { ...infinity, name: trimmed } : infinity));
+  persistInfinityBottles();
+  renderInfinityGrid();
+}
+
+function updateInfinityNotes(id, notes) {
+  infinityBottles = infinityBottles.map((infinity) => (infinity.id === id ? { ...infinity, notes } : infinity));
+  persistInfinityBottles();
+}
+
+function deleteInfinityBottleConfirm(id) {
+  if (!confirm("Delete this infinity bottle and its whole addition log? This can't be undone.")) return;
+  infinityBottles = infinityBottles.filter((infinity) => infinity.id !== id);
+  persistInfinityBottles();
+  els.infinityDialog.close();
+  renderInfinityGrid();
+}
+
+function submitInfinityEntry(id) {
+  const sourceSelect = document.querySelector("#infinityEntrySource");
+  const freeName = document.querySelector("#infinityEntryFreeName").value.trim();
+  const ounces = Number(document.querySelector("#infinityEntryOunces").value || 0);
+  const date = document.querySelector("#infinityEntryDate").value || new Date().toISOString().slice(0, 10);
+  const notes = document.querySelector("#infinityEntryNotes").value.trim();
+
+  if (ounces <= 0) {
+    alert("Enter how many ounces you added.");
+    return;
+  }
+
+  const sourceBottle = sourceSelect.value ? bottles.find((bottle) => bottle.id === sourceSelect.value) : null;
+  const sourceName = sourceBottle ? sourceBottle.name : freeName;
+  if (!sourceName) {
+    alert("Pick a bottle or type a name for what you added.");
+    return;
+  }
+
+  const entry = {
+    id: crypto.randomUUID(),
+    date,
+    ounces,
+    notes,
+    sourceBottleId: sourceBottle?.id || null,
+    sourceName,
+    sourceFlavors: sourceBottle?.flavors || [],
+  };
+
+  infinityBottles = infinityBottles.map((infinity) =>
+    infinity.id === id ? { ...infinity, additions: [entry, ...(infinity.additions || [])] } : infinity,
+  );
+  persistInfinityBottles();
+  renderInfinityGrid();
+  openInfinityDetail(id, "log");
+}
+
+function deleteInfinityEntry(id, entryId) {
+  if (!confirm("Delete this addition from the log?")) return;
+  infinityBottles = infinityBottles.map((infinity) =>
+    infinity.id === id
+      ? { ...infinity, additions: (infinity.additions || []).filter((entry) => entry.id !== entryId) }
+      : infinity,
+  );
+  persistInfinityBottles();
+  renderInfinityGrid();
+  openInfinityDetail(id, "log");
 }
 
 function analyzePours() {
