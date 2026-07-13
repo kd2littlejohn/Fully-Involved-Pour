@@ -1669,6 +1669,24 @@ select {
   background: rgba(154, 107, 134, 0.2);
 }
 
+.status-pill.finished {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.status-pill-select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: inherit;
+  padding-right: 22px;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 12px) center, calc(100% - 7px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
 .bottle-meta {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
