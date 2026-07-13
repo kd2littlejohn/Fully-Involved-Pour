@@ -1278,6 +1278,7 @@ let activeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
 let activeProofBand = "all";
+let activeFlavorFilter = null;
 let selectionMode = false;
 const selectedIds = new Set();
 let activeView = "collection";
@@ -1290,6 +1291,7 @@ const els = {
   bottleGrid: document.querySelector("#bottleGrid"),
   noteList: document.querySelector("#noteList"),
   flavorList: document.querySelector("#flavorList"),
+  flavorBottleList: document.querySelector("#flavorBottleList"),
   flavorRadar: document.querySelector("#flavorRadar"),
   shelfList: document.querySelector("#shelfList"),
   coreBarHighlight: document.querySelector("#coreBarHighlight"),
@@ -1483,6 +1485,21 @@ els.categoryPicker.addEventListener("click", (event) => {
   const button = event.target.closest(".category-tag-btn");
   if (!button) return;
   button.classList.toggle("is-selected");
+});
+els.flavorList.addEventListener("click", (event) => {
+  const bar = event.target.closest(".flavor-bar");
+  if (!bar) return;
+  activeFlavorFilter = activeFlavorFilter === bar.dataset.flavor ? null : bar.dataset.flavor;
+  renderFlavorMap();
+});
+els.flavorBottleList.addEventListener("click", (event) => {
+  if (event.target.closest("[data-clear-flavor-filter]")) {
+    activeFlavorFilter = null;
+    renderFlavorMap();
+    return;
+  }
+  const item = event.target.closest("[data-flavor-bottle]");
+  if (item) openBottleQuick(item.dataset.flavorBottle);
 });
 document.querySelector("#openPourForm").addEventListener("click", openPourForm);
 document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
@@ -3135,28 +3152,54 @@ function addLibraryBottle(source) {
 
 function renderFlavorMap() {
   renderFlavorRadar();
+  const profileBottles = bottles.filter((bottle) => bottle.status !== "wishlist");
   const counts = new Map();
-  bottles
-    .filter((bottle) => bottle.status !== "wishlist")
-    .flatMap((bottle) => bottle.flavors)
-    .forEach((flavor) => counts.set(flavor, (counts.get(flavor) || 0) + 1));
+  profileBottles.flatMap((bottle) => bottle.flavors).forEach((flavor) => counts.set(flavor, (counts.get(flavor) || 0) + 1));
 
   const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   const max = top[0]?.[1] || 1;
+
+  // Clicking a flavor bar isn't useful once it's no longer one of the top ones shown.
+  if (activeFlavorFilter && !top.some(([flavor]) => flavor === activeFlavorFilter)) {
+    activeFlavorFilter = null;
+  }
 
   els.flavorList.innerHTML = top.length
     ? top
         .map(
           ([flavor, count]) => `
-            <div class="flavor-bar">
+            <button class="flavor-bar${flavor === activeFlavorFilter ? " is-active" : ""}" data-flavor="${escapeHtml(flavor)}" type="button">
               <span>${escapeHtml(flavor)}</span>
               <i style="width: ${Math.max(18, (count / max) * 100)}%"></i>
               <strong>${count}</strong>
-            </div>
+            </button>
           `,
         )
         .join("")
     : `<div class="empty-state">Add flavor tags to build your profile.</div>`;
+
+  if (!activeFlavorFilter) {
+    els.flavorBottleList.innerHTML = "";
+    return;
+  }
+
+  const matches = profileBottles.filter((bottle) => bottle.flavors.includes(activeFlavorFilter));
+  els.flavorBottleList.innerHTML = `
+    <div class="flavor-bottle-list-head">
+      <span>${matches.length} bottle${matches.length === 1 ? "" : "s"} with "${escapeHtml(activeFlavorFilter)}"</span>
+      <button data-clear-flavor-filter type="button">Clear ×</button>
+    </div>
+    ${matches
+      .map(
+        (bottle) => `
+          <button class="flavor-bottle-item" data-flavor-bottle="${escapeHtml(bottle.id)}" type="button">
+            <strong>${escapeHtml(bottle.name)}</strong>
+            <span>${escapeHtml(bottle.distillery)} · ${numberOrDash(bottle.proof)} proof</span>
+          </button>
+        `,
+      )
+      .join("")}
+  `;
 }
 
 function renderFlavorRadar() {

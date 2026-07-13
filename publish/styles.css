@@ -1759,8 +1759,30 @@ select {
   grid-template-columns: 86px 1fr 30px;
   align-items: center;
   gap: 10px;
+  width: 100%;
+  padding: 5px 6px;
+  margin: -5px -6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
   color: var(--muted);
+  font: inherit;
   font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flavor-bar:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.flavor-bar.is-active {
+  background: rgba(215, 138, 54, 0.14);
+}
+
+.flavor-bar.is-active span {
+  color: var(--amber);
+  font-weight: 700;
 }
 
 .flavor-bar i {
@@ -1768,6 +1790,71 @@ select {
   height: 8px;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--amber), var(--sage), var(--blue));
+}
+
+.flavor-bottle-list {
+  display: grid;
+  gap: 8px;
+}
+
+.flavor-bottle-list:empty {
+  display: none;
+}
+
+.flavor-bottle-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.flavor-bottle-list-head span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.flavor-bottle-list-head button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.flavor-bottle-list-head button:hover {
+  color: var(--ink);
+}
+
+.flavor-bottle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #17120d;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.flavor-bottle-item:hover {
+  border-color: rgba(215, 138, 54, 0.45);
+}
+
+.flavor-bottle-item strong {
+  font-weight: 700;
+}
+
+.flavor-bottle-item span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: right;
 }
 
 .recommendation {
