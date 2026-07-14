@@ -1,10 +1,10 @@
-const CACHE_NAME = "fip-shell-v75";
+const CACHE_NAME = "fip-shell-v76";
 
 const SHELL_ASSETS = [
   "./",
   "index.html",
-  "styles.css?v=109",
-  "app.js?v=121",
+  "styles.css?v=110",
+  "app.js?v=122",
   "manifest.webmanifest",
   "assets/compass-mark.png",
   "assets/home-hero.png",

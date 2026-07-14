@@ -1650,6 +1650,9 @@ const els = {
   pourMood: document.querySelector("#pourMood"),
   pourMemory: document.querySelector("#pourMemory"),
   pourBuyAgain: document.querySelector("#pourBuyAgain"),
+  pourFormTitle: document.querySelector("#pourFormTitle"),
+  savePourButton: document.querySelector("#savePourButton"),
+  deleteLastPour: document.querySelector("#deleteLastPour"),
   pourList: document.querySelector("#pourList"),
   totalPours: document.querySelector("#totalPours"),
   weeklyPours: document.querySelector("#weeklyPours"),
@@ -1802,8 +1805,11 @@ els.flavorBottleList.addEventListener("click", (event) => {
   const item = event.target.closest("[data-flavor-bottle]");
   if (item) openBottleQuick(item.dataset.flavorBottle);
 });
-document.querySelector("#openPourForm").addEventListener("click", openPourForm);
-document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
+document.querySelector("#openPourForm").addEventListener("click", () => openPourForm());
+document.querySelector("#closePourDialog").addEventListener("click", () => {
+  editingPourId = null;
+  els.pourDialog.close();
+});
 document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 document.querySelector("#deleteLastPour").addEventListener("click", deleteLastPour);
 els.searchInput.addEventListener("input", render);
@@ -4750,23 +4756,32 @@ function renderPourLog() {
           ].filter(Boolean);
           return `
             <article class="pour-item">
-              <div class="pour-item-head">
-                <div>
-                  <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
-                  <span>${formatDate(pour.date)} · ${Number(pour.ounces || 0).toFixed(1)} oz · Rating ${numberOrDash(pour.rating)}</span>
+              ${bottle ? bottleThumb(bottle, "pour-item-thumb") : `<div class="catalog-thumb catalog-thumb-empty pour-item-thumb" aria-hidden="true">?</div>`}
+              <div class="pour-item-body">
+                <div class="pour-item-head">
+                  <div>
+                    <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
+                    <span>${formatDate(pour.date)} · ${Number(pour.ounces || 0).toFixed(1)} oz · Rating ${numberOrDash(pour.rating)}</span>
+                  </div>
+                  <div class="pour-item-actions">
+                    <button class="icon-button" data-edit-pour="${escapeHtml(pour.id)}" type="button" aria-label="Edit pour">✎</button>
+                    <button class="icon-button" data-delete-pour="${escapeHtml(pour.id)}" type="button" aria-label="Delete pour">×</button>
+                  </div>
                 </div>
-                <button class="icon-button" data-delete-pour="${escapeHtml(pour.id)}" type="button" aria-label="Delete pour">×</button>
+                <p>${escapeHtml(pour.occasion || "Pour session")}</p>
+                <p>${escapeHtml(pour.notes || "No notes logged.")}</p>
+                ${pour.memory ? `<p class="pour-memory">"${escapeHtml(pour.memory)}"</p>` : ""}
+                ${storyChips.length ? `<div class="pour-story-chips">${storyChips.map((chip) => `<span>${chip}</span>`).join("")}</div>` : ""}
               </div>
-              <p>${escapeHtml(pour.occasion || "Pour session")}</p>
-              <p>${escapeHtml(pour.notes || "No notes logged.")}</p>
-              ${pour.memory ? `<p class="pour-memory">"${escapeHtml(pour.memory)}"</p>` : ""}
-              ${storyChips.length ? `<div class="pour-story-chips">${storyChips.map((chip) => `<span>${chip}</span>`).join("")}</div>` : ""}
             </article>
           `;
         })
         .join("")
     : `<div class="empty-state">No pours logged yet. Hit "Log Pour" to start tracking your sessions.</div>`;
 
+  els.pourList.querySelectorAll("[data-edit-pour]").forEach((button) => {
+    button.addEventListener("click", () => openPourForm("", button.dataset.editPour));
+  });
   els.pourList.querySelectorAll("[data-delete-pour]").forEach((button) => {
     button.addEventListener("click", () => deletePourEntry(button.dataset.deletePour));
   });
@@ -4779,24 +4794,44 @@ function deletePourEntry(id) {
   render();
 }
 
-function openPourForm(selectedId = "") {
+// Tracks which existing pour (if any) is being edited, so savePour updates it in
+// place instead of prepending a new entry. Null means we're logging a fresh pour.
+let editingPourId = null;
+
+function openPourForm(selectedId = "", pourId = "") {
+  const editing = pourId ? pours.find((pour) => pour.id === pourId) : null;
+  editingPourId = editing ? editing.id : null;
+
   const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
-  els.pourBottle.innerHTML = owned.length
-    ? owned
+  // When editing an entry whose bottle is a wishlist/finished one no longer in `owned`,
+  // still include it so the select can show the original bottle.
+  const optionBottles = [...owned];
+  if (editing && editing.bottleId && !optionBottles.some((b) => b.id === editing.bottleId)) {
+    const original = bottles.find((b) => b.id === editing.bottleId);
+    if (original) optionBottles.unshift(original);
+  }
+  els.pourBottle.innerHTML = optionBottles.length
+    ? optionBottles
         .map((bottle) => `<option value="${escapeHtml(bottle.id)}">${escapeHtml(bottle.name)} · ${escapeHtml(bottle.distillery)}</option>`)
         .join("")
     : `<option value="">No bottles available</option>`;
- els.pourDate.value = new Date().toISOString().slice(0, 10);
-  els.pourBottle.value = selectedId || owned[0]?.id || "";
-  els.pourOunces.value = "1.5";
-  els.pourRating.value = "";
-  els.pourOccasion.value = "";
-  els.pourNotes.value = "";
-  els.pourCompanion.value = "";
-  els.pourLocation.value = "";
-  els.pourMood.value = "";
-  els.pourMemory.value = "";
-  els.pourBuyAgain.checked = false;
+
+  els.pourDate.value = editing?.date || new Date().toISOString().slice(0, 10);
+  els.pourBottle.value = editing?.bottleId || selectedId || optionBottles[0]?.id || "";
+  els.pourOunces.value = editing ? String(editing.ounces ?? "") : "1.5";
+  els.pourRating.value = editing?.rating ? String(editing.rating) : "";
+  els.pourOccasion.value = editing?.occasion || "";
+  els.pourNotes.value = editing?.notes || "";
+  els.pourCompanion.value = editing?.companion || "";
+  els.pourLocation.value = editing?.location || "";
+  els.pourMood.value = editing?.mood || "";
+  els.pourMemory.value = editing?.memory || "";
+  els.pourBuyAgain.checked = Boolean(editing?.wouldBuyAgain);
+
+  els.pourFormTitle.textContent = editing ? "Edit Pour" : "Log Pour";
+  els.savePourButton.textContent = editing ? "Save Changes" : "Save Pour";
+  els.deleteLastPour.textContent = editing ? "Delete Entry" : "Delete Last";
+
   els.pourDialog.showModal();
 }
 
@@ -4804,30 +4839,41 @@ function savePour(event) {
   event.preventDefault();
   if (!els.pourBottle.value) return;
 
-  pours = [
-    {
-      id: crypto.randomUUID(),
-      bottleId: els.pourBottle.value,
-      date: els.pourDate.value || new Date().toISOString().slice(0, 10),
-      ounces: Number(els.pourOunces.value || 1.5),
-      rating: Number(els.pourRating.value || 0),
-      occasion: els.pourOccasion.value.trim(),
-      notes: els.pourNotes.value.trim(),
-      companion: els.pourCompanion.value.trim(),
-      location: els.pourLocation.value.trim(),
-      mood: els.pourMood.value.trim(),
-      memory: els.pourMemory.value.trim(),
-      wouldBuyAgain: els.pourBuyAgain.checked,
-    },
-    ...pours,
-  ];
+  const entry = {
+    id: editingPourId || crypto.randomUUID(),
+    bottleId: els.pourBottle.value,
+    date: els.pourDate.value || new Date().toISOString().slice(0, 10),
+    ounces: Number(els.pourOunces.value || 1.5),
+    rating: Number(els.pourRating.value || 0),
+    occasion: els.pourOccasion.value.trim(),
+    notes: els.pourNotes.value.trim(),
+    companion: els.pourCompanion.value.trim(),
+    location: els.pourLocation.value.trim(),
+    mood: els.pourMood.value.trim(),
+    memory: els.pourMemory.value.trim(),
+    wouldBuyAgain: els.pourBuyAgain.checked,
+  };
+
+  if (editingPourId) {
+    pours = pours.map((pour) => (pour.id === editingPourId ? entry : pour));
+  } else {
+    pours = [entry, ...pours];
+  }
+  editingPourId = null;
   persistPours();
   els.pourDialog.close();
   render();
 }
 
 function deleteLastPour() {
-  pours = pours.slice(1);
+  if (editingPourId) {
+    // In edit mode this button deletes the entry being edited.
+    if (!confirm("Delete this pour entry?")) return;
+    pours = pours.filter((pour) => pour.id !== editingPourId);
+    editingPourId = null;
+  } else {
+    pours = pours.slice(1);
+  }
   persistPours();
   els.pourDialog.close();
   render();

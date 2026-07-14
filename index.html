@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=109" />
+    <link rel="stylesheet" href="styles.css?v=110" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -1191,7 +1191,7 @@
         <div class="form-head">
           <div>
             <p>Pour session</p>
-            <h2>Log Pour</h2>
+            <h2 id="pourFormTitle">Log Pour</h2>
           </div>
           <button class="icon-button" id="closePourDialog" type="button" aria-label="Close">×</button>
         </div>
@@ -1252,7 +1252,7 @@
 
         <div class="form-actions">
           <button class="secondary-action" id="deleteLastPour" type="button">Delete Last</button>
-          <button class="primary-action" value="default" type="submit">Save Pour</button>
+          <button class="primary-action" id="savePourButton" value="default" type="submit">Save Pour</button>
         </div>
       </form>
     </dialog>
@@ -1275,7 +1275,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=121"></script>
+    <script src="app.js?v=122"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

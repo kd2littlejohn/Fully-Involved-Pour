@@ -3306,9 +3306,26 @@ button.mini-flavor-chip:focus-visible {
 }
 
 .pour-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+}
+
+.pour-item-thumb {
+  flex-shrink: 0;
+  width: 48px;
+  height: 68px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #0f0b07;
+}
+
+.pour-item-body {
   display: grid;
   gap: 8px;
-  padding: 14px;
+  flex: 1;
+  min-width: 0;
 }
 
 .pour-item-head {
@@ -3316,6 +3333,12 @@ button.mini-flavor-chip:focus-visible {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+}
+
+.pour-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .pour-item-head .icon-button {
