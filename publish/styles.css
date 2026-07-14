@@ -384,6 +384,69 @@ label {
   background: rgba(215, 138, 54, 0.22);
 }
 
+.account-menu-wrap {
+  position: relative;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 220px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+.account-menu.is-hidden {
+  display: none;
+}
+
+.account-menu-head {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 6px;
+}
+
+.account-menu-head strong {
+  font-family: var(--serif);
+  font-size: 0.95rem;
+  color: var(--cream);
+}
+
+.account-menu-head span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-item {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.account-menu-item:hover {
+  background: var(--panel-soft);
+}
+
+.account-menu-danger {
+  color: var(--danger);
+}
+
 .nav-item,
 .primary-action,
 .secondary-action,

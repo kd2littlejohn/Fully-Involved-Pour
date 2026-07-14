@@ -1698,6 +1698,9 @@ const els = {
   signInButton: document.querySelector("#signInButton"),
   accountAvatarBadge: document.querySelector("#accountAvatarBadge"),
   accountInitials: document.querySelector("#accountInitials"),
+  accountMenu: document.querySelector("#accountMenu"),
+  accountMenuName: document.querySelector("#accountMenuName"),
+  accountMenuEmail: document.querySelector("#accountMenuEmail"),
   appShell: document.querySelector("#appShell"),
   welcomeScreen: document.querySelector("#welcomeScreen"),
   hero: document.querySelector(".hero"),
@@ -2652,13 +2655,27 @@ function updateAccountUI() {
   if (currentUser) {
     els.signInButton.classList.add("is-hidden");
     els.accountAvatarBadge.classList.remove("is-hidden");
-    els.accountInitials.textContent = computeInitials(
-      currentProfile?.username || currentUser.displayName || currentUser.email,
-    );
+    const displayName = currentProfile?.username || currentUser.displayName || currentUser.email || "Signed in";
+    els.accountInitials.textContent = computeInitials(displayName);
+    if (els.accountMenuName) els.accountMenuName.textContent = displayName;
+    if (els.accountMenuEmail) els.accountMenuEmail.textContent = currentUser.email || "";
   } else {
     els.signInButton.classList.remove("is-hidden");
     els.accountAvatarBadge.classList.add("is-hidden");
+    closeAccountMenu();
   }
+}
+
+function closeAccountMenu() {
+  els.accountMenu?.classList.add("is-hidden");
+  els.accountAvatarBadge?.setAttribute("aria-expanded", "false");
+}
+
+function toggleAccountMenu() {
+  if (!els.accountMenu) return;
+  const willOpen = els.accountMenu.classList.contains("is-hidden");
+  els.accountMenu.classList.toggle("is-hidden", !willOpen);
+  els.accountAvatarBadge?.setAttribute("aria-expanded", String(willOpen));
 }
 
 let wasSignedIn = false;
@@ -2699,7 +2716,37 @@ els.signInButton?.addEventListener("click", signInWithGoogle);
 els.welcomeSignIn?.addEventListener("click", signInWithGoogle);
 els.welcomeAddBottle?.addEventListener("click", () => openForm());
 
-els.accountAvatarBadge?.addEventListener("click", () => navigateToView("profile"));
+els.accountAvatarBadge?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleAccountMenu();
+});
+
+// Close the account menu on any outside click or Escape.
+document.addEventListener("click", (event) => {
+  if (els.accountMenu && !els.accountMenu.classList.contains("is-hidden") && !event.target.closest(".account-menu-wrap")) {
+    closeAccountMenu();
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeAccountMenu();
+});
+
+document.querySelector("#accountMenuJourney")?.addEventListener("click", () => {
+  closeAccountMenu();
+  navigateToView("profile");
+});
+document.querySelector("#accountMenuEditName")?.addEventListener("click", () => {
+  closeAccountMenu();
+  openUsernameSetup();
+});
+document.querySelector("#accountMenuFriends")?.addEventListener("click", () => {
+  closeAccountMenu();
+  els.friendsToggle?.click();
+});
+document.querySelector("#accountMenuSignOut")?.addEventListener("click", () => {
+  closeAccountMenu();
+  auth?.signOut();
+});
 
 els.saveUsername?.addEventListener("click", () => claimUsername(els.usernameInput.value));
 els.followButton?.addEventListener("click", () => followUsername(els.followUsernameInput.value));

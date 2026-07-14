@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=106" />
+    <link rel="stylesheet" href="styles.css?v=107" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -73,9 +73,28 @@
             <span class="nav-badge is-hidden" id="friendsBadge"></span>
           </button>
           <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
-          <button class="account-avatar-badge is-hidden" id="accountAvatarBadge" type="button" aria-label="My Profile">
-            <span id="accountInitials"></span>
-          </button>
+          <div class="account-menu-wrap">
+            <button
+              class="account-avatar-badge is-hidden"
+              id="accountAvatarBadge"
+              type="button"
+              aria-label="Account settings"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              <span id="accountInitials"></span>
+            </button>
+            <div class="account-menu is-hidden" id="accountMenu" role="menu">
+              <div class="account-menu-head">
+                <strong id="accountMenuName">Signed in</strong>
+                <span id="accountMenuEmail"></span>
+              </div>
+              <button class="account-menu-item" id="accountMenuJourney" type="button" role="menuitem">My Journey</button>
+              <button class="account-menu-item" id="accountMenuEditName" type="button" role="menuitem">Change Name</button>
+              <button class="account-menu-item" id="accountMenuFriends" type="button" role="menuitem">Friends</button>
+              <button class="account-menu-item account-menu-danger" id="accountMenuSignOut" type="button" role="menuitem">Sign Out</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -1242,7 +1261,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=119"></script>
+    <script src="app.js?v=120"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
