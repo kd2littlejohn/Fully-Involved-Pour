@@ -253,6 +253,39 @@ textarea,
   font-size: 0.8rem;
 }
 
+.greeting-choice {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.greeting-choice legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.greeting-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.greeting-radio input {
+  width: auto;
+  accent-color: var(--amber);
+}
+
+#greetingNameInput.is-hidden {
+  display: none;
+}
+
 .topbar {
   position: sticky;
   top: 0;

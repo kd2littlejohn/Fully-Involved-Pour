@@ -1,5 +1,7 @@
 const STORAGE_KEY = "cellar-ledger-bottles";
 const POUR_STORAGE_KEY = "cellar-ledger-pours";
+const GREETING_MODE_KEY = "fip-greeting-mode"; // "username" | "custom"
+const GREETING_NAME_KEY = "fip-greeting-name"; // free-form name used only in the Home greeting
 const CUSTOM_LIBRARY_KEY = "fip-custom-library";
 const ASSISTANT_HISTORY_KEY = "fip-assistant-history";
 const INFINITY_STORAGE_KEY = "fip-infinity-bottles";
@@ -1710,6 +1712,9 @@ const els = {
   usernameInput: document.querySelector("#usernameInput"),
   usernameError: document.querySelector("#usernameError"),
   saveUsername: document.querySelector("#saveUsername"),
+  greetingModeUsername: document.querySelector("#greetingModeUsername"),
+  greetingModeCustom: document.querySelector("#greetingModeCustom"),
+  greetingNameInput: document.querySelector("#greetingNameInput"),
   friendsDrawer: document.querySelector("#friendsDrawer"),
   friendsBackdrop: document.querySelector("#friendsBackdrop"),
   friendsToggle: document.querySelector("#friendsToggle"),
@@ -2221,7 +2226,14 @@ async function pullCloudData(uid) {
       bottles = (data.bottles || []).map(normalizeBottle);
       pours = data.pours || [];
       infinityBottles = (data.infinityBottles || []).map((entry) => ({ additions: [], notes: "", ...entry }));
-      currentProfile = { username: data.username || "" };
+      currentProfile = {
+        username: data.username || "",
+        greetingMode: data.greetingMode || "",
+        greetingName: data.greetingName || "",
+      };
+      // Hydrate the local greeting preference from the cloud so it follows across devices.
+      if (data.greetingMode) localStorage.setItem(GREETING_MODE_KEY, data.greetingMode);
+      if (data.greetingName !== undefined) localStorage.setItem(GREETING_NAME_KEY, data.greetingName || "");
       localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
       localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
       localStorage.setItem(INFINITY_STORAGE_KEY, JSON.stringify(infinityBottles));
@@ -2250,7 +2262,16 @@ async function pushCloudData() {
   if (!currentUser || !db) return;
   try {
     await userDocRef(currentUser.uid).set(
-      { bottles, pours, infinityBottles, customLibrary, username: currentProfile?.username || "", updatedAt: Date.now() },
+      {
+        bottles,
+        pours,
+        infinityBottles,
+        customLibrary,
+        username: currentProfile?.username || "",
+        greetingMode: localStorage.getItem(GREETING_MODE_KEY) || "username",
+        greetingName: localStorage.getItem(GREETING_NAME_KEY) || "",
+        updatedAt: Date.now(),
+      },
       { merge: true },
     );
   } catch (error) {
@@ -2325,10 +2346,36 @@ function usernameKey(value) {
   return normalizeUsername(value).toLowerCase();
 }
 
+function syncGreetingFields() {
+  const customActive = els.greetingModeCustom?.checked;
+  if (els.greetingNameInput) {
+    els.greetingNameInput.classList.toggle("is-hidden", !customActive);
+    if (customActive) els.greetingNameInput.focus();
+  }
+}
+
 function openUsernameSetup() {
   els.usernameError.textContent = "";
-  els.usernameInput.value = "";
+  els.usernameInput.value = currentProfile?.username || "";
+  const mode = localStorage.getItem(GREETING_MODE_KEY) || "username";
+  els.greetingModeUsername.checked = mode !== "custom";
+  els.greetingModeCustom.checked = mode === "custom";
+  els.greetingNameInput.value = localStorage.getItem(GREETING_NAME_KEY) || "";
+  syncGreetingFields();
   els.usernameDialog.showModal();
+}
+
+// The greeting name lives in localStorage (so it works signed-out too) and, when
+// signed in, rides along to the cloud profile. Separate from the social username.
+function saveGreetingPreference() {
+  const mode = els.greetingModeCustom?.checked ? "custom" : "username";
+  localStorage.setItem(GREETING_MODE_KEY, mode);
+  localStorage.setItem(GREETING_NAME_KEY, (els.greetingNameInput?.value || "").trim());
+  if (currentProfile) {
+    currentProfile = { ...currentProfile, greetingMode: mode, greetingName: (els.greetingNameInput?.value || "").trim() };
+  }
+  if (currentUser) pushCloudData();
+  renderHomeGreeting();
 }
 
 async function claimUsername(rawUsername) {
@@ -2748,8 +2795,22 @@ document.querySelector("#accountMenuSignOut")?.addEventListener("click", () => {
   auth?.signOut();
 });
 
-els.saveUsername?.addEventListener("click", () => claimUsername(els.usernameInput.value));
+els.saveUsername?.addEventListener("click", saveAccountSettings);
+els.greetingModeUsername?.addEventListener("change", syncGreetingFields);
+els.greetingModeCustom?.addEventListener("change", syncGreetingFields);
 els.followButton?.addEventListener("click", () => followUsername(els.followUsernameInput.value));
+
+async function saveAccountSettings() {
+  saveGreetingPreference();
+  // A signed-in user must have a valid username; claimUsername validates, saves,
+  // and closes the dialog (or shows an inline error). Signed-out users just keep
+  // the greeting preference and close.
+  if (currentUser) {
+    await claimUsername(els.usernameInput.value);
+  } else {
+    els.usernameDialog.close();
+  }
+}
 
 document.querySelector("#profileEditUsername")?.addEventListener("click", () => openUsernameSetup());
 document.querySelector("#profileFriendsButton")?.addEventListener("click", () => els.friendsToggle?.click());
@@ -4305,11 +4366,21 @@ function renderRecommendation() {
   }
 }
 
+// The name to greet the user by on Home. When they've chosen a custom greeting
+// name it wins; otherwise fall back to their username / Google display name.
+function resolveGreetingName() {
+  const mode = localStorage.getItem(GREETING_MODE_KEY) || "username";
+  if (mode === "custom") {
+    return (localStorage.getItem(GREETING_NAME_KEY) || "").trim();
+  }
+  return currentProfile?.username || currentUser?.displayName || "";
+}
+
 function renderHomeGreeting() {
   if (!els.homeGreeting) return;
   const hour = new Date().getHours();
   const timeOfDay = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
-  const name = currentProfile?.username || currentUser?.displayName || "";
+  const name = resolveGreetingName();
   els.homeGreeting.textContent = name ? `Good ${timeOfDay}, ${name}.` : `Good ${timeOfDay}.`;
 }
 

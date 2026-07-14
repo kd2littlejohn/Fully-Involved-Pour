@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=107" />
+    <link rel="stylesheet" href="styles.css?v=108" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -1145,8 +1145,22 @@
           <input id="usernameInput" placeholder="bourbon_baron" autocomplete="off" />
         </label>
         <p class="auth-gate-note" id="usernameError"></p>
+
+        <fieldset class="greeting-choice">
+          <legend>Greet me as</legend>
+          <label class="greeting-radio">
+            <input type="radio" name="greetingMode" value="username" id="greetingModeUsername" />
+            My username
+          </label>
+          <label class="greeting-radio">
+            <input type="radio" name="greetingMode" value="custom" id="greetingModeCustom" />
+            A different name
+          </label>
+          <input id="greetingNameInput" placeholder="Kevin" autocomplete="off" />
+        </fieldset>
+
         <div class="form-actions">
-          <button class="primary-action" id="saveUsername" type="button">Save Username</button>
+          <button class="primary-action" id="saveUsername" type="button">Save</button>
         </div>
       </form>
     </dialog>
@@ -1261,7 +1275,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=120"></script>
+    <script src="app.js?v=121"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
