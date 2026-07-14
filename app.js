@@ -848,8 +848,10 @@ function normalizeBottle(bottle) {
     region: "",
     notes: "",
     flavors: [],
+    gallery: [],
     ...bottle,
     flavors: Array.isArray(bottle.flavors) ? bottle.flavors : [],
+    gallery: Array.isArray(bottle.gallery) ? bottle.gallery : [],
     notes: bottle.notes || "",
   });
 
@@ -6065,11 +6067,52 @@ function renderBottleJourneyTimeline(bottle) {
   `;
 }
 
+// Photos beyond the single catalog shot — the Glencairn pour, the bottle share,
+// the trip it came home from. Each entry is { url, caption }.
+function renderBottleGallery(bottle) {
+  const gallery = Array.isArray(bottle.gallery) ? bottle.gallery : [];
+  const grid = gallery.length
+    ? `<div class="bottle-gallery-grid">
+        ${gallery
+          .map(
+            (photo, index) => `
+              <figure class="bottle-gallery-item">
+                <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.caption || bottle.name)}" data-gallery-view="${index}" />
+                <button class="bottle-gallery-remove" data-gallery-remove="${index}" type="button" aria-label="Remove photo">×</button>
+                ${photo.caption ? `<figcaption>${escapeHtml(photo.caption)}</figcaption>` : ""}
+              </figure>
+            `,
+          )
+          .join("")}
+      </div>`
+    : `<div class="empty-state">No photos yet. Add the pour, the share, the moment — this bottle's gallery.</div>`;
+
+  return `
+    ${grid}
+    <div class="quick-photo-upload-panel bottle-gallery-add">
+      <span id="galleryPhotoStatus">Add a photo to this bottle's gallery</span>
+      <label class="upload-photo-action">
+        Add Photo
+        <input id="galleryPhotoUpload" type="file" accept="image/*" />
+      </label>
+    </div>
+  `;
+}
+
 function openBottleQuick(id) {
   const bottle = bottles.find((item) => item.id === id);
   if (!bottle) return;
+  // Preserve the open tab across re-renders (e.g. after adding a gallery photo),
+  // but only when reopening the same bottle — a fresh open always starts on Overview.
+  const priorTab =
+    els.quickBottleDialog.open && els.quickBottleDetail.dataset.bottleId === id
+      ? els.quickBottleDetail.querySelector("[data-tab].is-active")?.dataset.tab || "overview"
+      : "overview";
+  els.quickBottleDetail.dataset.bottleId = id;
   const availabilityPick = getAvailabilityAlternative(bottle);
   const profilePick = getProfileAlternative(bottle);
+  const tab = (name) => `quick-tab${priorTab === name ? " is-active" : ""}`;
+  const panel = (name) => `quick-tab-panel${priorTab === name ? "" : " is-hidden"}`;
   els.quickBottleDetail.innerHTML = `
     <div class="form-head">
       <div>
@@ -6080,13 +6123,14 @@ function openBottleQuick(id) {
     </div>
 
     <div class="quick-tabs" role="tablist">
-      <button class="quick-tab is-active" data-tab="overview" type="button">Overview</button>
-      <button class="quick-tab" data-tab="tasting" type="button">Tasting</button>
-      <button class="quick-tab" data-tab="journey" type="button">Journey</button>
-      <button class="quick-tab" data-tab="specs" type="button">Specs</button>
+      <button class="${tab("overview")}" data-tab="overview" type="button">Overview</button>
+      <button class="${tab("tasting")}" data-tab="tasting" type="button">Tasting</button>
+      <button class="${tab("journey")}" data-tab="journey" type="button">Journey</button>
+      <button class="${tab("gallery")}" data-tab="gallery" type="button">Gallery</button>
+      <button class="${tab("specs")}" data-tab="specs" type="button">Specs</button>
     </div>
 
-    <div class="quick-tab-panel" data-tab-panel="overview">
+    <div class="${panel("overview")}" data-tab-panel="overview">
       <div class="quick-detail-grid">
         <img class="quick-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
         <div>
@@ -6116,16 +6160,20 @@ function openBottleQuick(id) {
       ${renderBottleAlternativesBlock(bottle, availabilityPick, profilePick)}
     </div>
 
-    <div class="quick-tab-panel is-hidden" data-tab-panel="tasting">
+    <div class="${panel("tasting")}" data-tab-panel="tasting">
       <div class="bottle-radar">${renderBottleFlavorRadar(bottle)}</div>
       ${renderTastingNoteBlock(bottle)}
     </div>
 
-    <div class="quick-tab-panel is-hidden" data-tab-panel="journey">
+    <div class="${panel("journey")}" data-tab-panel="journey">
       ${renderBottleJourneyTimeline(bottle)}
     </div>
 
-    <div class="quick-tab-panel is-hidden" data-tab-panel="specs">
+    <div class="${panel("gallery")}" data-tab-panel="gallery">
+      ${renderBottleGallery(bottle)}
+    </div>
+
+    <div class="${panel("specs")}" data-tab-panel="specs">
       <div class="bottle-meta">
         <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
         <div><span>MSRP</span><strong>${bottle.msrp ? money(bottle.msrp) : "—"}</strong></div>
@@ -6183,6 +6231,13 @@ function openBottleQuick(id) {
     els.quickBottleDialog.close();
   });
   document.querySelector("#quickPhotoUpload").addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
+  document.querySelector("#galleryPhotoUpload")?.addEventListener("change", (event) => uploadGalleryPhoto(event, id));
+  els.quickBottleDetail.querySelectorAll("[data-gallery-remove]").forEach((button) => {
+    button.addEventListener("click", () => removeGalleryPhoto(id, Number(button.dataset.galleryRemove)));
+  });
+  els.quickBottleDetail.querySelectorAll("[data-gallery-view]").forEach((img) => {
+    img.addEventListener("click", () => window.open(img.src, "_blank", "noopener"));
+  });
   document.querySelector("#altOwnedCard")?.addEventListener("click", () => {
     els.quickBottleDialog.close();
     openBottleQuick(availabilityPick.id);
@@ -6730,6 +6785,51 @@ async function uploadQuickBottlePhoto(event, id) {
   } finally {
     event.target.value = "";
   }
+}
+
+// Gallery photos are scene shots — the pour, the share, the campfire — so unlike the
+// catalog photo they keep their background (no isolate/cutout), just downscaled + stored.
+async function uploadGalleryPhoto(event, id) {
+  const [file] = event.target.files;
+  if (!file) return;
+
+  const statusEl = document.querySelector("#galleryPhotoStatus");
+  const looksLikeImage = file.type.startsWith("image/") || isHeicFile(file) || /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(file.name || "");
+  if (!looksLikeImage) {
+    if (statusEl) statusEl.textContent = "Choose an image file.";
+    event.target.value = "";
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = "Adding photo…";
+  try {
+    const { dataUrl } = await downscaleImageToJpeg(file, 1600, { stamp: false, isolate: false });
+    const url = await storeBottlePhoto(dataUrl, file, "gallery");
+    const caption = file.name.replace(/\.[^.]+$/, "") || "";
+    bottles = bottles.map((bottle) =>
+      bottle.id === id ? { ...bottle, gallery: [...(bottle.gallery || []), { url, caption }] } : bottle,
+    );
+    persist();
+    render();
+    if (els.quickBottleDialog.open) openBottleQuick(id);
+  } catch (error) {
+    console.error("Gallery upload failed", error);
+    if (statusEl) statusEl.textContent = "Could not process that photo. Try a different file.";
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function removeGalleryPhoto(id, index) {
+  bottles = bottles.map((bottle) => {
+    if (bottle.id !== id) return bottle;
+    const gallery = [...(bottle.gallery || [])];
+    gallery.splice(index, 1);
+    return { ...bottle, gallery };
+  });
+  persist();
+  render();
+  if (els.quickBottleDialog.open) openBottleQuick(id);
 }
 
 let brandLogoPromise;
