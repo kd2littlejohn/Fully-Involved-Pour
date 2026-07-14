@@ -1559,6 +1559,7 @@ const els = {
   profileFavoriteProof: document.querySelector("#profileFavoriteProof"),
   profileCollectionValue: document.querySelector("#profileCollectionValue"),
   profileFlavorTags: document.querySelector("#profileFlavorTags"),
+  profileFavoriteCompanion: document.querySelector("#profileFavoriteCompanion"),
   profileLegacyShelf: document.querySelector("#profileLegacyShelf"),
   homeGreeting: document.querySelector("#homeGreeting"),
   continueStoryCard: document.querySelector("#continueStoryCard"),
@@ -1640,6 +1641,11 @@ const els = {
   pourRating: document.querySelector("#pourRating"),
   pourOccasion: document.querySelector("#pourOccasion"),
   pourNotes: document.querySelector("#pourNotes"),
+  pourCompanion: document.querySelector("#pourCompanion"),
+  pourLocation: document.querySelector("#pourLocation"),
+  pourMood: document.querySelector("#pourMood"),
+  pourMemory: document.querySelector("#pourMemory"),
+  pourBuyAgain: document.querySelector("#pourBuyAgain"),
   pourList: document.querySelector("#pourList"),
   totalPours: document.querySelector("#totalPours"),
   weeklyPours: document.querySelector("#weeklyPours"),
@@ -2074,8 +2080,12 @@ function computeCoreBarScore(bottle) {
   );
   const valueScore = valueRatio / maxValueRatio;
 
-  const recommendedPours = bottlePourList.filter((pour) =>
-    /shar|recommend|friend|gift|impress/i.test(pour.occasion || ""),
+  // A pour counts as "shared" if the occasion says so, or a companion was logged
+  // (anything other than drinking alone).
+  const recommendedPours = bottlePourList.filter(
+    (pour) =>
+      /shar|recommend|friend|gift|impress/i.test(pour.occasion || "") ||
+      (pour.companion && !/solo|alone|myself|no one/i.test(pour.companion)),
   ).length;
   const recommendScore = pourCount ? recommendedPours / pourCount : 0;
 
@@ -4032,6 +4042,16 @@ function renderProfile() {
   const topProofBand = [...proofBands.entries()].sort((a, b) => b[1] - a[1])[0];
   els.profileFavoriteProof.textContent = topProofBand ? `${topProofBand[0]} proof` : "—";
 
+  const companions = new Map();
+  pours.forEach((pour) => {
+    const name = (pour.companion || "").trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    companions.set(key, { name, count: (companions.get(key)?.count || 0) + 1 });
+  });
+  const topCompanion = [...companions.values()].sort((a, b) => b.count - a.count)[0];
+  els.profileFavoriteCompanion.textContent = topCompanion ? topCompanion.name : "—";
+
   const value = owned.reduce((sum, bottle) => sum + Number(bottle.price || 0) * Number(bottle.quantity || 1), 0);
   els.profileCollectionValue.textContent = money(value);
 
@@ -4339,7 +4359,7 @@ function renderRecentPourStories() {
             <div class="pour-story-item" data-quick="${bottle.id}" role="button" tabindex="0">
               <div>
                 <strong>${escapeHtml(bottle.name)}</strong>
-                <span>${escapeHtml(pour.notes || pour.occasion || "Logged a pour")} · ${timeAgo(new Date(`${pour.date}T12:00:00`).getTime())}</span>
+                <span>${escapeHtml(pour.memory || pour.notes || pour.occasion || "Logged a pour")} · ${timeAgo(new Date(`${pour.date}T12:00:00`).getTime())}</span>
               </div>
               <span class="pour-story-score">${numberOrDash(pour.rating || bottle.rating)}</span>
             </div>
@@ -4357,7 +4377,7 @@ function renderJourneyInsights() {
   if (!els.journeyInsightsGrid) return;
   const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
   const documentedStories =
-    pours.filter((pour) => pour.notes?.trim() || pour.occasion?.trim()).length +
+    pours.filter((pour) => pour.memory?.trim() || pour.notes?.trim() || pour.occasion?.trim()).length +
     owned.filter((bottle) => bottle.notes?.trim()).length;
 
   const proofBands = new Map();
@@ -4602,6 +4622,12 @@ function renderPourLog() {
         .sort((a, b) => new Date(b.date) - new Date(a.date))
         .map((pour) => {
           const bottle = bottles.find((item) => item.id === pour.bottleId);
+          const storyChips = [
+            pour.companion ? `👥 ${escapeHtml(pour.companion)}` : "",
+            pour.location ? `📍 ${escapeHtml(pour.location)}` : "",
+            pour.mood ? `✨ ${escapeHtml(pour.mood)}` : "",
+            pour.wouldBuyAgain ? "🔁 Would buy again" : "",
+          ].filter(Boolean);
           return `
             <article class="pour-item">
               <div class="pour-item-head">
@@ -4613,6 +4639,8 @@ function renderPourLog() {
               </div>
               <p>${escapeHtml(pour.occasion || "Pour session")}</p>
               <p>${escapeHtml(pour.notes || "No notes logged.")}</p>
+              ${pour.memory ? `<p class="pour-memory">"${escapeHtml(pour.memory)}"</p>` : ""}
+              ${storyChips.length ? `<div class="pour-story-chips">${storyChips.map((chip) => `<span>${chip}</span>`).join("")}</div>` : ""}
             </article>
           `;
         })
@@ -4644,6 +4672,11 @@ function openPourForm(selectedId = "") {
   els.pourRating.value = "";
   els.pourOccasion.value = "";
   els.pourNotes.value = "";
+  els.pourCompanion.value = "";
+  els.pourLocation.value = "";
+  els.pourMood.value = "";
+  els.pourMemory.value = "";
+  els.pourBuyAgain.checked = false;
   els.pourDialog.showModal();
 }
 
@@ -4660,6 +4693,11 @@ function savePour(event) {
       rating: Number(els.pourRating.value || 0),
       occasion: els.pourOccasion.value.trim(),
       notes: els.pourNotes.value.trim(),
+      companion: els.pourCompanion.value.trim(),
+      location: els.pourLocation.value.trim(),
+      mood: els.pourMood.value.trim(),
+      memory: els.pourMemory.value.trim(),
+      wouldBuyAgain: els.pourBuyAgain.checked,
     },
     ...pours,
   ];
@@ -5980,8 +6018,15 @@ function renderBottleJourneyTimeline(bottle) {
       events.push({
         time,
         icon: "🥃",
-        label: pour.notes || pour.occasion || "Poured",
-        meta: `${numberOrDash(pour.ounces)} oz${Number(pour.rating) ? ` · ${pour.rating}` : ""}`,
+        label: pour.memory || pour.notes || pour.occasion || "Poured",
+        meta: [
+          `${numberOrDash(pour.ounces)} oz`,
+          Number(pour.rating) ? `${pour.rating}` : "",
+          pour.companion ? `with ${pour.companion}` : "",
+          pour.location || "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
       });
     }
   });

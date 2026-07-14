@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=104" />
+    <link rel="stylesheet" href="styles.css?v=105" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -737,6 +737,10 @@
               <strong id="profileFavoriteProof">—</strong>
             </article>
             <article>
+              <span>Favorite Companion</span>
+              <strong id="profileFavoriteCompanion">—</strong>
+            </article>
+            <article>
               <span>Collection Value</span>
               <strong id="profileCollectionValue">$0</strong>
             </article>
@@ -1184,8 +1188,34 @@
         </label>
         <label>
           Notes
-          <textarea id="pourNotes" rows="4" placeholder="Nose, palate, finish, who you shared it with."></textarea>
+          <textarea id="pourNotes" rows="4" placeholder="Nose, palate, finish — what you tasted."></textarea>
         </label>
+
+        <div class="pour-story-section">
+          <p class="pour-story-heading">The Story</p>
+          <div class="form-grid">
+            <label>
+              With who
+              <input id="pourCompanion" placeholder="Solo, my brother, the crew" />
+            </label>
+            <label>
+              Where
+              <input id="pourLocation" placeholder="Back porch, firehouse, cabin" />
+            </label>
+            <label>
+              Mood
+              <input id="pourMood" placeholder="Unwinding, celebrating" />
+            </label>
+          </div>
+          <label>
+            Memory
+            <textarea id="pourMemory" rows="3" placeholder="What made this pour worth remembering?"></textarea>
+          </label>
+          <label class="pour-buy-again">
+            <input id="pourBuyAgain" type="checkbox" />
+            Would buy this bottle again
+          </label>
+        </div>
 
         <div class="form-actions">
           <button class="secondary-action" id="deleteLastPour" type="button">Delete Last</button>
@@ -1212,7 +1242,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=117"></script>
+    <script src="app.js?v=118"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
