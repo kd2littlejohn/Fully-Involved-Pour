@@ -1638,21 +1638,9 @@ const els = {
   infinityDialog: document.querySelector("#infinityDialog"),
   infinityDetail: document.querySelector("#infinityDetail"),
   pourDialog: document.querySelector("#pourDialog"),
-  pourForm: document.querySelector("#pourForm"),
-  pourBottle: document.querySelector("#pourBottle"),
-  pourDate: document.querySelector("#pourDate"),
-  pourOunces: document.querySelector("#pourOunces"),
-  pourRating: document.querySelector("#pourRating"),
-  pourOccasion: document.querySelector("#pourOccasion"),
-  pourNotes: document.querySelector("#pourNotes"),
-  pourCompanion: document.querySelector("#pourCompanion"),
-  pourLocation: document.querySelector("#pourLocation"),
-  pourMood: document.querySelector("#pourMood"),
-  pourMemory: document.querySelector("#pourMemory"),
-  pourBuyAgain: document.querySelector("#pourBuyAgain"),
-  pourFormTitle: document.querySelector("#pourFormTitle"),
-  savePourButton: document.querySelector("#savePourButton"),
-  deleteLastPour: document.querySelector("#deleteLastPour"),
+  pourWizard: document.querySelector("#pourWizard"),
+  pourWizardTitle: document.querySelector("#pourWizardTitle"),
+  pwDeleteEntry: document.querySelector("#pwDeleteEntry"),
   pourList: document.querySelector("#pourList"),
   totalPours: document.querySelector("#totalPours"),
   weeklyPours: document.querySelector("#weeklyPours"),
@@ -1806,12 +1794,8 @@ els.flavorBottleList.addEventListener("click", (event) => {
   if (item) openBottleQuick(item.dataset.flavorBottle);
 });
 document.querySelector("#openPourForm").addEventListener("click", () => openPourForm());
-document.querySelector("#closePourDialog").addEventListener("click", () => {
-  editingPourId = null;
-  els.pourDialog.close();
-});
+document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
 document.querySelector("#analyzePours").addEventListener("click", analyzePours);
-document.querySelector("#deleteLastPour").addEventListener("click", deleteLastPour);
 els.searchInput.addEventListener("input", render);
 els.librarySearch.addEventListener("input", renderLibrary);
 function switchProfileTab(tab) {
@@ -1860,7 +1844,6 @@ els.viewModeToggle?.addEventListener("click", (event) => {
   render();
 });
 els.bottleForm.addEventListener("submit", saveBottle);
-els.pourForm.addEventListener("submit", savePour);
 els.deleteBottle.addEventListener("click", deleteBottle);
 els.saveAndAddAnother.addEventListener("click", saveBottleAndAddAnother);
 document.querySelector("#buildTastingNote").addEventListener("click", buildGuidedTastingNote);
@@ -4754,6 +4737,8 @@ function renderPourLog() {
             pour.mood ? `✨ ${escapeHtml(pour.mood)}` : "",
             pour.wouldBuyAgain ? "🔁 Would buy again" : "",
           ].filter(Boolean);
+          const fipScore = Number(pour.rating);
+          const tier = fipScore > 0 ? fipTier(fipScore) : null;
           return `
             <article class="pour-item">
               ${bottle ? bottleThumb(bottle, "pour-item-thumb") : `<div class="catalog-thumb catalog-thumb-empty pour-item-thumb" aria-hidden="true">?</div>`}
@@ -4761,9 +4746,10 @@ function renderPourLog() {
                 <div class="pour-item-head">
                   <div>
                     <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
-                    <span>${formatDate(pour.date)} · ${Number(pour.ounces || 0).toFixed(1)} oz · Rating ${numberOrDash(pour.rating)}</span>
+                    <span>${formatDate(pour.date)} · ${Number(pour.ounces || 0).toFixed(1)} oz</span>
                   </div>
                   <div class="pour-item-actions">
+                    ${tier ? `<span class="pour-item-score ${tier.className}" title="${escapeHtml(tier.label)}">${fipScore.toFixed(1)}</span>` : ""}
                     <button class="icon-button" data-edit-pour="${escapeHtml(pour.id)}" type="button" aria-label="Edit pour">✎</button>
                     <button class="icon-button" data-delete-pour="${escapeHtml(pour.id)}" type="button" aria-label="Delete pour">×</button>
                   </div>
@@ -4794,90 +4780,372 @@ function deletePourEntry(id) {
   render();
 }
 
-// Tracks which existing pour (if any) is being edited, so savePour updates it in
-// place instead of prepending a new entry. Null means we're logging a fresh pour.
-let editingPourId = null;
+// Pour editing flows through the FIP wizard's pourDraft; see openPourForm.
+// ---- FIP Rating: the weighted tasting rubric behind every Pour Story ----
+// The 0–10 FIP score is the sum of five weighted components, captured through a
+// 5-step wizard (Session → Nose → Palate → Finish → Summary).
+const FIP_MAX = { nose: 2.5, palate: 3.5, finish: 2, complexity: 1, value: 1 };
+const NOSE_AROMAS = [
+  "Brown Sugar", "Vanilla", "Oak", "Caramel", "Cherry", "Honey",
+  "Cinnamon", "Orange Peel", "Leather", "Baking Spice", "Toffee", "Other",
+];
+const PALATE_FLAVORS = [
+  "Caramel", "Vanilla", "Dark Fruit", "Oak", "Baking Spice", "Char",
+  "Honey", "Nutmeg", "Rye Spice", "Toffee", "Black Pepper", "Other",
+];
+const BUY_AGAIN_VALUE = { yes: 1, maybe: 0.5, no: 0 };
+
+// The FIP tier bands shown on the rating-scale legend.
+function fipTier(score) {
+  if (score >= 9.5) return { label: "Hall of Fame", className: "tier-hall-of-fame", blurb: "Exceptional. A pour to remember." };
+  if (score >= 9.0) return { label: "Fully Involved", className: "tier-fully-involved", blurb: "Outstanding. Top shelf." };
+  if (score >= 8.0) return { label: "Working Fire", className: "tier-working-fire", blurb: "Very good. Would buy again." };
+  if (score >= 7.0) return { label: "First Due", className: "tier-first-due", blurb: "Good. Solid pour." };
+  if (score >= 6.0) return { label: "Routine Call", className: "tier-routine-call", blurb: "Average. Not bad." };
+  return { label: "False Alarm", className: "tier-false-alarm", blurb: "Below average." };
+}
+
+// Live wizard draft. `editingId` non-null means we're editing an existing pour.
+let pourDraft = null;
+const PW = (id) => document.querySelector(`#${id}`);
+
+function blankDraft() {
+  return {
+    editingId: null,
+    step: 1,
+    bottleId: "",
+    date: new Date().toISOString().slice(0, 10),
+    ounces: 1.5,
+    location: "",
+    companion: "",
+    occasion: "",
+    glass: "",
+    weather: "",
+    mood: "",
+    sessionNotes: "",
+    nose: 0,
+    noseAromas: [],
+    noseNotes: "",
+    palate: 0,
+    palateFlavors: [],
+    palateNotes: "",
+    finish: 0,
+    finishNotes: "",
+    complexity: 0,
+    value: 0,
+    buyAgain: "yes",
+    summaryNotes: "",
+  };
+}
+
+function draftFromPour(pour) {
+  const fip = pour.fip || {};
+  return {
+    editingId: pour.id,
+    step: 1,
+    bottleId: pour.bottleId || "",
+    date: pour.date || new Date().toISOString().slice(0, 10),
+    ounces: pour.ounces ?? 1.5,
+    location: pour.location || "",
+    companion: pour.companion || "",
+    occasion: pour.occasion || "",
+    glass: pour.glass || "",
+    weather: pour.weather || "",
+    mood: pour.mood || "",
+    sessionNotes: pour.notes || "",
+    nose: Number(fip.nose || 0),
+    noseAromas: Array.isArray(fip.noseAromas) ? [...fip.noseAromas] : [],
+    noseNotes: fip.noseNotes || "",
+    palate: Number(fip.palate || 0),
+    palateFlavors: Array.isArray(fip.palateFlavors) ? [...fip.palateFlavors] : [],
+    palateNotes: fip.palateNotes || "",
+    finish: Number(fip.finish || 0),
+    finishNotes: fip.finishNotes || "",
+    complexity: Number(fip.complexity || 0),
+    value: Number(fip.value ?? (pour.wouldBuyAgain ? 1 : 0)),
+    buyAgain: pour.buyAgain || (pour.wouldBuyAgain ? "yes" : "no"),
+    summaryNotes: pour.memory || "",
+  };
+}
 
 function openPourForm(selectedId = "", pourId = "") {
   const editing = pourId ? pours.find((pour) => pour.id === pourId) : null;
-  editingPourId = editing ? editing.id : null;
+  // A fresh add resumes an unsaved draft if one was stashed via "Save Draft".
+  pourDraft = editing ? draftFromPour(editing) : loadPourDraft() || blankDraft();
 
   const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
-  // When editing an entry whose bottle is a wishlist/finished one no longer in `owned`,
-  // still include it so the select can show the original bottle.
   const optionBottles = [...owned];
   if (editing && editing.bottleId && !optionBottles.some((b) => b.id === editing.bottleId)) {
     const original = bottles.find((b) => b.id === editing.bottleId);
     if (original) optionBottles.unshift(original);
   }
-  els.pourBottle.innerHTML = optionBottles.length
+  PW("pwBottle").innerHTML = optionBottles.length
     ? optionBottles
         .map((bottle) => `<option value="${escapeHtml(bottle.id)}">${escapeHtml(bottle.name)} · ${escapeHtml(bottle.distillery)}</option>`)
         .join("")
     : `<option value="">No bottles available</option>`;
 
-  els.pourDate.value = editing?.date || new Date().toISOString().slice(0, 10);
-  els.pourBottle.value = editing?.bottleId || selectedId || optionBottles[0]?.id || "";
-  els.pourOunces.value = editing ? String(editing.ounces ?? "") : "1.5";
-  els.pourRating.value = editing?.rating ? String(editing.rating) : "";
-  els.pourOccasion.value = editing?.occasion || "";
-  els.pourNotes.value = editing?.notes || "";
-  els.pourCompanion.value = editing?.companion || "";
-  els.pourLocation.value = editing?.location || "";
-  els.pourMood.value = editing?.mood || "";
-  els.pourMemory.value = editing?.memory || "";
-  els.pourBuyAgain.checked = Boolean(editing?.wouldBuyAgain);
+  if (!pourDraft.bottleId) pourDraft.bottleId = selectedId || optionBottles[0]?.id || "";
 
-  els.pourFormTitle.textContent = editing ? "Edit Pour" : "Log Pour";
-  els.savePourButton.textContent = editing ? "Save Changes" : "Save Pour";
-  els.deleteLastPour.textContent = editing ? "Delete Entry" : "Delete Last";
+  els.pourWizardTitle.textContent = editing ? "Edit Pour Story" : "Add Pour Story";
+  els.pwDeleteEntry.classList.toggle("is-hidden", !editing);
 
-  els.pourDialog.showModal();
+  hydrateWizardFromDraft();
+  renderPourWizardChips();
+  pwGoToStep(1);
+  pwUpdateScores();
+
+  if (!els.pourDialog.open) els.pourDialog.showModal();
 }
 
-function savePour(event) {
-  event.preventDefault();
-  if (!els.pourBottle.value) return;
+// Push the draft object into every wizard input.
+function hydrateWizardFromDraft() {
+  const d = pourDraft;
+  PW("pwBottle").value = d.bottleId;
+  PW("pwDate").value = d.date;
+  PW("pwLocation").value = d.location;
+  PW("pwCompanion").value = d.companion;
+  PW("pwOccasion").value = d.occasion;
+  PW("pwGlass").value = d.glass;
+  PW("pwWeather").value = d.weather;
+  PW("pwMood").value = d.mood;
+  PW("pwOunces").value = d.ounces;
+  PW("pwSessionNotes").value = d.sessionNotes;
+  PW("pwNose").value = d.nose;
+  PW("pwNoseNotes").value = d.noseNotes;
+  PW("pwPalate").value = d.palate;
+  PW("pwPalateNotes").value = d.palateNotes;
+  PW("pwFinish").value = d.finish;
+  PW("pwFinishNotes").value = d.finishNotes;
+  PW("pwComplexity").value = d.complexity;
+  PW("pwValue").value = d.value;
+  PW("pwBuyAgain").value = d.buyAgain;
+  PW("pwSummaryNotes").value = d.summaryNotes;
+}
 
+function renderPourWizardChips() {
+  const chipMarkup = (list, selected) =>
+    list
+      .map(
+        (name) =>
+          `<button class="pour-wizard-chip${selected.includes(name) ? " is-selected" : ""}" data-chip="${escapeHtml(name)}" type="button">${escapeHtml(name)}</button>`,
+      )
+      .join("");
+  PW("pwNoseChips").innerHTML = chipMarkup(NOSE_AROMAS, pourDraft.noseAromas);
+  PW("pwPalateChips").innerHTML = chipMarkup(PALATE_FLAVORS, pourDraft.palateFlavors);
+}
+
+function pwGoToStep(step) {
+  pourDraft.step = step;
+  els.pourWizard.querySelectorAll("[data-step-panel]").forEach((panel) => {
+    panel.classList.toggle("is-hidden", Number(panel.dataset.stepPanel) !== step);
+  });
+  els.pourWizard.querySelectorAll("[data-step-dot]").forEach((dot) => {
+    const n = Number(dot.dataset.stepDot);
+    dot.classList.toggle("is-active", n === step);
+    dot.classList.toggle("is-done", n < step);
+  });
+  if (step === 5) renderPourSummary();
+  els.pourWizard.scrollTop = 0;
+}
+
+function fipTotal() {
+  const d = pourDraft;
+  return Number((d.nose + d.palate + d.finish + d.complexity + d.value).toFixed(1));
+}
+
+// Refresh the per-step score readouts as sliders move.
+function pwUpdateScores() {
+  const d = pourDraft;
+  PW("pwNoseScoreDisplay").innerHTML = `<strong>${d.nose.toFixed(1)}</strong> / 2.5`;
+  PW("pwPalateScoreDisplay").innerHTML = `<strong>${d.palate.toFixed(1)}</strong> / 3.5`;
+  PW("pwFinishScoreDisplay").innerHTML = `<strong>${d.finish.toFixed(1)}</strong> / 2.0`;
+}
+
+function renderPourSummary() {
+  const d = pourDraft;
+  const bottle = bottles.find((b) => b.id === d.bottleId);
+  PW("pwSummaryBottle").innerHTML = bottle
+    ? `${bottleThumb(bottle, "pour-summary-thumb")}
+       <div>
+         <strong>${escapeHtml(bottle.name)}</strong>
+         <span>${escapeHtml(bottle.distillery || "")}</span>
+         <span>${formatDate(d.date)}${d.companion ? ` · ${escapeHtml(d.companion)}` : ""}${d.glass ? ` · ${escapeHtml(d.glass)}` : ""}</span>
+       </div>`
+    : `<strong>No bottle selected</strong>`;
+
+  const setBar = (id, value, max) => {
+    const el = PW(id);
+    if (el) el.style.width = `${Math.round((value / max) * 100)}%`;
+  };
+  setBar("pwBarNose", d.nose, FIP_MAX.nose);
+  setBar("pwBarPalate", d.palate, FIP_MAX.palate);
+  setBar("pwBarFinish", d.finish, FIP_MAX.finish);
+  PW("pwOutNose").textContent = `${d.nose.toFixed(1)} / 2.5`;
+  PW("pwOutPalate").textContent = `${d.palate.toFixed(1)} / 3.5`;
+  PW("pwOutFinish").textContent = `${d.finish.toFixed(1)} / 2.0`;
+  PW("pwOutComplexity").textContent = `${d.complexity.toFixed(1)} / 1.0`;
+  PW("pwOutValue").textContent = `${d.value.toFixed(1)} / 1.0`;
+
+  const total = fipTotal();
+  PW("pwFipScore").textContent = total.toFixed(1);
+  const tier = fipTier(total);
+  PW("pwTier").className = `pour-summary-tier ${tier.className}`;
+  PW("pwTier").innerHTML = `<strong>${tier.label}</strong><span>${tier.blurb}</span>`;
+}
+
+function savePourStory() {
+  const d = pourDraft;
+  if (!d.bottleId) {
+    pwGoToStep(1);
+    return;
+  }
+  const total = fipTotal();
   const entry = {
-    id: editingPourId || crypto.randomUUID(),
-    bottleId: els.pourBottle.value,
-    date: els.pourDate.value || new Date().toISOString().slice(0, 10),
-    ounces: Number(els.pourOunces.value || 1.5),
-    rating: Number(els.pourRating.value || 0),
-    occasion: els.pourOccasion.value.trim(),
-    notes: els.pourNotes.value.trim(),
-    companion: els.pourCompanion.value.trim(),
-    location: els.pourLocation.value.trim(),
-    mood: els.pourMood.value.trim(),
-    memory: els.pourMemory.value.trim(),
-    wouldBuyAgain: els.pourBuyAgain.checked,
+    id: d.editingId || crypto.randomUUID(),
+    bottleId: d.bottleId,
+    date: d.date || new Date().toISOString().slice(0, 10),
+    ounces: Number(d.ounces || 1.5),
+    rating: total,
+    occasion: d.occasion.trim(),
+    notes: d.sessionNotes.trim(),
+    companion: d.companion.trim(),
+    location: d.location.trim(),
+    mood: d.mood.trim(),
+    glass: d.glass.trim(),
+    weather: d.weather.trim(),
+    memory: d.summaryNotes.trim(),
+    buyAgain: d.buyAgain,
+    wouldBuyAgain: d.buyAgain === "yes",
+    fip: {
+      nose: d.nose,
+      palate: d.palate,
+      finish: d.finish,
+      complexity: d.complexity,
+      value: d.value,
+      total,
+      noseAromas: [...d.noseAromas],
+      palateFlavors: [...d.palateFlavors],
+      noseNotes: d.noseNotes.trim(),
+      palateNotes: d.palateNotes.trim(),
+      finishNotes: d.finishNotes.trim(),
+    },
   };
 
-  if (editingPourId) {
-    pours = pours.map((pour) => (pour.id === editingPourId ? entry : pour));
+  if (d.editingId) {
+    pours = pours.map((pour) => (pour.id === d.editingId ? entry : pour));
   } else {
     pours = [entry, ...pours];
   }
-  editingPourId = null;
+  pourDraft = null;
+  clearPourDraft();
   persistPours();
   els.pourDialog.close();
   render();
 }
 
-function deleteLastPour() {
-  if (editingPourId) {
-    // In edit mode this button deletes the entry being edited.
-    if (!confirm("Delete this pour entry?")) return;
-    pours = pours.filter((pour) => pour.id !== editingPourId);
-    editingPourId = null;
-  } else {
-    pours = pours.slice(1);
-  }
+function deletePourFromWizard() {
+  if (!pourDraft?.editingId) return;
+  if (!confirm("Delete this pour story?")) return;
+  pours = pours.filter((pour) => pour.id !== pourDraft.editingId);
+  pourDraft = null;
   persistPours();
   els.pourDialog.close();
   render();
 }
+
+// --- Draft persistence (Save Draft) ---
+const POUR_DRAFT_KEY = "fip-pour-draft";
+
+function savePourDraftToStorage() {
+  syncDraftFromInputs();
+  if (pourDraft.editingId) return; // don't stash drafts of existing entries
+  localStorage.setItem(POUR_DRAFT_KEY, JSON.stringify(pourDraft));
+  els.pourDialog.close();
+}
+
+function clearPourDraft() {
+  localStorage.removeItem(POUR_DRAFT_KEY);
+}
+
+function loadPourDraft() {
+  const raw = localStorage.getItem(POUR_DRAFT_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// Pull current input values back into the draft object (before nav/save/draft).
+function syncDraftFromInputs() {
+  const d = pourDraft;
+  if (!d) return;
+  d.bottleId = PW("pwBottle").value;
+  d.date = PW("pwDate").value;
+  d.location = PW("pwLocation").value;
+  d.companion = PW("pwCompanion").value;
+  d.occasion = PW("pwOccasion").value;
+  d.glass = PW("pwGlass").value;
+  d.weather = PW("pwWeather").value;
+  d.mood = PW("pwMood").value;
+  d.ounces = PW("pwOunces").value;
+  d.sessionNotes = PW("pwSessionNotes").value;
+  d.nose = Number(PW("pwNose").value);
+  d.noseNotes = PW("pwNoseNotes").value;
+  d.palate = Number(PW("pwPalate").value);
+  d.palateNotes = PW("pwPalateNotes").value;
+  d.finish = Number(PW("pwFinish").value);
+  d.finishNotes = PW("pwFinishNotes").value;
+  d.complexity = Number(PW("pwComplexity").value);
+  d.value = Number(PW("pwValue").value);
+  d.buyAgain = PW("pwBuyAgain").value;
+  d.summaryNotes = PW("pwSummaryNotes").value;
+}
+
+// --- Wizard event wiring ---
+els.pourWizard.querySelectorAll("[data-goto]").forEach((button) => {
+  button.addEventListener("click", () => {
+    syncDraftFromInputs();
+    pwGoToStep(Number(button.dataset.goto));
+  });
+});
+els.pourWizard.querySelectorAll("[data-step-dot]").forEach((dot) => {
+  dot.addEventListener("click", () => {
+    syncDraftFromInputs();
+    pwGoToStep(Number(dot.dataset.stepDot));
+  });
+});
+["pwNose", "pwPalate", "pwFinish", "pwComplexity", "pwValue"].forEach((id) => {
+  PW(id)?.addEventListener("input", () => {
+    syncDraftFromInputs();
+    pwUpdateScores();
+    if (pourDraft.step === 5) renderPourSummary();
+  });
+});
+PW("pwBottle")?.addEventListener("change", () => {
+  syncDraftFromInputs();
+  if (pourDraft.step === 5) renderPourSummary();
+});
+[PW("pwNoseChips"), PW("pwPalateChips")].forEach((container) => {
+  container?.addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-chip]");
+    if (!chip) return;
+    const name = chip.dataset.chip;
+    const list = container.id === "pwNoseChips" ? pourDraft.noseAromas : pourDraft.palateFlavors;
+    const idx = list.indexOf(name);
+    if (idx >= 0) list.splice(idx, 1);
+    else list.push(name);
+    chip.classList.toggle("is-selected");
+  });
+});
+PW("pwSaveStory")?.addEventListener("click", () => {
+  syncDraftFromInputs();
+  savePourStory();
+});
+els.pwDeleteEntry?.addEventListener("click", deletePourFromWizard);
+PW("savePourDraft")?.addEventListener("click", savePourDraftToStorage);
 
 // ---- Infinity Bottle ----
 // A blending bottle the user keeps topping off with leftover pours over time.

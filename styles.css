@@ -3337,8 +3337,21 @@ button.mini-flavor-chip:focus-visible {
 
 .pour-item-actions {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.pour-item-score {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .pour-item-head .icon-button {
@@ -4127,6 +4140,439 @@ button.mini-flavor-chip:focus-visible {
 
 .bottle-dialog::backdrop {
   background: rgba(0, 0, 0, 0.72);
+}
+
+/* ---- FIP Pour Story wizard (mirrors the mobile mockup) ---- */
+.pour-wizard-dialog {
+  width: min(460px, calc(100% - 24px));
+  max-height: calc(100dvh - 40px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--panel);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.pour-wizard-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.pour-wizard {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 18px 20px 24px;
+}
+
+.pour-wizard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pour-wizard-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.15rem;
+}
+
+.pour-wizard-head .icon-button {
+  width: 34px;
+  height: 34px;
+  border-color: transparent;
+  font-size: 1.4rem;
+}
+
+.pour-wizard-draft {
+  border: none;
+  background: none;
+  padding: 4px;
+  color: var(--amber);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pour-wizard-steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.pour-wizard-steps li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pour-wizard-steps li::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: var(--line);
+}
+
+.pour-wizard-steps li:last-child::after {
+  display: none;
+}
+
+.pour-wizard-steps span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pour-wizard-steps li.is-active span {
+  border-color: var(--amber);
+  background: var(--amber);
+  color: var(--charcoal);
+}
+
+.pour-wizard-steps li.is-done span {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.pour-wizard-step.is-hidden {
+  display: none;
+}
+
+.pour-wizard-eyebrow {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.pour-wizard-rows {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 14px;
+}
+
+.pour-wizard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pour-wizard-row > span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.pour-wizard-row input,
+.pour-wizard-row select {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  text-align: right;
+  font-size: 0.92rem;
+}
+
+.pour-wizard-row input::placeholder {
+  color: rgba(176, 165, 150, 0.6);
+}
+
+.pour-wizard-notes {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pour-wizard-notes textarea {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ink);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.pour-wizard-next {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.pour-wizard-back {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  border: none;
+  background: none;
+  color: var(--amber);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* Scored steps (Nose/Palate/Finish) */
+.pour-wizard-score-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.pour-wizard-score-head h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.pour-wizard-score-head span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.pour-wizard-score {
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  color: var(--muted);
+}
+
+.pour-wizard-score strong {
+  font-size: 3rem;
+  color: var(--amber);
+  line-height: 1;
+}
+
+.pour-wizard-score-sub {
+  margin: 4px 0 16px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.pour-wizard-slider,
+.pour-summary-input input[type="range"] {
+  width: 100%;
+  accent-color: var(--amber);
+}
+
+.pour-wizard-slider {
+  margin-bottom: 20px;
+}
+
+.pour-wizard-chips-label {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.pour-wizard-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.pour-wizard-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.pour-wizard-chip.is-selected {
+  border-color: var(--amber);
+  background: rgba(215, 138, 54, 0.16);
+  color: var(--amber);
+}
+
+/* Summary step */
+.pour-summary-bottle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.pour-summary-thumb {
+  width: 44px;
+  height: 62px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #0f0b07;
+  flex-shrink: 0;
+}
+
+.pour-summary-bottle strong {
+  display: block;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.pour-summary-bottle span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.pour-summary-breakdown {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.pour-summary-line {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.pour-summary-line > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.pour-summary-line strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.pour-summary-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.pour-summary-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--amber), var(--copper));
+}
+
+.pour-summary-input input[type="range"] {
+  margin: 0;
+}
+
+.pour-summary-verdict {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pour-summary-fip {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.pour-summary-fip strong {
+  font-family: var(--serif);
+  font-size: 2.4rem;
+  color: var(--amber);
+  line-height: 1;
+}
+
+.pour-summary-fip span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.pour-summary-tier {
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  flex: 1;
+}
+
+.pour-summary-tier strong {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pour-summary-tier span {
+  font-size: 0.76rem;
+  opacity: 0.85;
+}
+
+.tier-hall-of-fame {
+  background: rgba(79, 157, 99, 0.16);
+  color: #7fc98a;
+}
+.tier-fully-involved {
+  background: rgba(215, 138, 54, 0.18);
+  color: var(--amber);
+}
+.tier-working-fire {
+  background: rgba(176, 85, 46, 0.2);
+  color: #e08a5c;
+}
+.tier-first-due {
+  background: rgba(201, 162, 75, 0.16);
+  color: var(--brass);
+}
+.tier-routine-call {
+  background: rgba(118, 151, 170, 0.16);
+  color: var(--blue);
+}
+.tier-false-alarm {
+  background: rgba(176, 165, 150, 0.14);
+  color: var(--muted);
+}
+
+.pour-buy-again-row {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-top: 4px;
+}
+
+.pour-wizard-summary-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.pour-wizard-summary-actions .primary-action {
+  flex: 1;
+}
+
+.pour-wizard-summary-actions .is-hidden {
+  display: none;
 }
 
 .photo-zoom-dialog {

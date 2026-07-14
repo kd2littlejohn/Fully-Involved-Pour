@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=110" />
+    <link rel="stylesheet" href="styles.css?v=111" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -1186,75 +1186,186 @@
       </div>
     </dialog>
 
-    <dialog class="bottle-dialog" id="pourDialog">
-      <form method="dialog" class="bottle-form" id="pourForm">
-        <div class="form-head">
-          <div>
-            <p>Pour session</p>
-            <h2 id="pourFormTitle">Log Pour</h2>
-          </div>
+    <dialog class="pour-wizard-dialog" id="pourDialog">
+      <div class="pour-wizard" id="pourWizard">
+        <div class="pour-wizard-head">
           <button class="icon-button" id="closePourDialog" type="button" aria-label="Close">×</button>
+          <h2 id="pourWizardTitle">Add Pour Story</h2>
+          <button class="pour-wizard-draft" id="savePourDraft" type="button">Save Draft</button>
         </div>
 
-        <div class="form-grid">
-          <label>
-            Bottle
-            <select id="pourBottle"></select>
-          </label>
-          <label>
-            Date
-            <input id="pourDate" type="date" />
-          </label>
-          <label>
-            Ounces
-            <input id="pourOunces" type="number" min="0.25" step="0.25" placeholder="1.5" />
-          </label>
-          <label>
-            Rating
-            <input id="pourRating" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
-          </label>
-        </div>
+        <ol class="pour-wizard-steps" id="pourWizardSteps">
+          <li data-step-dot="1"><span>1</span></li>
+          <li data-step-dot="2"><span>2</span></li>
+          <li data-step-dot="3"><span>3</span></li>
+          <li data-step-dot="4"><span>4</span></li>
+          <li data-step-dot="5"><span>5</span></li>
+        </ol>
 
-        <label>
-          Occasion
-          <input id="pourOccasion" placeholder="After shift, blind tasting, Friday night" />
-        </label>
-        <label>
-          Notes
-          <textarea id="pourNotes" rows="4" placeholder="Nose, palate, finish — what you tasted."></textarea>
-        </label>
-
-        <div class="pour-story-section">
-          <p class="pour-story-heading">The Story</p>
-          <div class="form-grid">
-            <label>
-              With who
-              <input id="pourCompanion" placeholder="Solo, my brother, the crew" />
+        <!-- Step 1: Session -->
+        <section class="pour-wizard-step" data-step-panel="1">
+          <p class="pour-wizard-eyebrow">Session Details</p>
+          <div class="pour-wizard-rows">
+            <label class="pour-wizard-row">
+              <span>Bottle</span>
+              <select id="pwBottle"></select>
             </label>
-            <label>
-              Where
-              <input id="pourLocation" placeholder="Back porch, firehouse, cabin" />
+            <label class="pour-wizard-row">
+              <span>Date</span>
+              <input id="pwDate" type="date" />
             </label>
-            <label>
-              Mood
-              <input id="pourMood" placeholder="Unwinding, celebrating" />
+            <label class="pour-wizard-row">
+              <span>Location</span>
+              <input id="pwLocation" placeholder="Home, firehouse, cabin" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>With</span>
+              <input id="pwCompanion" placeholder="Solo, my brother, the crew" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Occasion</span>
+              <input id="pwOccasion" placeholder="Friday night, celebration" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Glass</span>
+              <input id="pwGlass" placeholder="Glencairn, rocks, neat" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Weather</span>
+              <input id="pwWeather" placeholder="78°F · Sunny" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Mood</span>
+              <input id="pwMood" placeholder="Relaxed, celebrating" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Ounces</span>
+              <input id="pwOunces" type="number" min="0.25" step="0.25" placeholder="1.5" />
             </label>
           </div>
-          <label>
-            Memory
-            <textarea id="pourMemory" rows="3" placeholder="What made this pour worth remembering?"></textarea>
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwSessionNotes" rows="3" placeholder="Set the scene for this pour."></textarea>
           </label>
-          <label class="pour-buy-again">
-            <input id="pourBuyAgain" type="checkbox" />
-            Would buy this bottle again
-          </label>
-        </div>
+          <button class="primary-action pour-wizard-next" data-goto="2" type="button">Next: Nose</button>
+        </section>
 
-        <div class="form-actions">
-          <button class="secondary-action" id="deleteLastPour" type="button">Delete Last</button>
-          <button class="primary-action" id="savePourButton" value="default" type="submit">Save Pour</button>
-        </div>
-      </form>
+        <!-- Step 2: Nose -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="2">
+          <div class="pour-wizard-score-head">
+            <h3>Nose</h3>
+            <span>Max 2.5 pts</span>
+          </div>
+          <div class="pour-wizard-score" id="pwNoseScoreDisplay"><strong>0.0</strong> / 2.5</div>
+          <p class="pour-wizard-score-sub">Aroma, intensity &amp; complexity</p>
+          <input class="pour-wizard-slider" id="pwNose" type="range" min="0" max="2.5" step="0.1" value="0" />
+          <p class="pour-wizard-chips-label">Select Aromas (tap to add)</p>
+          <div class="pour-wizard-chips" id="pwNoseChips"></div>
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwNoseNotes" rows="3" placeholder="What does it smell like?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="3" type="button">Next: Palate</button>
+          <button class="pour-wizard-back" data-goto="1" type="button">Back</button>
+        </section>
+
+        <!-- Step 3: Palate -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="3">
+          <div class="pour-wizard-score-head">
+            <h3>Palate</h3>
+            <span>Max 3.5 pts</span>
+          </div>
+          <div class="pour-wizard-score" id="pwPalateScoreDisplay"><strong>0.0</strong> / 3.5</div>
+          <p class="pour-wizard-score-sub">Flavor, body &amp; mouthfeel</p>
+          <input class="pour-wizard-slider" id="pwPalate" type="range" min="0" max="3.5" step="0.1" value="0" />
+          <p class="pour-wizard-chips-label">Select Flavors (tap to add)</p>
+          <div class="pour-wizard-chips" id="pwPalateChips"></div>
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwPalateNotes" rows="3" placeholder="How does it taste?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="4" type="button">Next: Finish</button>
+          <button class="pour-wizard-back" data-goto="2" type="button">Back</button>
+        </section>
+
+        <!-- Step 4: Finish -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="4">
+          <div class="pour-wizard-score-head">
+            <h3>Finish</h3>
+            <span>Max 2.0 pts</span>
+          </div>
+          <div class="pour-wizard-score" id="pwFinishScoreDisplay"><strong>0.0</strong> / 2.0</div>
+          <p class="pour-wizard-score-sub">Length, warmth &amp; aftertaste</p>
+          <input class="pour-wizard-slider" id="pwFinish" type="range" min="0" max="2" step="0.1" value="0" />
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwFinishNotes" rows="3" placeholder="How does it finish?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="5" type="button">Next: Summary</button>
+          <button class="pour-wizard-back" data-goto="3" type="button">Back</button>
+        </section>
+
+        <!-- Step 5: Summary -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="5">
+          <p class="pour-wizard-eyebrow">Review Summary</p>
+          <div class="pour-summary-bottle" id="pwSummaryBottle"></div>
+
+          <div class="pour-summary-breakdown">
+            <div class="pour-summary-line">
+              <span>👃 Nose</span>
+              <div class="pour-summary-bar"><i id="pwBarNose"></i></div>
+              <strong id="pwOutNose">0.0 / 2.5</strong>
+            </div>
+            <div class="pour-summary-line">
+              <span>👅 Palate</span>
+              <div class="pour-summary-bar"><i id="pwBarPalate"></i></div>
+              <strong id="pwOutPalate">0.0 / 3.5</strong>
+            </div>
+            <div class="pour-summary-line">
+              <span>🔥 Finish</span>
+              <div class="pour-summary-bar"><i id="pwBarFinish"></i></div>
+              <strong id="pwOutFinish">0.0 / 2.0</strong>
+            </div>
+            <label class="pour-summary-line pour-summary-input">
+              <span>⚖️ Complexity &amp; Balance</span>
+              <input id="pwComplexity" type="range" min="0" max="1" step="0.1" value="0" />
+              <strong id="pwOutComplexity">0.0 / 1.0</strong>
+            </label>
+            <label class="pour-summary-line pour-summary-input">
+              <span>💵 Value / Buy Again</span>
+              <input id="pwValue" type="range" min="0" max="1" step="0.1" value="0" />
+              <strong id="pwOutValue">0.0 / 1.0</strong>
+            </label>
+          </div>
+
+          <div class="pour-summary-verdict">
+            <div class="pour-summary-fip">
+              <strong id="pwFipScore">0.0</strong><span>/ 10</span>
+            </div>
+            <div class="pour-summary-tier" id="pwTier"></div>
+          </div>
+
+          <label class="pour-wizard-row pour-buy-again-row">
+            <span>Would you buy this again?</span>
+            <select id="pwBuyAgain">
+              <option value="no">No</option>
+              <option value="maybe">Maybe</option>
+              <option value="yes">Yes — Absolutely</option>
+            </select>
+          </label>
+
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwSummaryNotes" rows="3" placeholder="Final thoughts on this pour."></textarea>
+          </label>
+
+          <div class="pour-wizard-summary-actions">
+            <button class="secondary-action is-hidden" id="pwDeleteEntry" type="button">Delete Entry</button>
+            <button class="primary-action" id="pwSaveStory" type="button">Save Story</button>
+          </div>
+          <button class="pour-wizard-back" data-goto="4" type="button">Back</button>
+        </section>
+      </div>
     </dialog>
 
     <div class="install-banner is-hidden" id="installBanner" role="dialog" aria-label="Install app">
@@ -1275,7 +1386,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=122"></script>
+    <script src="app.js?v=123"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
