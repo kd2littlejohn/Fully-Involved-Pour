@@ -291,7 +291,7 @@ textarea,
   top: 0;
   z-index: 20;
   min-height: 76px;
-  padding: 10px max(18px, calc((100vw - 1200px) / 2));
+  padding: 10px max(24px, calc((100% - 1200px) / 2));
   border-bottom: 1px solid var(--line);
   background: rgba(17, 17, 18, 0.94);
   backdrop-filter: blur(14px);
@@ -790,16 +790,16 @@ label {
 
 .home-hero {
   width: 100%;
-  min-height: 640px;
-  margin: 0 0 24px;
+  min-height: clamp(420px, 46vh, 540px);
+  margin: 0 0 28px;
   border: none;
   border-radius: 0;
 }
 
 .home-hero .hero-overlay {
-  min-height: 640px;
+  min-height: clamp(420px, 46vh, 540px);
   align-items: center;
-  padding: 24px max(18px, calc((100vw - 1200px) / 2));
+  padding: 24px max(24px, calc((100% - 1200px) / 2));
 }
 
 .home-hero-title {
@@ -1548,6 +1548,13 @@ select {
   display: none;
 }
 
+/* The hero spans full-bleed; every other Home section lines up in the same
+   centered 1200px column as the header and the rest of the site's views. */
+.dashboard-view > *:not(.home-hero) {
+  width: min(1200px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2172,7 +2179,7 @@ select {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 8px max(18px, calc((100vw - 1200px) / 2));
+  padding: 8px max(24px, calc((100% - 1200px) / 2));
   border-bottom: 1px solid var(--line);
   background: rgba(17, 17, 18, 0.7);
 }
