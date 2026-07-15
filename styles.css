@@ -2731,88 +2731,285 @@ select {
   font-size: 0.9rem;
 }
 
-.pillar-nav {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+/* The Compass — interactive core feature on the Home view. */
+.compass {
   margin-bottom: 24px;
+  padding: 20px 20px 24px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--panel);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(215, 138, 54, 0.14), transparent 60%),
+    var(--panel);
   box-shadow: var(--shadow-soft);
-  overflow: hidden;
 }
 
-.pillar-card {
+.compass-heading {
+  margin-bottom: 4px;
+}
+
+.compass-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.compass-body {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 22px 20px;
-  border: none;
-  border-left: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  text-align: left;
-  transition: background-color 0.18s ease;
+  align-items: center;
 }
 
-.pillar-card:first-child {
-  border-left: none;
+.compass-stage {
+  position: relative;
+  width: min(340px, 82vw);
+  aspect-ratio: 1;
+  margin: 8px auto 4px;
 }
 
-.pillar-card:hover,
-.pillar-card:focus-visible {
-  background: var(--panel-soft);
+/* Dashed guide ring + four gold pointer rays. */
+.compass-ring {
+  position: absolute;
+  inset: 16%;
+  border: 1px dashed rgba(201, 162, 75, 0.4);
+  border-radius: 50%;
 }
 
-.pillar-icon {
+.compass-ray {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 22px solid var(--brass);
+  opacity: 0.55;
+  transform-origin: 50% 100%;
+}
+
+.compass-ray--n {
+  transform: translate(-50%, -100%) translateY(-6px);
+}
+.compass-ray--e {
+  transform: translate(-50%, -100%) rotate(90deg) translateY(-6px);
+}
+.compass-ray--s {
+  transform: translate(-50%, -100%) rotate(180deg) translateY(-6px);
+}
+.compass-ray--w {
+  transform: translate(-50%, -100%) rotate(270deg) translateY(-6px);
+}
+
+/* Center glass medallion. */
+.compass-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 4px;
+  width: 33%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(201, 162, 75, 0.55);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(215, 138, 54, 0.28), rgba(20, 16, 12, 0.9));
+  box-shadow: 0 0 0 6px rgba(201, 162, 75, 0.08), inset 0 0 18px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.compass-core-glass {
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.compass.is-open .compass-core,
+.compass-core:hover,
+.compass-core:focus-visible {
+  box-shadow: 0 0 0 6px rgba(201, 162, 75, 0.16), inset 0 0 18px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+/* Cardinal points. */
+.compass-point {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  width: 92px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  text-align: center;
+  transition: transform 0.16s ease;
+}
+
+.compass-point--n {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -4%);
+}
+.compass-point--s {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 4%);
+}
+.compass-point--w {
+  left: 0;
+  top: 50%;
+  transform: translate(-10%, -50%);
+}
+.compass-point--e {
+  right: 0;
+  top: 50%;
+  transform: translate(10%, -50%);
+}
+
+.compass-point:hover,
+.compass-point:focus-visible {
+  transform: translate(-50%, -4%) scale(1.05);
+}
+.compass-point--s:hover,
+.compass-point--s:focus-visible {
+  transform: translate(-50%, 4%) scale(1.05);
+}
+.compass-point--w:hover,
+.compass-point--w:focus-visible {
+  transform: translate(-10%, -50%) scale(1.05);
+}
+.compass-point--e:hover,
+.compass-point--e:focus-visible {
+  transform: translate(10%, -50%) scale(1.05);
+}
+
+.compass-point-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--brass);
+  border-radius: 50%;
+  background: var(--panel-soft);
+  color: var(--brass);
+  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.compass-point-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.compass-point.is-active .compass-point-icon {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--charcoal);
+  box-shadow: 0 0 0 5px rgba(201, 162, 75, 0.16);
+}
+
+.compass-point-text strong {
+  display: block;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--cream);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.compass-point-text span {
+  display: none;
+}
+
+/* Detail panel revealed when a point is tapped. */
+.compass-detail {
+  width: 100%;
+  max-width: 460px;
+  margin-top: 6px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.28s ease, opacity 0.2s ease, margin-top 0.2s ease;
+}
+
+.compass-detail.is-visible {
+  max-height: 260px;
+  opacity: 1;
+  margin-top: 12px;
+}
+
+.compass-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.compass-detail-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
   border: 1px solid var(--brass);
   border-radius: 50%;
   color: var(--brass);
 }
 
-.pillar-icon svg {
-  width: 22px;
-  height: 22px;
+.compass-detail-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
-.pillar-card strong {
+.compass-detail-head strong {
+  display: block;
   font-family: var(--serif);
-  font-weight: 600;
   font-size: 1.05rem;
   color: var(--cream);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.pillar-card span:not(.pillar-icon) {
+.compass-detail-head span {
   color: var(--muted);
   font-size: 0.82rem;
-  line-height: 1.35;
 }
 
-@media (max-width: 720px) {
-  .pillar-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.compass-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
-  .pillar-card:nth-child(2) {
-    border-left: 1px solid var(--line);
-  }
+.compass-link {
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--ink);
+  font-size: 0.88rem;
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
 
-  .pillar-card:nth-child(3) {
-    border-left: none;
-    border-top: 1px solid var(--line);
-  }
+.compass-link:hover,
+.compass-link:focus-visible {
+  border-color: var(--brass);
+  background: rgba(201, 162, 75, 0.14);
+  color: var(--cream);
+}
 
-  .pillar-card:nth-child(4) {
-    border-top: 1px solid var(--line);
+@media (max-width: 380px) {
+  .compass-point {
+    width: 80px;
+  }
+  .compass-point-icon {
+    width: 46px;
+    height: 46px;
+  }
+  .compass-point-text strong {
+    font-size: 0.82rem;
   }
 }
 

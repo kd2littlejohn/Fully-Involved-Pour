@@ -2013,20 +2013,166 @@ document.querySelectorAll("[data-view]").forEach((button) => {
   });
 });
 
-document.querySelectorAll("[data-pillar-view]").forEach((button) => {
-  button.addEventListener("click", () => navigateToView(button.dataset.pillarView));
-});
+// ---------------------------------------------------------------------------
+// The Compass — the app's interactive core feature.
+//
+// Four cardinal pillars ring a center glass. Tapping a point expands its detail
+// panel of sub-actions, each of which routes into a real part of the app so the
+// compass is a live launcher, not just a diagram. Positions use compass bearings
+// (N/E/S/W) to mirror the brand mark: Experience north, Reflect east, Share
+// south, Discover west.
+// ---------------------------------------------------------------------------
+const COMPASS_ICONS = {
+  discover:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 4 L13.4 10.6 L20 12 L13.4 13.4 L12 20 L10.6 13.4 L4 12 L10.6 10.6 Z" /></svg>',
+  experience:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 3h7c.2 2.5-.3 5.7-2.2 8-.6.8-.8 1.4-.8 2.4v3.1h-1v-3.1c0-1-.2-1.6-.8-2.4-1.9-2.3-2.4-5.5-2.2-8Z" /><path d="M9 19h6" /></svg>',
+  reflect:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6c-1.8-1.4-4.8-1.4-7.5-.5v13c2.7-.9 5.7-.9 7.5.5 1.8-1.4 4.8-1.4 7.5-.5v-13C16.8 4.6 13.8 4.6 12 6Z" /><path d="M12 6v13" /></svg>',
+  share:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.2" r="2.6" /><path d="M6.5 19.3c0-3 2.5-5.1 5.5-5.1s5.5 2.1 5.5 5.1" /><circle cx="4.8" cy="9.4" r="1.9" /><path d="M2 18.3c0-2.1 1.3-3.7 2.9-4.2" /><circle cx="19.2" cy="9.4" r="1.9" /><path d="M22 18.3c0-2.1-1.3-3.7-2.9-4.2" /></svg>',
+};
 
-document.querySelectorAll("[data-pillar-tab]").forEach((button) => {
-  button.addEventListener("click", () => {
-    navigateToView("pour-log");
-    switchPourStoriesTab(button.dataset.pillarTab);
+const COMPASS_PILLARS = [
+  {
+    key: "experience",
+    dir: "n",
+    label: "Experience",
+    tagline: "Start a pour · Live in the moment",
+    links: [
+      { label: "Start a Pour Story", run: () => { navigateToView("pour-log"); openPourForm(); } },
+      { label: "Open Bottles", run: () => navigateToView("opened") },
+      { label: "Your Collection", run: () => navigateToView("collection") },
+    ],
+  },
+  {
+    key: "reflect",
+    dir: "e",
+    label: "Reflect",
+    tagline: "Record notes · Remember stories",
+    links: [
+      { label: "Past Pour Stories", run: () => { navigateToView("pour-log"); switchPourStoriesTab("sessions"); } },
+      { label: "Tasting Notes", run: () => { navigateToView("pour-log"); switchPourStoriesTab("notes"); } },
+      { label: "Compare Bottles", run: () => navigateToView("compare") },
+      { label: "Infinity Bottle", run: () => navigateToView("infinity") },
+    ],
+  },
+  {
+    key: "share",
+    dir: "s",
+    label: "Share",
+    tagline: "Share with friends · Inspire others",
+    links: [
+      { label: "Friends", run: () => els.friendsToggle?.click() },
+      { label: "Your Profile", run: () => navigateToView("profile") },
+    ],
+  },
+  {
+    key: "discover",
+    dir: "w",
+    label: "Discover",
+    tagline: "Find new bottles · Expand your palate",
+    links: [
+      { label: "Buy Next", run: () => navigateToView("buy-next") },
+      { label: "Wish List", run: () => navigateToView("wishlist") },
+      { label: "Whiskey Library", run: () => document.querySelector("#discoverLibraryButton")?.click() },
+    ],
+  },
+];
+
+let activeCompassPillar = null;
+
+function buildCompass() {
+  const mount = document.querySelector("#homeCompass");
+  if (!mount || mount.dataset.built === "true") return;
+
+  const points = COMPASS_PILLARS.map(
+    (pillar) => `
+      <button class="compass-point compass-point--${pillar.dir}" data-compass-point="${pillar.key}"
+        type="button" aria-expanded="false" aria-controls="compassDetail">
+        <span class="compass-point-icon" aria-hidden="true">${COMPASS_ICONS[pillar.key]}</span>
+        <span class="compass-point-text">
+          <strong>${pillar.label}</strong>
+          <span>${pillar.tagline}</span>
+        </span>
+      </button>`,
+  ).join("");
+
+  mount.innerHTML = `
+    <div class="compass-stage" role="group" aria-label="Compass points">
+      <div class="compass-ring" aria-hidden="true">
+        <span class="compass-ray compass-ray--n"></span>
+        <span class="compass-ray compass-ray--e"></span>
+        <span class="compass-ray compass-ray--s"></span>
+        <span class="compass-ray compass-ray--w"></span>
+      </div>
+      <button class="compass-core" id="compassCore" type="button" aria-label="Fully Involved Pour">
+        <span class="compass-core-glass" aria-hidden="true">\u{1F943}</span>
+      </button>
+      ${points}
+    </div>
+    <div class="compass-detail" id="compassDetail" aria-live="polite"></div>`;
+
+  mount.dataset.built = "true";
+
+  mount.querySelectorAll("[data-compass-point]").forEach((button) => {
+    button.addEventListener("click", () => toggleCompassPillar(button.dataset.compassPoint));
   });
-});
+  mount.querySelector("#compassCore")?.addEventListener("click", () => setCompassPillar(null));
+  renderCompassDetail();
+}
 
-document.querySelectorAll("[data-pillar-action='share']").forEach((button) => {
-  button.addEventListener("click", () => els.friendsToggle?.click());
-});
+function toggleCompassPillar(key) {
+  setCompassPillar(activeCompassPillar === key ? null : key);
+}
+
+function setCompassPillar(key) {
+  activeCompassPillar = key;
+  const mount = document.querySelector("#homeCompass");
+  if (!mount) return;
+  mount.classList.toggle("is-open", Boolean(key));
+  mount.querySelectorAll("[data-compass-point]").forEach((button) => {
+    const isActive = button.dataset.compassPoint === key;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-expanded", isActive ? "true" : "false");
+  });
+  renderCompassDetail();
+}
+
+function renderCompassDetail() {
+  const panel = document.querySelector("#compassDetail");
+  if (!panel) return;
+  const pillar = COMPASS_PILLARS.find((item) => item.key === activeCompassPillar);
+  if (!pillar) {
+    panel.innerHTML = "";
+    panel.classList.remove("is-visible");
+    return;
+  }
+  const links = pillar.links
+    .map(
+      (link, index) =>
+        `<button class="compass-link" data-compass-link="${index}" type="button">${escapeHtml(link.label)}</button>`,
+    )
+    .join("");
+  panel.innerHTML = `
+    <div class="compass-detail-head">
+      <span class="compass-detail-icon" aria-hidden="true">${COMPASS_ICONS[pillar.key]}</span>
+      <div>
+        <strong>${escapeHtml(pillar.label)}</strong>
+        <span>${escapeHtml(pillar.tagline)}</span>
+      </div>
+    </div>
+    <div class="compass-link-row">${links}</div>`;
+  panel.classList.add("is-visible");
+  panel.querySelectorAll("[data-compass-link]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const link = pillar.links[Number(button.dataset.compassLink)];
+      link?.run();
+    });
+  });
+}
+
+buildCompass();
 
 els.homeHeroBrowse?.addEventListener("click", () => navigateToView("collection"));
 els.collectionPreviewViewAll?.addEventListener("click", () => navigateToView("collection"));
