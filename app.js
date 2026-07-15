@@ -1556,6 +1556,7 @@ const els = {
   headerSearchButton: document.querySelector("#headerSearchButton"),
   profileView: document.querySelector("#profileView"),
   aboutView: document.querySelector("#aboutView"),
+  bottleDetailView: document.querySelector("#bottleDetailView"),
   profileBottleCount: document.querySelector("#profileBottleCount"),
   profilePourCount: document.querySelector("#profilePourCount"),
   profileBottleKills: document.querySelector("#profileBottleKills"),
@@ -1959,27 +1960,25 @@ document.querySelectorAll("[data-proof]").forEach((button) => {
 const NAV_GROUPS = {
   dashboard: "dashboard",
   collection: "collection",
-  "core-bar": "collections",
-  opened: "collections",
-  finished: "collections",
-  compare: "collections",
-  faceoff: "collections",
-  infinity: "collections",
-  "buy-next": "collections",
-  wishlist: "collections",
+  "core-bar": "collection",
+  opened: "collection",
+  finished: "collection",
+  compare: "collection",
+  faceoff: "collection",
+  infinity: "collection",
+  "pour-log": "pour-log",
+  "buy-next": "discover",
+  wishlist: "discover",
   profile: "profile",
-  about: "about",
+  about: "profile",
+  "bottle-detail": "collection",
 };
 
 function updateNavActiveStates(view) {
   const group = NAV_GROUPS[view] || view;
-  document.querySelectorAll(".nav-item[data-view]").forEach((item) => {
-    if (item.dataset.view === "pour-log") {
-      item.classList.toggle("is-active", view === "pour-log" && (item.dataset.navTab || "sessions") === currentPourTab);
-    } else {
-      item.classList.toggle("is-active", (NAV_GROUPS[item.dataset.view] || item.dataset.view) === group);
-    }
-  });
+  document
+    .querySelectorAll(".nav-item[data-view]")
+    .forEach((item) => item.classList.toggle("is-active", (NAV_GROUPS[item.dataset.view] || item.dataset.view) === group));
   document
     .querySelectorAll(".sub-nav-item[data-view]")
     .forEach((item) => item.classList.toggle("is-active", item.dataset.view === view));
@@ -2042,7 +2041,7 @@ els.headerSearchButton?.addEventListener("click", () => {
   els.searchInput?.focus();
 });
 
-document.querySelector("#collectionsLibraryButton")?.addEventListener("click", () => openLibrary());
+document.querySelector("#discoverLibraryButton")?.addEventListener("click", () => openLibrary());
 
 function loadBottles() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -2779,6 +2778,10 @@ document.querySelector("#accountMenuFriends")?.addEventListener("click", () => {
   closeAccountMenu();
   els.friendsToggle?.click();
 });
+document.querySelector("#accountMenuAbout")?.addEventListener("click", () => {
+  closeAccountMenu();
+  navigateToView("about");
+});
 document.querySelector("#accountMenuSignOut")?.addEventListener("click", () => {
   closeAccountMenu();
   auth?.signOut();
@@ -2993,7 +2996,7 @@ function render() {
     els.toggleSelect.textContent = "Select";
     els.toggleSelect.classList.remove("is-selected");
   }
-  const collectionVisible = !["pour-log", "infinity", "dashboard", "compare", "faceoff", "profile", "about"].includes(activeView);
+  const collectionVisible = !["pour-log", "infinity", "dashboard", "compare", "faceoff", "profile", "about", "bottle-detail"].includes(activeView);
   els.collectionView.classList.toggle("is-hidden", !collectionVisible);
   els.dashboardView.classList.toggle("is-hidden", activeView !== "dashboard");
   els.pourLogView.classList.toggle("is-hidden", activeView !== "pour-log");
@@ -3002,12 +3005,15 @@ function render() {
   els.faceoffView.classList.toggle("is-hidden", activeView !== "faceoff");
   els.profileView.classList.toggle("is-hidden", activeView !== "profile");
   els.aboutView.classList.toggle("is-hidden", activeView !== "about");
+  els.bottleDetailView.classList.toggle("is-hidden", activeView !== "bottle-detail");
   if (activeView === "faceoff") renderFaceoffView();
+  if (activeView === "bottle-detail") renderBottleDetailView();
   if (activeView === "infinity") renderInfinityGrid();
   if (activeView === "profile") renderProfile();
 
-  const collectionsGroupViews = ["core-bar", "buy-next", "wishlist", "opened", "finished", "compare", "infinity", "faceoff"];
-  document.querySelector("#collectionsSubNav")?.classList.toggle("is-hidden", !collectionsGroupViews.includes(activeView));
+  const collectionGroupViews = ["collection", "core-bar", "opened", "finished", "compare", "infinity", "faceoff"];
+  document.querySelector("#collectionSubNav")?.classList.toggle("is-hidden", !collectionGroupViews.includes(activeView));
+  document.querySelector("#discoverSubNav")?.classList.toggle("is-hidden", !["buy-next", "wishlist"].includes(activeView));
 
   renderStats();
   renderCollectionPreview();
@@ -6269,6 +6275,23 @@ function renderDistilleryInfoBlock(bottle) {
   `;
 }
 
+// A one-line mashbill descriptor for the spec table: the recipe percentages when
+// present, otherwise the category tag (Wheated / Rye) the user assigned.
+function mashBillSummary(bottle) {
+  const corn = Number(bottle.mashBillCorn || 0);
+  const ryeWheat = Number(bottle.mashBillRyeWheat || 0);
+  const malted = Number(bottle.mashBillMalted || 0);
+  if (corn || ryeWheat || malted) {
+    return [corn ? `${corn}% Corn` : "", ryeWheat ? `${ryeWheat}% Rye/Wheat` : "", malted ? `${malted}% Malt` : ""]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  const categories = bottleCategories(bottle);
+  if (categories.includes("wheated")) return "Wheated";
+  if (categories.includes("rye")) return "Rye";
+  return "";
+}
+
 function renderMashBillBlock(bottle) {
   const corn = Number(bottle.mashBillCorn || 0);
   const ryeWheat = Number(bottle.mashBillRyeWheat || 0);
@@ -6531,160 +6554,209 @@ function renderBottleGallery(bottle) {
   `;
 }
 
+// ---- Full-page Bottle Details (mockup screens 3-4) ----
+let detailBottleId = null;
+let detailReturnView = "collection";
+let detailTab = "overview";
+
+// Entry point used by every bottle card / activity row: open the detail page.
 function openBottleQuick(id) {
-  const bottle = bottles.find((item) => item.id === id);
-  if (!bottle) return;
-  // Preserve the open tab across re-renders (e.g. after adding a gallery photo),
-  // but only when reopening the same bottle — a fresh open always starts on Overview.
-  const priorTab =
-    els.quickBottleDialog.open && els.quickBottleDetail.dataset.bottleId === id
-      ? els.quickBottleDetail.querySelector("[data-tab].is-active")?.dataset.tab || "overview"
-      : "overview";
-  els.quickBottleDetail.dataset.bottleId = id;
-  const availabilityPick = getAvailabilityAlternative(bottle);
-  const profilePick = getProfileAlternative(bottle);
-  const tab = (name) => `quick-tab${priorTab === name ? " is-active" : ""}`;
-  const panel = (name) => `quick-tab-panel${priorTab === name ? "" : " is-hidden"}`;
-  els.quickBottleDetail.innerHTML = `
-    <div class="form-head">
-      <div>
-        <p>Quick view</p>
-        <h2>${escapeHtml(bottle.name)}</h2>
-      </div>
-      <button class="icon-button" id="closeQuickBottle" type="button" aria-label="Close">×</button>
+  if (!bottles.some((b) => b.id === id)) return;
+  detailBottleId = id;
+  detailTab = "overview";
+  if (activeView !== "bottle-detail") detailReturnView = activeView;
+  navigateToView("bottle-detail");
+}
+
+// The bottle's "current score" is the most recent pour's FIP score, else its own rating.
+function bottleCurrentScore(bottle) {
+  const bottlePours = bottlePoursFor(bottle.id)
+    .filter((p) => Number(p.rating) > 0)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (bottlePours.length) return Number(bottlePours[0].rating);
+  return Number(bottle.rating) || 0;
+}
+
+function daysBetween(fromDate) {
+  const t = new Date(`${fromDate}T12:00:00`).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.round((Date.now() - t) / 86400000));
+}
+
+// Per-bottle Pour Stories timeline (mockup screen 4): each pour with its FIP score.
+function renderBottlePourTimeline(bottle) {
+  const entries = bottlePoursFor(bottle.id).sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (!entries.length) {
+    return `<div class="empty-state">No pour stories yet. Add one to start this bottle's timeline.</div>`;
+  }
+  return `
+    <div class="bottle-pour-timeline">
+      ${entries
+        .map((pour) => {
+          const score = Number(pour.rating);
+          const tier = score > 0 ? fipTier(score) : null;
+          const label = pour.occasion || pour.memory || pour.notes || "Pour";
+          return `
+            <div class="bottle-pour-timeline-item" data-story-edit="${escapeHtml(pour.id)}" role="button" tabindex="0">
+              <div class="bottle-pour-timeline-dot"></div>
+              <div class="bottle-pour-timeline-body">
+                <span class="bottle-pour-timeline-date">${formatDate(pour.date)}</span>
+                <strong>${escapeHtml(label)}</strong>
+                ${pour.memory && pour.memory !== label ? `<span>${escapeHtml(pour.memory)}</span>` : ""}
+              </div>
+              ${tier ? `<span class="bottle-pour-timeline-score ${tier.className}">${score.toFixed(1)}</span>` : ""}
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderBottleDetailView() {
+  const bottle = bottles.find((item) => item.id === detailBottleId);
+  if (!bottle) {
+    navigateToView(detailReturnView);
+    return;
+  }
+  const score = bottleCurrentScore(bottle);
+  const tier = score > 0 ? fipTier(score) : null;
+  const stage = journeyStatus(bottle);
+  const daysOpen = bottle.openedDate ? daysBetween(bottle.openedDate) : null;
+  const tab = (name) => `bottle-detail-tab${detailTab === name ? " is-active" : ""}`;
+  const panel = (name) => `bottle-detail-panel${detailTab === name ? "" : " is-hidden"}`;
+
+  els.bottleDetailView.innerHTML = `
+    <div class="bottle-detail-top">
+      <button class="icon-button" id="bottleDetailBack" type="button" aria-label="Back">←</button>
+      <span class="bottle-detail-crumb">${escapeHtml(bottle.name)}</span>
+      <button class="secondary-action" id="bottleDetailEdit" type="button">Edit</button>
     </div>
 
-    <div class="quick-tabs" role="tablist">
-      <button class="${tab("overview")}" data-tab="overview" type="button">Overview</button>
-      <button class="${tab("tasting")}" data-tab="tasting" type="button">Tasting</button>
-      <button class="${tab("journey")}" data-tab="journey" type="button">Journey</button>
-      <button class="${tab("gallery")}" data-tab="gallery" type="button">Gallery</button>
-      <button class="${tab("specs")}" data-tab="specs" type="button">Specs</button>
-    </div>
-
-    <div class="${panel("overview")}" data-tab-panel="overview">
-      <div class="quick-detail-grid">
-        <img class="quick-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
-        <div>
-          <select class="status-pill status-pill-select ${bottle.status}" id="quickStatusSelect" aria-label="Bottle status">
+    <div class="bottle-detail-hero">
+      <img class="bottle-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
+      <div class="bottle-detail-hero-side">
+        <div class="bottle-detail-score-ring ${tier ? tier.className : ""}">
+          <strong>${score > 0 ? score.toFixed(1) : "—"}</strong>
+          <span>FIP SCORE</span>
+        </div>
+        <div class="bottle-detail-status">
+          <select class="status-pill status-pill-select ${bottle.status}" id="detailStatusSelect" aria-label="Bottle status">
             ${STATUS_OPTIONS.map(
               (status) => `<option value="${status}" ${bottle.status === status ? "selected" : ""}>${labelStatus(status)}</option>`,
             ).join("")}
           </select>
-          ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
-          <p>${escapeHtml(bottle.distillery)} · ${escapeHtml(bottle.type)} · ${escapeHtml(bottle.region || "Unknown region")}</p>
-          <div class="bottle-meta">
-            <div><span>Proof</span><strong>${numberOrDash(bottle.proof)}</strong></div>
-            <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
-            <div><span>Rating</span><strong>${numberOrDash(bottle.rating)}</strong></div>
-          </div>
-          <div class="shelf-line">
-            <span>${escapeHtml(bottle.shelf || "Main bar")}</span>
-            <span>${labelFillLevel(bottle.fillLevel)}</span>
-            <span>${labelBottleSize(bottle.bottleSize)}</span>
-            ${bottleCategories(bottle).map((category) => `<span>${labelCategory(category)}</span>`).join("")}
-            <span>${labelPourStyle(bottle.pourStyle)}</span>
-            <span>${priorityLabel(bottle.priority)}</span>
-          </div>
+          ${
+            bottle.openedDate
+              ? `<div class="bottle-detail-opened"><span>Opened</span><strong>${daysOpen === 0 ? "today" : `${daysOpen} day${daysOpen === 1 ? "" : "s"} ago`}</strong><em>${formatDate(bottle.openedDate)}</em></div>`
+              : ""
+          }
+          ${stage ? `<div class="bottle-detail-stage"><span>Journey Stage</span><strong>${stage.emoji} ${escapeHtml(stage.label)}</strong></div>` : ""}
         </div>
       </div>
+    </div>
+
+    <h1 class="bottle-detail-name">${escapeHtml(bottle.name)}</h1>
+    <p class="bottle-detail-type">${escapeHtml([bottle.distillery, bottle.type, bottle.region].filter(Boolean).join(" · ") || "Whiskey")}</p>
+
+    <div class="bottle-detail-specrow">
+      <div><strong>${numberOrDash(bottle.proof)}</strong><span>Proof</span></div>
+      <div><strong>${bottle.ageStatement ? escapeHtml(bottle.ageStatement) : "NAS"}</strong><span>Age</span></div>
+      <div><strong>${bottle.msrp ? money(bottle.msrp) : "N/A"}</strong><span>MSRP</span></div>
+      <div><strong>${escapeHtml(bottle.distillery || "—")}</strong><span>Distillery</span></div>
+    </div>
+
+    <div class="bottle-detail-tabs" role="tablist">
+      <button class="${tab("overview")}" data-dtab="overview" type="button">Overview</button>
+      <button class="${tab("stories")}" data-dtab="stories" type="button">Pour Stories</button>
+      <button class="${tab("journey")}" data-dtab="journey" type="button">Journey</button>
+      <button class="${tab("gallery")}" data-dtab="gallery" type="button">Gallery</button>
+      <button class="${tab("compare")}" data-dtab="compare" type="button">Compare</button>
+    </div>
+
+    <div class="${panel("overview")}" data-dpanel="overview">
+      ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
+      <table class="bottle-detail-specs">
+        <tbody>
+          <tr><th>Mashbill</th><td>${escapeHtml(mashBillSummary(bottle) || "—")}</td></tr>
+          <tr><th>Age Statement</th><td>${bottle.ageStatement ? escapeHtml(bottle.ageStatement) : "—"}</td></tr>
+          <tr><th>Proof</th><td>${numberOrDash(bottle.proof)}</td></tr>
+          <tr><th>Distillery</th><td>${escapeHtml(bottle.distillery || "—")}</td></tr>
+          <tr><th>Region</th><td>${escapeHtml(bottle.region || "—")}</td></tr>
+          <tr><th>Store</th><td>${escapeHtml(bottle.storeLocation || "—")}</td></tr>
+          <tr><th>Current Value</th><td>${bottle.msrp ? money(bottle.msrp) : "—"}</td></tr>
+          <tr><th>Price Paid</th><td>${bottle.price ? money(bottle.price) : "—"}</td></tr>
+        </tbody>
+      </table>
       ${renderBottleUnitsBlock(bottle)}
-      ${renderBottleAlternativesBlock(bottle, availabilityPick, profilePick)}
-    </div>
-
-    <div class="${panel("tasting")}" data-tab-panel="tasting">
-      <div class="bottle-radar">${renderBottleFlavorRadar(bottle)}</div>
-      ${renderTastingNoteBlock(bottle)}
-    </div>
-
-    <div class="${panel("journey")}" data-tab-panel="journey">
-      ${renderBottleJourneyTimeline(bottle)}
-    </div>
-
-    <div class="${panel("gallery")}" data-tab-panel="gallery">
-      ${renderBottleGallery(bottle)}
-    </div>
-
-    <div class="${panel("specs")}" data-tab-panel="specs">
-      <div class="bottle-meta">
-        <div><span>Paid</span><strong>${money(bottle.price || 0)}</strong></div>
-        <div><span>MSRP</span><strong>${bottle.msrp ? money(bottle.msrp) : "—"}</strong></div>
-      </div>
-      <div class="shelf-line">
-        ${bottle.ageStatement ? `<span>${escapeHtml(bottle.ageStatement)}</span>` : ""}
-        ${bottle.storeLocation ? `<span>${escapeHtml(bottle.storeLocation)}</span>` : ""}
-        <span>${labelPourTier(bottle.pourTier)}</span>
-      </div>
-      ${renderMashBillBlock(bottle)}
       ${renderDistilleryInfoBlock(bottle)}
     </div>
 
-    <div class="quick-photo-upload-panel">
-      <span id="quickPhotoStatus">${bottle.imageUrl ? "Replace this bottle's photo" : "Add a photo of this bottle"}</span>
-      <label class="upload-photo-action">
-        Upload Photo
-        <input id="quickPhotoUpload" type="file" accept="image/*" />
-      </label>
+    <div class="${panel("stories")}" data-dpanel="stories">
+      <div class="bottle-detail-stories-head">
+        <h3>Pour Stories</h3>
+        <button class="secondary-action" id="detailAddStory" type="button">+ Add Story</button>
+      </div>
+      ${renderBottlePourTimeline(bottle)}
     </div>
-    <div class="form-actions">
-      <button class="secondary-action" id="quickEditBottle" type="button">Edit Bottle</button>
+
+    <div class="${panel("journey")}" data-dpanel="journey">
+      ${renderBottleJourneyTimeline(bottle)}
+    </div>
+
+    <div class="${panel("gallery")}" data-dpanel="gallery">
+      ${renderBottleGallery(bottle)}
+    </div>
+
+    <div class="${panel("compare")}" data-dpanel="compare">
+      <p class="bottle-detail-compare-lead">Put ${escapeHtml(bottle.name)} head-to-head with another bottle.</p>
+      <button class="primary-action" id="detailCompare" type="button">Open Compare →</button>
+    </div>
+
+    <div class="bottle-detail-actions">
+      <label class="upload-photo-action">
+        ${bottle.imageUrl ? "Replace Photo" : "Add Photo"}
+        <input id="detailPhotoUpload" type="file" accept="image/*" />
+      </label>
       ${
         bottle.status === "wishlist"
-          ? `<button class="primary-action" id="quickMarkOwned" type="button">✓ Mark as Owned</button>`
-          : `<button class="primary-action" id="quickLogPour" type="button">Log Pour</button>`
+          ? `<button class="primary-action" id="detailMarkOwned" type="button">✓ Mark as Owned</button>`
+          : `<button class="primary-action" id="detailLogPour" type="button">Log Pour</button>`
       }
     </div>
   `;
-  if (!els.quickBottleDialog.open) els.quickBottleDialog.showModal();
-  document.querySelector("#closeQuickBottle").addEventListener("click", () => els.quickBottleDialog.close());
-  document.querySelector("#quickStatusSelect").addEventListener("change", (event) => {
-    changeBottleStatus(id, event.target.value);
-  });
-  els.quickBottleDetail.querySelectorAll("[data-unit-status]").forEach((select) => {
-    select.addEventListener("change", (event) => {
-      updateBottleUnit(id, Number(select.dataset.unitStatus), { status: event.target.value });
-    });
-  });
-  els.quickBottleDetail.querySelectorAll("[data-unit-fill]").forEach((select) => {
-    select.addEventListener("change", (event) => {
-      updateBottleUnit(id, Number(select.dataset.unitFill), { fillLevel: event.target.value });
-    });
-  });
-  document.querySelector("#quickEditBottle").addEventListener("click", () => {
-    els.quickBottleDialog.close();
-    openForm(id);
-  });
-  document.querySelector("#quickLogPour")?.addEventListener("click", () => {
-    els.quickBottleDialog.close();
-    openPourForm(id);
-  });
-  document.querySelector("#quickMarkOwned")?.addEventListener("click", () => {
-    markBottleOwned(id);
-    els.quickBottleDialog.close();
-  });
-  document.querySelector("#quickPhotoUpload").addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
+
+  const id = bottle.id;
+  document.querySelector("#bottleDetailBack").addEventListener("click", () => navigateToView(detailReturnView));
+  document.querySelector("#bottleDetailEdit").addEventListener("click", () => openForm(id));
+  document.querySelector("#detailStatusSelect").addEventListener("change", (event) => changeBottleStatus(id, event.target.value));
+  document.querySelector("#detailAddStory")?.addEventListener("click", () => openPourForm(id));
+  document.querySelector("#detailLogPour")?.addEventListener("click", () => openPourForm(id));
+  document.querySelector("#detailMarkOwned")?.addEventListener("click", () => markBottleOwned(id));
+  document.querySelector("#detailCompare")?.addEventListener("click", () => navigateToView("compare"));
+  document.querySelector("#detailPhotoUpload")?.addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
   document.querySelector("#galleryPhotoUpload")?.addEventListener("change", (event) => uploadGalleryPhoto(event, id));
-  els.quickBottleDetail.querySelectorAll("[data-gallery-remove]").forEach((button) => {
+  els.bottleDetailView.querySelectorAll("[data-gallery-remove]").forEach((button) => {
     button.addEventListener("click", () => removeGalleryPhoto(id, Number(button.dataset.galleryRemove)));
   });
-  els.quickBottleDetail.querySelectorAll("[data-gallery-view]").forEach((img) => {
+  els.bottleDetailView.querySelectorAll("[data-gallery-view]").forEach((img) => {
     img.addEventListener("click", () => window.open(img.src, "_blank", "noopener"));
   });
-  document.querySelector("#altOwnedCard")?.addEventListener("click", () => {
-    els.quickBottleDialog.close();
-    openBottleQuick(availabilityPick.id);
+  els.bottleDetailView.querySelectorAll("[data-story-edit]").forEach((item) => {
+    const open = () => openPourForm("", item.dataset.storyEdit);
+    item.addEventListener("click", open);
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
   });
-  document.querySelector("#altLibraryCard")?.addEventListener("click", () => {
-    els.quickBottleDialog.close();
-    openAlternativeQuick(profilePick);
-  });
-  els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((tabButton) => {
+  els.bottleDetailView.querySelectorAll("[data-dtab]").forEach((tabButton) => {
     tabButton.addEventListener("click", () => {
-      els.quickBottleDetail.querySelectorAll("[data-tab]").forEach((btn) => btn.classList.remove("is-active"));
-      tabButton.classList.add("is-active");
-      els.quickBottleDetail.querySelectorAll("[data-tab-panel]").forEach((panel) => {
-        panel.classList.toggle("is-hidden", panel.dataset.tabPanel !== tabButton.dataset.tab);
-      });
+      detailTab = tabButton.dataset.dtab;
+      els.bottleDetailView.querySelectorAll("[data-dtab]").forEach((btn) => btn.classList.toggle("is-active", btn === tabButton));
+      els.bottleDetailView.querySelectorAll("[data-dpanel]").forEach((p) => p.classList.toggle("is-hidden", p.dataset.dpanel !== detailTab));
     });
   });
 }

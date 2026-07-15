@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=111" />
+    <link rel="stylesheet" href="styles.css?v=112" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -59,11 +59,10 @@
 
         <nav class="nav-list" aria-label="Views">
           <button class="nav-item is-active" data-view="dashboard" type="button">Home</button>
-          <button class="nav-item" data-view="collection" type="button">Inventory</button>
-          <button class="nav-item" data-view="pour-log" data-nav-tab="notes" type="button">Reviews</button>
-          <button class="nav-item" data-view="core-bar" type="button">Collections</button>
-          <button class="nav-item" data-view="pour-log" data-nav-tab="sessions" type="button">Journal</button>
-          <button class="nav-item" data-view="about" type="button">About</button>
+          <button class="nav-item" data-view="collection" type="button">Collection</button>
+          <button class="nav-item" data-view="pour-log" type="button">Pour Stories</button>
+          <button class="nav-item" data-view="buy-next" type="button">Discover</button>
+          <button class="nav-item" data-view="profile" type="button">Profile</button>
         </nav>
 
         <div class="account-box" id="accountBox" aria-label="Account">
@@ -92,21 +91,26 @@
               <button class="account-menu-item" id="accountMenuJourney" type="button" role="menuitem">My Journey</button>
               <button class="account-menu-item" id="accountMenuEditName" type="button" role="menuitem">Change Name</button>
               <button class="account-menu-item" id="accountMenuFriends" type="button" role="menuitem">Friends</button>
+              <button class="account-menu-item" id="accountMenuAbout" type="button" role="menuitem">About</button>
               <button class="account-menu-item account-menu-danger" id="accountMenuSignOut" type="button" role="menuitem">Sign Out</button>
             </div>
           </div>
         </div>
       </header>
 
-      <nav class="sub-nav is-hidden" id="collectionsSubNav" aria-label="Collections views">
+      <nav class="sub-nav is-hidden" id="collectionSubNav" aria-label="Collection views">
+        <button class="sub-nav-item" data-view="collection" type="button">All</button>
         <button class="sub-nav-item" data-view="core-bar" type="button">Core Bar</button>
-        <button class="sub-nav-item" data-view="buy-next" type="button">🎯 Buy Next</button>
-        <button class="sub-nav-item" data-view="wishlist" type="button">☆ Wish List</button>
         <button class="sub-nav-item" data-view="opened" type="button">Opened</button>
         <button class="sub-nav-item" data-view="finished" type="button">Finished</button>
         <button class="sub-nav-item" data-view="compare" type="button">Compare</button>
         <button class="sub-nav-item" data-view="infinity" type="button">Infinity Bottle</button>
-        <button class="sub-nav-item" id="collectionsLibraryButton" type="button">📚 Whiskey Library</button>
+      </nav>
+
+      <nav class="sub-nav is-hidden" id="discoverSubNav" aria-label="Discover views">
+        <button class="sub-nav-item" data-view="buy-next" type="button">🎯 Buy Next</button>
+        <button class="sub-nav-item" data-view="wishlist" type="button">☆ Wish List</button>
+        <button class="sub-nav-item" id="discoverLibraryButton" type="button">📚 Whiskey Library</button>
       </nav>
 
       <main class="main">
@@ -828,6 +832,8 @@
           <p class="about-tagline">Drink what you enjoy. Share what matters.</p>
         </section>
 
+        <section class="bottle-detail-board is-hidden" id="bottleDetailView"></section>
+
         <footer class="brand-footer">
           <strong>Drink what you enjoy. Share what matters.</strong>
         </footer>
@@ -1386,7 +1392,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=123"></script>
+    <script src="app.js?v=124"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
