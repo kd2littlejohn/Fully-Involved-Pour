@@ -1159,6 +1159,10 @@ label {
 .pour-log-board,
 .compare-board,
 .faceoff-board,
+.infinity-board,
+.profile-board,
+.about-board,
+.bottle-detail-board,
 .brand-footer {
   width: min(1200px, calc(100% - 48px));
   margin-inline: auto;
