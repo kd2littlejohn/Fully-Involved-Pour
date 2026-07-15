@@ -3210,17 +3210,18 @@ select {
 .journal-hero-bg {
   position: absolute;
   inset: 0;
-  /* Temporary placeholder — existing brand asset; swap freely. */
   background: url("assets/hero-bar.png") center / cover no-repeat;
-  opacity: 0.5;
+  /* Full-strength real photo; darkness is shaped by the overlay below so the
+     bar reads clearly while keeping the compass legible. */
+  opacity: 0.92;
 }
 
 .journal-hero-overlay {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(120% 95% at 50% 42%, rgba(18, 12, 8, 0.5), rgba(9, 6, 4, 0.9) 85%),
-    linear-gradient(180deg, rgba(9, 6, 4, 0.55), rgba(9, 6, 4, 0.35));
+    radial-gradient(115% 90% at 50% 44%, rgba(12, 8, 5, 0.32), rgba(8, 5, 3, 0.82) 88%),
+    linear-gradient(180deg, rgba(8, 5, 3, 0.45), rgba(8, 5, 3, 0.28));
 }
 
 .journal-compass-stage {
@@ -3241,22 +3242,21 @@ select {
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.6));
 }
 
-/* Center Glencairn. */
+/* Center Glencairn — real photo in a turned-brass ring. */
 .journal-compass-glass {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  display: grid;
-  place-items: center;
-  width: 26%;
-  color: var(--brass);
-  filter: drop-shadow(0 0 18px rgba(226, 152, 66, 0.45));
-}
-
-.journal-glencairn {
-  width: 100%;
-  height: auto;
+  width: 33%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid rgba(201, 162, 75, 0.7);
+  box-shadow:
+    0 0 0 5px rgba(18, 12, 8, 0.55),
+    0 0 26px rgba(226, 152, 66, 0.45),
+    inset 0 0 18px rgba(0, 0, 0, 0.6);
 }
 
 /* Four labeled destinations positioned at the winds. */

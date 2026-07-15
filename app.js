@@ -2233,28 +2233,9 @@ buildCompass();
 //
 // Reuses the shared compass config, icons, and engraved rose, but presents the
 // four winds as labeled destinations (matching the Journal design) that route
-// straight into the app rather than expanding a panel. Center mark is a minimal
-// Glencairn drawn as SVG (no emoji).
+// straight into the app rather than expanding a panel. Center mark is a real
+// Glencairn photo (cropped from the brand hero image).
 // ---------------------------------------------------------------------------
-function glencairnSVG() {
-  return `
-    <svg class="journal-glencairn" viewBox="0 0 56 74" fill="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="fipPour" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#e8a24a" />
-          <stop offset="100%" stop-color="#a85a22" />
-        </linearGradient>
-      </defs>
-      <path d="M18 15C16 27 15 34 21 45c3 5 11 5 14 0 6-11 5-18 3-30Z"
-        fill="rgba(20,14,9,0.45)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-      <path d="M17.6 33c4.4 8 16.4 8 20.8 0 1.6 5 0.6 9-3.4 12-3 4-11 4-14 0-4-3-5-7-3.4-12Z"
-        fill="url(#fipPour)" />
-      <path d="M18 15q10-4 20 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-      <path d="M25 55v9M31 55v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-      <path d="M20 65h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
-    </svg>`;
-}
-
 function buildJournalHero() {
   const mount = document.querySelector("#journalCompass");
   if (!mount || mount.dataset.built === "true") return;
@@ -2289,7 +2270,7 @@ function buildJournalHero() {
     <div class="journal-hero-overlay" aria-hidden="true"></div>
     <div class="journal-compass-stage" role="group" aria-label="Compass destinations">
       ${compassRoseSVG()}
-      <span class="journal-compass-glass" aria-hidden="true">${glencairnSVG()}</span>
+      <img class="journal-compass-glass" src="assets/journal-glass.png" alt="" aria-hidden="true" loading="lazy" decoding="async" />
       ${points}
     </div>`;
 
