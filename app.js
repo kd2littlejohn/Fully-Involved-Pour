@@ -1794,7 +1794,10 @@ els.flavorBottleList.addEventListener("click", (event) => {
   const item = event.target.closest("[data-flavor-bottle]");
   if (item) openBottleQuick(item.dataset.flavorBottle);
 });
-document.querySelector("#openPourForm").addEventListener("click", () => openPourForm());
+// The old Log Pour button was removed with the Journal heading; the hero's
+// "Start a Pour Story" and "+" controls now open this flow. Guard in case the
+// button is absent.
+document.querySelector("#openPourForm")?.addEventListener("click", () => openPourForm());
 document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
 document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 els.searchInput.addEventListener("input", render);

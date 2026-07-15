@@ -5540,6 +5540,56 @@ button.mini-flavor-chip:focus-visible {
   display: none;
 }
 
+/* Journal tab bar — reference language (icon + label, amber underline on the
+   active tab). Scoped to .journal-tabs so the shared Profile tabs are
+   unaffected. */
+.journal-tabs {
+  gap: 4px;
+  margin-bottom: 20px;
+  padding-bottom: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.journal-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.journal-tabs .quick-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  padding: 10px 16px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.journal-tabs .quick-tab svg {
+  width: 17px;
+  height: 17px;
+}
+
+.journal-tabs .quick-tab:hover {
+  color: var(--cream);
+}
+
+.journal-tabs .quick-tab.is-active {
+  background: transparent;
+  border-bottom-color: var(--amber);
+  color: var(--amber);
+}
+
+.journal-tabs .quick-tab:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .quick-detail-grid {
   display: grid;
   grid-template-columns: 150px minmax(0, 1fr);
