@@ -501,6 +501,40 @@
         </div>
 
         <section class="pour-log-board is-hidden" id="pourLogView">
+          <!-- Journal hero. Header controls are static, semantic HTML; the
+               interactive compass card (#journalCompass) is built by
+               buildJournalHero() in app.js so it can reuse the shared compass
+               config, icons, and rose. -->
+          <header class="journal-hero" aria-label="Journal">
+            <div class="journal-hero-head">
+              <div class="journal-hero-title">
+                <h1>Journal</h1>
+                <p>Every pour has a story.<br />Capture it. Relive it. Share it.</p>
+              </div>
+              <div class="journal-hero-actions">
+                <button class="icon-button journal-hero-icon" id="journalSearch" type="button" aria-label="Search the Journal">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.3-4.3" />
+                  </svg>
+                </button>
+                <button class="icon-button journal-hero-icon journal-hero-add" id="journalNewStory" type="button" aria-label="Start a Pour Story">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                </button>
+                <button class="secondary-action journal-hero-start" id="journalStartStory" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 6c-1.8-1.4-4.8-1.4-7.5-.5v13c2.7-.9 5.7-.9 7.5.5 1.8-1.4 4.8-1.4 7.5-.5v-13C16.8 4.6 13.8 4.6 12 6Z" />
+                    <path d="M12 6v13" />
+                  </svg>
+                  Start a Pour Story
+                </button>
+              </div>
+            </div>
+            <div class="journal-hero-card" id="journalCompass"></div>
+          </header>
+
           <div class="section-heading">
             <div>
               <p>Pour Stories</p>

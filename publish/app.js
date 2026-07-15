@@ -2228,6 +2228,86 @@ function renderCompassDetail() {
 
 buildCompass();
 
+// ---------------------------------------------------------------------------
+// Journal hero — the Pour Stories landing card.
+//
+// Reuses the shared compass config, icons, and engraved rose, but presents the
+// four winds as labeled destinations (matching the Journal design) that route
+// straight into the app rather than expanding a panel. Center mark is a minimal
+// Glencairn drawn as SVG (no emoji).
+// ---------------------------------------------------------------------------
+function glencairnSVG() {
+  return `
+    <svg class="journal-glencairn" viewBox="0 0 56 74" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="fipPour" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e8a24a" />
+          <stop offset="100%" stop-color="#a85a22" />
+        </linearGradient>
+      </defs>
+      <path d="M18 15C16 27 15 34 21 45c3 5 11 5 14 0 6-11 5-18 3-30Z"
+        fill="rgba(20,14,9,0.45)" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
+      <path d="M17.6 33c4.4 8 16.4 8 20.8 0 1.6 5 0.6 9-3.4 12-3 4-11 4-14 0-4-3-5-7-3.4-12Z"
+        fill="url(#fipPour)" />
+      <path d="M18 15q10-4 20 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      <path d="M25 55v9M31 55v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M20 65h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+    </svg>`;
+}
+
+function buildJournalHero() {
+  const mount = document.querySelector("#journalCompass");
+  if (!mount || mount.dataset.built === "true") return;
+
+  // Journal destinations reuse the shared pillar config; only the routing
+  // differs from the Home compass, so it lives here next to the wiring.
+  const destinations = {
+    experience: () => openPourForm(),
+    discover: () => navigateToView("buy-next"),
+    reflect: () => {
+      switchPourStoriesTab("sessions");
+      document.querySelector('[data-story-tab-panel="sessions"]')?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    share: () => els.friendsToggle?.click(),
+  };
+
+  const points = COMPASS_PILLARS.map((pillar) => {
+    const [line1, line2] = pillar.tagline.split(" · ");
+    return `
+      <button class="journal-point journal-point--${pillar.dir}" data-journal-dest="${pillar.key}" type="button">
+        <span class="journal-point-icon" aria-hidden="true">${COMPASS_ICONS[pillar.key]}</span>
+        <span class="journal-point-body">
+          <span class="journal-point-label">${pillar.label}</span>
+          <span class="journal-point-sub">${line1}</span>
+          <span class="journal-point-sub">${line2}</span>
+        </span>
+      </button>`;
+  }).join("");
+
+  mount.innerHTML = `
+    <div class="journal-hero-bg" aria-hidden="true"></div>
+    <div class="journal-hero-overlay" aria-hidden="true"></div>
+    <div class="journal-compass-stage" role="group" aria-label="Compass destinations">
+      ${compassRoseSVG()}
+      <span class="journal-compass-glass" aria-hidden="true">${glencairnSVG()}</span>
+      ${points}
+    </div>`;
+
+  mount.dataset.built = "true";
+
+  mount.querySelectorAll("[data-journal-dest]").forEach((button) => {
+    button.addEventListener("click", () => destinations[button.dataset.journalDest]?.());
+  });
+}
+
+buildJournalHero();
+
+// Journal header controls. Search reuses the app's existing search entry;
+// the plus and "Start a Pour Story" both open the shared new-story flow.
+document.querySelector("#journalSearch")?.addEventListener("click", () => els.headerSearchButton?.click());
+document.querySelector("#journalNewStory")?.addEventListener("click", () => openPourForm());
+document.querySelector("#journalStartStory")?.addEventListener("click", () => openPourForm());
+
 els.homeHeroBrowse?.addEventListener("click", () => navigateToView("collection"));
 els.collectionPreviewViewAll?.addEventListener("click", () => navigateToView("collection"));
 
