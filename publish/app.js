@@ -2082,6 +2082,61 @@ const COMPASS_PILLARS = [
 
 let activeCompassPillar = null;
 
+// An engraved brass compass rose, drawn as SVG: a graduated bezel of tick
+// marks, faceted primary/secondary star points (each split light/dark for a
+// milled-metal look), and a hub. Built with loops so the geometry stays exact.
+function compassRoseSVG() {
+  const ticks = [];
+  for (let i = 0; i < 72; i += 1) {
+    const major = i % 9 === 0;
+    const outer = 84;
+    const inner = outer - (major ? 8 : 4);
+    const angle = (i / 72) * Math.PI * 2;
+    const sin = Math.sin(angle);
+    const cos = -Math.cos(angle); // 0 at true north (top)
+    const x1 = (100 + inner * sin).toFixed(1);
+    const y1 = (100 + inner * cos).toFixed(1);
+    const x2 = (100 + outer * sin).toFixed(1);
+    const y2 = (100 + outer * cos).toFixed(1);
+    ticks.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-width="${major ? 1.2 : 0.6}"/>`);
+  }
+  const spike = (tip, shoulder) =>
+    `<path d="M100 ${tip} L${100 + shoulder} 95 L100 100 Z" fill="url(#fipBrassDark)"/>` +
+    `<path d="M100 ${tip} L${100 - shoulder} 95 L100 100 Z" fill="url(#fipBrassLight)"/>`;
+  const primary = [0, 90, 180, 270]
+    .map((d) => `<g transform="rotate(${d} 100 100)">${spike(24, 7)}</g>`)
+    .join("");
+  const secondary = [45, 135, 225, 315]
+    .map((d) => `<g transform="rotate(${d} 100 100)" opacity="0.85">${spike(50, 4.5)}</g>`)
+    .join("");
+  return `
+    <svg class="compass-rose" viewBox="0 0 200 200" aria-hidden="true">
+      <defs>
+        <radialGradient id="fipRoseGlow" cx="50%" cy="45%" r="60%">
+          <stop offset="0%" stop-color="rgba(226,152,66,0.42)" />
+          <stop offset="55%" stop-color="rgba(226,152,66,0.05)" />
+          <stop offset="100%" stop-color="rgba(20,16,12,0)" />
+        </radialGradient>
+        <linearGradient id="fipBrassLight" x1="0" y1="0" x2="0.35" y2="1">
+          <stop offset="0%" stop-color="#f8e0a0" />
+          <stop offset="100%" stop-color="#c69a44" />
+        </linearGradient>
+        <linearGradient id="fipBrassDark" x1="0" y1="0" x2="0.35" y2="1">
+          <stop offset="0%" stop-color="#8a641f" />
+          <stop offset="100%" stop-color="#432f0d" />
+        </linearGradient>
+      </defs>
+      <circle cx="100" cy="100" r="98" fill="url(#fipRoseGlow)" />
+      <g stroke="rgba(201,162,75,0.6)" stroke-linecap="round">${ticks.join("")}</g>
+      <circle cx="100" cy="100" r="72" fill="none" stroke="rgba(201,162,75,0.32)" stroke-width="0.8" />
+      <circle cx="100" cy="100" r="67" fill="none" stroke="rgba(201,162,75,0.16)" stroke-width="0.6" />
+      ${secondary}
+      ${primary}
+      <circle cx="100" cy="100" r="11" fill="url(#fipBrassLight)" stroke="#3a2a10" stroke-width="1.2" />
+      <circle cx="100" cy="100" r="5" fill="#1c1410" />
+    </svg>`;
+}
+
 function buildCompass() {
   const mount = document.querySelector("#homeCompass");
   if (!mount || mount.dataset.built === "true") return;
@@ -2100,14 +2155,11 @@ function buildCompass() {
 
   mount.innerHTML = `
     <div class="compass-stage" role="group" aria-label="Compass points">
-      <div class="compass-ring" aria-hidden="true">
-        <span class="compass-ray compass-ray--n"></span>
-        <span class="compass-ray compass-ray--e"></span>
-        <span class="compass-ray compass-ray--s"></span>
-        <span class="compass-ray compass-ray--w"></span>
-      </div>
+      ${compassRoseSVG()}
       <button class="compass-core" id="compassCore" type="button" aria-label="Fully Involved Pour">
-        <span class="compass-core-glass" aria-hidden="true">\u{1F943}</span>
+        <span class="compass-core-bezel" aria-hidden="true">
+          <span class="compass-core-glass">\u{1F943}</span>
+        </span>
       </button>
       ${points}
     </div>
@@ -2155,14 +2207,16 @@ function renderCompassDetail() {
     )
     .join("");
   panel.innerHTML = `
-    <div class="compass-detail-head">
-      <span class="compass-detail-icon" aria-hidden="true">${COMPASS_ICONS[pillar.key]}</span>
-      <div>
-        <strong>${escapeHtml(pillar.label)}</strong>
-        <span>${escapeHtml(pillar.tagline)}</span>
+    <div class="compass-detail-inner">
+      <div class="compass-detail-head">
+        <span class="compass-detail-icon" aria-hidden="true">${COMPASS_ICONS[pillar.key]}</span>
+        <div>
+          <strong>${escapeHtml(pillar.label)}</strong>
+          <span>${escapeHtml(pillar.tagline)}</span>
+        </div>
       </div>
-    </div>
-    <div class="compass-link-row">${links}</div>`;
+      <div class="compass-link-row">${links}</div>
+    </div>`;
   panel.classList.add("is-visible");
   panel.querySelectorAll("[data-compass-link]").forEach((button) => {
     button.addEventListener("click", () => {

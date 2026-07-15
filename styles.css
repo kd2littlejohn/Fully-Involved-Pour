@@ -2731,28 +2731,60 @@ select {
   font-size: 0.9rem;
 }
 
-/* The Compass — interactive core feature on the Home view. */
+/* The Compass — the app's interactive centerpiece. Leather, brass, and warm
+   tungsten light: a private-lounge feel rather than a flat dashboard tile. */
 .compass {
+  position: relative;
   margin-bottom: 24px;
-  padding: 20px 20px 24px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  padding: 22px 20px 26px;
+  border: 1px solid rgba(201, 162, 75, 0.3);
+  border-radius: calc(var(--radius) + 4px);
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(215, 138, 54, 0.14), transparent 60%),
-    var(--panel);
-  box-shadow: var(--shadow-soft);
+    radial-gradient(135% 105% at 50% -8%, rgba(226, 152, 66, 0.16), transparent 52%),
+    radial-gradient(90% 70% at 50% 120%, rgba(120, 40, 30, 0.22), transparent 60%),
+    linear-gradient(160deg, #241812 0%, #1a120d 55%, #130d09 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 214, 0.06),
+    inset 0 0 60px rgba(0, 0, 0, 0.45),
+    0 18px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* Fine engraved double-rule frame. */
+.compass::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border: 1px solid rgba(201, 162, 75, 0.24);
+  border-radius: var(--radius);
+  pointer-events: none;
 }
 
 .compass-heading {
-  margin-bottom: 4px;
+  position: relative;
+  margin-bottom: 2px;
+}
+
+.compass-heading p {
+  color: var(--brass);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.68rem;
+}
+
+.compass-heading h2 {
+  font-family: var(--serif);
+  letter-spacing: 0.02em;
 }
 
 .compass-hint {
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
+  font-style: italic;
 }
 
 .compass-body {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2760,139 +2792,149 @@ select {
 
 .compass-stage {
   position: relative;
-  width: min(340px, 82vw);
+  width: min(340px, 80vw);
   aspect-ratio: 1;
-  margin: 8px auto 4px;
+  margin: 10px auto 2px;
 }
 
-/* Dashed guide ring + four gold pointer rays. */
-.compass-ring {
+/* Engraved brass rose backdrop. */
+.compass-rose {
   position: absolute;
-  inset: 16%;
-  border: 1px dashed rgba(201, 162, 75, 0.4);
-  border-radius: 50%;
-}
-
-.compass-ray {
-  position: absolute;
-  left: 50%;
   top: 50%;
-  width: 0;
-  height: 0;
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 22px solid var(--brass);
-  opacity: 0.55;
-  transform-origin: 50% 100%;
+  left: 50%;
+  width: 80%;
+  height: 80%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55));
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.compass-ray--n {
-  transform: translate(-50%, -100%) translateY(-6px);
-}
-.compass-ray--e {
-  transform: translate(-50%, -100%) rotate(90deg) translateY(-6px);
-}
-.compass-ray--s {
-  transform: translate(-50%, -100%) rotate(180deg) translateY(-6px);
-}
-.compass-ray--w {
-  transform: translate(-50%, -100%) rotate(270deg) translateY(-6px);
+.compass.is-open .compass-rose {
+  transform: translate(-50%, -50%) rotate(22.5deg);
 }
 
-/* Center glass medallion. */
+/* Center glass in a turned-brass bezel — the pour at the heart of it all. */
 .compass-core {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  width: 27%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  transition: transform 0.22s ease;
+}
+
+.compass-core-bezel {
   display: grid;
   place-items: center;
-  width: 33%;
-  aspect-ratio: 1;
-  border: 1px solid rgba(201, 162, 75, 0.55);
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background:
-    radial-gradient(circle at 50% 35%, rgba(215, 138, 54, 0.28), rgba(20, 16, 12, 0.9));
-  box-shadow: 0 0 0 6px rgba(201, 162, 75, 0.08), inset 0 0 18px rgba(0, 0, 0, 0.5);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+    radial-gradient(circle at 50% 34%, rgba(248, 224, 160, 0.9), rgba(150, 108, 44, 0.9) 55%, rgba(58, 42, 16, 0.95) 100%);
+  box-shadow:
+    0 0 0 1px rgba(58, 42, 16, 0.9),
+    0 0 22px rgba(226, 152, 66, 0.4),
+    inset 0 2px 4px rgba(255, 244, 214, 0.55),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.5);
 }
 
 .compass-core-glass {
-  font-size: 1.9rem;
+  display: grid;
+  place-items: center;
+  width: 74%;
+  height: 74%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 30%, #3a2a1c, #140d08 80%);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.75), inset 0 0 6px rgba(226, 152, 66, 0.3);
+  font-size: 1.55rem;
   line-height: 1;
 }
 
-.compass.is-open .compass-core,
 .compass-core:hover,
 .compass-core:focus-visible {
-  box-shadow: 0 0 0 6px rgba(201, 162, 75, 0.16), inset 0 0 18px rgba(0, 0, 0, 0.5);
-  transform: translate(-50%, -50%) scale(1.04);
+  transform: translate(-50%, -50%) scale(1.05);
 }
 
-/* Cardinal points. */
+.compass.is-open .compass-core {
+  transform: translate(-50%, -50%) scale(1.03);
+}
+
+/* Cardinal points sit outside the bezel, at the four winds. */
 .compass-point {
   position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   padding: 4px;
-  width: 92px;
+  width: 96px;
   border: none;
   background: transparent;
   color: var(--ink);
   text-align: center;
-  transition: transform 0.16s ease;
+  transition: transform 0.18s ease;
 }
 
 .compass-point--n {
   top: 0;
   left: 50%;
-  transform: translate(-50%, -4%);
+  transform: translate(-50%, -6%);
 }
 .compass-point--s {
   bottom: 0;
   left: 50%;
-  transform: translate(-50%, 4%);
+  transform: translate(-50%, 6%);
 }
 .compass-point--w {
   left: 0;
   top: 50%;
-  transform: translate(-10%, -50%);
+  transform: translate(0, -50%);
 }
 .compass-point--e {
   right: 0;
   top: 50%;
-  transform: translate(10%, -50%);
+  transform: translate(0, -50%);
 }
 
-.compass-point:hover,
-.compass-point:focus-visible {
-  transform: translate(-50%, -4%) scale(1.05);
+.compass-point--n:hover,
+.compass-point--n:focus-visible {
+  transform: translate(-50%, -6%) scale(1.06);
 }
 .compass-point--s:hover,
 .compass-point--s:focus-visible {
-  transform: translate(-50%, 4%) scale(1.05);
+  transform: translate(-50%, 6%) scale(1.06);
 }
 .compass-point--w:hover,
 .compass-point--w:focus-visible {
-  transform: translate(-10%, -50%) scale(1.05);
+  transform: translate(0, -50%) scale(1.06);
 }
 .compass-point--e:hover,
 .compass-point--e:focus-visible {
-  transform: translate(10%, -50%) scale(1.05);
+  transform: translate(0, -50%) scale(1.06);
 }
 
+/* Milled-brass roundel around each icon. */
 .compass-point-icon {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border: 1px solid var(--brass);
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
-  background: var(--panel-soft);
   color: var(--brass);
-  transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  background:
+    radial-gradient(circle at 50% 34%, #2a1f16, #171009);
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 75, 0.55),
+    0 0 0 4px rgba(201, 162, 75, 0.08),
+    inset 0 1px 1px rgba(255, 244, 214, 0.12),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .compass-point-icon svg {
@@ -2901,10 +2943,14 @@ select {
 }
 
 .compass-point.is-active .compass-point-icon {
-  background: var(--brass);
-  border-color: var(--brass);
-  color: var(--charcoal);
-  box-shadow: 0 0 0 5px rgba(201, 162, 75, 0.16);
+  color: #241813;
+  background:
+    radial-gradient(circle at 50% 30%, #f8e0a0, #c69a44 70%, #916c2c 100%);
+  box-shadow:
+    0 0 0 1px rgba(58, 42, 16, 0.9),
+    0 0 18px rgba(226, 152, 66, 0.55),
+    inset 0 2px 3px rgba(255, 244, 214, 0.6);
+  transform: scale(1.04);
 }
 
 .compass-point-text strong {
@@ -2914,102 +2960,134 @@ select {
   font-size: 0.9rem;
   color: var(--cream);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.compass-point.is-active .compass-point-text strong {
+  color: #f8e0a0;
 }
 
 .compass-point-text span {
   display: none;
 }
 
-/* Detail panel revealed when a point is tapped. */
+/* Detail panel — an inlaid brass plaque that unfurls beneath the rose. */
 .compass-detail {
   width: 100%;
-  max-width: 460px;
-  margin-top: 6px;
+  max-width: 480px;
+  margin-top: 0;
   max-height: 0;
   opacity: 0;
   overflow: hidden;
-  transition: max-height 0.28s ease, opacity 0.2s ease, margin-top 0.2s ease;
+  transition: max-height 0.32s ease, opacity 0.24s ease, margin-top 0.24s ease;
 }
 
 .compass-detail.is-visible {
-  max-height: 260px;
+  max-height: 280px;
   opacity: 1;
-  margin-top: 12px;
+  margin-top: 16px;
+}
+
+.compass-detail-inner {
+  padding: 16px 18px;
+  border: 1px solid rgba(201, 162, 75, 0.28);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(160deg, rgba(42, 30, 20, 0.9), rgba(20, 14, 10, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.06);
 }
 
 .compass-detail-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--line);
+  gap: 13px;
+  padding-bottom: 13px;
+  margin-bottom: 13px;
+  border-bottom: 1px solid rgba(201, 162, 75, 0.22);
 }
 
 .compass-detail-icon {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   flex: none;
-  border: 1px solid var(--brass);
   border-radius: 50%;
   color: var(--brass);
+  background: radial-gradient(circle at 50% 34%, #2a1f16, #171009);
+  box-shadow: 0 0 0 1px rgba(201, 162, 75, 0.5), inset 0 1px 1px rgba(255, 244, 214, 0.12);
 }
 
 .compass-detail-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
 }
 
 .compass-detail-head strong {
   display: block;
   font-family: var(--serif);
   font-size: 1.05rem;
-  color: var(--cream);
+  color: #f8e0a0;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
 }
 
 .compass-detail-head span {
   color: var(--muted);
   font-size: 0.82rem;
+  font-style: italic;
 }
 
 .compass-link-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 9px;
 }
 
 .compass-link {
-  padding: 9px 14px;
-  border: 1px solid var(--line);
+  position: relative;
+  padding: 9px 15px;
+  border: 1px solid rgba(201, 162, 75, 0.4);
   border-radius: 999px;
-  background: var(--panel-soft);
-  color: var(--ink);
-  font-size: 0.88rem;
-  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  background: linear-gradient(160deg, rgba(58, 42, 22, 0.6), rgba(28, 20, 12, 0.6));
+  color: var(--cream);
+  font-size: 0.87rem;
+  letter-spacing: 0.01em;
+  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .compass-link:hover,
 .compass-link:focus-visible {
   border-color: var(--brass);
-  background: rgba(201, 162, 75, 0.14);
-  color: var(--cream);
+  background: linear-gradient(160deg, rgba(226, 152, 66, 0.28), rgba(150, 108, 44, 0.2));
+  color: #fff5e2;
+  box-shadow: 0 0 14px rgba(226, 152, 66, 0.3);
 }
 
-@media (max-width: 380px) {
+@media (max-width: 400px) {
   .compass-point {
-    width: 80px;
+    width: 82px;
   }
   .compass-point-icon {
-    width: 46px;
-    height: 46px;
+    width: 48px;
+    height: 48px;
+  }
+  .compass-point-icon svg {
+    width: 23px;
+    height: 23px;
   }
   .compass-point-text strong {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compass-rose,
+  .compass.is-open .compass-rose {
+    transition: none;
+    transform: translate(-50%, -50%);
   }
 }
 
