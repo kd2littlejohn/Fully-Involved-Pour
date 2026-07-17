@@ -11360,12 +11360,15 @@ textarea::placeholder {
     font-size: 0.78rem;
   }
 
+  /* Back into flow: the <=1199px rule floats the compass beside the copy,
+     which has no room to do so once the layout stacks. Stays relative so it
+     remains the containing block for the .journal-compass-destination labels. */
   .journal-page .fip-compass-shell {
-    left: 0;
-    right: 0;
-    bottom: 18px;
+    position: relative;
+    inset: auto;
     width: 100%;
     min-height: 268px;
+    margin-top: 18px;
   }
 
   .journal-page .fip-compass-shell .fip-compass {
