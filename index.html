@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=overlays-content" />
     <title>Fully Involved Pour</title>
-    <meta name="description" content="Track every bottle, every pour, and the ones that earn a permanent spot on your Core Bar." />
+    <meta name="description" content="Fully Involved Pour is a premium whiskey companion for remembering every bottle, pour, and story that matters." />
     <meta name="theme-color" content="#14100c" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=113" />
+    <link rel="stylesheet" href="styles.css?v=171" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -47,7 +47,7 @@
         <div class="brand">
           <img
             class="brand-mark"
-            src="assets/compass-mark.png"
+            src="public/images/brand/fip-compass.png"
             alt="Fully Involved Pour compass logo"
           />
           <div class="brand-wordmark">
@@ -58,17 +58,40 @@
         </div>
 
         <nav class="nav-list" aria-label="Views">
-          <button class="nav-item is-active" data-view="dashboard" type="button">Home</button>
-          <button class="nav-item" data-view="collection" type="button">Collection</button>
-          <button class="nav-item" data-view="pour-log" type="button">Pour Stories</button>
-          <button class="nav-item" data-view="buy-next" type="button">Discover</button>
-          <button class="nav-item" data-view="profile" type="button">Profile</button>
+          <button class="nav-item is-active" data-view="dashboard" data-nav-icon="⌂" type="button">
+            <span class="nav-icon" aria-hidden="true">⌂</span>
+            <span class="nav-label">Home</span>
+          </button>
+          <button class="nav-item" data-view="collection" data-nav-icon="▦" type="button">
+            <span class="nav-icon" aria-hidden="true">▦</span>
+            <span class="nav-label">Collection</span>
+          </button>
+          <button class="nav-item" data-view="pour-log" data-nav-icon="✎" type="button">
+            <span class="nav-icon" aria-hidden="true">✎</span>
+            <span class="nav-label">Journal</span>
+          </button>
+          <button class="nav-item" data-view="buy-next" data-nav-icon="⌕" type="button">
+            <span class="nav-icon" aria-hidden="true">⌕</span>
+            <span class="nav-label">Discover</span>
+          </button>
+          <button class="nav-item" data-view="profile" data-nav-icon="◦" type="button">
+            <span class="nav-icon" aria-hidden="true">◦</span>
+            <span class="nav-label">Profile</span>
+          </button>
         </nav>
 
         <div class="account-box" id="accountBox" aria-label="Account">
-          <button class="icon-button" id="headerSearchButton" type="button" aria-label="Search your collection">🔍</button>
+          <button class="icon-button" id="headerSearchButton" type="button" aria-label="Search your collection">
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m16.2 16.2 4.3 4.3"></path>
+            </svg>
+          </button>
           <button class="icon-button friends-toggle" id="friendsToggle" type="button" aria-label="Friends">
-            <span aria-hidden="true">🔔</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+              <path d="M10 21h4"></path>
+            </svg>
             <span class="nav-badge is-hidden" id="friendsBadge"></span>
           </button>
           <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
@@ -114,15 +137,15 @@
       </nav>
 
       <main class="main">
-        <section class="hero" aria-label="Collection overview">
+        <section class="hero collection-hero" aria-label="Collection overview">
           <img src="assets/hero-bar.png" alt="Bourbon and spirits bottles arranged on a warm home bar" />
           <div class="hero-overlay">
             <div class="hero-copy">
               <p>Fully Involved Pour</p>
-              <h1>Track every pour. Know every bottle.</h1>
+              <h1>Collection</h1>
               <strong class="hero-slogan">Drink what you enjoy. Share what matters.</strong>
               <span class="hero-description">
-                Organize what you own, what you love, and what deserves a spot on your Core Bar.
+                Your bottles. Your journey.
               </span>
             </div>
             <div class="hero-actions">
@@ -136,7 +159,8 @@
 
         <section class="inventory-overview" aria-label="Inventory summary">
           <div>
-            <h2>Inventory</h2>
+            <p>Your whiskey library</p>
+            <h2>Collection</h2>
             <span id="inventoryRatio">0 of 0 bottles</span>
           </div>
           <div class="inventory-overview-actions">
@@ -152,11 +176,13 @@
           </label>
 
           <select id="sortSelect" aria-label="Sort bottles">
-            <option value="name">Sort by name</option>
+            <option value="recent">Recently Added</option>
+            <option value="name">Name A-Z</option>
+            <option value="rating">Highest Rated</option>
+            <option value="proof">Proof High to Low</option>
+            <option value="proof-low">Proof Low to High</option>
+            <option value="opened">Recently Opened</option>
             <option value="custom">My order (arrange)</option>
-            <option value="rating">Sort by rating</option>
-            <option value="value">Sort by value</option>
-            <option value="proof">Sort by proof</option>
           </select>
 
           <details class="more-actions">
@@ -174,13 +200,15 @@
         </section>
 
         <section class="quick-filters" aria-label="Quick filters">
-          <button class="quick-filter is-selected" data-filter="all" type="button">🥃 All Bottles</button>
-          <button class="quick-filter" data-filter="favorites" type="button">⭐ Favorites</button>
-          <button class="quick-filter" data-filter="recent" type="button">🆕 Recently Added</button>
-          <button class="quick-filter" data-filter="open" type="button">🔓 Opened</button>
-          <button class="quick-filter" data-filter="sealed" type="button">🔒 Sealed</button>
-          <button class="quick-filter" data-filter="wishlist" type="button">❤️ Wishlist</button>
-          <button class="quick-filter" data-filter="ready-tonight" type="button">🎉 Ready to Drink Tonight</button>
+          <button class="quick-filter is-selected" data-filter="all" type="button">All <span data-filter-count="all">0</span></button>
+          <button class="quick-filter" data-type-filter="bourbon" type="button">Bourbon <span data-type-count="bourbon">0</span></button>
+          <button class="quick-filter" data-type-filter="rye" type="button">Rye <span data-type-count="rye">0</span></button>
+          <button class="quick-filter" data-type-filter="scotch" type="button">Scotch <span data-type-count="scotch">0</span></button>
+          <button class="quick-filter" data-type-filter="american whiskey" type="button">American Whiskey <span data-type-count="american whiskey">0</span></button>
+          <button class="quick-filter" data-filter="favorites" type="button">Favorites <span data-filter-count="favorites">0</span></button>
+          <button class="quick-filter" data-filter="open" type="button">Opened <span data-filter-count="open">0</span></button>
+          <button class="quick-filter" data-filter="sealed" type="button">Sealed <span data-filter-count="sealed">0</span></button>
+          <button class="quick-filter" data-filter="wishlist" type="button">Wishlist <span data-filter-count="wishlist">0</span></button>
         </section>
 
         <details class="filter-shell">
@@ -235,8 +263,8 @@
           <div class="bottle-section" id="collectionView">
             <div class="section-heading">
               <div>
-                <p id="viewEyebrow">Inventory</p>
-                <h2 id="viewTitle">Your cabinet</h2>
+                <p id="viewEyebrow">Collection</p>
+                <h2 id="viewTitle">Your bottles</h2>
               </div>
               <div class="section-heading-actions">
                 <button class="primary-action is-hidden" id="viewAddButton" type="button"></button>
@@ -267,62 +295,69 @@
             <em id="totalBottlesMeta">0 owned</em>
           </article>
           <article>
-            <span>Collection Value</span>
-            <strong id="estimatedValue">$0</strong>
-            <em>based on price paid</em>
-          </article>
-          <article>
-            <span>Top Distillery</span>
-            <strong id="topDistillery">—</strong>
-            <em id="topDistilleryMeta">no data</em>
-          </article>
-          <article>
-            <span>Opened vs Sealed</span>
-            <strong id="openedSealed">0 / 0</strong>
-            <em id="openedSealedMeta">no owned bottles</em>
-          </article>
-          <article class="secondary-stat">
-            <span>Avg Rating</span>
-            <strong id="averageRating">0.0</strong>
-            <em>rated bottles</em>
-          </article>
-          <article class="secondary-stat">
-            <span>Core Bar</span>
-            <strong id="coreBarCount">0</strong>
-            <em>must-keep bottles</em>
-          </article>
-          <article class="secondary-stat">
-            <span>Buy Next</span>
-            <strong id="buyNextCount">0</strong>
-            <em>hunt list</em>
-          </article>
-          <article class="secondary-stat">
             <span>Open Bottles</span>
             <strong id="openBottles">0</strong>
             <em>ready to pour</em>
           </article>
+          <article>
+            <span>Favorite Category</span>
+            <strong id="topDistillery">—</strong>
+            <em id="topDistilleryMeta">no data</em>
+          </article>
+          <article>
+            <span>Favorite Proof Range</span>
+            <strong id="openedSealed">0 / 0</strong>
+            <em id="openedSealedMeta">no owned bottles</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Average FIP Score</span>
+            <strong id="averageRating">0.0</strong>
+            <em>rated bottles</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Journaled Bottles</span>
+            <strong id="coreBarCount">0</strong>
+            <em>with Pour Stories</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Favorites</span>
+            <strong id="buyNextCount">0</strong>
+            <em>marked bottles</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Wishlist</span>
+            <strong id="estimatedValue">0</strong>
+            <em>future pours</em>
+          </article>
         </section>
 
         <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
-          <section class="hero home-hero" aria-label="Fully Involved Pour">
-            <img src="assets/home-hero.png" alt="A Glencairn glass etched with the Fully Involved Pour compass, on a warm home bar" />
+          <section class="hero home-hero home-compass-hero" aria-label="Fully Involved Pour home hero">
+            <div class="home-hero-visual" aria-hidden="true">
+              <img class="home-hero-compass-overlay" src="public/images/brand/fip-compass.png" alt="" />
+            </div>
             <div class="hero-overlay">
               <div class="hero-copy home-hero-copy">
                 <h1 class="home-hero-title">
-                  <span>Drink what you enjoy.</span>
-                  <span class="accent">Share what matters.</span>
+                  <span>Drink what</span>
+                  <span>You enjoy.</span>
+                  <span class="accent">Share what</span>
+                  <span class="accent">Matters.</span>
                 </h1>
                 <hr class="home-hero-divider" />
                 <p class="hero-description">
-                  Fully Involved Pour is your space to discover great whiskey, track your collection, and share
-                  reviews that connect.
+                  Discover new whiskey, enjoy every pour,<br />
+                  capture the story, and share the moments<br />
+                  that matter.
                 </p>
                 <div class="home-hero-actions">
-                  <button class="primary-action" id="homeHeroBrowse" type="button">
-                    <span aria-hidden="true">🥃</span> Browse Collection
+                  <button class="primary-action" id="homeHeroLogPour" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M8 3h8c.2 3.2-.4 6.1-2 8.3-.7.9-1 1.7-1 2.8V18h-2v-3.9c0-1.1-.3-1.9-1-2.8C8.4 9.1 7.8 6.2 8 3Z"></path><path d="M9 21h6"></path></svg>
+                    Start a Pour Story
                   </button>
-                  <button class="secondary-action" id="homeHeroLogPour" type="button">
-                    <span aria-hidden="true">✎</span> Log Your Pour
+                  <button class="secondary-action" id="homeHeroBrowse" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M5 7.5h14"></path><path d="M6.5 7.5 8 20h8l1.5-12.5"></path><path d="M9 4h6"></path></svg>
+                    Browse Collection
                   </button>
                 </div>
               </div>
@@ -337,15 +372,15 @@
           <section class="insights-card continue-story is-hidden" id="continueStoryCard" aria-label="Continue your pour story">
             <div class="section-heading">
               <div>
-                <p>In Progress</p>
-                <h2>Continue Pour Story</h2>
+                <p>Current Bottle</p>
+                <h2>Continue Your Journey</h2>
               </div>
             </div>
             <div class="continue-story-body" id="continueStoryBody"></div>
           </section>
 
-          <section class="pillar-nav" aria-label="Today's Journey">
-            <button class="pillar-card" data-pillar-view="buy-next" type="button">
+          <section class="pillar-nav home-compass-band" id="homeJourneyPillars" aria-label="Discover, experience, reflect, and share">
+            <button class="pillar-card" data-journey-panel="discover" type="button" aria-label="Discover. Explore what's new. Every journey starts with curiosity.">
               <span class="pillar-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="9" />
@@ -353,9 +388,9 @@
                 </svg>
               </span>
               <strong>Discover</strong>
-              <span>Explore something new</span>
+              <span>Explore what's new. Every journey starts with curiosity.</span>
             </button>
-            <button class="pillar-card" data-pillar-view="pour-log" type="button">
+            <button class="pillar-card" data-journey-panel="experience" type="button" aria-label="Experience. Savor the moment. Great whiskey is meant to be enjoyed.">
               <span class="pillar-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M8.5 3h7c.2 2.5-.3 5.7-2.2 8-.6.8-.8 1.4-.8 2.4v3.1h-1v-3.1c0-1-.2-1.6-.8-2.4-1.9-2.3-2.4-5.5-2.2-8Z" />
@@ -363,9 +398,9 @@
                 </svg>
               </span>
               <strong>Experience</strong>
-              <span>Enjoy today's pour</span>
+              <span>Savor the moment. Great whiskey is meant to be enjoyed.</span>
             </button>
-            <button class="pillar-card" data-pillar-tab="notes" type="button">
+            <button class="pillar-card" data-journey-panel="reflect" type="button" aria-label="Reflect. Capture what mattered. Every pour has a story.">
               <span class="pillar-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 6c-1.8-1.4-4.8-1.4-7.5-.5v13c2.7-.9 5.7-.9 7.5.5 1.8-1.4 4.8-1.4 7.5-.5v-13C16.8 4.6 13.8 4.6 12 6Z" />
@@ -373,9 +408,9 @@
                 </svg>
               </span>
               <strong>Reflect</strong>
-              <span>Add tasting notes</span>
+              <span>Capture what mattered. Every pour has a story.</span>
             </button>
-            <button class="pillar-card" data-pillar-action="share" type="button">
+            <button class="pillar-card" data-journey-panel="share" type="button" aria-label="Share. Whiskey is better together. Pass the story forward.">
               <span class="pillar-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="8.2" r="2.6" />
@@ -387,43 +422,80 @@
                 </svg>
               </span>
               <strong>Share</strong>
-              <span>Recommend today's favorite</span>
+              <span>Whiskey is better together. Pass the story forward.</span>
             </button>
+          </section>
+
+          <section class="collection-preview home-section-card home-recent-activity" aria-label="Recent activity">
+            <div class="section-heading">
+              <div>
+                <p>Recent Activity</p>
+                <h2>What changed lately</h2>
+              </div>
+            </div>
+            <div class="journey-collection-tabs" id="journeyCollectionTabs" role="tablist" aria-label="Recent activity filters">
+              <button class="is-active" data-journey-collection-tab="recent" type="button" role="tab" aria-selected="true" aria-controls="recentBottlesPanel">Recently Added</button>
+              <button data-journey-collection-tab="stories" type="button" role="tab" aria-selected="false" aria-controls="recentStoriesPanel">Recent Pour Stories</button>
+            </div>
+            <div class="home-activity-panel" id="recentBottlesPanel" data-home-activity-panel="recent" role="tabpanel">
+              <div class="collection-preview-row" id="collectionPreviewRow"></div>
+            </div>
+            <div class="home-activity-panel is-hidden" id="recentStoriesPanel" data-home-activity-panel="stories" role="tabpanel">
+              <div class="pour-story-list" id="recentPourStories"></div>
+            </div>
           </section>
 
           <section class="dashboard-section" aria-label="Collection snapshot">
             <div class="section-heading">
               <div>
-                <p>Snapshot</p>
-                <h2>Collection Snapshot</h2>
+                <p>Summary</p>
+                <h2>Journey Summary</h2>
               </div>
             </div>
             <div class="profile-journey-grid" id="collectionSnapshotGrid"></div>
           </section>
 
-          <section class="collection-preview" aria-label="Browse your collection">
-            <div class="section-heading">
+          <div class="journey-panel-backdrop is-hidden" id="journeyPanelBackdrop"></div>
+          <section class="journey-action-panel is-hidden" id="journeyActionPanel" role="dialog" aria-modal="true" aria-labelledby="journeyPanelTitle" tabindex="-1">
+            <div class="journey-action-panel-head">
               <div>
-                <h2>Browse your collection</h2>
+                <p id="journeyPanelKicker">Fully Involved Pour</p>
+                <h2 id="journeyPanelTitle">Journey</h2>
               </div>
-              <button class="text-link" id="collectionPreviewViewAll" type="button">View All →</button>
+              <button class="icon-button" id="journeyPanelClose" type="button" aria-label="Close journey panel">×</button>
             </div>
-            <div class="collection-preview-row" id="collectionPreviewRow"></div>
+            <div class="journey-action-panel-body" id="journeyPanelBody"></div>
           </section>
 
+          <section class="insights-card home-section-card" aria-label="Legacy Shelf Preview">
+            <div class="section-heading">
+              <div>
+                <p>Milestones</p>
+                <h2>Legacy Shelf Preview</h2>
+              </div>
+            </div>
+            <div class="legacy-shelf-preview-grid" id="homeLegacyShelfPreview"></div>
+          </section>
+
+          <section class="insights-card home-section-card home-recommended-card" aria-label="Recommended bottles">
+            <div class="section-heading">
+              <div>
+                <p>Next Pour</p>
+                <h2>Recommended For You</h2>
+              </div>
+            </div>
+            <div class="recommendation" id="recommendation"></div>
+          </section>
+
+          <section class="home-closing-statement" aria-label="Brand statement">
+            <h2>Your journey. Your way.</h2>
+            <p>Every bottle has a story. Make yours unforgettable.</p>
+          </section>
+
+          <div class="home-support-hooks is-hidden" aria-hidden="true">
           <div class="core-bar-highlight" id="coreBarHighlight"></div>
           <div class="top-rated-highlight" id="topRatedHighlight"></div>
           <div class="pour-streak-highlight" id="pourStreakHighlight"></div>
-
-          <section class="insights-card" aria-label="Recent Pour Stories">
-            <div class="section-heading">
-              <div>
-                <p>Memories</p>
-                <h2>Recent Pour Stories</h2>
-              </div>
-            </div>
-            <div class="pour-story-list" id="recentPourStories"></div>
-          </section>
 
           <section class="insights-card" aria-label="Journey insights">
             <div class="section-heading">
@@ -492,16 +564,6 @@
           <div class="insights-card">
             <div class="section-heading">
               <div>
-                <p>Next Pour</p>
-                <h2>Recommended</h2>
-              </div>
-            </div>
-            <div class="recommendation" id="recommendation"></div>
-          </div>
-
-          <div class="insights-card">
-            <div class="section-heading">
-              <div>
                 <p>🎰 Random Pour</p>
                 <h2>Spin the Bar</h2>
               </div>
@@ -532,48 +594,155 @@
             <div class="shelf-list" id="shelfList"></div>
           </div>
           </section>
+          </div>
         </div>
 
-        <section class="pour-log-board is-hidden" id="pourLogView">
-          <div class="section-heading">
-            <div>
-              <p>Pour Stories</p>
-              <h2>Your whiskey journey, in moments</h2>
+        <section class="pour-log-board journal-board journal-page is-hidden" id="pourLogView">
+          <section class="journal-compass-hero journal-hero" aria-labelledby="journalHeroTitle">
+            <div class="journal-compass-copy journal-hero-copy">
+              <p class="journal-kicker">Fully Involved Pour</p>
+              <h1 id="journalHeroTitle">Journal</h1>
+              <span>Every pour has a story.<br />Capture it. Relive it. Share it.</span>
+              <div class="journal-memory-callout">
+                <strong>Create Memories</strong>
+                <p>Every bottle has moments worth remembering.</p>
+              </div>
+              <div class="journal-actions" aria-label="Journal actions">
+                <button class="primary-action" id="openPourForm" type="button">Start a Pour Story</button>
+                <button class="secondary-action" data-journal-empty-action="memory-coming-soon" type="button">Create a Memory</button>
+              </div>
             </div>
-            <button class="primary-action" id="openPourForm" type="button">Log Pour</button>
-          </div>
+            <div class="journal-compass-mark fip-compass-shell" aria-label="Discover, Experience, Reflect, Share compass">
+                <div class="fip-compass" aria-hidden="true">
+                  <span class="fip-compass-ring is-outer"></span>
+                  <span class="fip-compass-ring is-inner"></span>
+                  <span class="fip-compass-dot is-one"></span>
+                  <span class="fip-compass-dot is-two"></span>
+                  <span class="fip-compass-dot is-three"></span>
+                  <span class="fip-compass-dot is-four"></span>
+                  <span class="fip-compass-needle is-top"></span>
+                  <span class="fip-compass-needle is-right"></span>
+                  <span class="fip-compass-needle is-bottom"></span>
+                  <span class="fip-compass-needle is-left"></span>
+                  <span class="fip-compass-spoke is-vertical"></span>
+                  <span class="fip-compass-spoke is-horizontal"></span>
+                  <img class="fip-glencairn-photo" src="public/images/journal/glencairn.png?v=2" alt="" loading="eager" decoding="async" onerror="this.hidden = true; this.nextElementSibling.hidden = false;" />
+                  <svg class="fip-glencairn-icon" viewBox="0 0 120 160" role="img" aria-label="Glencairn glass" hidden>
+                    <path class="glass-bowl" d="M42 10h36c2 26-4 49-17 68-5 8-7 16-7 29v22h12v12H42v-12h12v-22c0-13-2-21-7-29C34 59 40 36 42 10Z" />
+                    <path class="glass-stem" d="M43 142h34" />
+                    <path class="glass-whiskey" d="M39 73c15 10 28 10 43 0 0 17-8 30-21 30S40 90 39 73Z" />
+                    <path class="glass-highlight" d="M72 18c-1 19-5 35-12 48" />
+                  </svg>
+                </div>
+                <button class="journal-compass-destination is-top" data-pillar-action="start-pour" type="button">
+                  <span class="journal-compass-icon" aria-hidden="true">
+                    <img src="public/images/journal/icons/experience-glencairn.png" alt="" loading="lazy" decoding="async" />
+                  </span><strong>Experience</strong><em>Start a pour<br />Live in the moment</em>
+                </button>
+                <button class="journal-compass-destination is-left" data-pillar-view="buy-next" type="button">
+                  <span class="journal-compass-icon" aria-hidden="true">
+                    <img src="public/images/journal/icons/discover-compass.png" alt="" loading="lazy" decoding="async" />
+                  </span><strong>Discover</strong><em>Find new bottles<br />Expand your palate</em>
+                </button>
+                <button class="journal-compass-destination is-right" data-journal-target="journalTimelineSection" type="button">
+                  <span class="journal-compass-icon" aria-hidden="true">
+                    <img src="public/images/journal/icons/reflect-journal.png" alt="" loading="lazy" decoding="async" />
+                  </span><strong>Reflect</strong><em>Record notes<br />Remember stories</em>
+                </button>
+                <button class="journal-compass-destination is-bottom" data-pillar-action="share" type="button">
+                  <span class="journal-compass-icon" aria-hidden="true">
+                    <img src="public/images/journal/icons/share-people.png" alt="" loading="lazy" decoding="async" />
+                  </span><strong>Share</strong><em>Share with friends<br />Inspire others</em>
+                </button>
+            </div>
+          </section>
 
-          <div class="quick-tabs" role="tablist" id="pourStoriesTabs">
+          <nav class="journal-sections-nav" aria-label="Journal sections">
+            <button data-journal-target="journalRecentSection" type="button">Recent</button>
+            <button data-journal-target="journalTimelineSection" type="button">Timeline</button>
+            <button data-journal-target="journalMemoriesSection" type="button">Memories</button>
+            <button data-journal-target="journalPeopleSection" type="button">People</button>
+            <button data-journal-target="journalBottlesSection" type="button">Bottles</button>
+          </nav>
+
+          <div class="quick-tabs journal-tools-tabs" role="tablist" id="pourStoriesTabs">
             <button class="quick-tab is-active" data-story-tab="sessions" type="button">Sessions</button>
             <button class="quick-tab" data-story-tab="notes" type="button">Tasting Notes</button>
             <button class="quick-tab" data-story-tab="assistant" type="button">Ask Assistant</button>
           </div>
 
           <div class="quick-tab-panel" data-story-tab-panel="sessions">
-            <section class="pour-stats" aria-label="Pour log stats">
-              <article>
-                <span>Total Pours</span>
-                <strong id="totalPours">0</strong>
-              </article>
-              <article>
-                <span>This Week</span>
-                <strong id="weeklyPours">0</strong>
-              </article>
-              <article>
-                <span>Ounces This Week</span>
-                <strong id="weeklyOunces">0</strong>
-              </article>
-              <article>
-                <span>Bottle Alerts</span>
-                <strong id="bottleAlerts">0</strong>
-              </article>
+            <section class="journal-preview-section" id="journalRecentSection" aria-label="Recent pour stories">
+              <div class="section-heading compact">
+                <div>
+                  <p>Recent</p>
+                  <h2>Latest stories</h2>
+                </div>
+              </div>
+              <div class="journal-card-grid" id="journalRecentPreview"></div>
             </section>
 
-            <div class="pour-actions">
+            <section class="journal-preview-section journal-desktop-timeline" id="journalJourneyTimeline" aria-label="Bottle Journey Timeline">
+              <div class="section-heading compact">
+                <div>
+                  <p>Timeline</p>
+                  <h2>Bottle journeys</h2>
+                </div>
+              </div>
+            </section>
+
+            <section class="pour-stats is-hidden" aria-label="Pour log stats">
+              <article><span>Total Pours</span><strong id="totalPours">0</strong></article>
+              <article><span>This Week</span><strong id="weeklyPours">0</strong></article>
+              <article><span>Ounces This Week</span><strong id="weeklyOunces">0</strong></article>
+              <article><span>Bottle Alerts</span><strong id="bottleAlerts">0</strong></article>
+            </section>
+
+            <div class="pour-actions is-hidden">
               <button class="secondary-action" id="analyzePours" type="button">Analyze</button>
             </div>
             <div class="ai-output" id="pourAnalysis"></div>
+            <section class="journal-preview-section" id="journalTimelineSection" aria-label="Journal timeline">
+              <div class="section-heading compact">
+                <div>
+                  <p>Timeline</p>
+                  <h2>All pour stories</h2>
+                </div>
+              </div>
+            </section>
             <div class="pour-list" id="pourList"></div>
+
+            <section class="journal-preview-grid">
+              <div class="journal-preview-section" id="journalMemoriesSection" aria-label="Memories">
+                <div class="section-heading compact">
+                  <div>
+                    <p>Memories</p>
+                    <h2>Moments to revisit</h2>
+                  </div>
+                </div>
+                <div class="journal-card-grid" id="journalMemoriesPreview"></div>
+              </div>
+
+              <div class="journal-preview-section" id="journalPeopleSection" aria-label="People">
+                <div class="section-heading compact">
+                  <div>
+                    <p>People</p>
+                    <h2>Shared pours</h2>
+                  </div>
+                </div>
+                <div class="journal-card-grid" id="journalPeoplePreview"></div>
+              </div>
+            </section>
+
+            <section class="journal-preview-section" id="journalBottlesSection" aria-label="Bottles">
+              <div class="section-heading compact">
+                <div>
+                  <p>Bottles</p>
+                  <h2>Stories by bottle</h2>
+                </div>
+              </div>
+              <div class="journal-bottle-grid" id="journalBottlePreview"></div>
+            </section>
           </div>
 
           <div class="quick-tab-panel is-hidden" data-story-tab-panel="notes">
@@ -1392,7 +1561,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=124"></script>
+    <script src="app.js?v=130"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

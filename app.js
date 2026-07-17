@@ -1535,6 +1535,7 @@ let infinityBottles = loadInfinityBottles();
 let customLibrary = loadCustomLibrary();
 let assistantHistory = loadAssistantHistory();
 let activeFilter = "all";
+let activeTypeFilter = "all";
 let activeCategory = "all";
 let activePourStyle = "all";
 let activeProofBand = "all";
@@ -1545,7 +1546,11 @@ let activeView = "dashboard";
 let previousViewBeforeFaceoff = "compare";
 let faceoffPair = null;
 const VIEW_MODE_KEY = "fip-view-mode";
-let cardView = localStorage.getItem(VIEW_MODE_KEY) === "card";
+let cardView = localStorage.getItem(VIEW_MODE_KEY) !== "list";
+let activeJourneyCollectionTab = "recent";
+let activeHomeActivityTab = "recent";
+let activeJourneyPanel = null;
+let journeyPanelReturnFocus = null;
 
 const els = {
   bottleGrid: document.querySelector("#bottleGrid"),
@@ -1553,6 +1558,15 @@ const els = {
   collectionPreviewViewAll: document.querySelector("#collectionPreviewViewAll"),
   homeHeroBrowse: document.querySelector("#homeHeroBrowse"),
   homeHeroLogPour: document.querySelector("#homeHeroLogPour"),
+  homeHeroCompass: document.querySelector("#homeHeroCompass"),
+  homeJourneyPillars: document.querySelector("#homeJourneyPillars"),
+  journeyActionPanel: document.querySelector("#journeyActionPanel"),
+  journeyPanelBackdrop: document.querySelector("#journeyPanelBackdrop"),
+  journeyPanelClose: document.querySelector("#journeyPanelClose"),
+  journeyPanelTitle: document.querySelector("#journeyPanelTitle"),
+  journeyPanelKicker: document.querySelector("#journeyPanelKicker"),
+  journeyPanelBody: document.querySelector("#journeyPanelBody"),
+  journeyCollectionTabs: document.querySelector("#journeyCollectionTabs"),
   headerSearchButton: document.querySelector("#headerSearchButton"),
   profileView: document.querySelector("#profileView"),
   aboutView: document.querySelector("#aboutView"),
@@ -1566,6 +1580,7 @@ const els = {
   profileFlavorTags: document.querySelector("#profileFlavorTags"),
   profileFavoriteCompanion: document.querySelector("#profileFavoriteCompanion"),
   profileLegacyShelf: document.querySelector("#profileLegacyShelf"),
+  homeLegacyShelfPreview: document.querySelector("#homeLegacyShelfPreview"),
   homeGreeting: document.querySelector("#homeGreeting"),
   continueStoryCard: document.querySelector("#continueStoryCard"),
   continueStoryBody: document.querySelector("#continueStoryBody"),
@@ -1642,6 +1657,19 @@ const els = {
   pourWizard: document.querySelector("#pourWizard"),
   pourWizardTitle: document.querySelector("#pourWizardTitle"),
   pwDeleteEntry: document.querySelector("#pwDeleteEntry"),
+  journalSearch: document.querySelector("#journalSearch"),
+  journalSearchButton: document.querySelector("#journalSearchButton"),
+  journalRecentPreview: document.querySelector("#journalRecentPreview"),
+  journalMemoriesPreview: document.querySelector("#journalMemoriesPreview"),
+  journalPeoplePreview: document.querySelector("#journalPeoplePreview"),
+  journalBottlePreview: document.querySelector("#journalBottlePreview"),
+  journalTodayJourney: document.querySelector("#journalTodayJourney"),
+  journalJourneyInsights: document.querySelector("#journalJourneyInsights"),
+  journalJourneyTimeline: document.querySelector("#journalJourneyTimeline"),
+  journalMemoryPhotoGrid: document.querySelector("#journalMemoryPhotoGrid"),
+  journalLegacyShelf: document.querySelector("#journalLegacyShelf"),
+  journalFlavorJourney: document.querySelector("#journalFlavorJourney"),
+  journalInsightCards: document.querySelector("#journalInsightCards"),
   pourList: document.querySelector("#pourList"),
   totalPours: document.querySelector("#totalPours"),
   weeklyPours: document.querySelector("#weeklyPours"),
@@ -1798,6 +1826,8 @@ document.querySelector("#openPourForm").addEventListener("click", () => openPour
 document.querySelector("#closePourDialog").addEventListener("click", () => els.pourDialog.close());
 document.querySelector("#analyzePours").addEventListener("click", analyzePours);
 els.searchInput.addEventListener("input", render);
+els.journalSearch?.addEventListener("input", renderPourLog);
+els.journalSearchButton?.addEventListener("click", () => els.journalSearch?.focus());
 els.librarySearch.addEventListener("input", renderLibrary);
 function switchProfileTab(tab) {
   document.querySelectorAll("#profileTabs [data-profile-tab]").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.profileTab === tab));
@@ -1820,6 +1850,28 @@ function switchPourStoriesTab(tab) {
 }
 document.querySelectorAll("#pourStoriesTabs [data-story-tab]").forEach((tabButton) => {
   tabButton.addEventListener("click", () => switchPourStoriesTab(tabButton.dataset.storyTab));
+});
+document.querySelectorAll("[data-journal-target]").forEach((button) => {
+  button.addEventListener("click", () => {
+    switchPourStoriesTab("sessions");
+    document.querySelector(`#${button.dataset.journalTarget}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+els.pourLogView?.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-journal-empty-action]");
+  if (!action) return;
+  const kind = action.dataset.journalEmptyAction;
+  if (kind === "start-pour") {
+    openPourForm();
+    return;
+  }
+  if (kind === "add-bottle") {
+    openForm();
+    return;
+  }
+  if (kind === "memory-coming-soon") {
+    showJournalComingSoon("Create a Memory", "Memory creation is coming soon. Existing Pour Story memories are still preserved and shown from your current data.");
+  }
 });
 els.seasonMoodBoard?.addEventListener("click", (event) => {
   const chip = event.target.closest(".mini-flavor-chip[data-flavor]");
@@ -1921,7 +1973,25 @@ document.addEventListener("click", (event) => {
 document.querySelectorAll("[data-filter]").forEach((button) => {
   button.addEventListener("click", () => {
     activeFilter = button.dataset.filter;
+    activeTypeFilter = "all";
     syncFilterButtons("[data-filter]", "filter", activeFilter);
+    syncTypeFilterButtons();
+    render();
+  });
+});
+
+function syncTypeFilterButtons() {
+  document.querySelectorAll("[data-type-filter]").forEach((item) => {
+    item.classList.toggle("is-selected", item.dataset.typeFilter === activeTypeFilter);
+  });
+}
+
+document.querySelectorAll("[data-type-filter]").forEach((button) => {
+  button.addEventListener("click", () => {
+    activeFilter = "all";
+    activeTypeFilter = button.dataset.typeFilter;
+    syncFilterButtons("[data-filter]", "filter", activeFilter);
+    syncTypeFilterButtons();
     render();
   });
 });
@@ -2028,6 +2098,18 @@ document.querySelectorAll("[data-pillar-action='share']").forEach((button) => {
   button.addEventListener("click", () => els.friendsToggle?.click());
 });
 
+document.querySelectorAll("[data-pillar-action='start-pour']").forEach((button) => {
+  button.addEventListener("click", () => openPourForm());
+});
+
+document.querySelectorAll("[data-journey-panel]").forEach((button) => {
+  button.addEventListener("click", () => openJourneyPanel(button.dataset.journeyPanel, button));
+});
+
+els.homeHeroCompass?.addEventListener("click", () => {
+  els.homeJourneyPillars?.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
 els.homeHeroBrowse?.addEventListener("click", () => navigateToView("collection"));
 els.collectionPreviewViewAll?.addEventListener("click", () => navigateToView("collection"));
 
@@ -2042,6 +2124,43 @@ els.headerSearchButton?.addEventListener("click", () => {
 });
 
 document.querySelector("#discoverLibraryButton")?.addEventListener("click", () => openLibrary());
+
+els.journeyPanelClose?.addEventListener("click", closeJourneyPanel);
+els.journeyPanelBackdrop?.addEventListener("click", closeJourneyPanel);
+els.journeyCollectionTabs?.addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-journey-collection-tab]");
+  if (!tab) return;
+  activeHomeActivityTab = tab.dataset.journeyCollectionTab;
+  if (activeHomeActivityTab !== "stories") activeJourneyCollectionTab = activeHomeActivityTab;
+  renderCollectionPreview();
+});
+
+els.journeyActionPanel?.addEventListener("click", (event) => {
+  const quick = event.target.closest("[data-quick]");
+  if (quick) {
+    closeJourneyPanel();
+    openBottleQuick(quick.dataset.quick);
+    return;
+  }
+  const action = event.target.closest("[data-journey-action]");
+  if (!action) return;
+  handleJourneyAction(action.dataset.journeyAction, action.dataset);
+});
+
+els.journeyActionPanel?.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab" || els.journeyActionPanel.classList.contains("is-hidden")) return;
+  const focusable = journeyPanelFocusable();
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});
 
 function loadBottles() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -2764,6 +2883,7 @@ document.addEventListener("click", (event) => {
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeAccountMenu();
+  if (event.key === "Escape" && !els.journeyActionPanel?.classList.contains("is-hidden")) closeJourneyPanel();
 });
 
 document.querySelector("#accountMenuJourney")?.addEventListener("click", () => {
@@ -2844,6 +2964,81 @@ function proofBandFor(proof) {
   return "115-plus";
 }
 
+function bottleTypeKey(bottle) {
+  return String(bottle.type || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function bottleMatchesTypeValue(bottle, typeFilter) {
+  if (typeFilter === "all") return true;
+  const type = bottleTypeKey(bottle);
+  if (typeFilter === "bourbon") return type.includes("bourbon");
+  if (typeFilter === "rye") return type.includes("rye");
+  if (typeFilter === "scotch") return type.includes("scotch");
+  if (typeFilter === "american whiskey") return type.includes("american") || type === "whiskey";
+  return type.includes(typeFilter);
+}
+
+function bottleMatchesTypeFilter(bottle) {
+  return bottleMatchesTypeValue(bottle, activeTypeFilter);
+}
+
+function typeFilterCount(type) {
+  return bottles.filter((bottle) => bottleMatchesTypeValue(bottle, type)).length;
+}
+
+function proofRangeLabel(bottlesToMeasure) {
+  const proofs = bottlesToMeasure.map((bottle) => Number(bottle.proof || 0)).filter(Boolean);
+  if (!proofs.length) return "—";
+  const buckets = [
+    { label: "< 80", test: (proof) => proof < 80 },
+    { label: "80-99", test: (proof) => proof >= 80 && proof < 100 },
+    { label: "100-114", test: (proof) => proof >= 100 && proof < 115 },
+    { label: "115+", test: (proof) => proof >= 115 },
+  ];
+  return buckets
+    .map((bucket) => ({ label: bucket.label, count: proofs.filter(bucket.test).length }))
+    .sort((a, b) => b.count - a.count)[0]?.label || "—";
+}
+
+function favoriteCategoryLabel(bottlesToMeasure) {
+  const counts = new Map();
+  bottlesToMeasure.forEach((bottle) => {
+    const type = bottle.type || "Unknown";
+    counts.set(type, (counts.get(type) || 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+}
+
+function bottleOpenedLabel(bottle) {
+  if (bottle.openedDate) {
+    const days = daysBetween(bottle.openedDate);
+    return days === null ? formatDate(bottle.openedDate) : days === 0 ? "Opened today" : `${days} day${days === 1 ? "" : "s"} open`;
+  }
+  if (bottle.status === "sealed") return "Sealed";
+  if (bottle.status === "wishlist") return "Wishlist";
+  if (bottle.status === "buy-next") return "Buy Next";
+  if (bottle.status === "finished") return "Finished";
+  return labelStatus(bottle.status) || "In Collection";
+}
+
+function renderCollectionFilterCounts() {
+  const countForFilter = (filter) =>
+    bottles.filter((bottle) => {
+      if (filter === "all") return true;
+      if (filter === "favorites") return bottle.favorite;
+      return bottle.status === filter;
+    }).length;
+  document.querySelectorAll("[data-filter-count]").forEach((count) => {
+    count.textContent = countForFilter(count.dataset.filterCount);
+  });
+  document.querySelectorAll("[data-type-count]").forEach((count) => {
+    count.textContent = typeFilterCount(count.dataset.typeCount);
+  });
+}
+
 function visibleBottles() {
   const query = els.searchInput.value.trim().toLowerCase();
   const filtered = bottles.filter((bottle) => {
@@ -2856,6 +3051,7 @@ function visibleBottles() {
       bottle.status === activeFilter ||
       (activeFilter === "core-bar" && bottle.coreBar) ||
       (activeFilter === "favorites" && bottle.favorite);
+    const matchesType = bottleMatchesTypeFilter(bottle);
     const matchesCategory = activeCategory === "all" || bottleCategories(bottle).includes(activeCategory);
     const matchesPour = activePourStyle === "all" || bottle.pourStyle === activePourStyle;
     const matchesProof = activeProofBand === "all" || proofBandFor(bottle.proof) === activeProofBand;
@@ -2874,7 +3070,7 @@ function visibleBottles() {
     ]
       .join(" ")
       .toLowerCase();
-    return matchesFilter && matchesCategory && matchesPour && matchesProof && haystack.includes(query);
+    return matchesFilter && matchesType && matchesCategory && matchesPour && matchesProof && haystack.includes(query);
   });
 
   return filtered.sort((a, b) => {
@@ -2892,9 +3088,15 @@ function visibleBottles() {
     }
     const sort = els.sortSelect.value;
     if (sort === "custom") return compareCustomOrder(a, b);
+    if (sort === "recent") return Number(b.createdAt || 0) - Number(a.createdAt || 0);
     if (sort === "rating") return Number(b.rating) - Number(a.rating);
-    if (sort === "value") return Number(b.price) - Number(a.price);
     if (sort === "proof") return Number(b.proof) - Number(a.proof);
+    if (sort === "proof-low") return Number(a.proof) - Number(b.proof);
+    if (sort === "opened") {
+      const aTime = a.openedDate ? new Date(`${a.openedDate}T12:00:00`).getTime() : 0;
+      const bTime = b.openedDate ? new Date(`${b.openedDate}T12:00:00`).getTime() : 0;
+      return bTime - aTime;
+    }
     return a.name.localeCompare(b.name);
   });
 }
@@ -2934,7 +3136,7 @@ function updateWelcomeVisibility() {
 }
 
 const VIEW_META = {
-  collection: { eyebrow: "Inventory", title: "Your cabinet", theme: "", banner: "" },
+  collection: { eyebrow: "Collection", title: "Your bottles", theme: "", banner: "" },
   "core-bar": {
     eyebrow: "Core Bar",
     title: "Earned the Core Bar 🔥",
@@ -2981,11 +3183,11 @@ function applyViewIdentity() {
 function render() {
   updateWelcomeVisibility();
   const shown = visibleBottles();
-  els.hero.classList.toggle("is-hidden", bottles.length > 0);
+  const inventoryToolsVisible = ["collection", "opened", "finished"].includes(activeView);
+  els.hero.classList.toggle("is-hidden", !inventoryToolsVisible);
   applyViewIdentity();
   renderBuyNextSuggestions();
   renderWishlistQuickAdd();
-  const inventoryToolsVisible = ["collection", "opened", "finished"].includes(activeView);
   document
     .querySelectorAll(".inventory-overview, .toolbar, .quick-filters, .filter-shell, .stats-grid")
     .forEach((section) => section.classList.toggle("is-hidden", !inventoryToolsVisible));
@@ -3029,6 +3231,7 @@ function render() {
   renderHomeGreeting();
   renderContinueStoryCard();
   renderCollectionSnapshot();
+  renderHomeLegacyShelfPreview();
   renderRecentPourStories();
   renderJourneyInsights();
   renderNotes();
@@ -3042,36 +3245,29 @@ function renderStats() {
   const open = bottles.filter((bottle) => bottle.status === "open");
   const rated = bottles.filter((bottle) => Number(bottle.rating) > 0);
   const sealed = bottles.filter((bottle) => bottle.status === "sealed");
-  const distilleries = new Map();
-  inventory.forEach((bottle) => {
-    distilleries.set(bottle.distillery, (distilleries.get(bottle.distillery) || 0) + Number(bottle.quantity || 1));
-  });
-  const top = [...distilleries.entries()].sort((a, b) => b[1] - a[1])[0];
   const bottleCount = inventory.reduce((sum, bottle) => sum + Number(bottle.quantity || 1), 0);
-  const value = inventory.reduce(
-    (sum, bottle) => sum + Number(bottle.price || 0) * Number(bottle.quantity || 1),
-    0,
-  );
   const avg = rated.length
     ? rated.reduce((sum, bottle) => sum + Number(bottle.rating), 0) / rated.length
     : 0;
+  const journaledBottleIds = new Set(pours.map((pour) => pour.bottleId).filter(Boolean));
 
   els.totalBottles.textContent = bottleCount;
   els.totalBottlesMeta.textContent = `${inventory.length} owned`;
   els.openBottles.textContent = open.length;
   els.averageRating.textContent = avg.toFixed(1);
-  els.estimatedValue.textContent = money(value);
-  els.coreBarCount.textContent = bottles.filter((bottle) => bottle.coreBar).length;
-  els.buyNextCount.textContent = bottles.filter((bottle) => bottle.status === "buy-next").length;
-  els.topDistillery.textContent = top ? top[0] : "—";
-  els.topDistilleryMeta.textContent = top ? `${top[1]} bottle${top[1] === 1 ? "" : "s"}` : "no data";
-  els.openedSealed.textContent = `${open.length} / ${sealed.length}`;
+  els.estimatedValue.textContent = bottles.filter((bottle) => bottle.status === "wishlist").length;
+  els.coreBarCount.textContent = inventory.filter((bottle) => journaledBottleIds.has(bottle.id) || bottlePoursFor(bottle.id).length).length;
+  els.buyNextCount.textContent = bottles.filter((bottle) => bottle.favorite).length;
+  els.topDistillery.textContent = favoriteCategoryLabel(inventory);
+  els.topDistilleryMeta.textContent = inventory.length ? `${inventory.length} owned bottles` : "no data";
+  els.openedSealed.textContent = proofRangeLabel(inventory);
   const finished = bottles.filter((bottle) => bottle.status === "finished" || bottle.fillLevel === "empty").length;
-  els.openedSealedMeta.textContent = inventory.length ? `${finished} finished` : "no owned bottles";
+  els.openedSealedMeta.textContent = inventory.length ? `${sealed.length} sealed · ${finished} finished` : "no owned bottles";
   const shownOwnedCount = visibleBottles()
     .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
     .reduce((sum, bottle) => sum + Number(bottle.quantity || 1), 0);
   els.inventoryRatio.textContent = `${shownOwnedCount} of ${bottleCount} bottles`;
+  renderCollectionFilterCounts();
 }
 
 function renderCards(shown) {
@@ -3092,16 +3288,39 @@ function renderCards(shown) {
     els.bottleGrid.innerHTML = viewEmpty
       ? `<div class="empty-state">${viewEmpty}</div>`
       : bottles.length
-      ? `<div class="empty-state">No bottles match the current search and filters.</div>`
+      ? `
+        <div class="empty-state collection-empty-state">
+          <strong>No bottles match those filters.</strong>
+          <span>Try adjusting your search or clearing active filters.</span>
+          <button class="secondary-action" id="clearCollectionFilters" type="button">Clear Filters</button>
+        </div>
+      `
       : `
-        <div class="empty-state first-run-nudge">
-          <p>Your cabinet is empty. Add your first bottle to start tracking pours, ratings, and your Core Bar.</p>
+        <div class="empty-state first-run-nudge collection-empty-state">
+          <strong>Your whiskey library starts here.</strong>
+          <span>Add your first bottle and begin building your collection.</span>
           <div class="first-run-actions">
             <button class="primary-action" id="firstRunAddBottle" type="button">Add Bottle</button>
+            <button class="secondary-action" id="firstRunExploreDiscover" type="button">Explore Discover</button>
           </div>
         </div>
       `;
     document.querySelector("#firstRunAddBottle")?.addEventListener("click", () => openForm());
+    document.querySelector("#firstRunExploreDiscover")?.addEventListener("click", () => navigateToView("buy-next"));
+    document.querySelector("#clearCollectionFilters")?.addEventListener("click", () => {
+      activeFilter = "all";
+      activeTypeFilter = "all";
+      activeCategory = "all";
+      activePourStyle = "all";
+      activeProofBand = "all";
+      els.searchInput.value = "";
+      syncFilterButtons("[data-filter]", "filter", activeFilter);
+      syncTypeFilterButtons();
+      document.querySelectorAll("[data-category]").forEach((item) => item.classList.toggle("is-selected", item.dataset.category === "all"));
+      document.querySelectorAll("[data-pour]").forEach((item) => item.classList.toggle("is-selected", item.dataset.pour === "all"));
+      document.querySelectorAll("[data-proof]").forEach((item) => item.classList.toggle("is-selected", item.dataset.proof === "all"));
+      render();
+    });
     return;
   }
 
@@ -3129,13 +3348,14 @@ function renderCards(shown) {
             ${bottleThumb(bottle)}
             <div class="catalog-main">
               <h3>${escapeHtml(bottle.name)}</h3>
-              <p>${escapeHtml([bottle.distillery, bottle.region].filter(Boolean).join(" · ") || "No details yet")}</p>
+              <p>${escapeHtml(renderBottleMetaLine(bottle))}</p>
               <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
-                ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
+                ${bottle.coreBar ? "Core Bar" : escapeHtml(labelStatus(bottle.status))} · ${escapeHtml(bottleOpenedLabel(bottle))}
               </div>
               ${journeyStatusBadge(bottle)}
               ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
             </div>
+            ${renderCollectionScoreBadge(bottle)}
             ${renderBottleRowActions(bottle, index, shown.length, isBuyNext, customOrder)}
           </div>
         `,
@@ -3161,6 +3381,24 @@ function journeyStatus(bottle) {
 function journeyStatusBadge(bottle) {
   const status = journeyStatus(bottle);
   return status ? `<span class="journey-status-badge" title="${escapeHtml(status.label)}">${status.emoji} ${escapeHtml(status.label)}</span>` : "";
+}
+
+function renderCollectionScoreBadge(bottle) {
+  const score = bottleCurrentScore(bottle);
+  return `
+    <span class="collection-score-badge${score > 0 ? "" : " is-empty"}" aria-label="${score > 0 ? `FIP score ${score.toFixed(1)} out of 10` : "No FIP score yet"}">
+      ${score > 0 ? score.toFixed(1) : "—"}
+    </span>
+  `;
+}
+
+function renderBottleMetaLine(bottle) {
+  const parts = [
+    bottle.type || bottle.distillery || "Whiskey",
+    Number(bottle.proof) > 0 ? `${numberOrDash(bottle.proof)} Proof` : "",
+    bottle.ageStatement || "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Details ready when you add them";
 }
 
 // Shared right-side action markup (priority/rating/favorite/mark-owned/reorder) used by
@@ -3192,18 +3430,31 @@ function renderBottleRowActions(bottle, index, total, isBuyNext, customOrder) {
 
 function renderBottleTile(bottle, index, total, isBuyNext, customOrder) {
   const isSelected = selectionMode && selectedIds.has(bottle.id);
+  const status = journeyStatus(bottle);
   return `
     <article class="bottle-tile${bottle.coreBar ? " is-core" : ""}${isSelected ? " is-selected" : ""}" data-quick="${bottle.id}">
       ${selectionMode ? `<span class="select-check tile-select-check${isSelected ? " is-checked" : ""}" aria-hidden="true">✓</span>` : ""}
-      ${bottle.coreBar ? `<div class="tile-core-ribbon">🔥 Core Bar</div>` : ""}
-      ${bottleThumb(bottle, "tile-photo")}
+      <div class="collection-card-media">
+        ${bottle.coreBar ? `<div class="tile-core-ribbon">Core Bar</div>` : ""}
+        ${bottle.favorite ? `<button class="collection-card-favorite is-fav" data-favorite="${bottle.id}" type="button" aria-label="Remove from favorites">♥</button>` : ""}
+        ${bottleThumb(bottle, "tile-photo")}
+        ${renderCollectionScoreBadge(bottle)}
+      </div>
       <div class="tile-body">
         <h3>${escapeHtml(bottle.name)}</h3>
-        <p>${escapeHtml([bottle.distillery, bottle.region].filter(Boolean).join(" · ") || "No details yet")}</p>
-        <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
-          ${bottle.coreBar ? "🔥 Core Bar" : escapeHtml(labelStatus(bottle.status))}${Number(bottle.proof) > 0 ? ` · ${numberOrDash(bottle.proof)}pf` : ""}
+        <p>${escapeHtml(bottle.distillery || bottle.type || "Whiskey")}</p>
+        <div class="collection-card-meta">
+          <span>${escapeHtml(bottle.type || "Bottle")}</span>
+          ${Number(bottle.proof) > 0 ? `<span>${numberOrDash(bottle.proof)} Proof</span>` : ""}
+          ${bottle.ageStatement ? `<span>${escapeHtml(bottle.ageStatement)}</span>` : ""}
         </div>
-        ${journeyStatusBadge(bottle)}
+        <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
+          ${escapeHtml(labelStatus(bottle.status) || "In Collection")}
+        </div>
+        <div class="collection-journey-row">
+          <span>${escapeHtml(status?.label || bottleOpenedLabel(bottle))}</span>
+          <em>${escapeHtml(bottleOpenedLabel(bottle))}</em>
+        </div>
         ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
         <div class="tile-footer">
           ${renderBottleRowActions(bottle, index, total, isBuyNext, customOrder)}
@@ -4088,30 +4339,67 @@ function renderShelfMap() {
 
 function renderCollectionPreview() {
   if (!els.collectionPreviewRow) return;
-  const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
-  const picks = [...owned]
-    .sort((a, b) => {
-      const rank = (bottle) => (bottle.coreBar ? 2 : bottle.favorite ? 1 : 0);
-      return rank(b) - rank(a) || Number(b.rating || 0) - Number(a.rating || 0);
-    })
-    .slice(0, 8);
+  els.journeyCollectionTabs?.querySelectorAll("[data-journey-collection-tab]").forEach((tab) => {
+    const active = tab.dataset.journeyCollectionTab === activeHomeActivityTab;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll("[data-home-activity-panel]").forEach((panel) => {
+    panel.classList.toggle("is-hidden", panel.dataset.homeActivityPanel !== activeHomeActivityTab);
+  });
+
+  const tabConfig = {
+    recent: {
+      empty: "Add a bottle to start building your collection.",
+      meta: (bottle) => (bottle.createdAt ? `Added ${timeAgo(Number(bottle.createdAt))}` : `${numberOrDash(bottle.proof)} proof`),
+      bottles: recentlyAddedBottles(5),
+    },
+    ready: {
+      empty: "No bottles are waiting right now. Add a sealed bottle or revisit one you have not poured recently.",
+      meta: (bottle) => (bottle.status === "sealed" ? "Unopened" : "Ready for another Pour Story"),
+      bottles: readyToExperienceBottles(5),
+    },
+    reflected: {
+      empty: "No reflected bottles yet. Log a Pour Story to see recent journal activity here.",
+      meta: (bottle) => {
+        const latest = latestPourForBottle(bottle.id);
+        return latest ? `Reflected ${timeAgo(new Date(`${latest.date}T12:00:00`).getTime())}` : `${numberOrDash(bottle.rating)} FIP`;
+      },
+      bottles: recentlyReflectedBottles(5),
+    },
+  };
+  const activeConfig = tabConfig[activeJourneyCollectionTab] || tabConfig.recent;
+  const picks = activeConfig.bottles;
 
   els.collectionPreviewRow.innerHTML = picks.length
     ? picks
         .map((bottle) => {
-          const badge = bottle.coreBar ? "🔥" : bottle.favorite ? "⭐" : "";
+          const badge = bottle.coreBar ? "Core" : bottle.favorite ? "Favorite" : "";
           return `
             <article class="collection-preview-card" data-quick="${bottle.id}" role="button" tabindex="0">
-              ${badge ? `<span class="collection-preview-badge" aria-hidden="true">${badge}</span>` : ""}
-              ${bottleThumb(bottle, "preview-thumb")}
+              ${badge ? `<span class="collection-preview-badge">${escapeHtml(badge)}</span>` : ""}
+              <div class="home-bottle-image-wrap">${bottleThumb(bottle, "preview-thumb")}</div>
               <strong>${escapeHtml(bottle.name)}</strong>
-              <span>${escapeHtml(bottle.distillery || "")}</span>
-              <span>${numberOrDash(bottle.proof)} proof</span>
+              <span>${escapeHtml(bottle.type || bottle.category || bottle.distillery || "Whiskey")}</span>
+              <em>${numberOrDash(bottle.proof)} proof</em>
+              <small>${escapeHtml(activeConfig.meta(bottle))}</small>
             </article>
           `;
         })
         .join("")
-    : `<p class="collection-preview-empty">Add a bottle to start building your collection.</p>`;
+    : `<div class="home-empty-state"><strong>Your whiskey journey starts here.</strong><span>${escapeHtml(activeConfig.empty)}</span><button class="secondary-action" data-home-add-bottle type="button">Add Bottle</button></div>`;
+
+  els.collectionPreviewRow.querySelector("[data-home-add-bottle]")?.addEventListener("click", () => openForm());
+  els.collectionPreviewRow.querySelectorAll("[data-quick]").forEach((card) => {
+    const open = () => openBottleQuick(card.dataset.quick);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 function proofRangeLabel(proof) {
@@ -4342,14 +4630,42 @@ function renderRecommendation() {
   const candidates = bottles
     .filter((bottle) => bottle.status === "open" && Number(bottle.rating) > 0)
     .sort((a, b) => Number(b.rating) - Number(a.rating));
-  const pick = candidates[0] || bottles.find((bottle) => bottle.status === "open");
+  const picks = candidates.length ? candidates.slice(0, 3) : [];
 
-  els.recommendation.innerHTML = pick
-    ? `<div data-quick="${escapeHtml(pick.id)}" role="button" tabindex="0"><strong>${escapeHtml(pick.name)}</strong><span>${escapeHtml(pick.type)} · ${numberOrDash(pick.proof)} proof · ${escapeHtml(pick.flavors.slice(0, 3).join(", "))}</span></div>`
-    : `<span>Open a bottle to get a recommendation.</span>`;
+  els.recommendation.innerHTML = picks.length
+    ? `<div class="home-recommendation-grid">${picks
+        .map(
+          (bottle) => `
+            <article class="home-recommendation-card" data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0">
+              <div class="home-bottle-image-wrap">${bottleThumb(bottle, "preview-thumb")}</div>
+              <strong>${escapeHtml(bottle.name)}</strong>
+              <span>${numberOrDash(bottle.rating)} FIP</span>
+              <em>${escapeHtml(bottle.flavors.slice(0, 3).join(", ") || bottle.type || "Based on your open bottles")}</em>
+            </article>
+          `,
+        )
+        .join("")}
+        <button class="home-recommendation-card home-discover-card" data-home-discover type="button">
+          <span class="pillar-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 4 L13.4 10.6 L20 12 L13.4 13.4 L12 20 L10.6 13.4 L4 12 L10.6 10.6 Z" />
+            </svg>
+          </span>
+          <strong>Explore Discover</strong>
+          <span>Find the next bottle for your journey.</span>
+        </button>
+      </div>`
+    : `
+      <div class="home-empty-state">
+        <strong>Recommendations will grow with your journey.</strong>
+        <span>Add bottles and Pour Stories so Fully Involved Pour can learn what you enjoy.</span>
+        <button class="secondary-action" data-home-discover type="button">Explore Discover</button>
+      </div>
+    `;
 
-  const target = els.recommendation.querySelector("[data-quick]");
-  if (target) {
+  els.recommendation.querySelector("[data-home-discover]")?.addEventListener("click", () => navigateToView("buy-next"));
+  els.recommendation.querySelectorAll("[data-quick]").forEach((target) => {
     const open = () => openBottleQuick(target.dataset.quick);
     target.addEventListener("click", open);
     target.addEventListener("keydown", (event) => {
@@ -4358,10 +4674,10 @@ function renderRecommendation() {
         open();
       }
     });
-  }
+  });
 }
 
-// The name to greet the user by on Home. When they've chosen a custom greeting
+// The name to greet the user by on Home.// The name to greet the user by on Home. When they've chosen a custom greeting
 // name it wins; otherwise fall back to their username / Google display name.
 function resolveGreetingName() {
   const mode = localStorage.getItem(GREETING_MODE_KEY) || "username";
@@ -4391,27 +4707,41 @@ function renderContinueStoryCard() {
   });
   const candidate = [...open].sort((a, b) => (lastPourTime.get(b.id) || Number(b.createdAt) || 0) - (lastPourTime.get(a.id) || Number(a.createdAt) || 0))[0];
 
+  els.continueStoryCard.classList.remove("is-hidden");
+
   if (!candidate) {
-    els.continueStoryCard.classList.add("is-hidden");
+    els.continueStoryBody.innerHTML = `
+      <div class="home-empty-state">
+        <strong>Open a bottle and begin its story.</strong>
+        <span>Choose a bottle from your collection and record its first Pour Story.</span>
+        <button class="secondary-action" data-home-browse-collection type="button">Browse Collection</button>
+      </div>
+    `;
+    els.continueStoryBody.querySelector("[data-home-browse-collection]")?.addEventListener("click", () => navigateToView("collection"));
     return;
   }
-  els.continueStoryCard.classList.remove("is-hidden");
 
   const daysOpen = candidate.openedDate
     ? Math.max(0, Math.round((Date.now() - new Date(`${candidate.openedDate}T12:00:00`).getTime()) / 86400000))
     : null;
+  const latest = latestPourForBottle(candidate.id);
+  const status = journeyStatus(candidate);
 
   els.continueStoryBody.innerHTML = `
-    ${bottleThumb(candidate, "preview-thumb")}
+    <div class="home-journey-bottle">
+      ${bottleThumb(candidate, "preview-thumb")}
+      <span class="home-score-medallion"><em>FIP Score</em><strong>${numberOrDash(candidate.rating)}</strong></span>
+    </div>
     <div class="continue-story-info">
       <strong>${escapeHtml(candidate.name)}</strong>
-      <span>${escapeHtml(candidate.distillery || "")}</span>
+      <span>${escapeHtml([candidate.distillery, candidate.type].filter(Boolean).join(" · ") || "Bottle in your collection")}</span>
       <div class="continue-story-stats">
-        <div><span>Current Score</span><strong>${numberOrDash(candidate.rating)}</strong></div>
+        <div><span>Opened</span><strong>${candidate.openedDate ? formatDate(candidate.openedDate) : "—"}</strong></div>
         <div><span>Days Open</span><strong>${daysOpen === null ? "—" : daysOpen}</strong></div>
-        <div><span>Journey Stage</span><strong>${journeyStatus(candidate)?.emoji || ""} ${escapeHtml(journeyStatus(candidate)?.label || "—")}</strong></div>
+        <div><span>Journey Stage</span><strong>${escapeHtml(status?.label || "—")}</strong></div>
       </div>
-      <button class="primary-action" data-quick="${candidate.id}" type="button">Continue Pour Story</button>
+      <p class="home-latest-reflection">${escapeHtml(latest?.notes || latest?.memory || candidate.notes || "Add a Pour Story to capture how this bottle is opening up.")}</p>
+      <button class="primary-action" data-quick="${candidate.id}" type="button">Continue Journey</button>
     </div>
   `;
   els.continueStoryBody.querySelectorAll("[data-quick]").forEach((item) => {
@@ -4419,40 +4749,343 @@ function renderContinueStoryCard() {
   });
 }
 
+function ownedBottles() {
+  return bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+}
+
+function wishlistBottles() {
+  return bottles.filter((bottle) => ["wishlist", "buy-next"].includes(bottle.status));
+}
+
+function latestPourForBottle(bottleId) {
+  return bottlePoursFor(bottleId)
+    .filter((pour) => pour.date)
+    .sort((a, b) => new Date(`${b.date}T12:00:00`) - new Date(`${a.date}T12:00:00`))[0];
+}
+
+function bottleActivityTime(bottle) {
+  const latestPour = latestPourForBottle(bottle.id);
+  if (latestPour) return new Date(`${latestPour.date}T12:00:00`).getTime();
+  return Number(bottle.updatedAt || bottle.createdAt || 0);
+}
+
+function recentlyAddedBottles(limit = 8) {
+  return [...ownedBottles()].sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0)).slice(0, limit);
+}
+
+function readyToExperienceBottles(limit = 8) {
+  const twoWeeksAgo = Date.now() - 14 * 86400000;
+  return [...ownedBottles()]
+    .filter((bottle) => {
+      const latest = latestPourForBottle(bottle.id);
+      return bottle.status === "sealed" || !latest || new Date(`${latest.date}T12:00:00`).getTime() < twoWeeksAgo;
+    })
+    .sort((a, b) => {
+      const statusRank = (bottle) => (bottle.status === "sealed" ? 2 : bottle.status === "open" ? 1 : 0);
+      return statusRank(b) - statusRank(a) || Number(b.rating || 0) - Number(a.rating || 0);
+    })
+    .slice(0, limit);
+}
+
+function recentlyReflectedBottles(limit = 8) {
+  return [...ownedBottles()]
+    .filter((bottle) => latestPourForBottle(bottle.id))
+    .sort((a, b) => bottleActivityTime(b) - bottleActivityTime(a))
+    .slice(0, limit);
+}
+
+function trySomethingDifferentBottle() {
+  const owned = ownedBottles();
+  if (!owned.length) return null;
+  const typeCounts = new Map();
+  owned.forEach((bottle) => typeCounts.set(bottle.type || "Other", (typeCounts.get(bottle.type || "Other") || 0) + 1));
+  const topType = [...typeCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return (
+    owned
+      .filter((bottle) => bottle.type && bottle.type !== topType)
+      .sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0))[0] ||
+    owned.sort((a, b) => Number(b.proof || 0) - Number(a.proof || 0))[0]
+  );
+}
+
+function journeyBottleCard(bottle, meta = "") {
+  const status = journeyStatus(bottle);
+  return `
+    <article class="journey-panel-card" data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0">
+      ${bottleThumb(bottle, "preview-thumb")}
+      <div>
+        <strong>${escapeHtml(bottle.name)}</strong>
+        <span>${escapeHtml([bottle.distillery, bottle.type].filter(Boolean).join(" · ") || "Bottle")}</span>
+        <em>${escapeHtml(meta || status?.label || `${numberOrDash(bottle.proof)} proof`)}</em>
+      </div>
+    </article>
+  `;
+}
+
+function journeyEmptyState(title, copy, actionLabel = "", action = "") {
+  return `
+    <article class="journey-panel-empty">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(copy)}</span>
+      ${actionLabel ? `<button class="secondary-action" data-journey-action="${escapeHtml(action)}" type="button">${escapeHtml(actionLabel)}</button>` : ""}
+    </article>
+  `;
+}
+
+function journeyPanelSection(title, content) {
+  return `
+    <section class="journey-panel-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${content}
+    </section>
+  `;
+}
+
+function renderDiscoverActionPanel() {
+  const personalized = readyToExperienceBottles(3);
+  const wishlist = wishlistBottles().slice(0, 3);
+  const unopened = ownedBottles().filter((bottle) => bottle.status === "sealed").slice(0, 3);
+  const different = trySomethingDifferentBottle();
+
+  return `
+    ${journeyPanelSection(
+      "Personalized recommendations",
+      personalized.length
+        ? `<div class="journey-panel-list">${personalized.map((bottle) => journeyBottleCard(bottle, "Ready for a new Pour Story")).join("")}</div>`
+        : journeyEmptyState("Recommendations will grow with your collection.", "Add bottles or Pour Stories and this panel will use your real data."),
+    )}
+    ${journeyPanelSection(
+      "Wishlist bottles",
+      wishlist.length
+        ? `<div class="journey-panel-list">${wishlist.map((bottle) => journeyBottleCard(bottle, bottle.status === "buy-next" ? "Buy Next" : "Wishlist")).join("")}</div>`
+        : journeyEmptyState("No wishlist bottles yet.", "Mark bottles as Buy Next or Wishlist and they will appear here."),
+    )}
+    ${journeyPanelSection(
+      "Unopened bottles",
+      unopened.length
+        ? `<div class="journey-panel-list">${unopened.map((bottle) => journeyBottleCard(bottle, "Unopened")).join("")}</div>`
+        : journeyEmptyState("No unopened bottles right now.", "Sealed bottles from your collection will appear here."),
+    )}
+    ${journeyPanelSection(
+      "Try something different",
+      different
+        ? `<div class="journey-panel-list">${journeyBottleCard(different, "A change of pace from your usual shelf")}</div>`
+        : journeyEmptyState("Add a bottle to discover a change of pace.", "No fake recommendation data is shown here."),
+    )}
+    <div class="journey-panel-footer">
+      <button class="text-link" data-journey-action="navigate-discover" type="button">Explore Full Discover Page →</button>
+    </div>
+  `;
+}
+
+function renderExperienceActionPanel() {
+  const openBottle = ownedBottles()
+    .filter((bottle) => bottle.status === "open")
+    .sort((a, b) => bottleActivityTime(b) - bottleActivityTime(a))[0];
+  const selectBottles = readyToExperienceBottles(4);
+
+  return `
+    <div class="journey-action-grid">
+      <button class="journey-action-button is-primary" data-journey-action="start-pour" type="button"><strong>Start a Pour Story</strong><span>Open the current Pour Story flow.</span></button>
+      <button class="journey-action-button" data-journey-action="${openBottle ? "continue-tasting" : "continue-empty"}" data-bottle-id="${escapeHtml(openBottle?.id || "")}" type="button"><strong>Continue Current Tasting</strong><span>${escapeHtml(openBottle ? openBottle.name : "No open bottle yet. Start a new story.")}</span></button>
+      <button class="journey-action-button" data-journey-action="navigate-collection" type="button"><strong>Select a Bottle</strong><span>Choose from your current collection.</span></button>
+      <button class="journey-action-button is-disabled" data-journey-action="coming-soon" data-title="Blind Tasting" type="button"><strong>Blind Tasting</strong><span>Coming soon when this flow is supported.</span></button>
+    </div>
+    ${journeyPanelSection(
+      "Ready to experience",
+      selectBottles.length
+        ? `<div class="journey-panel-list">${selectBottles.map((bottle) => journeyBottleCard(bottle, "Select for your next pour")).join("")}</div>`
+        : journeyEmptyState("No bottle is waiting right now.", "Add or open a bottle to begin a new tasting journey."),
+    )}
+  `;
+}
+
+function renderReflectActionPanel() {
+  const recent = [...pours]
+    .map((pour) => ({ pour, bottle: bottles.find((item) => item.id === pour.bottleId), time: new Date(`${pour.date}T12:00:00`).getTime() }))
+    .filter((entry) => entry.bottle && Number.isFinite(entry.time))
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 4);
+  const evolved = recentlyReflectedBottles(3);
+  const memories = pours.filter((pour) => pour.memory?.trim() || pour.notes?.trim()).slice(0, 3);
+  const rated = [...ownedBottles()].filter((bottle) => Number(bottle.rating) > 0).sort((a, b) => Number(b.rating) - Number(a.rating)).slice(0, 3);
+
+  return `
+    ${journeyPanelSection(
+      "Recent Pour Stories",
+      recent.length
+        ? `<div class="journey-panel-list">${recent
+            .map(({ pour, bottle }) => journeyBottleCard(bottle, `${formatDate(pour.date)} · ${numberOrDash(pour.rating || bottle.rating)} FIP`))
+            .join("")}</div>`
+        : journeyEmptyState("Your first reflection starts with a Pour Story.", "Log a pour to see recent stories here.", "Start a Pour Story", "start-pour"),
+    )}
+    ${journeyPanelSection(
+      "Bottle evolution",
+      evolved.length
+        ? `<div class="journey-panel-list">${evolved.map((bottle) => journeyBottleCard(bottle, `${bottlePoursFor(bottle.id).length} stories tracked`)).join("")}</div>`
+        : journeyEmptyState("Bottle evolution appears after repeat pours.", "Record stories over time to see how bottles change."),
+    )}
+    ${journeyPanelSection(
+      "Memories",
+      memories.length
+        ? `<div class="journey-panel-mini-list">${memories.map((pour) => `<article><strong>${escapeHtml(pour.memory || "Pour note")}</strong><span>${escapeHtml(pour.notes || pour.occasion || "Saved from a Pour Story")}</span></article>`).join("")}</div>`
+        : journeyEmptyState("No memories captured yet.", "Save the people, places, and moments connected to your pours.", "Create a Memory", "memory-coming-soon"),
+    )}
+    ${journeyPanelSection(
+      "Past ratings",
+      rated.length
+        ? `<div class="journey-panel-list">${rated.map((bottle) => journeyBottleCard(bottle, `${numberOrDash(bottle.rating)} FIP score`)).join("")}</div>`
+        : journeyEmptyState("No ratings yet.", "Add bottle ratings or Pour Story scores to build this view."),
+    )}
+    <div class="journey-panel-footer">
+      <button class="text-link" data-journey-action="navigate-journal" type="button">View Full Journal →</button>
+    </div>
+  `;
+}
+
+function renderShareActionPanel() {
+  const recent = [...pours]
+    .map((pour) => ({ pour, bottle: bottles.find((item) => item.id === pour.bottleId), time: new Date(`${pour.date}T12:00:00`).getTime() }))
+    .filter((entry) => entry.bottle && Number.isFinite(entry.time))
+    .sort((a, b) => b.time - a.time)[0];
+  const recommended = trySomethingDifferentBottle() || ownedBottles()[0];
+
+  return `
+    <div class="journey-action-grid">
+      <button class="journey-action-button is-primary" data-journey-action="start-pour" type="button"><strong>Record who joined the pour</strong><span>Use the companion field in a Pour Story.</span></button>
+      <button class="journey-action-button" data-journey-action="${recent ? "open-bottle" : "start-pour"}" data-bottle-id="${escapeHtml(recent?.bottle?.id || "")}" type="button"><strong>Share a Pour Story</strong><span>${escapeHtml(recent ? recent.bottle.name : "Start with your first story.")}</span></button>
+      <button class="journey-action-button" data-journey-action="memory-coming-soon" type="button"><strong>Create a Memory</strong><span>Coming soon as a dedicated flow.</span></button>
+      <button class="journey-action-button" data-journey-action="${recommended ? "open-bottle" : "navigate-collection"}" data-bottle-id="${escapeHtml(recommended?.id || "")}" type="button"><strong>Recommend a Bottle</strong><span>${escapeHtml(recommended ? recommended.name : "Add a bottle to recommend.")}</span></button>
+      <button class="journey-action-button" data-journey-action="friends" type="button"><strong>Invite a Friend</strong><span>Open the existing friends drawer.</span></button>
+    </div>
+  `;
+}
+
+function openJourneyPanel(type, trigger = null) {
+  if (!els.journeyActionPanel || !els.journeyPanelBody) return;
+  const config = {
+    discover: { title: "Discover Your Next Pour", kicker: "Discover", body: renderDiscoverActionPanel },
+    experience: { title: "Experience a Pour", kicker: "Experience", body: renderExperienceActionPanel },
+    reflect: { title: "Reflect on the Story", kicker: "Reflect", body: renderReflectActionPanel },
+    share: { title: "Share What Matters", kicker: "Share", body: renderShareActionPanel },
+  }[type];
+  if (!config) return;
+  activeJourneyPanel = type;
+  journeyPanelReturnFocus = trigger || document.activeElement;
+  els.journeyPanelTitle.textContent = config.title;
+  els.journeyPanelKicker.textContent = config.kicker;
+  els.journeyPanelBody.innerHTML = config.body();
+  els.journeyActionPanel.classList.remove("is-hidden");
+  els.journeyPanelBackdrop?.classList.remove("is-hidden");
+  document.body.classList.add("journey-panel-open");
+  requestAnimationFrame(() => (journeyPanelFocusable()[0] || els.journeyActionPanel).focus());
+}
+
+function closeJourneyPanel() {
+  if (!els.journeyActionPanel) return;
+  els.journeyActionPanel.classList.add("is-hidden");
+  els.journeyPanelBackdrop?.classList.add("is-hidden");
+  document.body.classList.remove("journey-panel-open");
+  activeJourneyPanel = null;
+  if (journeyPanelReturnFocus?.focus) journeyPanelReturnFocus.focus();
+  journeyPanelReturnFocus = null;
+}
+
+function journeyPanelFocusable() {
+  if (!els.journeyActionPanel) return [];
+  return [...els.journeyActionPanel.querySelectorAll('button, [href], [tabindex]:not([tabindex="-1"])')].filter(
+    (item) => !item.disabled && item.offsetParent !== null,
+  );
+}
+
+function handleJourneyAction(action, data = {}) {
+  if (action === "start-pour" || action === "continue-empty") {
+    closeJourneyPanel();
+    openPourForm();
+    return;
+  }
+  if (action === "continue-tasting" || action === "open-bottle") {
+    closeJourneyPanel();
+    if (data.bottleId) openBottleQuick(data.bottleId);
+    else openPourForm();
+    return;
+  }
+  if (action === "navigate-collection") {
+    closeJourneyPanel();
+    navigateToView("collection");
+    return;
+  }
+  if (action === "navigate-discover") {
+    closeJourneyPanel();
+    navigateToView("buy-next");
+    return;
+  }
+  if (action === "navigate-journal") {
+    closeJourneyPanel();
+    navigateToView("pour-log");
+    return;
+  }
+  if (action === "friends") {
+    closeJourneyPanel();
+    els.friendsToggle?.click();
+    return;
+  }
+  if (action === "memory-coming-soon") {
+    showJournalComingSoon("Create a Memory", "Memory creation is coming soon. Existing Pour Story memories are still preserved and shown from your current data.");
+    return;
+  }
+  showJournalComingSoon(data.title || "Coming Soon", "This action will appear here when the supporting feature is available.");
+}
+
 function renderCollectionSnapshot() {
   if (!els.collectionSnapshotGrid) return;
   const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
-  const rated = owned.filter((bottle) => Number(bottle.rating) > 0);
-  const avgScore = rated.length ? rated.reduce((sum, bottle) => sum + Number(bottle.rating), 0) / rated.length : 0;
-
-  const distilleries = new Map();
-  owned.forEach((bottle) => {
-    if (!bottle.distillery) return;
-    distilleries.set(bottle.distillery, (distilleries.get(bottle.distillery) || 0) + Number(bottle.quantity || 1));
-  });
-  const topDistillery = [...distilleries.entries()].sort((a, b) => b[1] - a[1])[0];
-
-  const proofBands = new Map();
-  owned.forEach((bottle) => {
-    const label = proofRangeLabel(bottle.proof);
-    if (label) proofBands.set(label, (proofBands.get(label) || 0) + 1);
-  });
-  const topProofBand = [...proofBands.entries()].sort((a, b) => b[1] - a[1])[0];
-
-  const journeyCounts = new Map();
-  owned.forEach((bottle) => {
-    const status = journeyStatus(bottle);
-    if (status) journeyCounts.set(status.label, (journeyCounts.get(status.label) || 0) + 1);
-  });
-  const journeySummary = [...journeyCounts.entries()].map(([label, count]) => `${count} ${label}`).join(" · ") || "—";
+  const open = owned.filter((bottle) => bottle.status === "open");
+  const wishlist = bottles.filter((bottle) => ["wishlist", "buy-next"].includes(bottle.status));
+  const scoredPours = pours.filter((pour) => Number(pour.rating) > 0);
+  const scoredBottles = owned.filter((bottle) => Number(bottle.rating) > 0);
+  const scoreValues = scoredPours.length ? scoredPours.map((pour) => Number(pour.rating)) : scoredBottles.map((bottle) => Number(bottle.rating));
+  const avgScore = scoreValues.length ? scoreValues.reduce((sum, score) => sum + score, 0) / scoreValues.length : 0;
 
   els.collectionSnapshotGrid.innerHTML = `
-    <article><span>Bottle Count</span><strong>${owned.reduce((sum, bottle) => sum + Number(bottle.quantity || 1), 0)}</strong></article>
-    <article><span>Average Score</span><strong>${avgScore ? avgScore.toFixed(1) : "—"}</strong></article>
-    <article><span>Favorite Distillery</span><strong>${topDistillery ? escapeHtml(topDistillery[0]) : "—"}</strong></article>
-    <article><span>Favorite Proof Range</span><strong>${topProofBand ? topProofBand[0] : "—"}</strong></article>
-    <article><span>Current Journey</span><strong class="journey-summary">${journeySummary}</strong></article>
+    <article><span>Bottles</span><strong>${owned.reduce((sum, bottle) => sum + Number(bottle.quantity || 1), 0)}</strong><em>In Collection</em></article>
+    <article><span>Pour Stories</span><strong>${pours.length}</strong><em>Captured</em></article>
+    <article><span>Avg FIP Score</span><strong>${avgScore ? avgScore.toFixed(1) : "—"}</strong><em>Across your journey</em></article>
+    <article><span>Open Bottles</span><strong>${open.length}</strong><em>Ready to pour</em></article>
+    <article><span>Wishlist</span><strong>${wishlist.length}</strong><em>Hunt list</em></article>
   `;
+}
+
+function renderHomeLegacyShelfPreview() {
+  if (!els.homeLegacyShelfPreview) return;
+  const legacySection = els.homeLegacyShelfPreview.closest("[aria-label='Legacy Shelf Preview']");
+  const legacyBottles = bottles.filter((bottle) => bottle.legacyShelf).slice(0, 3);
+  legacySection?.classList.toggle("is-hidden", !legacyBottles.length);
+
+  els.homeLegacyShelfPreview.innerHTML = legacyBottles.length
+    ? legacyBottles
+        .map(
+          (bottle) => `
+            <article class="legacy-shelf-card" data-quick="${bottle.id}" role="button" tabindex="0">
+              ${bottleThumb(bottle, "preview-thumb")}
+              <strong>${escapeHtml(bottle.name)}</strong>
+              <span>${escapeHtml(bottle.legacyShelfReason || bottle.distillery || "Worth remembering")}</span>
+            </article>
+          `,
+        )
+        .join("")
+    : "";
+
+  els.homeLegacyShelfPreview.querySelectorAll("[data-quick]").forEach((card) => {
+    const open = () => openBottleQuick(card.dataset.quick);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
 }
 
 function renderRecentPourStories() {
@@ -4465,26 +5098,43 @@ function renderRecentPourStories() {
     })
     .filter(Boolean)
     .sort((a, b) => b.time - a.time)
-    .slice(0, 6);
+    .slice(0, 3);
 
   els.recentPourStories.innerHTML = stories.length
     ? stories
-        .map(
-          ({ pour, bottle }) => `
-            <div class="pour-story-item" data-quick="${bottle.id}" role="button" tabindex="0">
-              <div>
+        .map(({ pour, bottle }) => {
+          const stage = journeyStatus(bottle)?.label || pour.stage || "Pour Story";
+          return `
+            <article class="pour-story-item" data-quick="${bottle.id}" role="button" tabindex="0">
+              <div class="home-bottle-image-wrap">${bottleThumb(bottle, "preview-thumb")}</div>
+              <div class="pour-story-copy">
                 <strong>${escapeHtml(bottle.name)}</strong>
-                <span>${escapeHtml(pour.memory || pour.notes || pour.occasion || "Logged a pour")} · ${timeAgo(new Date(`${pour.date}T12:00:00`).getTime())}</span>
+                <span>${escapeHtml(stage)} · ${formatDate(pour.date)}</span>
+                <p>${escapeHtml(pour.notes || pour.memory || pour.occasion || "Captured a pour worth remembering.")}</p>
+                ${pour.companion ? `<em>With ${escapeHtml(pour.companion)}</em>` : ""}
               </div>
               <span class="pour-story-score">${numberOrDash(pour.rating || bottle.rating)}</span>
-            </div>
-          `,
-        )
+            </article>
+          `;
+        })
         .join("")
-    : `<div class="empty-state">No pour stories yet. Log a pour to start your journal.</div>`;
+    : `
+      <div class="home-empty-state">
+        <strong>Your first Pour Story starts here.</strong>
+        <span>Open a bottle, capture the pour, and begin your whiskey journey.</span>
+        <button class="secondary-action" data-home-start-pour type="button">Start a Pour Story</button>
+      </div>
+    `;
 
+  els.recentPourStories.querySelector("[data-home-start-pour]")?.addEventListener("click", () => openPourForm());
   els.recentPourStories.querySelectorAll("[data-quick]").forEach((item) => {
     item.addEventListener("click", () => openBottleQuick(item.dataset.quick));
+    item.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openBottleQuick(item.dataset.quick);
+      }
+    });
   });
 }
 
@@ -4726,15 +5376,27 @@ function renderPourLog() {
   weekStart.setDate(weekStart.getDate() - 7);
   const recent = pours.filter((pour) => new Date(pour.date) >= weekStart);
   const openedAlerts = bottles.filter((bottle) => bottle.status === "open" && ["low", "empty"].includes(bottle.fillLevel));
+  const journalTerm = (els.journalSearch?.value || "").trim().toLowerCase();
+  const visiblePours = [...pours]
+    .filter((pour) => {
+      if (!journalTerm) return true;
+      const bottle = bottles.find((item) => item.id === pour.bottleId);
+      return journalSearchMatches(pour, bottle, journalTerm);
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  els.totalPours.textContent = pours.length;
-  els.weeklyPours.textContent = recent.length;
-  els.weeklyOunces.textContent = recent.reduce((sum, pour) => sum + Number(pour.ounces || 0), 0).toFixed(1);
-  els.bottleAlerts.textContent = openedAlerts.length;
+  if (els.totalPours) els.totalPours.textContent = pours.length;
+  if (els.weeklyPours) els.weeklyPours.textContent = recent.length;
+  if (els.weeklyOunces) els.weeklyOunces.textContent = recent.reduce((sum, pour) => sum + Number(pour.ounces || 0), 0).toFixed(1);
+  if (els.bottleAlerts) els.bottleAlerts.textContent = openedAlerts.length;
+  els.totalPours?.closest(".pour-stats")?.classList.toggle("is-hidden", pours.length === 0);
+  els.analyzePours?.closest(".pour-actions")?.classList.toggle("is-hidden", pours.length === 0);
+  renderJournalPreviews(visiblePours);
 
-  els.pourList.innerHTML = pours.length
-    ? [...pours]
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+  document.querySelector("#journalTimelineSection")?.classList.toggle("is-hidden", visiblePours.length === 0);
+  els.pourList?.classList.toggle("is-hidden", visiblePours.length === 0);
+  els.pourList.innerHTML = visiblePours.length
+    ? visiblePours
         .map((pour) => {
           const bottle = bottles.find((item) => item.id === pour.bottleId);
           const storyChips = [
@@ -4747,7 +5409,7 @@ function renderPourLog() {
           const tier = fipScore > 0 ? fipTier(fipScore) : null;
           return `
             <article class="pour-item">
-              ${bottle ? bottleThumb(bottle, "pour-item-thumb") : `<div class="catalog-thumb catalog-thumb-empty pour-item-thumb" aria-hidden="true">?</div>`}
+              ${journalBottleMedia(bottle, "pour-item-thumb")}
               <div class="pour-item-body">
                 <div class="pour-item-head">
                   <div>
@@ -4769,13 +5431,488 @@ function renderPourLog() {
           `;
         })
         .join("")
-    : `<div class="empty-state">No pours logged yet. Hit "Log Pour" to start tracking your sessions.</div>`;
+    : `<div class="empty-state">${journalTerm ? "No pour stories match that search yet." : "No pours logged yet. Hit \"Start a Pour Story\" to start tracking your sessions."}</div>`;
 
   els.pourList.querySelectorAll("[data-edit-pour]").forEach((button) => {
     button.addEventListener("click", () => openPourForm("", button.dataset.editPour));
   });
   els.pourList.querySelectorAll("[data-delete-pour]").forEach((button) => {
     button.addEventListener("click", () => deletePourEntry(button.dataset.deletePour));
+  });
+}
+
+function journalSearchMatches(pour, bottle, term) {
+  return [
+    pour.date,
+    pour.occasion,
+    pour.notes,
+    pour.memory,
+    pour.companion,
+    pour.location,
+    pour.mood,
+    bottle?.name,
+    bottle?.distillery,
+    bottle?.type,
+  ]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(term));
+}
+
+function pourBottle(pour) {
+  return bottles.find((item) => item.id === pour.bottleId);
+}
+
+function renderJournalPreviews(visiblePours) {
+  renderJournalRecentPreview(visiblePours);
+  renderJournalMemoriesPreview(visiblePours);
+  renderJournalPeoplePreview(visiblePours);
+  renderJournalBottlePreview(visiblePours);
+  renderJournalDesktop(visiblePours);
+  syncJournalSectionNav();
+}
+
+function setJournalSectionVisible(selector, isVisible) {
+  document.querySelector(selector)?.classList.toggle("is-hidden", !isVisible);
+}
+
+function syncJournalSectionNav() {
+  document.querySelectorAll(".journal-sections-nav [data-journal-target]").forEach((button) => {
+    const section = document.querySelector(`#${button.dataset.journalTarget}`);
+    const isVisible = section && !section.classList.contains("is-hidden");
+    button.classList.toggle("is-hidden", !isVisible);
+  });
+  const memoryPeopleGrid = document.querySelector(".journal-preview-grid");
+  if (memoryPeopleGrid) {
+    const hasVisibleSection = [...memoryPeopleGrid.children].some((child) => !child.classList.contains("is-hidden"));
+    memoryPeopleGrid.classList.toggle("is-hidden", !hasVisibleSection);
+  }
+}
+
+function currentJournalBottle(visiblePours = pours) {
+  const recentPour = visiblePours.find((pour) => bottles.some((bottle) => bottle.id === pour.bottleId));
+  const fromRecent = recentPour ? pourBottle(recentPour) : null;
+  return (
+    bottles.find((bottle) => bottle.status === "open" && Number(bottle.rating) > 0) ||
+    fromRecent ||
+    bottles.find((bottle) => bottle.status === "open") ||
+    bottles.find((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
+  );
+}
+
+function journalDaysOpen(bottle) {
+  if (!bottle?.openedDate) return null;
+  return Math.max(0, Math.round((Date.now() - new Date(`${bottle.openedDate}T12:00:00`).getTime()) / 86400000));
+}
+
+function renderJournalDesktop(visiblePours) {
+  renderJournalJourneyTimeline(visiblePours);
+}
+
+function renderJournalTodayJourney(visiblePours) {
+  if (!els.journalTodayJourney) return;
+  const bottle = currentJournalBottle(visiblePours);
+  if (!bottle) {
+    els.journalTodayJourney.innerHTML = journalEmptyState("No active bottle journey yet.", "Add a bottle to your collection and record its first pour.", "Add Bottle", "add-bottle");
+    return;
+  }
+  const daysOpen = journalDaysOpen(bottle);
+  const status = journeyStatus(bottle);
+  els.journalTodayJourney.innerHTML = `
+    <div class="journal-card-label">Today's Journey</div>
+    <div class="journal-today-bottle">
+      ${journalBottlePlaceholder(bottle, "journal-today-thumb")}
+      <div>
+        <strong>${escapeHtml(bottle.name)}</strong>
+        <span>${escapeHtml(bottle.distillery || bottle.type || "")}</span>
+      </div>
+    </div>
+    <div class="journal-today-meta">
+      <article><span>Journey Stage</span><strong>${escapeHtml(status?.label || "Opening Up")}</strong></article>
+      <article><span>Current Score</span><strong>${numberOrDash(bottle.rating)}</strong></article>
+      <article><span>Days Open</span><strong>${daysOpen === null ? "—" : daysOpen}</strong></article>
+    </div>
+    <button class="primary-action" data-journal-continue="${escapeHtml(bottle.id)}" type="button">Continue Journey</button>
+  `;
+  els.journalTodayJourney.querySelector("[data-journal-continue]")?.addEventListener("click", () => openPourForm(bottle.id));
+}
+
+function renderJournalJourneyInsights(visiblePours) {
+  if (!els.journalJourneyInsights) return;
+  const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
+  if (!visiblePours.length && !owned.length) {
+    els.journalJourneyInsights.innerHTML = journalEmptyState("Journal insights will appear here.", "Add bottles and Pour Stories to build a real picture of your whiskey journey.");
+    return;
+  }
+  const topProof = [...owned]
+    .map((bottle) => proofRangeLabel(bottle.proof))
+    .filter(Boolean)
+    .reduce((map, label) => map.set(label, (map.get(label) || 0) + 1), new Map());
+  const favoriteProof = [...topProof.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+  const favoriteNote = [...new Set(owned.flatMap((bottle) => bottle.flavors || []))][0] || "—";
+  const companions = new Map();
+  visiblePours.forEach((pour) => {
+    const name = (pour.companion || "").trim();
+    if (name) companions.set(name, (companions.get(name) || 0) + 1);
+  });
+  const companion = [...companions.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+  const distilleries = new Map();
+  owned.forEach((bottle) => {
+    if (bottle.distillery) distilleries.set(bottle.distillery, (distilleries.get(bottle.distillery) || 0) + 1);
+  });
+  const distillery = [...distilleries.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+  els.journalJourneyInsights.innerHTML = `
+    <div class="journal-card-label">Journey Insights</div>
+    <div class="journal-insight-list">
+      <article><span>Stories written</span><strong>${visiblePours.length}</strong></article>
+      <article><span>Favorite proof</span><strong>${escapeHtml(favoriteProof)}</strong></article>
+      <article><span>Favorite tasting note</span><strong>${escapeHtml(favoriteNote)}</strong></article>
+      <article><span>Most shared companion</span><strong>${escapeHtml(companion)}</strong></article>
+      <article><span>Favorite distillery</span><strong>${escapeHtml(distillery)}</strong></article>
+    </div>
+  `;
+}
+
+function renderJournalJourneyTimeline(visiblePours) {
+  if (!els.journalJourneyTimeline) return;
+  const activeJourneys = bottles
+    .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
+    .map((bottle) => {
+      const bottlePours = visiblePours.filter((pour) => pour.bottleId === bottle.id);
+      const firstPour = [...bottlePours].sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+      const lastPour = [...bottlePours].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+      const hasJourney = bottle.openedDate || bottle.purchaseDate || bottle.status === "open" || bottle.status === "finished" || bottle.fillLevel === "empty" || bottlePours.length;
+      return hasJourney ? { bottle, firstPour, lastPour, bottlePours } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.lastPour?.date || b.bottle.openedDate || b.bottle.purchaseDate || 0) - new Date(a.lastPour?.date || a.bottle.openedDate || a.bottle.purchaseDate || 0))
+    .slice(0, 4);
+
+  if (!activeJourneys.length) {
+    setJournalSectionVisible("#journalJourneyTimeline", false);
+    return;
+  }
+  setJournalSectionVisible("#journalJourneyTimeline", true);
+  els.journalJourneyTimeline.innerHTML = `
+    <div class="section-heading compact">
+      <div><p>Timeline</p><h2>Bottle journeys</h2></div>
+    </div>
+    <div class="journal-journey-list">
+      ${activeJourneys
+        .map(({ bottle, firstPour, lastPour, bottlePours }) => {
+          const daysOpen = journalDaysOpen(bottle);
+          const status = journeyStatus(bottle);
+          return `
+            <article class="journal-journey-card" data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0">
+              ${journalBottleMedia(bottle, "journal-journey-photo")}
+              <div>
+                <strong>${escapeHtml(bottle.name)}</strong>
+                <span>${escapeHtml(status?.label || labelStatus(bottle.status))}</span>
+                <p>${daysOpen === null ? "Opened date not set" : `Opened ${daysOpen} days ago`}${firstPour ? ` · First pour ${formatDate(firstPour.date)}` : ""}</p>
+              </div>
+              <em>${bottlePours.length} ${bottlePours.length === 1 ? "story" : "stories"}${lastPour ? ` · Last ${formatDate(lastPour.date)}` : ""}</em>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+  els.journalJourneyTimeline.querySelectorAll("[data-quick]").forEach((card) => {
+    const open = () => openBottleQuick(card.dataset.quick);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+function renderJournalMemoryPhotos(visiblePours) {
+  if (!els.journalMemoryPhotoGrid) return;
+  const memories = visiblePours.filter((pour) => pour.memory?.trim()).slice(0, 5);
+  els.journalMemoryPhotoGrid.innerHTML = memories.length
+    ? memories
+        .map((pour, index) => {
+          const bottle = pourBottle(pour);
+          return `
+            <article class="journal-photo-memory" data-memory-slot="${index + 1}">
+              <div><strong>${escapeHtml(pour.memory)}</strong><span>${escapeHtml(bottle?.name || "Pour Story")}</span><em>${formatDate(pour.date)}</em></div>
+            </article>
+          `;
+        })
+        .join("")
+    : journalEmptyState("No memories captured yet.", "Save the people, places, and moments connected to your pours.", "Create a Memory", "memory-coming-soon");
+}
+
+function renderJournalLegacyShelf(visiblePours) {
+  if (!els.journalLegacyShelf) return;
+  const legacy = bottles.filter((bottle) => bottle.legacyShelf).slice(0, 2);
+  els.journalLegacyShelf.innerHTML = `
+    <div class="section-heading compact"><div><p>Legacy Shelf</p><h2>Bottles with meaning</h2></div></div>
+    <div class="journal-legacy-list">
+      ${
+        legacy.length
+          ? legacy
+              .map(
+                (bottle) => `
+                  <article data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0">
+                    ${journalBottlePlaceholder(bottle, "preview-thumb")}
+                    <div><strong>${escapeHtml(bottle.name)}</strong><span>${escapeHtml(bottle.legacyShelfReason || bottle.notes || "A bottle worth remembering.")}</span></div>
+                  </article>
+                `,
+              )
+              .join("")
+          : journalEmptyState("No legacy bottles yet.", "Mark meaningful bottles from your real collection when they earn a permanent place.")
+      }
+    </div>
+  `;
+  els.journalLegacyShelf.querySelectorAll("[data-quick]").forEach((card) => {
+    card.addEventListener("click", () => openBottleQuick(card.dataset.quick));
+  });
+}
+
+function renderJournalFlavorJourney(visiblePours) {
+  if (!els.journalFlavorJourney) return;
+  const noteCounts = new Map();
+  bottles.forEach((bottle) => (bottle.flavors || []).forEach((flavor) => noteCounts.set(flavor, (noteCounts.get(flavor) || 0) + 1)));
+  visiblePours.forEach((pour) => {
+    ["Brown Sugar", "Oak", "Honey", "Leather", "Vanilla"].forEach((note) => {
+      if (`${pour.notes || ""} ${pour.memory || ""}`.toLowerCase().includes(note.toLowerCase())) {
+        noteCounts.set(note, (noteCounts.get(note) || 0) + 1);
+      }
+    });
+  });
+  const notes = [...noteCounts.entries()].sort((a, b) => b[1] - a[1]).map(([note]) => note).slice(0, 8);
+  els.journalFlavorJourney.innerHTML = `
+    <div class="section-heading compact"><div><p>Flavor Journey</p><h2>Notes you return to</h2></div></div>
+    ${
+      notes.length
+        ? `<div class="journal-flavor-tags">${notes.map((note) => `<span>${escapeHtml(note)}</span>`).join("")}</div>`
+        : journalEmptyState("No flavor journey yet.", "Add tasting notes to bottles or Pour Stories to reveal the flavors you return to.")
+    }
+  `;
+}
+
+function renderJournalInsightCards(visiblePours) {
+  if (!els.journalInsightCards) return;
+  if (!visiblePours.length) {
+    els.journalInsightCards.innerHTML = journalEmptyState("Journal insights will appear after your first Pour Story.", "No placeholder statistics are shown here.");
+    return;
+  }
+  const rated = visiblePours.filter((pour) => Number(pour.rating) > 0);
+  const avgScore = rated.length ? rated.reduce((sum, pour) => sum + Number(pour.rating), 0) / rated.length : 0;
+  const completed = bottles.filter((bottle) => bottle.status === "finished" || bottle.fillLevel === "empty").length;
+  const legacy = bottles.filter((bottle) => bottle.legacyShelf).length;
+  const bottleCounts = new Map();
+  visiblePours.forEach((pour) => {
+    const bottle = pourBottle(pour);
+    if (bottle) bottleCounts.set(bottle.name, (bottleCounts.get(bottle.name) || 0) + 1);
+  });
+  const sharedBottle = [...bottleCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+  const cards = [
+    ["Total Pour Stories", visiblePours.length],
+    ["Average FIP Score", avgScore ? avgScore.toFixed(1) : "—"],
+    ["Bottle Journeys Completed", completed],
+    ["Legacy Bottles", legacy],
+    ["Most Shared Bottle", sharedBottle],
+  ];
+  els.journalInsightCards.innerHTML = cards
+    .map(([label, value]) => `<article><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></article>`)
+    .join("");
+}
+
+function journalFutureState(title, copy) {
+  return `
+    <article class="journal-future-card">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(copy)}</span>
+    </article>
+  `;
+}
+
+function journalEmptyState(title, copy, actionLabel = "", action = "") {
+  return `
+    <article class="journal-empty-state">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(copy)}</span>
+      ${actionLabel ? `<button class="secondary-action" data-journal-empty-action="${escapeHtml(action)}" type="button">${escapeHtml(actionLabel)}</button>` : ""}
+    </article>
+  `;
+}
+
+function journalBottlePlaceholder(bottle, extraClass = "") {
+  const name = bottle?.name || "Bottle image";
+  return `
+    <div class="journal-bottle-placeholder ${escapeHtml(extraClass)}" role="img" aria-label="${escapeHtml(`${name} bottle image placeholder`)}">
+      <span>${escapeHtml(journalBottleInitials(name))}</span>
+    </div>
+  `;
+}
+
+function journalBottleMedia(bottle, extraClass = "") {
+  const image = bottle?.imageUrl || "";
+  if (!image) return "";
+  return `<img class="journal-real-photo ${escapeHtml(extraClass)}" src="${escapeHtml(image)}" alt="${escapeHtml(bottle.name)} bottle" />`;
+}
+
+function journalBottleInitials(name) {
+  const words = String(name || "")
+    .replace(/[^a-z0-9\s]/gi, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  return (words.length ? words.slice(0, 2).map((word) => word[0]).join("") : "FIP").toUpperCase();
+}
+
+function renderJournalRecentPreview(visiblePours) {
+  if (!els.journalRecentPreview) return;
+  const recentStories = visiblePours.slice(0, 3);
+  els.journalRecentPreview.innerHTML = recentStories.length
+    ? recentStories
+        .map((pour) => {
+          const bottle = pourBottle(pour);
+          const score = Number(pour.rating || bottle?.rating || 0);
+          const status = journeyStatus(bottle);
+          return `
+            <article class="journal-story-card" data-edit-pour="${escapeHtml(pour.id)}" role="button" tabindex="0">
+              ${journalBottleMedia(bottle, "journal-story-photo")}
+              <div class="journal-story-content">
+                <div class="journal-story-head">
+                  <div>
+                    <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
+                    <span>${formatDate(pour.date)} · ${escapeHtml(pour.occasion || "Pour story")}</span>
+                  </div>
+                  <span class="journal-story-favorite" aria-label="Favorite story">★</span>
+                </div>
+                <div class="journal-story-score-row">
+                  <b>${score ? score.toFixed(1) : "—"}</b>
+                  <span aria-label="FIP score stars">★★★★★</span>
+                </div>
+                <em>Stage: ${escapeHtml(status?.label || pour.mood || "Opening Up")}</em>
+                <p>${escapeHtml(pour.memory || pour.notes || "No notes logged yet.")}</p>
+                <div class="journal-story-footer">
+                  <span>${escapeHtml(pour.companion || "No companion logged")}</span>
+                </div>
+              </div>
+            </article>
+          `;
+        })
+        .join("")
+    : journalEmptyState("Your first Pour Story starts here.", "Open a bottle, capture the pour, and begin your whiskey journey.", "Start a Pour Story", "start-pour");
+  wireJournalStoryCards(els.journalRecentPreview);
+}
+
+function renderJournalMemoriesPreview(visiblePours) {
+  if (!els.journalMemoriesPreview) return;
+  const memories = visiblePours.filter((pour) => pour.memory?.trim()).slice(0, 3);
+  setJournalSectionVisible("#journalMemoriesSection", memories.length > 0);
+  els.journalMemoriesPreview.innerHTML = memories.length
+    ? memories
+        .map((pour) => {
+          const bottle = pourBottle(pour);
+          const memoryPhoto = Array.isArray(bottle?.gallery) ? bottle.gallery.find((photo) => photo?.url)?.url : "";
+          return `
+            <article class="journal-memory-card" data-edit-pour="${escapeHtml(pour.id)}" role="button" tabindex="0">
+              ${memoryPhoto ? `<img class="journal-memory-photo" src="${escapeHtml(memoryPhoto)}" alt="${escapeHtml(pour.memory)}" />` : ""}
+              <strong>${escapeHtml(pour.memory)}</strong>
+              <span>${escapeHtml(bottle?.name || "Unknown bottle")} · ${formatDate(pour.date)}</span>
+            </article>
+          `;
+        })
+        .join("")
+    : journalEmptyState("No memories captured yet.", "Save the people, places, and moments connected to your pours.", "Create a Memory", "memory-coming-soon");
+  wireJournalStoryCards(els.journalMemoriesPreview);
+}
+
+function renderJournalPeoplePreview(visiblePours) {
+  if (!els.journalPeoplePreview) return;
+  const companions = new Map();
+  visiblePours.forEach((pour) => {
+    const name = (pour.companion || "").trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    companions.set(key, { name, count: (companions.get(key)?.count || 0) + 1 });
+  });
+  const people = [...companions.values()].sort((a, b) => b.count - a.count).slice(0, 4);
+  setJournalSectionVisible("#journalPeopleSection", people.length > 0);
+  els.journalPeoplePreview.innerHTML = people.length
+    ? people.map((person) => `<article class="journal-person-card"><strong>${escapeHtml(person.name)}</strong><span>${person.count} shared ${person.count === 1 ? "pour" : "pours"}</span></article>`).join("")
+    : journalEmptyState("Your shared journey begins here.", "Add who joined you during a Pour Story and their shared moments will appear here.");
+}
+
+function renderJournalBottlePreview(visiblePours) {
+  if (!els.journalBottlePreview) return;
+  const ownedBottles = bottles
+    .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+    .slice(0, 8);
+  setJournalSectionVisible("#journalBottlesSection", ownedBottles.length > 0);
+  const bottleCounts = new Map();
+  visiblePours.forEach((pour) => {
+    const bottle = pourBottle(pour);
+    if (!bottle) return;
+    const current = bottleCounts.get(bottle.id) || { bottle, count: 0, lastDate: pour.date };
+    current.count += 1;
+    if (new Date(pour.date) > new Date(current.lastDate)) current.lastDate = pour.date;
+    bottleCounts.set(bottle.id, current);
+  });
+  els.journalBottlePreview.innerHTML = ownedBottles.length
+    ? ownedBottles
+        .map(
+          (bottle) => {
+            const storyMeta = bottleCounts.get(bottle.id);
+            return `
+            <article class="journal-bottle-card" data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0">
+              ${journalBottleMedia(bottle, "journal-bottle-photo")}
+              <div>
+                <strong>${escapeHtml(bottle.name)}</strong>
+                <span>${escapeHtml([bottle.distillery, bottle.type].filter(Boolean).join(" · ") || "Bottle in your collection")}</span>
+                <em>${storyMeta ? `${storyMeta.count} ${storyMeta.count === 1 ? "story" : "stories"} · Last ${formatDate(storyMeta.lastDate)}` : "No Pour Stories yet"}</em>
+              </div>
+            </article>
+          `;
+          },
+        )
+        .join("")
+    : journalEmptyState("No bottles in your collection yet.", "Add a bottle to begin building your journal.", "Add a Bottle", "add-bottle");
+  els.journalBottlePreview.querySelectorAll("[data-quick]").forEach((card) => {
+    const open = () => openBottleQuick(card.dataset.quick);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
+}
+
+function showJournalComingSoon(title, copy) {
+  document.querySelector(".journal-coming-soon")?.remove();
+  const drawer = document.createElement("div");
+  drawer.className = "journal-coming-soon";
+  drawer.setAttribute("role", "status");
+  drawer.innerHTML = `
+    <strong>${escapeHtml(title)}</strong>
+    <span>${escapeHtml(copy)}</span>
+    <button class="icon-button" type="button" aria-label="Dismiss">×</button>
+  `;
+  document.body.append(drawer);
+  drawer.querySelector("button")?.addEventListener("click", () => drawer.remove());
+  setTimeout(() => drawer.remove(), 5200);
+}
+
+function wireJournalStoryCards(container) {
+  container.querySelectorAll("[data-edit-pour]").forEach((card) => {
+    const open = () => openPourForm("", card.dataset.editPour);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
   });
 }
 

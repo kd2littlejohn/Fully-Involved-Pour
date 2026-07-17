@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Fully Involved Pour Design System</title>
+    <meta
+      name="description"
+      content="A temporary review page for the Fully Involved Pour shared design system."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles.css?v=148" />
+  </head>
+  <body class="design-system-body">
+    <header class="design-system-header" aria-label="Design system header">
+      <a class="design-system-brand" href="../" aria-label="Return to Fully Involved Pour">
+        <img src="../assets/compass-mark.png" alt="" />
+        <span>
+          <strong>Fully Involved Pour</strong>
+          <span>Drink what you enjoy. Share what matters.</span>
+        </span>
+      </a>
+      <nav class="design-system-nav" aria-label="Preview navigation">
+        <a class="fip-button fip-button--secondary" href="../">Back to app</a>
+      </nav>
+    </header>
+
+    <main class="design-system-main">
+      <section class="design-system-hero">
+        <p class="fip-eyebrow">Shared Design System</p>
+        <h1>Premium whiskey companion. Personal journal. Calm, warm, and editorial.</h1>
+        <p class="fip-copy">
+          Every pour has a story. This page previews the reusable visual language for Fully
+          Involved Pour without touching Firebase, data models, or production content.
+        </p>
+        <div class="design-system-component-row">
+          <a class="fip-button fip-button--primary" href="#buttons">Review components</a>
+          <a class="fip-button fip-button--secondary" href="#navigation">Review shell</a>
+        </div>
+      </section>
+
+      <section class="design-system-section" id="colors">
+        <div class="fip-section-header">
+          <div>
+            <p class="fip-eyebrow">Colors</p>
+            <h2>Warm Whiskey Palette</h2>
+          </div>
+          <p>Near-black, oak, amber, copper, brass, cream, and muted stone.</p>
+        </div>
+        <div class="design-system-swatches">
+          <div class="design-system-swatch" style="--swatch: var(--fip-black)"><strong>Near Black</strong><span>#080706</span></div>
+          <div class="design-system-swatch" style="--swatch: var(--fip-charcoal)"><strong>Charcoal</strong><span>#11100E</span></div>
+          <div class="design-system-swatch" style="--swatch: var(--fip-oak)"><strong>Dark Oak</strong><span>#1B140F</span></div>
+          <div class="design-system-swatch" style="--swatch: var(--fip-amber)"><strong>Bourbon Amber</strong><span>#D88A14</span></div>
+          <div class="design-system-swatch" style="--swatch: var(--fip-copper)"><strong>Burnished Copper</strong><span>#B86516</span></div>
+          <div class="design-system-swatch" style="--swatch: var(--fip-brass)"><strong>Aged Brass</strong><span>#B88A45</span></div>
+          <div class="design-system-swatch" style="--swatch: var(--fip-cream); color: var(--fip-black)"><strong>Warm Cream</strong><span>#F2E5CC</span></div>
+          <div class="design-system-swatch" style="--swatch: var(--fip-muted); color: var(--fip-black)"><strong>Muted Stone</strong><span>#AAA094</span></div>
+        </div>
+      </section>
+
+      <section class="design-system-section" id="typography">
+        <div class="fip-section-header">
+          <div>
+            <p class="fip-eyebrow">Typography</p>
+            <h2>Editorial Serif, Clean Sans</h2>
+          </div>
+        </div>
+        <div class="design-system-panel">
+          <p class="fip-eyebrow">Page title</p>
+          <h1 class="fip-display" style="font-size: var(--fip-text-3xl); margin: 0;">Every Bottle tells a story.</h1>
+          <p class="fip-copy">Yours is worth remembering. Clean body copy stays readable across mobile, tablet, and desktop.</p>
+        </div>
+      </section>
+
+      <section class="design-system-section" id="buttons">
+        <div class="fip-section-header">
+          <div>
+            <p class="fip-eyebrow">Controls</p>
+            <h2>Buttons And Inputs</h2>
+          </div>
+        </div>
+        <div class="design-system-grid">
+          <div class="design-system-panel">
+            <h3>Buttons</h3>
+            <div class="design-system-component-row">
+              <button class="fip-button fip-button--primary" type="button">Start a Pour Story</button>
+              <button class="fip-button fip-button--secondary" type="button">Browse Collection</button>
+              <button class="fip-button fip-button--ghost" type="button">View All</button>
+              <button class="fip-button fip-button--destructive" type="button">Delete</button>
+              <button class="icon-button" type="button" aria-label="Search">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16.2 16.2 4.3 4.3"></path></svg>
+              </button>
+            </div>
+          </div>
+          <form class="design-system-panel design-system-form">
+            <h3>Inputs</h3>
+            <label>
+              Search input
+              <input class="fip-search" type="search" placeholder="Search bottle, distillery, note" />
+            </label>
+            <label>
+              Text input
+              <input class="fip-input" type="text" placeholder="Weller Antique 107" />
+            </label>
+            <label>
+              Textarea
+              <textarea rows="4" placeholder="Capture the moment around this pour."></textarea>
+            </label>
+            <label>
+              Select
+              <select>
+                <option>Opening Up</option>
+                <option>Neck Pour</option>
+                <option>Bottle Share</option>
+              </select>
+            </label>
+            <label class="fip-toggle">
+              <input type="checkbox" checked />
+              <span class="fip-toggle-track" aria-hidden="true"></span>
+              Legacy Shelf
+            </label>
+          </form>
+        </div>
+      </section>
+
+      <section class="design-system-section" id="cards">
+        <div class="fip-section-header">
+          <div>
+            <p class="fip-eyebrow">Cards</p>
+            <h2>Journal Panels And Bottle Shells</h2>
+          </div>
+        </div>
+        <div class="design-system-grid">
+          <article class="fip-card">
+            <div class="fip-image-fallback" aria-label="Bottle image placeholder">Bottle image</div>
+            <p class="fip-eyebrow">Bottle Card Shell</p>
+            <h3>Weller Antique 107</h3>
+            <p class="fip-copy">Transparent bottle photography should sit inside a consistent contain area.</p>
+          </article>
+          <article class="fip-card">
+            <p class="fip-eyebrow">Pour Story Card Shell</p>
+            <h3>Porch Time</h3>
+            <p>Brown sugar, oak, and a quiet evening worth remembering.</p>
+            <div class="design-system-component-row">
+              <span class="fip-score-badge">9.0</span>
+              <span class="status-badge" data-tone="warning">Opening Up</span>
+            </div>
+          </article>
+          <article class="fip-empty-state">
+            <img src="../assets/compass-mark.png" alt="" width="48" height="48" />
+            <strong>Your first Pour Story starts here.</strong>
+            <p>Open a bottle, capture the pour, and begin your whiskey journey.</p>
+            <button class="fip-button fip-button--primary" type="button">Start a Pour Story</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="design-system-section" id="tabs">
+        <div class="fip-section-header">
+          <div>
+            <p class="fip-eyebrow">States</p>
+            <h2>Tabs, Chips, Badges, Loading, Alerts</h2>
+          </div>
+        </div>
+        <div class="design-system-panel">
+          <div class="fip-tabs" role="tablist" aria-label="Journal tabs preview">
+            <button class="fip-tab is-active" role="tab" aria-selected="true" type="button">Recent</button>
+            <button class="fip-tab" role="tab" aria-selected="false" type="button">Timeline</button>
+            <button class="fip-tab" role="tab" aria-selected="false" type="button">Memories</button>
+            <button class="fip-tab" role="tab" aria-selected="false" type="button">People</button>
+            <button class="fip-tab" role="tab" aria-selected="false" type="button">Bottles</button>
+          </div>
+          <div class="design-system-component-row">
+            <span class="fip-chip">Brown Sugar</span>
+            <span class="fip-chip">Oak</span>
+            <span class="fip-chip">Vanilla</span>
+            <span class="status-badge" data-tone="success">Completed</span>
+            <span class="status-badge" data-tone="warning">Current</span>
+            <span class="status-badge" data-tone="error">Needs Review</span>
+          </div>
+          <div class="fip-skeleton" style="height: 18px; max-width: 460px;"></div>
+          <div class="fip-alert">
+            <strong>Meaningful empty states only.</strong>
+            <span>Do not fill production screens with fake bottles, people, stories, memories, or statistics.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="design-system-section" id="navigation">
+        <div class="fip-section-header">
+          <div>
+            <p class="fip-eyebrow">Application Shell</p>
+            <h2>Navigation Preview</h2>
+          </div>
+        </div>
+        <div class="design-system-panel">
+          <header class="topbar" style="position: static; border-radius: var(--fip-radius-lg);" aria-label="Navigation preview">
+            <div class="brand">
+              <img class="brand-mark" src="../assets/compass-mark.png" alt="" />
+              <div class="brand-wordmark">
+                <span class="brand-fully">Fully</span>
+                <span class="brand-involved">Involved</span>
+                <span class="brand-pour">Pour</span>
+                <span class="brand-tagline">Drink what you enjoy. Share what matters.</span>
+              </div>
+            </div>
+            <nav class="nav-list" aria-label="Preview views">
+              <button class="nav-item is-active" type="button"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-label">Home</span></button>
+              <button class="nav-item" type="button"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">Collection</span></button>
+              <button class="nav-item" type="button"><span class="nav-icon" aria-hidden="true">✎</span><span class="nav-label">Journal</span></button>
+              <button class="nav-item" type="button"><span class="nav-icon" aria-hidden="true">⌕</span><span class="nav-label">Discover</span></button>
+              <button class="nav-item" type="button"><span class="nav-icon" aria-hidden="true">◦</span><span class="nav-label">Profile</span></button>
+            </nav>
+            <div class="account-box">
+              <button class="icon-button" type="button" aria-label="Search"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m16.2 16.2 4.3 4.3"></path></svg></button>
+              <span class="fip-avatar">KL</span>
+            </div>
+          </header>
+        </div>
+      </section>
+
+      <section class="design-system-section" id="overlays">
+        <div class="fip-section-header">
+          <div>
+            <p class="fip-eyebrow">Overlays</p>
+            <h2>Dialog, Drawer, Bottom Sheet</h2>
+          </div>
+        </div>
+        <div class="design-system-grid">
+          <div class="design-system-panel design-system-dialog-demo">
+            <p class="fip-eyebrow">Dialog</p>
+            <div class="fip-dialog fip-card">
+              <h3>Save Pour Story?</h3>
+              <p>Dialog surfaces use dark oak, thin brass borders, and restrained depth.</p>
+              <button class="fip-button fip-button--primary" type="button">Save Story</button>
+            </div>
+          </div>
+          <div class="design-system-panel design-system-drawer-demo">
+            <p class="fip-eyebrow">Drawer</p>
+            <div class="fip-drawer fip-card">
+              <h3>Discover Your Next Pour</h3>
+              <p>Drawers should support focused contextual work without leaving the page.</p>
+            </div>
+          </div>
+          <div class="design-system-panel design-system-sheet-demo">
+            <p class="fip-eyebrow">Bottom Sheet</p>
+            <div class="fip-bottom-sheet fip-card">
+              <h3>Create a Memory</h3>
+              <p>Mobile sheets keep one clear action in reach.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
