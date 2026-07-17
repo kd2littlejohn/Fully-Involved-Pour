@@ -1557,6 +1557,7 @@ const els = {
   collectionPreviewRow: document.querySelector("#collectionPreviewRow"),
   collectionPreviewViewAll: document.querySelector("#collectionPreviewViewAll"),
   homeHeroBrowse: document.querySelector("#homeHeroBrowse"),
+  homeHeroAddBottle: document.querySelector("#homeHeroAddBottle"),
   homeHeroLogPour: document.querySelector("#homeHeroLogPour"),
   homeHeroCompass: document.querySelector("#homeHeroCompass"),
   homeJourneyPillars: document.querySelector("#homeJourneyPillars"),
@@ -2111,6 +2112,7 @@ els.homeHeroCompass?.addEventListener("click", () => {
 });
 
 els.homeHeroBrowse?.addEventListener("click", () => navigateToView("collection"));
+els.homeHeroAddBottle?.addEventListener("click", () => openForm());
 els.collectionPreviewViewAll?.addEventListener("click", () => navigateToView("collection"));
 
 els.homeHeroLogPour?.addEventListener("click", () => {

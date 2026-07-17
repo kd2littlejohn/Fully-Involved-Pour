@@ -15275,6 +15275,17 @@ body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions {
   margin-top: 0;
 }
 
+/* The desktop home hero is a baked marketing image (home-hero-approved-final.jpg)
+   with the title and buttons drawn in; the HTML copy is an invisible click-overlay
+   (opacity ~0). A third HTML button can't render there and would shift the overlay
+   off the drawn buttons, so the Add Bottle CTA is mobile-only, where the real HTML
+   hero renders (copy opacity restored to 1 at <=767px). */
+@media (min-width: 768px) {
+  #homeHeroAddBottle {
+    display: none;
+  }
+}
+
 body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions .primary-action,
 body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions .secondary-action {
   min-width: 240px;
@@ -15501,14 +15512,14 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .home-recommended-card
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero {
-    height: 570px;
-    min-height: 570px;
+    height: auto;
+    min-height: 470px;
     border-radius: 10px;
     background-position: 52% center;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .hero-overlay {
-    padding: 34px 18px 0;
+    padding: 28px 18px 30px;
     background:
       linear-gradient(90deg, rgba(3, 3, 2, 0.88), rgba(3, 3, 2, 0.36) 72%, rgba(3, 3, 2, 0.12)),
       linear-gradient(180deg, rgba(3, 3, 2, 0.08), rgba(3, 3, 2, 0.66));
@@ -15520,14 +15531,14 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .home-recommended-card
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .home-hero-title {
-    font-size: clamp(2.35rem, 12vw, 3.35rem);
-    line-height: 0.95;
+    font-size: clamp(1.7rem, 8.4vw, 2.45rem);
+    line-height: 0.98;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .hero-description {
     max-width: 25ch;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: 0.9rem;
+    line-height: 1.48;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions {
