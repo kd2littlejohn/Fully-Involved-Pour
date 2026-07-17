@@ -3385,9 +3385,10 @@ function journeyStatusBadge(bottle) {
 
 function renderCollectionScoreBadge(bottle) {
   const score = bottleCurrentScore(bottle);
+  if (score <= 0) return "";
   return `
-    <span class="collection-score-badge${score > 0 ? "" : " is-empty"}" aria-label="${score > 0 ? `FIP score ${score.toFixed(1)} out of 10` : "No FIP score yet"}">
-      ${score > 0 ? score.toFixed(1) : "—"}
+    <span class="collection-score-badge" aria-label="FIP score ${score.toFixed(1)} out of 10">
+      <strong>${score.toFixed(1)}</strong>
     </span>
   `;
 }
@@ -3399,6 +3400,40 @@ function renderBottleMetaLine(bottle) {
     bottle.ageStatement || "",
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : "Details ready when you add them";
+}
+
+function renderCollectionBottleImage(bottle) {
+  const image = bottle.imageUrl || getCuratedBottleImage(bottle);
+  if (image) {
+    return `<img class="collection-bottle-image" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
+  }
+  const initial = (bottle.name || "?").trim().charAt(0).toUpperCase() || "?";
+  return `<div class="collection-bottle-image collection-bottle-fallback" aria-label="${escapeHtml(bottle.name)} bottle image unavailable">${escapeHtml(initial)}</div>`;
+}
+
+function formatCollectionDate(value) {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+  }).format(date);
+}
+
+function collectionOpenedText(bottle) {
+  if (bottle.openedDate) return `Opened ${formatCollectionDate(bottle.openedDate)}`;
+  if (bottle.status === "sealed") return "Not Opened";
+  if (bottle.status === "wishlist") return "Wishlist";
+  if (bottle.status === "buy-next") return "On your list";
+  if (bottle.status === "finished") return "Finished";
+  return "Not opened";
+}
+
+function collectionAgeText(ageStatement) {
+  if (!ageStatement) return "";
+  return /^aged\b/i.test(ageStatement) ? ageStatement : `Aged ${ageStatement}`;
 }
 
 // Shared right-side action markup (priority/rating/favorite/mark-owned/reorder) used by
@@ -3430,35 +3465,29 @@ function renderBottleRowActions(bottle, index, total, isBuyNext, customOrder) {
 
 function renderBottleTile(bottle, index, total, isBuyNext, customOrder) {
   const isSelected = selectionMode && selectedIds.has(bottle.id);
-  const status = journeyStatus(bottle);
+  const proofAgeLine = [
+    Number(bottle.proof) > 0 ? `${numberOrDash(bottle.proof)} Proof` : "",
+    collectionAgeText(bottle.ageStatement),
+  ].filter(Boolean);
   return `
-    <article class="bottle-tile${bottle.coreBar ? " is-core" : ""}${isSelected ? " is-selected" : ""}" data-quick="${bottle.id}">
+    <article class="bottle-tile collection-bottle-card${bottle.coreBar ? " is-core" : ""}${isSelected ? " is-selected" : ""}" data-quick="${bottle.id}" role="link" tabindex="0" aria-label="Open ${escapeHtml(bottle.name)} bottle details">
       ${selectionMode ? `<span class="select-check tile-select-check${isSelected ? " is-checked" : ""}" aria-hidden="true">✓</span>` : ""}
       <div class="collection-card-media">
-        ${bottle.coreBar ? `<div class="tile-core-ribbon">Core Bar</div>` : ""}
-        ${bottle.favorite ? `<button class="collection-card-favorite is-fav" data-favorite="${bottle.id}" type="button" aria-label="Remove from favorites">♥</button>` : ""}
-        ${bottleThumb(bottle, "tile-photo")}
-        ${renderCollectionScoreBadge(bottle)}
+        ${renderCollectionBottleImage(bottle)}
       </div>
       <div class="tile-body">
         <h3>${escapeHtml(bottle.name)}</h3>
-        <p>${escapeHtml(bottle.distillery || bottle.type || "Whiskey")}</p>
+        <p>${escapeHtml(bottle.type || bottle.distillery || "Whiskey")}</p>
         <div class="collection-card-meta">
-          <span>${escapeHtml(bottle.type || "Bottle")}</span>
-          ${Number(bottle.proof) > 0 ? `<span>${numberOrDash(bottle.proof)} Proof</span>` : ""}
-          ${bottle.ageStatement ? `<span>${escapeHtml(bottle.ageStatement)}</span>` : ""}
+          ${proofAgeLine.length ? `<span>${escapeHtml(proofAgeLine.join(" · "))}</span>` : ""}
+          <span>${escapeHtml(collectionOpenedText(bottle))}</span>
         </div>
-        <div class="catalog-tag${bottle.coreBar ? " is-core" : ""}">
-          ${escapeHtml(labelStatus(bottle.status) || "In Collection")}
-        </div>
-        <div class="collection-journey-row">
-          <span>${escapeHtml(status?.label || bottleOpenedLabel(bottle))}</span>
-          <em>${escapeHtml(bottleOpenedLabel(bottle))}</em>
-        </div>
-        ${isStorePick(bottle) ? `<span class="store-pick-pill">🏪 Store Pick</span>` : ""}
-        <div class="tile-footer">
-          ${renderBottleRowActions(bottle, index, total, isBuyNext, customOrder)}
-        </div>
+      </div>
+      <div class="collection-card-score">
+        ${renderCollectionScoreBadge(bottle)}
+      </div>
+      <div class="tile-footer">
+        ${renderBottleRowActions(bottle, index, total, isBuyNext, customOrder)}
       </div>
     </article>
   `;
@@ -3774,6 +3803,15 @@ function renderCardChips(bottle) {
 function bindBottleActions() {
   document.querySelectorAll("[data-quick]").forEach((item) => {
     item.addEventListener("click", () => {
+      if (selectionMode) {
+        toggleSelected(item.dataset.quick);
+        return;
+      }
+      openBottleQuick(item.dataset.quick);
+    });
+    item.addEventListener("keydown", (event) => {
+      if (!["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
       if (selectionMode) {
         toggleSelected(item.dataset.quick);
         return;
@@ -7720,32 +7758,347 @@ function daysBetween(fromDate) {
   return Math.max(0, Math.round((Date.now() - t) / 86400000));
 }
 
-// Per-bottle Pour Stories timeline (mockup screen 4): each pour with its FIP score.
+function latestBottlePour(bottle) {
+  return bottlePoursFor(bottle.id)
+    .slice()
+    .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+}
+
+function compactDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+    new Date(`${value}T12:00:00`),
+  );
+}
+
+function detailNumber(value, suffix = "") {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? `${number.toLocaleString()}${suffix}` : "";
+}
+
+function detailValue(value) {
+  return String(value || "").trim();
+}
+
+function bottleOpenedCopy(bottle) {
+  if (!bottle.openedDate) return bottle.status === "sealed" ? "Sealed" : "";
+  const daysOpen = daysBetween(bottle.openedDate);
+  const ago = daysOpen === 0 ? "Opened today" : `${daysOpen} day${daysOpen === 1 ? "" : "s"} open`;
+  return `${ago} · ${formatDate(bottle.openedDate)}`;
+}
+
+function detailStageLabel(bottle) {
+  const stage = journeyStatus(bottle);
+  return stage?.label || labelStatus(bottle.status) || "";
+}
+
+function bottleDetailHeroFacts(bottle) {
+  return [
+    ["Proof", detailNumber(bottle.proof)],
+    ["Age", detailValue(bottle.ageStatement) || ""],
+    ["MSRP", Number(bottle.msrp) > 0 ? money(bottle.msrp) : ""],
+    ["Price Paid", Number(bottle.price) > 0 ? money(bottle.price) : ""],
+  ].filter(([, value]) => value);
+}
+
+function bottleDetailOverviewRows(bottle) {
+  return [
+    ["Distillery", detailValue(bottle.distillery)],
+    ["Whiskey Type", detailValue(bottle.type)],
+    ["Proof", detailNumber(bottle.proof)],
+    ["Age", detailValue(bottle.ageStatement)],
+    ["Mash Bill", mashBillSummary(bottle)],
+    ["Release / Batch", detailValue(bottle.release || bottle.batch || bottle.batchNumber)],
+    ["Purchase Date", bottle.purchaseDate ? formatDate(bottle.purchaseDate) : ""],
+    ["Price Paid", Number(bottle.price) > 0 ? money(bottle.price) : ""],
+    ["MSRP", Number(bottle.msrp) > 0 ? money(bottle.msrp) : ""],
+    ["Store", detailValue(bottle.storeLocation)],
+    ["Opened Date", bottle.openedDate ? formatDate(bottle.openedDate) : ""],
+    ["Current Status", labelStatus(bottle.status)],
+    ["Fill Level", labelFillLevel(bottle.fillLevel)],
+  ].filter(([, value]) => value && value !== "—");
+}
+
+function pourStageLabel(pour, bottle, index) {
+  const source = `${pour.occasion || ""} ${pour.memory || ""} ${pour.notes || ""}`.toLowerCase();
+  if (/neck/.test(source)) return "Neck Pour";
+  if (/two\s*week|2\s*week/.test(source)) return "Two Weeks";
+  if (/one\s*month|1\s*month|month/.test(source)) return "One Month";
+  if (/half/.test(source)) return "Half Bottle";
+  if (/share|friend|crew|brother|sister|family|club/.test(source)) return "Bottle Share";
+  if (/kill|finished|empty/.test(source)) return "Bottle Kill";
+  if (bottle.openedDate && pour.date) {
+    const open = new Date(`${bottle.openedDate}T12:00:00`).getTime();
+    const poured = new Date(`${pour.date}T12:00:00`).getTime();
+    const days = Math.round((poured - open) / 86400000);
+    if (days <= 2) return index === 0 ? "First Pour" : "Opening Up";
+    if (days <= 10) return "One Week";
+    if (days <= 21) return "Two Weeks";
+    if (days <= 45) return "One Month";
+  }
+  return index === 0 ? "First Pour" : "Pour Story";
+}
+
+function pourShortNote(pour) {
+  return (
+    detailValue(pour.memory) ||
+    detailValue(pour.notes) ||
+    detailValue(pour.fip?.summaryNotes) ||
+    detailValue(pour.fip?.palateNotes) ||
+    detailValue(pour.fip?.noseNotes) ||
+    detailValue(pour.fip?.finishNotes)
+  );
+}
+
+function bottleDetailEmptyState(title, body, actionLabel = "", actionId = "") {
+  return `
+    <div class="bottle-detail-empty">
+      <span class="bottle-detail-empty-mark" aria-hidden="true"></span>
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(body)}</p>
+      ${actionLabel ? `<button class="primary-action" id="${escapeHtml(actionId)}" type="button">${escapeHtml(actionLabel)}</button>` : ""}
+    </div>
+  `;
+}
+
+function renderBottleYourTake(bottle, score, latestPour) {
+  const takeRows = [
+    ["Current FIP Score", score > 0 ? score.toFixed(1) : ""],
+    ["Would Buy Again", latestPour?.buyAgain ? latestPour.buyAgain === "yes" ? "Yes" : "No" : ""],
+    ["Would Replace", Number(bottle.quantity || 1) > 1 ? "Yes" : ""],
+    ["Favorite", bottle.favorite ? "Yes" : ""],
+  ].filter(([, value]) => value);
+  const summary = pourShortNote(latestPour || {}) || detailValue(bottle.notes);
+
+  if (!takeRows.length && !summary) return "";
+
+  return `
+    <aside class="bottle-your-take">
+      <p class="bottle-detail-kicker">Your Take</p>
+      ${takeRows
+        .map(
+          ([label, value]) => `
+            <div class="bottle-take-row">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(value)}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+      ${summary ? `<p class="bottle-take-summary">${escapeHtml(summary)}</p>` : ""}
+    </aside>
+  `;
+}
+
+function renderBottleOverviewPanel(bottle, score, latestPour) {
+  const rows = bottleDetailOverviewRows(bottle);
+  const notes = detailValue(bottle.notes);
+  return `
+    <div class="bottle-overview-grid">
+      <section class="bottle-detail-card">
+        <div class="bottle-detail-section-head">
+          <p class="bottle-detail-kicker">Bottle Notes</p>
+          <h2>Overview</h2>
+        </div>
+        ${
+          rows.length
+            ? `<dl class="bottle-detail-list">${rows
+                .map(
+                  ([label, value]) => `
+                    <div>
+                      <dt>${escapeHtml(label)}</dt>
+                      <dd>${escapeHtml(value)}</dd>
+                    </div>
+                  `,
+                )
+                .join("")}</dl>`
+            : bottleDetailEmptyState("No bottle details yet.", "Edit this bottle to add its proof, distillery, purchase details, and notes.")
+        }
+        ${notes ? `<div class="bottle-detail-notes"><span>Notes</span><p>${escapeHtml(notes)}</p></div>` : ""}
+      </section>
+      ${renderBottleYourTake(bottle, score, latestPour)}
+    </div>
+  `;
+}
+
+// Per-bottle Pour Stories timeline: real pours only, with edit affordance preserved.
 function renderBottlePourTimeline(bottle) {
   const entries = bottlePoursFor(bottle.id).sort((a, b) => new Date(a.date) - new Date(b.date));
   if (!entries.length) {
-    return `<div class="empty-state">No pour stories yet. Add one to start this bottle's timeline.</div>`;
+    return bottleDetailEmptyState(
+      "This bottle's story starts with the first pour.",
+      "Add a Pour Story to capture how it opened, who was there, and what changed in the glass.",
+      "Add Pour Story",
+      "detailAddStoryEmpty",
+    );
   }
   return `
     <div class="bottle-pour-timeline">
       ${entries
-        .map((pour) => {
+        .map((pour, index) => {
           const score = Number(pour.rating);
           const tier = score > 0 ? fipTier(score) : null;
-          const label = pour.occasion || pour.memory || pour.notes || "Pour";
+          const note = pourShortNote(pour);
+          const stage = pourStageLabel(pour, bottle, index);
+          const details = [pour.companion ? `With ${pour.companion}` : "", pour.location, pour.glass].filter(Boolean).join(" · ");
+          const photo = pour.photoUrl || pour.imageUrl || pour.memoryPhotoUrl || "";
           return `
             <div class="bottle-pour-timeline-item" data-story-edit="${escapeHtml(pour.id)}" role="button" tabindex="0">
               <div class="bottle-pour-timeline-dot"></div>
               <div class="bottle-pour-timeline-body">
                 <span class="bottle-pour-timeline-date">${formatDate(pour.date)}</span>
-                <strong>${escapeHtml(label)}</strong>
-                ${pour.memory && pour.memory !== label ? `<span>${escapeHtml(pour.memory)}</span>` : ""}
+                <strong>${escapeHtml(stage)}</strong>
+                ${note ? `<p>${escapeHtml(note)}</p>` : ""}
+                ${details ? `<span>${escapeHtml(details)}</span>` : ""}
               </div>
+              ${photo ? `<img class="bottle-pour-thumb" src="${escapeHtml(photo)}" alt="${escapeHtml(stage)} photo" />` : ""}
               ${tier ? `<span class="bottle-pour-timeline-score ${tier.className}">${score.toFixed(1)}</span>` : ""}
             </div>
           `;
         })
         .join("")}
+    </div>
+  `;
+}
+
+function renderBottleEvolutionTimeline(bottle) {
+  const entries = bottlePoursFor(bottle.id).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const hasBottleKill = bottle.status === "finished" || bottle.fillLevel === "empty";
+  const hasShare = entries.some((pour) => pour.companion && !/solo|alone|myself|no one/i.test(pour.companion));
+  const hasHalf = ["half", "low", "empty"].includes(bottle.fillLevel);
+  const daysOpen = bottle.openedDate ? daysBetween(bottle.openedDate) : null;
+  const firstPour = entries[0];
+
+  const milestones = [
+    { key: "purchased", label: "Purchased", complete: Number(bottle.createdAt) > 0, meta: Number(bottle.createdAt) > 0 ? formatEventDate(Number(bottle.createdAt)) : "" },
+    { key: "opened", label: "Opened", complete: Boolean(bottle.openedDate), meta: bottle.openedDate ? formatDate(bottle.openedDate) : "" },
+    { key: "first", label: "First Pour", complete: Boolean(firstPour), meta: firstPour ? formatDate(firstPour.date) : "" },
+    { key: "two-weeks", label: "Two Weeks", complete: daysOpen >= 14 || entries.some((pour, index) => pourStageLabel(pour, bottle, index) === "Two Weeks"), meta: "" },
+    { key: "one-month", label: "One Month", complete: daysOpen >= 30 || entries.some((pour, index) => pourStageLabel(pour, bottle, index) === "One Month"), meta: "" },
+    { key: "half", label: "Half Bottle", complete: hasHalf, meta: hasHalf ? labelFillLevel(bottle.fillLevel) : "" },
+    { key: "share", label: "Bottle Share", complete: hasShare, meta: hasShare ? "Shared pour logged" : "" },
+    { key: "kill", label: "Bottle Kill", complete: hasBottleKill, meta: hasBottleKill ? "Finished" : "" },
+    { key: "replaced", label: "Replaced", complete: Number(bottle.quantity || 1) > 1, meta: Number(bottle.quantity || 1) > 1 ? `${Number(bottle.quantity)} bottles` : "" },
+  ];
+  const completedCount = milestones.filter((item) => item.complete).length;
+
+  if (!completedCount) {
+    return bottleDetailEmptyState("No journey yet.", "Open this bottle or add its first Pour Story to begin tracking its evolution.");
+  }
+
+  return `
+    <div class="bottle-journey-panel">
+      <div class="bottle-detail-section-head">
+        <p class="bottle-detail-kicker">Bottle Evolution</p>
+        <h2>${escapeHtml(bottle.name)}</h2>
+      </div>
+      <div class="bottle-evolution-track">
+        ${milestones
+          .map((item, index) => {
+            const isCurrent = item.complete && index === completedCount - 1;
+            return `
+              <div class="bottle-evolution-step ${item.complete ? "is-complete" : "is-future"} ${isCurrent ? "is-current" : ""}">
+                <span aria-hidden="true"></span>
+                <div>
+                  <strong>${escapeHtml(item.label)}</strong>
+                  ${item.meta ? `<em>${escapeHtml(item.meta)}</em>` : ""}
+                </div>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+      ${
+        entries.some((pour) => Number(pour.rating) > 0)
+          ? `<div class="bottle-score-arc">
+              <h3>Score Changes</h3>
+              ${entries
+                .filter((pour) => Number(pour.rating) > 0)
+                .map(
+                  (pour, index) => `
+                    <div>
+                      <span>${escapeHtml(pourStageLabel(pour, bottle, index))}</span>
+                      <strong>${Number(pour.rating).toFixed(1)}</strong>
+                      <em>${formatDate(pour.date)}</em>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+function renderBottlePhotosPanel(bottle) {
+  const gallery = Array.isArray(bottle.gallery) ? bottle.gallery : [];
+  const bottlePhoto = bottle.imageUrl || getCuratedBottleImage(bottle);
+  const photos = [
+    bottlePhoto ? { url: bottlePhoto, caption: `${bottle.name} bottle`, source: "Bottle photo" } : null,
+    ...gallery.map((photo) => ({ url: photo.url, caption: photo.caption || "Bottle memory", source: "Gallery" })),
+  ].filter((photo) => photo?.url);
+
+  if (!photos.length) {
+    return `
+      ${bottleDetailEmptyState("No photos yet.", "Capture the bottle, the pour, or the moment.", "Add Photo", "detailPhotoAddEmpty")}
+      <input class="visually-hidden" id="galleryPhotoUpload" type="file" accept="image/*" />
+    `;
+  }
+
+  return `
+    <div class="bottle-photos-panel">
+      <div class="bottle-detail-section-head">
+        <p class="bottle-detail-kicker">Gallery</p>
+        <h2>Photos & Memories</h2>
+      </div>
+      <div class="bottle-gallery-grid">
+        ${photos
+          .map(
+            (photo, index) => `
+              <figure class="bottle-gallery-item">
+                <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.caption || bottle.name)}" data-gallery-view="${index}" />
+                ${index > 0 ? `<button class="bottle-gallery-remove" data-gallery-remove="${index - 1}" type="button" aria-label="Remove photo">×</button>` : ""}
+                <figcaption>
+                  <strong>${escapeHtml(photo.caption || "Bottle photo")}</strong>
+                  <span>${escapeHtml(photo.source)}</span>
+                </figcaption>
+              </figure>
+            `,
+          )
+          .join("")}
+      </div>
+      <div class="quick-photo-upload-panel bottle-gallery-add">
+        <span id="galleryPhotoStatus">Add another photo to this bottle's gallery</span>
+        <label class="upload-photo-action">
+          Add Photo
+          <input id="galleryPhotoUpload" type="file" accept="image/*" />
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function renderBottleComparePanel(bottle, score) {
+  const rows = [
+    ["FIP Score", score > 0 ? score.toFixed(1) : ""],
+    ["Proof", detailNumber(bottle.proof)],
+    ["Age", detailValue(bottle.ageStatement)],
+    ["Price Paid", Number(bottle.price) > 0 ? money(bottle.price) : ""],
+    ["Distillery", detailValue(bottle.distillery)],
+    ["Mash Bill", mashBillSummary(bottle)],
+    ["Journey Stage", detailStageLabel(bottle)],
+  ].filter(([, value]) => value);
+
+  return `
+    <div class="bottle-compare-panel">
+      <div class="bottle-detail-section-head">
+        <p class="bottle-detail-kicker">Side by Side</p>
+        <h2>Compare This Bottle</h2>
+      </div>
+      <p class="bottle-detail-compare-lead">Use the existing Compare view to put ${escapeHtml(bottle.name)} against another bottle in your collection.</p>
+      ${rows.length ? `<dl class="bottle-detail-list bottle-compare-list">${rows.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>` : ""}
+      <button class="primary-action" id="detailCompare" type="button">Open Compare</button>
     </div>
   `;
 }
@@ -7759,120 +8112,128 @@ function renderBottleDetailView() {
   const score = bottleCurrentScore(bottle);
   const tier = score > 0 ? fipTier(score) : null;
   const stage = journeyStatus(bottle);
-  const daysOpen = bottle.openedDate ? daysBetween(bottle.openedDate) : null;
+  const latestPour = latestBottlePour(bottle);
+  const facts = bottleDetailHeroFacts(bottle);
+  const canShareBottle = typeof navigator !== "undefined" && Boolean(navigator.share);
   const tab = (name) => `bottle-detail-tab${detailTab === name ? " is-active" : ""}`;
   const panel = (name) => `bottle-detail-panel${detailTab === name ? "" : " is-hidden"}`;
 
   els.bottleDetailView.innerHTML = `
-    <div class="bottle-detail-top">
-      <button class="icon-button" id="bottleDetailBack" type="button" aria-label="Back">←</button>
-      <span class="bottle-detail-crumb">${escapeHtml(bottle.name)}</span>
-      <button class="secondary-action" id="bottleDetailEdit" type="button">Edit</button>
-    </div>
+    <article class="bottle-detail-page">
+      <div class="bottle-detail-top">
+        <button class="icon-button" id="bottleDetailBack" type="button" aria-label="Back">←</button>
+        <span class="bottle-detail-crumb">Collection / ${escapeHtml(bottle.name)}</span>
+        ${canShareBottle ? `<button class="bottle-detail-ghost" id="bottleDetailShare" type="button">Share</button>` : ""}
+        <button class="bottle-detail-ghost ${bottle.favorite ? "is-favorite" : ""}" id="bottleDetailFavorite" type="button" aria-pressed="${bottle.favorite ? "true" : "false"}">${bottle.favorite ? "Favorited" : "Favorite"}</button>
+        <button class="secondary-action" id="bottleDetailEdit" type="button">Edit Bottle</button>
+      </div>
 
-    <div class="bottle-detail-hero">
-      <img class="bottle-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
-      <div class="bottle-detail-hero-side">
-        <div class="bottle-detail-score-ring ${tier ? tier.className : ""}">
-          <strong>${score > 0 ? score.toFixed(1) : "—"}</strong>
-          <span>FIP SCORE</span>
+      <section class="bottle-detail-hero">
+        <div class="bottle-detail-image-stage">
+          <img class="bottle-detail-photo" src="${bottleImage(bottle)}" alt="${escapeHtml(bottle.name)} bottle" />
         </div>
-        <div class="bottle-detail-status">
-          <select class="status-pill status-pill-select ${bottle.status}" id="detailStatusSelect" aria-label="Bottle status">
-            ${STATUS_OPTIONS.map(
-              (status) => `<option value="${status}" ${bottle.status === status ? "selected" : ""}>${labelStatus(status)}</option>`,
-            ).join("")}
-          </select>
+        <div class="bottle-detail-hero-copy">
+          <p class="bottle-detail-category">${escapeHtml(bottle.type || "Whiskey")}</p>
+          <h1 class="bottle-detail-name">${escapeHtml(bottle.name)}</h1>
+          ${bottle.distillery ? `<p class="bottle-detail-type">${escapeHtml(bottle.distillery)}</p>` : ""}
+          <div class="bottle-detail-hero-meta">
+            <div class="bottle-detail-score-ring ${tier ? tier.className : ""}">
+              <strong>${score > 0 ? score.toFixed(1) : "—"}</strong>
+              <span>FIP Score</span>
+            </div>
+            <div class="bottle-detail-status">
+              <select class="status-pill status-pill-select ${bottle.status}" id="detailStatusSelect" aria-label="Bottle status">
+                ${STATUS_OPTIONS.map(
+                  (status) => `<option value="${status}" ${bottle.status === status ? "selected" : ""}>${labelStatus(status)}</option>`,
+                ).join("")}
+              </select>
+              ${stage ? `<div class="bottle-detail-stage"><span>Journey Stage</span><strong>${escapeHtml(stage.label)}</strong></div>` : ""}
+              ${bottleOpenedCopy(bottle) ? `<div class="bottle-detail-opened"><span>Opened</span><strong>${escapeHtml(bottleOpenedCopy(bottle))}</strong></div>` : ""}
+            </div>
+          </div>
           ${
-            bottle.openedDate
-              ? `<div class="bottle-detail-opened"><span>Opened</span><strong>${daysOpen === 0 ? "today" : `${daysOpen} day${daysOpen === 1 ? "" : "s"} ago`}</strong><em>${formatDate(bottle.openedDate)}</em></div>`
+            facts.length
+              ? `<div class="bottle-detail-specrow">${facts
+                  .map(([label, value]) => `<div><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`)
+                  .join("")}</div>`
               : ""
           }
-          ${stage ? `<div class="bottle-detail-stage"><span>Journey Stage</span><strong>${stage.emoji} ${escapeHtml(stage.label)}</strong></div>` : ""}
+          <div class="bottle-detail-hero-actions">
+            <button class="primary-action" id="detailLogPour" type="button">Add Pour Story</button>
+            <label class="upload-photo-action">
+              ${bottle.imageUrl ? "Replace Photo" : "Add Photo"}
+              <input id="detailPhotoUpload" type="file" accept="image/*" />
+            </label>
+          </div>
         </div>
+      </section>
+
+      <div class="bottle-detail-tabs" role="tablist" aria-label="Bottle detail sections">
+        <button class="${tab("overview")}" data-dtab="overview" type="button" role="tab" aria-selected="${detailTab === "overview"}">Overview</button>
+        <button class="${tab("stories")}" data-dtab="stories" type="button" role="tab" aria-selected="${detailTab === "stories"}">Pour Stories</button>
+        <button class="${tab("journey")}" data-dtab="journey" type="button" role="tab" aria-selected="${detailTab === "journey"}">Journey</button>
+        <button class="${tab("gallery")}" data-dtab="gallery" type="button" role="tab" aria-selected="${detailTab === "gallery"}">Photos</button>
+        <button class="${tab("compare")}" data-dtab="compare" type="button" role="tab" aria-selected="${detailTab === "compare"}">Compare</button>
       </div>
-    </div>
 
-    <h1 class="bottle-detail-name">${escapeHtml(bottle.name)}</h1>
-    <p class="bottle-detail-type">${escapeHtml([bottle.distillery, bottle.type, bottle.region].filter(Boolean).join(" · ") || "Whiskey")}</p>
-
-    <div class="bottle-detail-specrow">
-      <div><strong>${numberOrDash(bottle.proof)}</strong><span>Proof</span></div>
-      <div><strong>${bottle.ageStatement ? escapeHtml(bottle.ageStatement) : "NAS"}</strong><span>Age</span></div>
-      <div><strong>${bottle.msrp ? money(bottle.msrp) : "N/A"}</strong><span>MSRP</span></div>
-      <div><strong>${escapeHtml(bottle.distillery || "—")}</strong><span>Distillery</span></div>
-    </div>
-
-    <div class="bottle-detail-tabs" role="tablist">
-      <button class="${tab("overview")}" data-dtab="overview" type="button">Overview</button>
-      <button class="${tab("stories")}" data-dtab="stories" type="button">Pour Stories</button>
-      <button class="${tab("journey")}" data-dtab="journey" type="button">Journey</button>
-      <button class="${tab("gallery")}" data-dtab="gallery" type="button">Gallery</button>
-      <button class="${tab("compare")}" data-dtab="compare" type="button">Compare</button>
-    </div>
-
-    <div class="${panel("overview")}" data-dpanel="overview">
-      ${bottle.coreBar ? `<div class="core-bar-banner">🔥 Earned a place on the Core Bar · Score ${bottle.coreBarScore ?? ""}</div>` : ""}
-      <table class="bottle-detail-specs">
-        <tbody>
-          <tr><th>Mashbill</th><td>${escapeHtml(mashBillSummary(bottle) || "—")}</td></tr>
-          <tr><th>Age Statement</th><td>${bottle.ageStatement ? escapeHtml(bottle.ageStatement) : "—"}</td></tr>
-          <tr><th>Proof</th><td>${numberOrDash(bottle.proof)}</td></tr>
-          <tr><th>Distillery</th><td>${escapeHtml(bottle.distillery || "—")}</td></tr>
-          <tr><th>Region</th><td>${escapeHtml(bottle.region || "—")}</td></tr>
-          <tr><th>Store</th><td>${escapeHtml(bottle.storeLocation || "—")}</td></tr>
-          <tr><th>Current Value</th><td>${bottle.msrp ? money(bottle.msrp) : "—"}</td></tr>
-          <tr><th>Price Paid</th><td>${bottle.price ? money(bottle.price) : "—"}</td></tr>
-        </tbody>
-      </table>
-      ${renderBottleUnitsBlock(bottle)}
-      ${renderDistilleryInfoBlock(bottle)}
-    </div>
-
-    <div class="${panel("stories")}" data-dpanel="stories">
-      <div class="bottle-detail-stories-head">
-        <h3>Pour Stories</h3>
-        <button class="secondary-action" id="detailAddStory" type="button">+ Add Story</button>
+      <div class="${panel("overview")}" data-dpanel="overview">
+        ${bottle.coreBar ? `<div class="core-bar-banner">Earned a place on the Core Bar${bottle.coreBarScore ? ` · Score ${escapeHtml(String(bottle.coreBarScore))}` : ""}</div>` : ""}
+        ${renderBottleOverviewPanel(bottle, score, latestPour)}
+        ${renderBottleUnitsBlock(bottle)}
+        ${renderDistilleryInfoBlock(bottle)}
       </div>
-      ${renderBottlePourTimeline(bottle)}
-    </div>
 
-    <div class="${panel("journey")}" data-dpanel="journey">
-      ${renderBottleJourneyTimeline(bottle)}
-    </div>
+      <div class="${panel("stories")}" data-dpanel="stories">
+        <div class="bottle-detail-stories-head">
+          <div>
+            <p class="bottle-detail-kicker">Pour Stories</p>
+            <h2>Timeline</h2>
+          </div>
+          <button class="secondary-action" id="detailAddStory" type="button">Add New Pour Story</button>
+        </div>
+        ${renderBottlePourTimeline(bottle)}
+      </div>
 
-    <div class="${panel("gallery")}" data-dpanel="gallery">
-      ${renderBottleGallery(bottle)}
-    </div>
+      <div class="${panel("journey")}" data-dpanel="journey">
+        ${renderBottleEvolutionTimeline(bottle)}
+      </div>
 
-    <div class="${panel("compare")}" data-dpanel="compare">
-      <p class="bottle-detail-compare-lead">Put ${escapeHtml(bottle.name)} head-to-head with another bottle.</p>
-      <button class="primary-action" id="detailCompare" type="button">Open Compare →</button>
-    </div>
+      <div class="${panel("gallery")}" data-dpanel="gallery">
+        ${renderBottlePhotosPanel(bottle)}
+      </div>
 
-    <div class="bottle-detail-actions">
-      <label class="upload-photo-action">
-        ${bottle.imageUrl ? "Replace Photo" : "Add Photo"}
-        <input id="detailPhotoUpload" type="file" accept="image/*" />
-      </label>
+      <div class="${panel("compare")}" data-dpanel="compare">
+        ${renderBottleComparePanel(bottle, score)}
+      </div>
+
       ${
         bottle.status === "wishlist"
-          ? `<button class="primary-action" id="detailMarkOwned" type="button">✓ Mark as Owned</button>`
-          : `<button class="primary-action" id="detailLogPour" type="button">Log Pour</button>`
+          ? `<div class="bottle-detail-actions"><button class="primary-action" id="detailMarkOwned" type="button">Mark as Owned</button></div>`
+          : ""
       }
-    </div>
+    </article>
   `;
 
   const id = bottle.id;
   document.querySelector("#bottleDetailBack").addEventListener("click", () => navigateToView(detailReturnView));
   document.querySelector("#bottleDetailEdit").addEventListener("click", () => openForm(id));
+  document.querySelector("#bottleDetailFavorite").addEventListener("click", () => toggleFavorite(id));
+  document.querySelector("#bottleDetailShare")?.addEventListener("click", async () => {
+    try {
+      await navigator.share({ title: bottle.name, text: `${bottle.name}${bottle.distillery ? ` from ${bottle.distillery}` : ""}` });
+    } catch {
+      // User canceled or the browser declined the share request.
+    }
+  });
   document.querySelector("#detailStatusSelect").addEventListener("change", (event) => changeBottleStatus(id, event.target.value));
   document.querySelector("#detailAddStory")?.addEventListener("click", () => openPourForm(id));
+  document.querySelector("#detailAddStoryEmpty")?.addEventListener("click", () => openPourForm(id));
   document.querySelector("#detailLogPour")?.addEventListener("click", () => openPourForm(id));
   document.querySelector("#detailMarkOwned")?.addEventListener("click", () => markBottleOwned(id));
   document.querySelector("#detailCompare")?.addEventListener("click", () => navigateToView("compare"));
   document.querySelector("#detailPhotoUpload")?.addEventListener("change", (event) => uploadQuickBottlePhoto(event, id));
   document.querySelector("#galleryPhotoUpload")?.addEventListener("change", (event) => uploadGalleryPhoto(event, id));
+  document.querySelector("#detailPhotoAddEmpty")?.addEventListener("click", () => document.querySelector("#galleryPhotoUpload")?.click());
   els.bottleDetailView.querySelectorAll("[data-gallery-remove]").forEach((button) => {
     button.addEventListener("click", () => removeGalleryPhoto(id, Number(button.dataset.galleryRemove)));
   });
@@ -7892,7 +8253,11 @@ function renderBottleDetailView() {
   els.bottleDetailView.querySelectorAll("[data-dtab]").forEach((tabButton) => {
     tabButton.addEventListener("click", () => {
       detailTab = tabButton.dataset.dtab;
-      els.bottleDetailView.querySelectorAll("[data-dtab]").forEach((btn) => btn.classList.toggle("is-active", btn === tabButton));
+      els.bottleDetailView.querySelectorAll("[data-dtab]").forEach((btn) => {
+        const active = btn === tabButton;
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
       els.bottleDetailView.querySelectorAll("[data-dpanel]").forEach((p) => p.classList.toggle("is-hidden", p.dataset.dpanel !== detailTab));
     });
   });
