@@ -9841,38 +9841,40 @@ textarea::placeholder {
 }
 
 .brand-wordmark {
-  display: grid;
-  grid-template-columns: auto auto;
-  grid-template-areas:
-    "fully pour"
-    "involved pour"
-    "tagline tagline";
-  align-items: end;
-  column-gap: 8px;
-  row-gap: 1px;
-  line-height: 0.95;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   min-width: 0;
+  color: var(--fip-cream);
+  font-family: var(--serif);
+  line-height: 1;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
 }
 
-.brand-fully {
-  grid-area: fully;
-  font-size: 1.12rem;
+.brand-wordmark span {
+  display: block;
+  position: static;
+}
+
+.brand-wordmark .brand-fully {
+  color: inherit;
+  font-size: 1.14rem;
   line-height: 1;
 }
 
-.brand-involved {
-  grid-area: involved;
+.brand-wordmark .brand-involved {
   margin: 0;
-  font-size: 0.57rem;
-  line-height: 1;
-  letter-spacing: 0.25em;
+  color: inherit;
+  font-size: 0.68rem;
+  line-height: 1.1;
+  letter-spacing: 0.22em;
 }
 
-.brand-pour {
-  grid-area: pour;
-  align-self: center;
-  font-size: 1.82rem;
-  line-height: 0.86;
+.brand-wordmark .brand-pour {
+  color: var(--fip-amber);
+  font-size: 1.36rem;
+  line-height: 0.95;
 }
 
 .brand-tagline {
@@ -10015,18 +10017,18 @@ textarea::placeholder {
     border-radius: 11px;
   }
 
-  .brand-fully {
+  .brand-wordmark .brand-fully {
     display: block;
     font-size: 0.82rem;
   }
 
-  .brand-involved {
+  .brand-wordmark .brand-involved {
     display: block;
     font-size: 0.45rem;
     letter-spacing: 0.2em;
   }
 
-  .brand-pour {
+  .brand-wordmark .brand-pour {
     display: block;
     font-size: 1.28rem;
   }
@@ -15074,9 +15076,6 @@ body:has(.dashboard-view:not(.is-hidden)) .main {
 
 /* Approved full Home composition, July 16 */
 body:has(.dashboard-view:not(.is-hidden)) {
-  --approved-home-cream: #f2e6cd;
-  --approved-home-amber: #d4891c;
-  --approved-home-border: rgba(212, 137, 28, 0.55);
   background: #030302;
 }
 
@@ -15103,7 +15102,7 @@ body:has(.dashboard-view:not(.is-hidden)) .brand .brand-mark {
 body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark {
   display: none;
   gap: 0;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   font-family: var(--serif);
   line-height: 0.88;
   letter-spacing: 0.18em;
@@ -15112,7 +15111,7 @@ body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark {
 
 body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark span {
   display: block;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark .brand-fully {
@@ -15125,7 +15124,7 @@ body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark .brand-involved {
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark .brand-pour {
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
   font-size: 2rem;
 }
 
@@ -15147,7 +15146,7 @@ body:has(.dashboard-view:not(.is-hidden)) .topbar .nav-item {
   padding: 0 0 16px;
   border: 0;
   border-radius: 0;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   background: transparent;
   box-shadow: none;
   font-size: 0.86rem;
@@ -15160,13 +15159,13 @@ body:has(.dashboard-view:not(.is-hidden)) .topbar .nav-item {
 body:has(.dashboard-view:not(.is-hidden)) .topbar .nav-item::after {
   bottom: 6px;
   height: 3px;
-  background: var(--approved-home-amber);
+  background: var(--fip-amber);
   opacity: 0;
   transform: scaleX(0.75);
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .topbar .nav-item.is-active {
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .topbar .nav-item.is-active::after {
@@ -15187,7 +15186,7 @@ body:has(.dashboard-view:not(.is-hidden)) .account-box .icon-button {
   width: 38px;
   height: 38px;
   border: 0;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   background: transparent;
 }
 
@@ -15207,7 +15206,7 @@ body:has(.dashboard-view:not(.is-hidden)) #signInButton:not(.is-hidden) {
 body:has(.dashboard-view:not(.is-hidden)) #signInButton:not(.is-hidden)::after {
   content: "KL";
   grid-area: 1 / 1;
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
   font-family: Inter, sans-serif;
   font-size: 1rem;
   font-weight: 700;
@@ -15220,7 +15219,7 @@ body:has(.dashboard-view:not(.is-hidden)) .account-avatar-badge {
   width: 52px;
   height: 52px;
   border-color: rgba(212, 137, 28, 0.78);
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
   background: transparent;
 }
 
@@ -15373,7 +15372,7 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .profile-journey-grid 
   height: 54px;
   transform: translateY(-50%);
   background: currentColor;
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
   opacity: 0.95;
   -webkit-mask: var(--metric-icon) center / contain no-repeat;
   mask: var(--metric-icon) center / contain no-repeat;
@@ -15396,20 +15395,20 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .profile-journey-grid 
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .profile-journey-grid span {
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
   font-size: 0.78rem;
   letter-spacing: 0.06em;
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .profile-journey-grid strong {
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   font-family: Inter, sans-serif;
   font-size: 1.6rem;
   font-weight: 700;
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .profile-journey-grid em {
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   font-size: 0.92rem;
 }
 
@@ -15583,7 +15582,7 @@ body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark {
   flex-direction: column;
   justify-content: center;
   min-width: 128px;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   font-family: var(--serif);
   line-height: 1;
   letter-spacing: 0.17em;
@@ -15607,7 +15606,7 @@ body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark .brand-involved {
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .brand-wordmark .brand-pour {
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
   font-size: 1.36rem;
   line-height: 0.95;
 }
@@ -15673,13 +15672,13 @@ body:has(.dashboard-view:not(.is-hidden)) .home-closing-statement {
   gap: 6px;
   justify-items: center;
   padding: 28px 20px 42px;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   text-align: center;
 }
 
 body:has(.dashboard-view:not(.is-hidden)) .home-closing-statement h2 {
   margin: 0;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   font-family: var(--serif);
   font-size: clamp(1.8rem, 3vw, 2.7rem);
   letter-spacing: 0.06em;
@@ -15709,7 +15708,7 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .continue-story .secti
 
 body:has(.dashboard-view:not(.is-hidden)) .home-section-card .section-heading p,
 body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .continue-story .section-heading p {
-  color: var(--approved-home-amber);
+  color: var(--fip-amber);
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.12em;
@@ -15718,7 +15717,7 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .continue-story .secti
 
 body:has(.dashboard-view:not(.is-hidden)) .home-section-card .section-heading h2,
 body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .continue-story .section-heading h2 {
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   font-family: var(--serif);
   font-size: clamp(1.25rem, 1.55vw, 1.65rem);
   letter-spacing: 0.06em;
@@ -15782,7 +15781,7 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .continue-story .home-
 
 body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .continue-story .home-empty-state strong {
   max-width: 28ch;
-  color: var(--approved-home-cream);
+  color: var(--fip-cream);
   font-family: var(--serif);
   font-size: clamp(1.45rem, 1.75vw, 1.95rem);
   line-height: 1.08;
