@@ -11489,8 +11489,8 @@ textarea::placeholder {
   --fip-border-strong: rgba(216, 138, 20, 0.62);
   --fip-border-subtle: rgba(242, 229, 204, 0.08);
 
-  --fip-font-display: var(--serif, "Fraunces", Georgia, "Times New Roman", serif);
-  --fip-font-body: var(--sans, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  --fip-font-display: "Fraunces", Georgia, "Times New Roman", "Iowan Old Style", serif;
+  --fip-font-body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --fip-text-xs: 0.75rem;
   --fip-text-sm: 0.875rem;
   --fip-text-md: 1rem;
