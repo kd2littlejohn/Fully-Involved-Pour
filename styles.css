@@ -8,7 +8,7 @@
 
 /* Journal presentation replacement */
 .journal-page {
-  width: min(1500px, calc(100vw - 40px));
+  width: min(1500px, 100%);
   max-width: 1500px;
   margin: clamp(18px, 3vw, 42px) auto 0;
   padding-bottom: calc(110px + env(safe-area-inset-bottom));
@@ -10855,7 +10855,7 @@ textarea::placeholder {
 .journal-page {
   position: relative;
   isolation: isolate;
-  width: min(1500px, calc(100vw - 40px));
+  width: min(1500px, 100%);
   max-width: 1500px;
   margin: clamp(18px, 3vw, 42px) auto 0;
   padding-bottom: calc(110px + env(safe-area-inset-bottom));
