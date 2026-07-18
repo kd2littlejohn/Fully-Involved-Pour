@@ -1722,7 +1722,11 @@ const els = {
   closeAuthDialog: document.querySelector("#closeAuthDialog"),
   authGoogle: document.querySelector("#authGoogle"),
   authFacebook: document.querySelector("#authFacebook"),
-  authInstagram: document.querySelector("#authInstagram"),
+  authEmailForm: document.querySelector("#authEmailForm"),
+  authEmail: document.querySelector("#authEmail"),
+  authPassword: document.querySelector("#authPassword"),
+  authEmailSubmit: document.querySelector("#authEmailSubmit"),
+  authToggleMode: document.querySelector("#authToggleMode"),
   authError: document.querySelector("#authError"),
   accountAvatarBadge: document.querySelector("#accountAvatarBadge"),
   accountInitials: document.querySelector("#accountInitials"),
@@ -3161,18 +3165,6 @@ if (auth) {
   els.signInButton.textContent = "Sign-in unavailable";
 }
 
-// Instagram OAuth (custom-token flow via the exchangeInstagramCode function).
-// Set INSTAGRAM_APP_ID to your Meta app's Instagram app id to enable the button;
-// the matching secret lives only on the server. INSTAGRAM_SCOPE may need to be
-// "instagram_business_basic" depending on your Meta app type. The redirect URI
-// below must be registered in your Meta app's Instagram settings.
-const INSTAGRAM_APP_ID = ""; // e.g. "1234567890123456"
-const INSTAGRAM_SCOPE = "user_profile";
-function instagramRedirectUri() {
-  return `${location.origin}/instagram-callback.html`;
-}
-const instagramConfigured = Boolean(INSTAGRAM_APP_ID);
-
 function setAuthError(message) {
   if (els.authError) els.authError.textContent = message || "";
 }
@@ -3207,60 +3199,76 @@ function signInWithFacebook() {
   auth.signInWithPopup(provider).catch(handleAuthProviderError);
 }
 
-let instagramPopup = null;
+// Email/password: "signup" creates a new account, "signin" logs into an existing
+// one. The dialog opens in signup mode and the toggle flips between the two.
+let authMode = "signup";
 
-function signInWithInstagram() {
-  if (!auth || !cloudFunctions) return;
+function updateAuthModeUI() {
+  const signup = authMode === "signup";
+  if (els.authEmailSubmit) els.authEmailSubmit.textContent = signup ? "Create account" : "Sign in";
+  if (els.authToggleMode) {
+    els.authToggleMode.textContent = signup
+      ? "Already have an account? Sign in"
+      : "New here? Create an account";
+  }
+  if (els.authPassword) els.authPassword.autocomplete = signup ? "new-password" : "current-password";
+}
+
+function toggleAuthMode() {
+  authMode = authMode === "signup" ? "signin" : "signup";
   setAuthError("");
-  if (!instagramConfigured) {
-    setAuthError("Instagram sign-in isn't configured yet.");
-    return;
-  }
-  const authUrl =
-    `https://www.instagram.com/oauth/authorize?client_id=${encodeURIComponent(INSTAGRAM_APP_ID)}` +
-    `&redirect_uri=${encodeURIComponent(instagramRedirectUri())}` +
-    `&scope=${encodeURIComponent(INSTAGRAM_SCOPE)}&response_type=code`;
-  const w = 480;
-  const h = 720;
-  const left = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
-  const top = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
-  instagramPopup = window.open(authUrl, "instagram-oauth", `width=${w},height=${h},left=${left},top=${top}`);
-  if (!instagramPopup) setAuthError("Your browser blocked the Instagram popup. Allow popups and try again.");
+  updateAuthModeUI();
 }
 
-// Complete the Instagram flow: swap the code for a custom token and sign in.
-async function completeInstagramSignIn(code) {
-  if (!code || !auth || !cloudFunctions) return;
+// Firebase surfaces distinct error codes; translate the common ones to plain text.
+function handleEmailAuthError(error) {
+  console.error("Email auth failed", error);
+  const map = {
+    "auth/email-already-in-use": "That email already has an account. Switch to Sign in.",
+    "auth/invalid-email": "Enter a valid email address.",
+    "auth/weak-password": "Choose a password with at least 6 characters.",
+    "auth/wrong-password": "Incorrect email or password.",
+    "auth/user-not-found": "No account found for that email. Create one instead.",
+    "auth/invalid-credential": "Incorrect email or password.",
+    "auth/too-many-requests": "Too many attempts. Wait a moment and try again.",
+  };
+  setAuthError(map[error?.code] || "Couldn't complete that. Please try again.");
+}
+
+async function submitEmailAuth() {
+  if (!auth) return;
+  setAuthError("");
+  const email = (els.authEmail?.value || "").trim();
+  const password = els.authPassword?.value || "";
+  if (!email || !password) {
+    setAuthError("Enter your email and a password.");
+    return;
+  }
+  if (authMode === "signup" && password.length < 6) {
+    setAuthError("Choose a password with at least 6 characters.");
+    return;
+  }
+  els.authEmailSubmit && (els.authEmailSubmit.disabled = true);
   try {
-    const exchange = cloudFunctions.httpsCallable("exchangeInstagramCode");
-    const result = await exchange({ code, redirectUri: instagramRedirectUri() });
-    const token = result?.data?.token;
-    if (!token) throw new Error("No token returned from Instagram exchange.");
-    await auth.signInWithCustomToken(token);
-    closeAuthDialog();
+    if (authMode === "signup") {
+      await auth.createUserWithEmailAndPassword(email, password);
+    } else {
+      await auth.signInWithEmailAndPassword(email, password);
+    }
+    // onAuthStateChanged closes the dialog and pulls cloud data.
   } catch (error) {
-    console.error("Instagram sign-in failed", error);
-    setAuthError("Instagram sign-in didn't complete. Please try again.");
+    handleEmailAuthError(error);
+  } finally {
+    els.authEmailSubmit && (els.authEmailSubmit.disabled = false);
   }
 }
-
-// Receive the authorization code posted back by instagram-callback.html.
-window.addEventListener("message", (event) => {
-  if (event.origin !== location.origin) return;
-  const data = event.data || {};
-  if (data.type !== "instagram-oauth") return;
-  instagramPopup?.close();
-  instagramPopup = null;
-  if (data.error) {
-    setAuthError("Instagram sign-in was cancelled.");
-    return;
-  }
-  completeInstagramSignIn(data.code);
-});
 
 function openAuthDialog() {
   setAuthError("");
-  if (els.authInstagram) els.authInstagram.classList.toggle("is-hidden", !instagramConfigured);
+  authMode = "signup";
+  updateAuthModeUI();
+  if (els.authEmail) els.authEmail.value = "";
+  if (els.authPassword) els.authPassword.value = "";
   if (els.authDialog?.showModal && !els.authDialog.open) els.authDialog.showModal();
 }
 
@@ -3279,7 +3287,11 @@ els.authFacebook?.addEventListener("click", () => {
   closeAuthDialog();
   signInWithFacebook();
 });
-els.authInstagram?.addEventListener("click", signInWithInstagram);
+els.authEmailForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitEmailAuth();
+});
+els.authToggleMode?.addEventListener("click", toggleAuthMode);
 els.welcomeAddBottle?.addEventListener("click", () => openForm());
 
 els.accountAvatarBadge?.addEventListener("click", (event) => {
@@ -10077,12 +10089,3 @@ if (launchAction === "add-bottle") {
 
 selectInviteMethod("email");
 captureInviteReferral();
-
-// Same-tab Instagram OAuth return (mobile/popup-blocked): finish the sign-in and
-// strip the code from the URL so a refresh doesn't re-run it.
-const instagramReturnCode = new URLSearchParams(window.location.search).get("instagram_code");
-if (instagramReturnCode) {
-  completeInstagramSignIn(instagramReturnCode);
-  const cleanUrl = window.location.pathname + window.location.hash;
-  window.history.replaceState({}, document.title, cleanUrl);
-}

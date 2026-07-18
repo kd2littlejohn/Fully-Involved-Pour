@@ -4483,13 +4483,53 @@ button.mini-flavor-chip:focus-visible {
   color: #ffffff;
 }
 
-.auth-provider-instagram {
-  background: linear-gradient(90deg, #f58529 0%, #dd2a7b 45%, #8134af 75%, #515bd4 100%);
-  color: #ffffff;
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
-.auth-provider-instagram .auth-provider-icon {
-  background: rgba(255, 255, 255, 0.22);
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-email-form input {
+  width: 100%;
+}
+
+.auth-email-form .primary-action {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.auth-toggle-mode {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 4px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.auth-toggle-mode:hover {
+  text-decoration: underline;
 }
 
 .invite-welcome-dialog {

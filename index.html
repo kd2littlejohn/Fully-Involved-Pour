@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=176" />
+    <link rel="stylesheet" href="styles.css?v=177" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -1390,11 +1390,14 @@
             <span class="auth-provider-icon" aria-hidden="true">f</span>
             <span>Continue with Facebook</span>
           </button>
-          <button class="auth-provider auth-provider-instagram is-hidden" id="authInstagram" type="button">
-            <span class="auth-provider-icon" aria-hidden="true">📸</span>
-            <span>Continue with Instagram</span>
-          </button>
         </div>
+        <div class="auth-divider"><span>or</span></div>
+        <form class="auth-email-form" id="authEmailForm">
+          <input type="email" id="authEmail" placeholder="you@email.com" autocomplete="email" required />
+          <input type="password" id="authPassword" placeholder="Password (6+ characters)" autocomplete="new-password" required />
+          <button class="primary-action" id="authEmailSubmit" type="submit">Create account</button>
+        </form>
+        <button class="auth-toggle-mode" id="authToggleMode" type="button">Already have an account? Sign in</button>
         <p class="auth-gate-note" id="authError"></p>
       </div>
     </dialog>
@@ -1639,7 +1642,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=135"></script>
+    <script src="app.js?v=136"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
