@@ -4310,6 +4310,90 @@ button.mini-flavor-chip:focus-visible {
   flex: 1;
 }
 
+.invite-panel {
+  margin: 4px 0 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-strong, var(--panel));
+}
+
+.invite-panel .section-heading {
+  margin-top: 0;
+}
+
+.invite-methods {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.invite-method {
+  flex: 1;
+  padding: 9px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft, inherit);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.invite-method:hover {
+  border-color: var(--accent);
+}
+
+.invite-method.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink, #14100c);
+  font-weight: 600;
+}
+
+.invite-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.invite-form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-prefix {
+  position: absolute;
+  margin-left: 12px;
+  color: var(--ink-soft, inherit);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.invite-prefix.is-hidden {
+  display: none;
+}
+
+.invite-prefix:not(.is-hidden) + input {
+  padding-left: 26px;
+}
+
+.invite-hint {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.invite-share-all {
+  width: 100%;
+}
+
+.invite-feedback-ok {
+  color: var(--accent);
+}
+
 .friend-list {
   display: grid;
   gap: 10px;

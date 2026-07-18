@@ -1749,6 +1749,14 @@ const els = {
   followerCount: document.querySelector("#followerCount"),
   friendInventoryDialog: document.querySelector("#friendInventoryDialog"),
   friendInventoryDetail: document.querySelector("#friendInventoryDetail"),
+  invitePanel: document.querySelector("#invitePanel"),
+  inviteMethods: document.querySelectorAll("[data-invite-method]"),
+  inviteContactInput: document.querySelector("#inviteContactInput"),
+  inviteInputPrefix: document.querySelector("#inviteInputPrefix"),
+  sendInviteButton: document.querySelector("#sendInviteButton"),
+  inviteShareButton: document.querySelector("#inviteShareButton"),
+  inviteHint: document.querySelector("#inviteHint"),
+  inviteFeedback: document.querySelector("#inviteFeedback"),
 };
 
 const fields = {
@@ -2591,6 +2599,191 @@ async function unfollowUser(targetUid) {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Invite a friend — email / phone / Instagram
+ * ------------------------------------------------------------------ */
+
+let inviteMethod = "email";
+
+const INVITE_METHOD_CONFIG = {
+  email: {
+    inputType: "email",
+    inputMode: "email",
+    placeholder: "friend@email.com",
+    prefix: "",
+    hint: "We'll open your email app with a ready-to-send invite.",
+    send: "Send email",
+  },
+  phone: {
+    inputType: "tel",
+    inputMode: "tel",
+    placeholder: "(555) 123-4567",
+    prefix: "",
+    hint: "We'll open your messages app with a ready-to-send text.",
+    send: "Send text",
+  },
+  instagram: {
+    inputType: "text",
+    inputMode: "text",
+    placeholder: "handle",
+    prefix: "@",
+    hint: "We'll copy your invite and open their Instagram DMs to paste.",
+    send: "Open DM",
+  },
+};
+
+// Public link a friend can open. Carries the inviter's username so the app can
+// prompt the new arrival to follow them back.
+function buildInviteLink() {
+  const base = `${location.origin}${location.pathname}`.replace(/index\.html$/, "");
+  const username = currentProfile?.username ? normalizeUsername(currentProfile.username) : "";
+  return username ? `${base}?invite=${encodeURIComponent(username)}` : base;
+}
+
+function inviteMessage() {
+  const link = buildInviteLink();
+  const from = currentProfile?.username ? ` ${currentProfile.username} is` : "";
+  return {
+    subject: "Join me on Fully Involved Pour 🥃",
+    body: `Hey! ${from ? `${currentProfile.username} here —` : "I'm"} tracking my whiskey collection on Fully Involved Pour and I'd love to see yours. Pour by pour, bottle by bottle. Join me:\n\n${link}`,
+    short: `Join me on Fully Involved Pour 🥃 — track your whiskey collection pour by pour: ${link}`,
+    link,
+  };
+}
+
+function setInviteFeedback(message, ok = false) {
+  if (!els.inviteFeedback) return;
+  els.inviteFeedback.textContent = message || "";
+  els.inviteFeedback.classList.toggle("invite-feedback-ok", ok && Boolean(message));
+}
+
+function selectInviteMethod(method) {
+  inviteMethod = INVITE_METHOD_CONFIG[method] ? method : "email";
+  const config = INVITE_METHOD_CONFIG[inviteMethod];
+  els.inviteMethods?.forEach((button) => {
+    const active = button.dataset.inviteMethod === inviteMethod;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  if (els.inviteContactInput) {
+    els.inviteContactInput.type = config.inputType;
+    els.inviteContactInput.inputMode = config.inputMode;
+    els.inviteContactInput.placeholder = config.placeholder;
+    els.inviteContactInput.value = "";
+  }
+  if (els.inviteInputPrefix) {
+    els.inviteInputPrefix.textContent = config.prefix;
+    els.inviteInputPrefix.classList.toggle("is-hidden", !config.prefix);
+  }
+  if (els.inviteHint) els.inviteHint.textContent = config.hint;
+  if (els.sendInviteButton) els.sendInviteButton.textContent = config.send;
+  setInviteFeedback("");
+}
+
+// Best-effort record of who invited whom. Never blocks the actual invite.
+function logInvite(method, contact) {
+  if (!currentUser || !db) return;
+  db.collection("invites")
+    .add({
+      inviterUid: currentUser.uid,
+      inviterUsername: currentProfile?.username || "",
+      method,
+      contact: contact || "",
+      createdAt: Date.now(),
+    })
+    .catch((error) => console.warn("Invite log skipped", error));
+}
+
+async function copyInviteLink() {
+  const { short } = inviteMessage();
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Fully Involved Pour", text: short, url: buildInviteLink() });
+      setInviteFeedback("Invite shared.", true);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return; // user dismissed the share sheet
+    }
+  }
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(short);
+      setInviteFeedback("Invite link copied to clipboard.", true);
+      return;
+    } catch (error) {
+      console.warn("Clipboard write failed", error);
+    }
+  }
+  setInviteFeedback(short);
+}
+
+async function sendInvite() {
+  setInviteFeedback("");
+  const raw = (els.inviteContactInput?.value || "").trim();
+  const message = inviteMessage();
+
+  if (inviteMethod === "email") {
+    if (raw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
+      setInviteFeedback("Enter a valid email address (or leave it blank to pick a contact).");
+      return;
+    }
+    const href = `mailto:${encodeURIComponent(raw)}?subject=${encodeURIComponent(message.subject)}&body=${encodeURIComponent(message.body)}`;
+    window.location.href = href;
+    logInvite("email", raw);
+    setInviteFeedback("Opening your email app…", true);
+    return;
+  }
+
+  if (inviteMethod === "phone") {
+    const digits = raw.replace(/[^\d+]/g, "");
+    if (raw && digits.replace(/\D/g, "").length < 7) {
+      setInviteFeedback("Enter a valid phone number (or leave it blank to pick a contact).");
+      return;
+    }
+    // iOS wants `&body=`, Android accepts `?body=`; `?&body=` works on both.
+    const href = `sms:${digits}?&body=${encodeURIComponent(message.short)}`;
+    window.location.href = href;
+    logInvite("phone", digits);
+    setInviteFeedback("Opening your messages app…", true);
+    return;
+  }
+
+  if (inviteMethod === "instagram") {
+    const handle = raw.replace(/^@+/, "").replace(/[^A-Za-z0-9._]/g, "");
+    if (!handle) {
+      setInviteFeedback("Enter an Instagram handle to open their DMs.");
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(message.short);
+      } catch (error) {
+        console.warn("Clipboard write failed", error);
+      }
+    }
+    // ig.me opens the DM thread in-app when available, else on the web.
+    window.open(`https://ig.me/m/${encodeURIComponent(handle)}`, "_blank", "noopener");
+    logInvite("instagram", `@${handle}`);
+    setInviteFeedback(`Invite copied — paste it into @${handle}'s DM.`, true);
+  }
+}
+
+// If someone arrives from an invite link, tee up following the inviter.
+let pendingInviteFrom = "";
+
+function captureInviteReferral() {
+  const raw = new URLSearchParams(window.location.search).get("invite");
+  if (!raw) return;
+  pendingInviteFrom = normalizeUsername(raw);
+  applyInviteReferral();
+}
+
+function applyInviteReferral() {
+  if (!pendingInviteFrom || !els.followUsernameInput) return;
+  if (!els.followUsernameInput.value) els.followUsernameInput.value = pendingInviteFrom;
+  if (els.followError) els.followError.textContent = `You were invited by ${pendingInviteFrom} — follow them back to compare cabinets.`;
+}
+
 async function lookupProfileUsername(uid, fallback) {
   if (!db) return fallback || "Unknown";
   try {
@@ -2912,6 +3105,18 @@ els.greetingModeUsername?.addEventListener("change", syncGreetingFields);
 els.greetingModeCustom?.addEventListener("change", syncGreetingFields);
 els.followButton?.addEventListener("click", () => followUsername(els.followUsernameInput.value));
 
+els.inviteMethods?.forEach((button) => {
+  button.addEventListener("click", () => selectInviteMethod(button.dataset.inviteMethod));
+});
+els.sendInviteButton?.addEventListener("click", sendInvite);
+els.inviteShareButton?.addEventListener("click", copyInviteLink);
+els.inviteContactInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    sendInvite();
+  }
+});
+
 async function saveAccountSettings() {
   saveGreetingPreference();
   // A signed-in user must have a valid username; claimUsername validates, saves,
@@ -2931,6 +3136,7 @@ document.querySelector("#profileSignOut")?.addEventListener("click", () => auth?
 function openFriendsDrawer() {
   els.friendsDrawer.classList.add("is-open");
   els.friendsBackdrop.classList.remove("is-hidden");
+  applyInviteReferral();
   renderFriendList();
 }
 
@@ -4994,7 +5200,7 @@ function renderShareActionPanel() {
       <button class="journey-action-button" data-journey-action="${recent ? "open-bottle" : "start-pour"}" data-bottle-id="${escapeHtml(recent?.bottle?.id || "")}" type="button"><strong>Share a Pour Story</strong><span>${escapeHtml(recent ? recent.bottle.name : "Start with your first story.")}</span></button>
       <button class="journey-action-button" data-journey-action="memory-coming-soon" type="button"><strong>Create a Memory</strong><span>Coming soon as a dedicated flow.</span></button>
       <button class="journey-action-button" data-journey-action="${recommended ? "open-bottle" : "navigate-collection"}" data-bottle-id="${escapeHtml(recommended?.id || "")}" type="button"><strong>Recommend a Bottle</strong><span>${escapeHtml(recommended ? recommended.name : "Add a bottle to recommend.")}</span></button>
-      <button class="journey-action-button" data-journey-action="friends" type="button"><strong>Invite a Friend</strong><span>Open the existing friends drawer.</span></button>
+      <button class="journey-action-button" data-journey-action="friends" type="button"><strong>Invite a Friend</strong><span>Invite by email, phone, or Instagram.</span></button>
     </div>
   `;
 }
@@ -9647,3 +9853,6 @@ if (launchAction === "add-bottle") {
 } else if (launchAction === "log-pour") {
   openPourForm();
 }
+
+selectInviteMethod("email");
+captureInviteReferral();

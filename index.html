@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=171" />
+    <link rel="stylesheet" href="styles.css?v=172" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -1024,6 +1024,35 @@
         </div>
         <button class="icon-button" id="closeFriendsDrawer" type="button" aria-label="Close">×</button>
       </div>
+
+      <div class="invite-panel" id="invitePanel">
+        <div class="section-heading compact">
+          <div>
+            <p>Grow your crew</p>
+            <h2>Invite a friend</h2>
+          </div>
+        </div>
+        <div class="invite-methods" role="tablist" aria-label="Invite method">
+          <button class="invite-method is-active" data-invite-method="email" type="button" role="tab" aria-selected="true">✉️ Email</button>
+          <button class="invite-method" data-invite-method="phone" type="button" role="tab" aria-selected="false">📱 Phone</button>
+          <button class="invite-method" data-invite-method="instagram" type="button" role="tab" aria-selected="false">📸 Instagram</button>
+        </div>
+        <div class="invite-form">
+          <span class="invite-prefix is-hidden" id="inviteInputPrefix">@</span>
+          <input id="inviteContactInput" type="email" inputmode="email" placeholder="friend@email.com" autocomplete="off" />
+          <button class="primary-action" id="sendInviteButton" type="button">Send</button>
+        </div>
+        <p class="invite-hint" id="inviteHint">We'll open your email app with a ready-to-send invite.</p>
+        <button class="secondary-action invite-share-all" id="inviteShareButton" type="button">Copy invite link</button>
+        <p class="auth-gate-note" id="inviteFeedback"></p>
+      </div>
+
+      <div class="section-heading compact">
+        <div>
+          <p>By username</p>
+          <h2>Follow directly</h2>
+        </div>
+      </div>
       <div class="follow-form">
         <input id="followUsernameInput" placeholder="friend_username" autocomplete="off" />
         <button class="primary-action" id="followButton" type="button">Follow</button>
@@ -1561,7 +1590,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=130"></script>
+    <script src="app.js?v=131"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
