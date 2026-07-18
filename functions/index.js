@@ -1,8 +1,18 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
+
+if (!admin.apps.length) admin.initializeApp();
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+
+// Instagram OAuth app credentials (Meta app). The client only ever sees the id;
+// the secret stays here. Configure with:
+//   firebase functions:secrets:set INSTAGRAM_APP_ID
+//   firebase functions:secrets:set INSTAGRAM_APP_SECRET
+const instagramAppId = defineSecret("INSTAGRAM_APP_ID");
+const instagramAppSecret = defineSecret("INSTAGRAM_APP_SECRET");
 
 async function callClaude(apiKey, { system, prompt, maxTokens, content, messages }) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -218,5 +228,99 @@ exports.removeBottleBackground = onCall(
       console.error("Background removal failed", error);
       throw new HttpsError("internal", "Could not remove the background from that photo.");
     }
+  },
+);
+
+// Instagram has no native Firebase provider, so we run the OAuth code exchange
+// ourselves and mint a Firebase custom token the client signs in with. The
+// browser sends the authorization code from the redirect; we swap it for the
+// user's Instagram id + username and return a token bound to a stable uid.
+exports.exchangeInstagramCode = onCall(
+  { secrets: [instagramAppId, instagramAppSecret], cors: true },
+  async (request) => {
+    const code = String(request.data?.code || "").trim();
+    const redirectUri = String(request.data?.redirectUri || "").trim();
+    if (!code || !redirectUri) {
+      throw new HttpsError("invalid-argument", "Missing Instagram authorization code.");
+    }
+
+    const appId = instagramAppId.value();
+    const appSecret = instagramAppSecret.value();
+    if (!appId || !appSecret) {
+      throw new HttpsError("failed-precondition", "Instagram sign-in isn't configured on the server.");
+    }
+
+    // 1) Exchange the one-time code for a short-lived access token + user id.
+    let tokenData;
+    try {
+      const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: appId,
+          client_secret: appSecret,
+          grant_type: "authorization_code",
+          redirect_uri: redirectUri,
+          code,
+        }).toString(),
+      });
+      if (!tokenRes.ok) {
+        console.error("Instagram token exchange failed", tokenRes.status, await tokenRes.text());
+        throw new HttpsError("permission-denied", "Instagram rejected the sign-in. Please try again.");
+      }
+      tokenData = await tokenRes.json();
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      console.error("Instagram token request error", error);
+      throw new HttpsError("unavailable", "Could not reach Instagram. Please try again.");
+    }
+
+    const accessToken = String(tokenData.access_token || "");
+    let igId = tokenData.user_id ? String(tokenData.user_id) : "";
+    let username = "";
+
+    // 2) Read the profile (id + username) with the access token.
+    if (accessToken) {
+      try {
+        const profRes = await fetch(
+          `https://graph.instagram.com/me?fields=id,username&access_token=${encodeURIComponent(accessToken)}`,
+        );
+        if (profRes.ok) {
+          const prof = await profRes.json();
+          igId = String(prof.id || igId);
+          username = String(prof.username || "");
+        } else {
+          console.warn("Instagram profile fetch non-OK", profRes.status);
+        }
+      } catch (error) {
+        console.warn("Instagram profile fetch failed", error);
+      }
+    }
+
+    if (!igId) {
+      throw new HttpsError("internal", "Could not read your Instagram account.");
+    }
+
+    const uid = `instagram:${igId}`;
+    const displayName = username ? `@${username}` : "Instagram user";
+
+    // 3) Upsert a stable Firebase user for this Instagram account.
+    try {
+      await admin.auth().updateUser(uid, { displayName });
+    } catch (error) {
+      if (error.code === "auth/user-not-found") {
+        await admin.auth().createUser({ uid, displayName });
+      } else {
+        console.error("Instagram user upsert failed", error);
+        throw new HttpsError("internal", "Could not set up your account.");
+      }
+    }
+
+    // 4) Mint the custom token the client exchanges for a session.
+    const token = await admin.auth().createCustomToken(uid, {
+      provider: "instagram",
+      igUsername: username,
+    });
+    return { token, username };
   },
 );

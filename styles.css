@@ -4406,6 +4406,92 @@ button.mini-flavor-chip:focus-visible {
   opacity: 0.85;
 }
 
+.auth-dialog {
+  max-width: 400px;
+}
+
+.auth-sheet {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-providers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 18px 0 6px;
+}
+
+.auth-provider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+}
+
+.auth-provider:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.auth-provider:active {
+  transform: translateY(0);
+}
+
+.auth-provider.is-hidden {
+  display: none;
+}
+
+.auth-provider-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.auth-provider-google {
+  background: #ffffff;
+  color: #1f1b16;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.auth-provider-google .auth-provider-icon {
+  background: #f1f3f4;
+  color: #4285f4;
+}
+
+.auth-provider-facebook {
+  background: #1877f2;
+  color: #ffffff;
+}
+
+.auth-provider-facebook .auth-provider-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.auth-provider-instagram {
+  background: linear-gradient(90deg, #f58529 0%, #dd2a7b 45%, #8134af 75%, #515bd4 100%);
+  color: #ffffff;
+}
+
+.auth-provider-instagram .auth-provider-icon {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .invite-welcome-dialog {
   max-width: 420px;
   text-align: center;

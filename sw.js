@@ -1,10 +1,10 @@
-const CACHE_NAME = "fip-shell-v83";
+const CACHE_NAME = "fip-shell-v84";
 
 const SHELL_ASSETS = [
   "./",
   "index.html",
-  "styles.css?v=175",
-  "app.js?v=134",
+  "styles.css?v=176",
+  "app.js?v=135",
   "manifest.webmanifest",
   "assets/compass-mark.png",
   "assets/home-hero.png",
@@ -42,6 +42,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   // Firebase auth/firestore/functions and other cross-origin requests go straight to the network.
   if (url.origin !== self.location.origin) return;
+
+  // The Instagram OAuth callback must always hit the network and must never be
+  // cached under the index.html key (the navigate handler below caches every
+  // navigation there) — let the browser handle it directly.
+  if (url.pathname.endsWith("/instagram-callback.html")) return;
 
   if (request.mode === "navigate") {
     event.respondWith(

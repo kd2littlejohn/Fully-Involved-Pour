@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=175" />
+    <link rel="stylesheet" href="styles.css?v=176" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -34,7 +34,7 @@
         </p>
         <div class="welcome-actions">
           <button class="primary-action" id="welcomeAddBottle" type="button">Add Your First Bottle</button>
-          <button class="secondary-action" id="welcomeSignIn" type="button">Sign in with Google</button>
+          <button class="secondary-action" id="welcomeSignIn" type="button">Sign in to sync</button>
         </div>
         <p class="welcome-footnote">
           Signing in syncs your collection across devices and unlocks following friends.
@@ -94,7 +94,7 @@
             </svg>
             <span class="nav-badge is-hidden" id="friendsBadge"></span>
           </button>
-          <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
+          <button class="secondary-action" id="signInButton" type="button">Sign in</button>
           <div class="account-menu-wrap">
             <button
               class="account-avatar-badge is-hidden"
@@ -1369,6 +1369,36 @@
       </form>
     </dialog>
 
+    <dialog class="bottle-dialog auth-dialog" id="authDialog">
+      <div class="auth-sheet">
+        <div class="form-head">
+          <div>
+            <p>Welcome</p>
+            <h2>Sign in to Fully Involved Pour</h2>
+          </div>
+          <button class="icon-button" id="closeAuthDialog" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="auth-gate-note" style="color: var(--muted)">
+          Sync your collection across devices and unlock following friends.
+        </p>
+        <div class="auth-providers">
+          <button class="auth-provider auth-provider-google" id="authGoogle" type="button">
+            <span class="auth-provider-icon" aria-hidden="true">G</span>
+            <span>Continue with Google</span>
+          </button>
+          <button class="auth-provider auth-provider-facebook" id="authFacebook" type="button">
+            <span class="auth-provider-icon" aria-hidden="true">f</span>
+            <span>Continue with Facebook</span>
+          </button>
+          <button class="auth-provider auth-provider-instagram is-hidden" id="authInstagram" type="button">
+            <span class="auth-provider-icon" aria-hidden="true">📸</span>
+            <span>Continue with Instagram</span>
+          </button>
+        </div>
+        <p class="auth-gate-note" id="authError"></p>
+      </div>
+    </dialog>
+
     <dialog class="bottle-dialog" id="friendInventoryDialog">
       <div class="quick-detail" id="friendInventoryDetail"></div>
     </dialog>
@@ -1609,7 +1639,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=134"></script>
+    <script src="app.js?v=135"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {
