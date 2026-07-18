@@ -604,61 +604,30 @@
         <section class="pour-log-board journal-board journal-page is-hidden" id="pourLogView">
           <section class="journal-compass-hero journal-hero" aria-labelledby="journalHeroTitle">
             <div class="journal-compass-copy journal-hero-copy">
-              <p class="journal-kicker">Fully Involved Pour</p>
+              <p class="journal-kicker">Fully Involved Pour Journal</p>
               <h1 id="journalHeroTitle">Journal</h1>
-              <span>Every pour has a story.<br />Capture it. Relive it. Share it.</span>
+              <span>Every pour has a story worth remembering.</span>
               <div class="journal-memory-callout">
-                <strong>Create Memories</strong>
-                <p>Every bottle has moments worth remembering.</p>
+                <strong>Reflect on the journey</strong>
+                <p>Capture the bottle, the people, the place, and what changed in the glass.</p>
               </div>
               <div class="journal-actions" aria-label="Journal actions">
                 <button class="primary-action" id="openPourForm" type="button">Start a Pour Story</button>
                 <button class="secondary-action" data-journal-empty-action="memory-coming-soon" type="button">Create a Memory</button>
               </div>
             </div>
-            <div class="journal-compass-mark fip-compass-shell" aria-label="Discover, Experience, Reflect, Share compass">
-                <div class="fip-compass" aria-hidden="true">
-                  <span class="fip-compass-ring is-outer"></span>
-                  <span class="fip-compass-ring is-inner"></span>
-                  <span class="fip-compass-dot is-one"></span>
-                  <span class="fip-compass-dot is-two"></span>
-                  <span class="fip-compass-dot is-three"></span>
-                  <span class="fip-compass-dot is-four"></span>
-                  <span class="fip-compass-needle is-top"></span>
-                  <span class="fip-compass-needle is-right"></span>
-                  <span class="fip-compass-needle is-bottom"></span>
-                  <span class="fip-compass-needle is-left"></span>
-                  <span class="fip-compass-spoke is-vertical"></span>
-                  <span class="fip-compass-spoke is-horizontal"></span>
-                  <img class="fip-glencairn-photo" src="public/images/journal/glencairn.png?v=2" alt="" loading="eager" decoding="async" onerror="this.hidden = true; this.nextElementSibling.hidden = false;" />
-                  <svg class="fip-glencairn-icon" viewBox="0 0 120 160" role="img" aria-label="Glencairn glass" hidden>
-                    <path class="glass-bowl" d="M42 10h36c2 26-4 49-17 68-5 8-7 16-7 29v22h12v12H42v-12h12v-22c0-13-2-21-7-29C34 59 40 36 42 10Z" />
-                    <path class="glass-stem" d="M43 142h34" />
-                    <path class="glass-whiskey" d="M39 73c15 10 28 10 43 0 0 17-8 30-21 30S40 90 39 73Z" />
-                    <path class="glass-highlight" d="M72 18c-1 19-5 35-12 48" />
-                  </svg>
-                </div>
-                <button class="journal-compass-destination is-top" data-pillar-action="start-pour" type="button">
-                  <span class="journal-compass-icon" aria-hidden="true">
-                    <img src="public/images/journal/icons/experience-glencairn.png" alt="" loading="lazy" decoding="async" />
-                  </span><strong>Experience</strong><em>Start a pour<br />Live in the moment</em>
-                </button>
-                <button class="journal-compass-destination is-left" data-pillar-view="buy-next" type="button">
-                  <span class="journal-compass-icon" aria-hidden="true">
-                    <img src="public/images/journal/icons/discover-compass.png" alt="" loading="lazy" decoding="async" />
-                  </span><strong>Discover</strong><em>Find new bottles<br />Expand your palate</em>
-                </button>
-                <button class="journal-compass-destination is-right" data-journal-target="journalTimelineSection" type="button">
-                  <span class="journal-compass-icon" aria-hidden="true">
-                    <img src="public/images/journal/icons/reflect-journal.png" alt="" loading="lazy" decoding="async" />
-                  </span><strong>Reflect</strong><em>Record notes<br />Remember stories</em>
-                </button>
-                <button class="journal-compass-destination is-bottom" data-pillar-action="share" type="button">
-                  <span class="journal-compass-icon" aria-hidden="true">
-                    <img src="public/images/journal/icons/share-people.png" alt="" loading="lazy" decoding="async" />
-                  </span><strong>Share</strong><em>Share with friends<br />Inspire others</em>
-                </button>
+          </section>
+
+          <section class="journal-library-bar" aria-label="Journal search and focus">
+            <div>
+              <p>Remember what mattered</p>
+              <strong>Browse your real Pour Stories, memories, people, and bottles.</strong>
             </div>
+            <label class="journal-search">
+              <span>Search Journal</span>
+              <input id="journalSearch" type="search" placeholder="Search stories, bottles, people..." />
+            </label>
+            <button class="journal-search-button" id="journalSearchButton" type="button">Search</button>
           </section>
 
           <nav class="journal-sections-nav" aria-label="Journal sections">
@@ -669,8 +638,8 @@
             <button data-journal-target="journalBottlesSection" type="button">Bottles</button>
           </nav>
 
-          <div class="quick-tabs journal-tools-tabs" role="tablist" id="pourStoriesTabs">
-            <button class="quick-tab is-active" data-story-tab="sessions" type="button">Sessions</button>
+          <div class="quick-tabs journal-tools-tabs" role="tablist" id="pourStoriesTabs" aria-label="Journal tools">
+            <button class="quick-tab is-active" data-story-tab="sessions" type="button">Stories</button>
             <button class="quick-tab" data-story-tab="notes" type="button">Tasting Notes</button>
             <button class="quick-tab" data-story-tab="assistant" type="button">Ask Assistant</button>
           </div>
@@ -1369,7 +1338,7 @@
       <div class="pour-wizard" id="pourWizard">
         <div class="pour-wizard-head">
           <button class="icon-button" id="closePourDialog" type="button" aria-label="Close">×</button>
-          <h2 id="pourWizardTitle">Add Pour Story</h2>
+          <h2 id="pourWizardTitle">Start a Pour Story</h2>
           <button class="pour-wizard-draft" id="savePourDraft" type="button">Save Draft</button>
         </div>
 
@@ -1379,8 +1348,12 @@
           <li data-step-dot="3"><span>3</span></li>
           <li data-step-dot="4"><span>4</span></li>
           <li data-step-dot="5"><span>5</span></li>
+          <li data-step-dot="6"><span>6</span></li>
         </ol>
 
+        <div class="pour-wizard-layout">
+          <aside class="pour-wizard-context" id="pwBottleContext" aria-label="Current bottle"></aside>
+          <div class="pour-wizard-main">
         <!-- Step 1: Session -->
         <section class="pour-wizard-step" data-step-panel="1">
           <p class="pour-wizard-eyebrow">Session Details</p>
@@ -1476,45 +1449,64 @@
           <div class="pour-wizard-score" id="pwFinishScoreDisplay"><strong>0.0</strong> / 2.0</div>
           <p class="pour-wizard-score-sub">Length, warmth &amp; aftertaste</p>
           <input class="pour-wizard-slider" id="pwFinish" type="range" min="0" max="2" step="0.1" value="0" />
+
           <label class="pour-wizard-notes">
             Notes
             <textarea id="pwFinishNotes" rows="3" placeholder="How does it finish?"></textarea>
           </label>
-          <button class="primary-action pour-wizard-next" data-goto="5" type="button">Next: Summary</button>
+          <button class="primary-action pour-wizard-next" data-goto="5" type="button">Next: Complexity &amp; Balance</button>
           <button class="pour-wizard-back" data-goto="3" type="button">Back</button>
         </section>
 
-        <!-- Step 5: Summary -->
+        <!-- Step 5: Complexity & Balance -->
         <section class="pour-wizard-step is-hidden" data-step-panel="5">
-          <p class="pour-wizard-eyebrow">Review Summary</p>
+          <div class="pour-wizard-score-head">
+            <h3>Complexity &amp; Balance</h3>
+            <span>Max 1.0 pt</span>
+          </div>
+          <div class="pour-wizard-score" id="pwComplexityScoreDisplay"><strong>0.0</strong> / 1.0</div>
+          <p class="pour-wizard-score-sub">Depth, integration &amp; balance</p>
+          <input class="pour-wizard-slider" id="pwComplexity" type="range" min="0" max="1" step="0.1" value="0" />
+
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwComplexityNotes" rows="3" placeholder="How balanced, layered, or memorable is this pour?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="6" type="button">Next: Summary</button>
+          <button class="pour-wizard-back" data-goto="4" type="button">Back</button>
+        </section>
+
+        <!-- Step 6: Summary -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="6">
+          <p class="pour-wizard-eyebrow">Pour Story Summary</p>
           <div class="pour-summary-bottle" id="pwSummaryBottle"></div>
 
           <div class="pour-summary-breakdown">
             <div class="pour-summary-line">
-              <span>👃 Nose</span>
+              <span>Nose</span>
               <div class="pour-summary-bar"><i id="pwBarNose"></i></div>
               <strong id="pwOutNose">0.0 / 2.5</strong>
             </div>
             <div class="pour-summary-line">
-              <span>👅 Palate</span>
+              <span>Palate</span>
               <div class="pour-summary-bar"><i id="pwBarPalate"></i></div>
               <strong id="pwOutPalate">0.0 / 3.5</strong>
             </div>
             <div class="pour-summary-line">
-              <span>🔥 Finish</span>
+              <span>Finish</span>
               <div class="pour-summary-bar"><i id="pwBarFinish"></i></div>
               <strong id="pwOutFinish">0.0 / 2.0</strong>
             </div>
-            <label class="pour-summary-line pour-summary-input">
-              <span>⚖️ Complexity &amp; Balance</span>
-              <input id="pwComplexity" type="range" min="0" max="1" step="0.1" value="0" />
+            <div class="pour-summary-line">
+              <span>Complexity &amp; Balance</span>
+              <div class="pour-summary-bar"><i id="pwBarComplexity"></i></div>
               <strong id="pwOutComplexity">0.0 / 1.0</strong>
-            </label>
-            <label class="pour-summary-line pour-summary-input">
-              <span>💵 Value / Buy Again</span>
-              <input id="pwValue" type="range" min="0" max="1" step="0.1" value="0" />
+            </div>
+            <div class="pour-summary-line">
+              <span>Value / Buy Again</span>
+              <div class="pour-summary-bar"><i id="pwBarValue"></i></div>
               <strong id="pwOutValue">0.0 / 1.0</strong>
-            </label>
+            </div>
           </div>
 
           <div class="pour-summary-verdict">
@@ -1524,14 +1516,14 @@
             <div class="pour-summary-tier" id="pwTier"></div>
           </div>
 
-          <label class="pour-wizard-row pour-buy-again-row">
-            <span>Would you buy this again?</span>
-            <select id="pwBuyAgain">
-              <option value="no">No</option>
-              <option value="maybe">Maybe</option>
-              <option value="yes">Yes — Absolutely</option>
-            </select>
-          </label>
+          <div class="pour-buy-again-choice" role="radiogroup" aria-label="Value / Buy Again">
+            <p>Value / Buy Again</p>
+            <button type="button" data-value-choice="absolutely" data-value-score="1">Absolutely <span>1.0</span></button>
+            <button type="button" data-value-choice="probably" data-value-score="0.75">Probably <span>0.75</span></button>
+            <button type="button" data-value-choice="maybe" data-value-score="0.5">Maybe <span>0.5</span></button>
+            <button type="button" data-value-choice="probably-not" data-value-score="0.25">Probably Not <span>0.25</span></button>
+            <button type="button" data-value-choice="no" data-value-score="0">No <span>0.0</span></button>
+          </div>
 
           <label class="pour-wizard-notes">
             Notes
@@ -1542,8 +1534,10 @@
             <button class="secondary-action is-hidden" id="pwDeleteEntry" type="button">Delete Entry</button>
             <button class="primary-action" id="pwSaveStory" type="button">Save Story</button>
           </div>
-          <button class="pour-wizard-back" data-goto="4" type="button">Back</button>
+          <button class="pour-wizard-back" data-goto="5" type="button">Back</button>
         </section>
+          </div>
+        </div>
       </div>
     </dialog>
 
