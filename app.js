@@ -1762,6 +1762,7 @@ const els = {
   inviteWelcomeFromInline: document.querySelector("#inviteWelcomeFromInline"),
   inviteAcceptButton: document.querySelector("#inviteAcceptButton"),
   inviteDismissButton: document.querySelector("#inviteDismissButton"),
+  toastHost: document.querySelector("#toastHost"),
 };
 
 const fields = {
@@ -2558,6 +2559,27 @@ async function loadFollowers() {
   }
 }
 
+// Lightweight transient toast. `html` is trusted markup the caller builds with
+// escapeHtml for any dynamic values.
+function showToast(html, { icon = "🫡", duration = 3400 } = {}) {
+  if (!els.toastHost) return;
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.setAttribute("role", "status");
+  toast.innerHTML = `${icon ? `<span class="toast-icon" aria-hidden="true">${icon}</span>` : ""}<span class="toast-text">${html}</span>`;
+  els.toastHost.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("is-visible"));
+  const remove = () => {
+    toast.classList.remove("is-visible");
+    setTimeout(() => toast.remove(), 240);
+  };
+  const timer = setTimeout(remove, duration);
+  toast.addEventListener("click", () => {
+    clearTimeout(timer);
+    remove();
+  });
+}
+
 async function followUsername(rawUsername) {
   els.followError.textContent = "";
   const key = usernameKey(rawUsername);
@@ -2576,6 +2598,7 @@ async function followUsername(rawUsername) {
       els.followError.textContent = "You can't follow yourself.";
       return;
     }
+    const displayName = usernameSnap.data().username || normalizeUsername(rawUsername);
     await db
       .collection("follows")
       .doc(followDocId(currentUser.uid, targetUid))
@@ -2583,11 +2606,18 @@ async function followUsername(rawUsername) {
         followerUid: currentUser.uid,
         followerUsername: currentProfile?.username || "",
         followingUid: targetUid,
-        followingUsername: usernameSnap.data().username || normalizeUsername(rawUsername),
+        followingUsername: displayName,
         createdAt: Date.now(),
       });
     els.followUsernameInput.value = "";
     await renderFriendList();
+    // "Follow back" when the person you just followed already follows you.
+    const followsYouBack = followers.some((entry) => entry.followerUid === targetUid);
+    showToast(
+      followsYouBack
+        ? `You followed <strong>${escapeHtml(displayName)}</strong> back — you're now cabinet buddies.`
+        : `You're now following <strong>${escapeHtml(displayName)}</strong>.`,
+    );
   } catch (error) {
     console.error("Follow failed", error);
     els.followError.textContent = "Could not follow that user. Try again.";
