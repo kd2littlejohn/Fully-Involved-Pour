@@ -1718,6 +1718,16 @@ const els = {
   categoryPicker: document.querySelector("#categoryPicker"),
   importActionLabel: document.querySelector("#importActionLabel"),
   signInButton: document.querySelector("#signInButton"),
+  authDialog: document.querySelector("#authDialog"),
+  closeAuthDialog: document.querySelector("#closeAuthDialog"),
+  authGoogle: document.querySelector("#authGoogle"),
+  authFacebook: document.querySelector("#authFacebook"),
+  authEmailForm: document.querySelector("#authEmailForm"),
+  authEmail: document.querySelector("#authEmail"),
+  authPassword: document.querySelector("#authPassword"),
+  authEmailSubmit: document.querySelector("#authEmailSubmit"),
+  authToggleMode: document.querySelector("#authToggleMode"),
+  authError: document.querySelector("#authError"),
   accountAvatarBadge: document.querySelector("#accountAvatarBadge"),
   accountInitials: document.querySelector("#accountInitials"),
   accountMenu: document.querySelector("#accountMenu"),
@@ -2662,7 +2672,7 @@ const INVITE_METHOD_CONFIG = {
     inputMode: "text",
     placeholder: "handle",
     prefix: "@",
-    hint: "We'll copy your invite and open their Instagram DMs to paste.",
+    hint: "We'll copy your invite and open their Instagram DMs — or their profile if the DM won't open.",
     send: "Open DM",
   },
 };
@@ -2686,10 +2696,23 @@ function inviteMessage() {
   };
 }
 
-function setInviteFeedback(message, ok = false) {
+// `action`, when given as { href, label }, appends a tappable fallback link
+// after the message (e.g. "open their profile" when a deep link may not land).
+function setInviteFeedback(message, ok = false, action = null) {
   if (!els.inviteFeedback) return;
-  els.inviteFeedback.textContent = message || "";
+  els.inviteFeedback.textContent = "";
   els.inviteFeedback.classList.toggle("invite-feedback-ok", ok && Boolean(message));
+  if (message) els.inviteFeedback.append(document.createTextNode(message));
+  if (action?.href && action?.label) {
+    if (message) els.inviteFeedback.append(document.createTextNode(" "));
+    const link = document.createElement("a");
+    link.className = "invite-feedback-link";
+    link.href = action.href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = action.label;
+    els.inviteFeedback.append(link);
+  }
 }
 
 function selectInviteMethod(method) {
@@ -2789,17 +2812,30 @@ async function sendInvite() {
       setInviteFeedback("Enter an Instagram handle to open their DMs.");
       return;
     }
+    const encoded = encodeURIComponent(handle);
+    let copied = false;
     if (navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(message.short);
+        copied = true;
       } catch (error) {
         console.warn("Clipboard write failed", error);
       }
     }
-    // ig.me opens the DM thread in-app when available, else on the web.
-    window.open(`https://ig.me/m/${encodeURIComponent(handle)}`, "_blank", "noopener");
+    // ig.me opens the DM thread in-app when available. It isn't reliable on
+    // desktop, when logged out, or without the app, and (being cross-origin,
+    // opened with noopener) we can't tell where it landed — so always offer the
+    // profile as a fallback and keep the invite on the clipboard to paste.
+    window.open(`https://ig.me/m/${encoded}`, "_blank", "noopener");
     logInvite("instagram", `@${handle}`);
-    setInviteFeedback(`Invite copied — paste it into @${handle}'s DM.`, true);
+    const lead = copied
+      ? "Invite copied to your clipboard. "
+      : `Copy this and send it — ${message.short} `;
+    setInviteFeedback(
+      `${lead}If their DM didn't open,`,
+      copied,
+      { href: `https://www.instagram.com/${encoded}/`, label: `open @${handle}'s profile` },
+    );
   }
 }
 
@@ -3111,6 +3147,7 @@ if (auth) {
     wasSignedIn = !!user;
     updateAccountUI();
     if (user) {
+      closeAuthDialog();
       pullCloudData(user.uid);
     } else if (isSignOut) {
       bottles = [];
@@ -3128,16 +3165,133 @@ if (auth) {
   els.signInButton.textContent = "Sign-in unavailable";
 }
 
-function signInWithGoogle() {
-  if (!auth) return;
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch((error) => {
-    console.error("Sign-in failed", error);
-  });
+function setAuthError(message) {
+  if (els.authError) els.authError.textContent = message || "";
 }
 
-els.signInButton?.addEventListener("click", signInWithGoogle);
-els.welcomeSignIn?.addEventListener("click", signInWithGoogle);
+// Popups can trip the same "different credential" collision Firebase raises when
+// an email is already tied to another provider — surface it in plain language.
+function handleAuthProviderError(error) {
+  console.error("Sign-in failed", error);
+  if (error?.code === "auth/account-exists-with-different-credential") {
+    setAuthError("That email is already linked to a different sign-in method. Use the one you signed up with.");
+  } else if (error?.code === "auth/popup-blocked") {
+    setAuthError("Your browser blocked the sign-in popup. Allow popups and try again.");
+  } else if (error?.code === "auth/popup-closed-by-user" || error?.code === "auth/cancelled-popup-request") {
+    setAuthError("");
+  } else {
+    setAuthError("Sign-in didn't complete. Please try again.");
+  }
+}
+
+function signInWithGoogle() {
+  if (!auth) return;
+  setAuthError("");
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(handleAuthProviderError);
+}
+
+function signInWithFacebook() {
+  if (!auth) return;
+  setAuthError("");
+  const provider = new firebase.auth.FacebookAuthProvider();
+  provider.addScope("email");
+  auth.signInWithPopup(provider).catch(handleAuthProviderError);
+}
+
+// Email/password: "signup" creates a new account, "signin" logs into an existing
+// one. The dialog opens in signup mode and the toggle flips between the two.
+let authMode = "signup";
+
+function updateAuthModeUI() {
+  const signup = authMode === "signup";
+  if (els.authEmailSubmit) els.authEmailSubmit.textContent = signup ? "Create account" : "Sign in";
+  if (els.authToggleMode) {
+    els.authToggleMode.textContent = signup
+      ? "Already have an account? Sign in"
+      : "New here? Create an account";
+  }
+  if (els.authPassword) els.authPassword.autocomplete = signup ? "new-password" : "current-password";
+}
+
+function toggleAuthMode() {
+  authMode = authMode === "signup" ? "signin" : "signup";
+  setAuthError("");
+  updateAuthModeUI();
+}
+
+// Firebase surfaces distinct error codes; translate the common ones to plain text.
+function handleEmailAuthError(error) {
+  console.error("Email auth failed", error);
+  const map = {
+    "auth/email-already-in-use": "That email already has an account. Switch to Sign in.",
+    "auth/invalid-email": "Enter a valid email address.",
+    "auth/weak-password": "Choose a password with at least 6 characters.",
+    "auth/wrong-password": "Incorrect email or password.",
+    "auth/user-not-found": "No account found for that email. Create one instead.",
+    "auth/invalid-credential": "Incorrect email or password.",
+    "auth/too-many-requests": "Too many attempts. Wait a moment and try again.",
+  };
+  setAuthError(map[error?.code] || "Couldn't complete that. Please try again.");
+}
+
+async function submitEmailAuth() {
+  if (!auth) return;
+  setAuthError("");
+  const email = (els.authEmail?.value || "").trim();
+  const password = els.authPassword?.value || "";
+  if (!email || !password) {
+    setAuthError("Enter your email and a password.");
+    return;
+  }
+  if (authMode === "signup" && password.length < 6) {
+    setAuthError("Choose a password with at least 6 characters.");
+    return;
+  }
+  els.authEmailSubmit && (els.authEmailSubmit.disabled = true);
+  try {
+    if (authMode === "signup") {
+      await auth.createUserWithEmailAndPassword(email, password);
+    } else {
+      await auth.signInWithEmailAndPassword(email, password);
+    }
+    // onAuthStateChanged closes the dialog and pulls cloud data.
+  } catch (error) {
+    handleEmailAuthError(error);
+  } finally {
+    els.authEmailSubmit && (els.authEmailSubmit.disabled = false);
+  }
+}
+
+function openAuthDialog() {
+  setAuthError("");
+  authMode = "signup";
+  updateAuthModeUI();
+  if (els.authEmail) els.authEmail.value = "";
+  if (els.authPassword) els.authPassword.value = "";
+  if (els.authDialog?.showModal && !els.authDialog.open) els.authDialog.showModal();
+}
+
+function closeAuthDialog() {
+  if (els.authDialog?.open) els.authDialog.close();
+}
+
+els.signInButton?.addEventListener("click", openAuthDialog);
+els.welcomeSignIn?.addEventListener("click", openAuthDialog);
+els.closeAuthDialog?.addEventListener("click", closeAuthDialog);
+els.authGoogle?.addEventListener("click", () => {
+  closeAuthDialog();
+  signInWithGoogle();
+});
+els.authFacebook?.addEventListener("click", () => {
+  closeAuthDialog();
+  signInWithFacebook();
+});
+els.authEmailForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  submitEmailAuth();
+});
+els.authToggleMode?.addEventListener("click", toggleAuthMode);
 els.welcomeAddBottle?.addEventListener("click", () => openForm());
 
 els.accountAvatarBadge?.addEventListener("click", (event) => {
