@@ -4394,6 +4394,18 @@ button.mini-flavor-chip:focus-visible {
   color: var(--accent);
 }
 
+.invite-feedback-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.invite-feedback-link:hover {
+  opacity: 0.85;
+}
+
 .invite-welcome-dialog {
   max-width: 420px;
   text-align: center;

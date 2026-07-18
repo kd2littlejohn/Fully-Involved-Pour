@@ -2662,7 +2662,7 @@ const INVITE_METHOD_CONFIG = {
     inputMode: "text",
     placeholder: "handle",
     prefix: "@",
-    hint: "We'll copy your invite and open their Instagram DMs to paste.",
+    hint: "We'll copy your invite and open their Instagram DMs — or their profile if the DM won't open.",
     send: "Open DM",
   },
 };
@@ -2686,10 +2686,23 @@ function inviteMessage() {
   };
 }
 
-function setInviteFeedback(message, ok = false) {
+// `action`, when given as { href, label }, appends a tappable fallback link
+// after the message (e.g. "open their profile" when a deep link may not land).
+function setInviteFeedback(message, ok = false, action = null) {
   if (!els.inviteFeedback) return;
-  els.inviteFeedback.textContent = message || "";
+  els.inviteFeedback.textContent = "";
   els.inviteFeedback.classList.toggle("invite-feedback-ok", ok && Boolean(message));
+  if (message) els.inviteFeedback.append(document.createTextNode(message));
+  if (action?.href && action?.label) {
+    if (message) els.inviteFeedback.append(document.createTextNode(" "));
+    const link = document.createElement("a");
+    link.className = "invite-feedback-link";
+    link.href = action.href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = action.label;
+    els.inviteFeedback.append(link);
+  }
 }
 
 function selectInviteMethod(method) {
@@ -2789,17 +2802,30 @@ async function sendInvite() {
       setInviteFeedback("Enter an Instagram handle to open their DMs.");
       return;
     }
+    const encoded = encodeURIComponent(handle);
+    let copied = false;
     if (navigator.clipboard?.writeText) {
       try {
         await navigator.clipboard.writeText(message.short);
+        copied = true;
       } catch (error) {
         console.warn("Clipboard write failed", error);
       }
     }
-    // ig.me opens the DM thread in-app when available, else on the web.
-    window.open(`https://ig.me/m/${encodeURIComponent(handle)}`, "_blank", "noopener");
+    // ig.me opens the DM thread in-app when available. It isn't reliable on
+    // desktop, when logged out, or without the app, and (being cross-origin,
+    // opened with noopener) we can't tell where it landed — so always offer the
+    // profile as a fallback and keep the invite on the clipboard to paste.
+    window.open(`https://ig.me/m/${encoded}`, "_blank", "noopener");
     logInvite("instagram", `@${handle}`);
-    setInviteFeedback(`Invite copied — paste it into @${handle}'s DM.`, true);
+    const lead = copied
+      ? "Invite copied to your clipboard. "
+      : `Copy this and send it — ${message.short} `;
+    setInviteFeedback(
+      `${lead}If their DM didn't open,`,
+      copied,
+      { href: `https://www.instagram.com/${encoded}/`, label: `open @${handle}'s profile` },
+    );
   }
 }
 
