@@ -1757,6 +1757,11 @@ const els = {
   inviteShareButton: document.querySelector("#inviteShareButton"),
   inviteHint: document.querySelector("#inviteHint"),
   inviteFeedback: document.querySelector("#inviteFeedback"),
+  inviteWelcomeDialog: document.querySelector("#inviteWelcomeDialog"),
+  inviteWelcomeFrom: document.querySelector("#inviteWelcomeFrom"),
+  inviteWelcomeFromInline: document.querySelector("#inviteWelcomeFromInline"),
+  inviteAcceptButton: document.querySelector("#inviteAcceptButton"),
+  inviteDismissButton: document.querySelector("#inviteDismissButton"),
 };
 
 const fields = {
@@ -2768,14 +2773,56 @@ async function sendInvite() {
   }
 }
 
-// If someone arrives from an invite link, tee up following the inviter.
+// If someone arrives from an invite link, greet them with an invitation and
+// tee up following the inviter.
 let pendingInviteFrom = "";
+const INVITE_SEEN_KEY = "cellar-ledger-invite-seen";
 
 function captureInviteReferral() {
   const raw = new URLSearchParams(window.location.search).get("invite");
   if (!raw) return;
   pendingInviteFrom = normalizeUsername(raw);
+  if (!pendingInviteFrom) return;
   applyInviteReferral();
+  showInviteWelcome();
+}
+
+// Show the invitation once per inviter so a returning visitor isn't nagged.
+function showInviteWelcome() {
+  if (!els.inviteWelcomeDialog || typeof els.inviteWelcomeDialog.showModal !== "function") return;
+  let seen = "";
+  try {
+    seen = localStorage.getItem(INVITE_SEEN_KEY) || "";
+  } catch {}
+  if (seen === pendingInviteFrom.toLowerCase()) return;
+  if (els.inviteWelcomeFrom) els.inviteWelcomeFrom.textContent = pendingInviteFrom;
+  if (els.inviteWelcomeFromInline) els.inviteWelcomeFromInline.textContent = pendingInviteFrom;
+  try {
+    els.inviteWelcomeDialog.showModal();
+  } catch {}
+}
+
+function dismissInviteWelcome() {
+  try {
+    localStorage.setItem(INVITE_SEEN_KEY, pendingInviteFrom.toLowerCase());
+  } catch {}
+  if (els.inviteWelcomeDialog?.open) els.inviteWelcomeDialog.close();
+}
+
+// Accept: follow the inviter if we can, otherwise send them to sign-in with the
+// referral still stashed so the follow is teed up once they have a profile.
+function acceptInvite() {
+  dismissInviteWelcome();
+  if (currentUser && currentProfile?.username) {
+    followUsername(pendingInviteFrom);
+    els.friendsToggle?.click();
+  } else if (currentUser && !currentProfile?.username) {
+    openUsernameSetup();
+  } else if (auth) {
+    signInWithGoogle();
+  } else {
+    els.friendsToggle?.click();
+  }
 }
 
 function applyInviteReferral() {
@@ -3110,6 +3157,8 @@ els.inviteMethods?.forEach((button) => {
 });
 els.sendInviteButton?.addEventListener("click", sendInvite);
 els.inviteShareButton?.addEventListener("click", copyInviteLink);
+els.inviteAcceptButton?.addEventListener("click", acceptInvite);
+els.inviteDismissButton?.addEventListener("click", dismissInviteWelcome);
 els.inviteContactInput?.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
