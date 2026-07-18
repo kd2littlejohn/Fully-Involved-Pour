@@ -15842,27 +15842,28 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .home-recommended-card
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero {
-    height: 570px;
-    min-height: 570px;
+    height: auto;
+    min-height: 480px;
+    max-height: none;
     border-radius: 10px;
     background-position: 52% center;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .hero-overlay {
-    padding: 34px 18px 0;
+    padding: 44px 22px 40px;
     background:
       linear-gradient(90deg, rgba(3, 3, 2, 0.88), rgba(3, 3, 2, 0.36) 72%, rgba(3, 3, 2, 0.12)),
       linear-gradient(180deg, rgba(3, 3, 2, 0.08), rgba(3, 3, 2, 0.66));
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .home-hero-copy {
-    width: min(100%, 280px);
+    width: min(100%, 300px);
     opacity: 1;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .home-hero-title {
-    font-size: clamp(2.35rem, 12vw, 3.35rem);
-    line-height: 0.95;
+    font-size: clamp(2rem, 8vw, 2.5rem);
+    line-height: 1.05;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .hero-description {
