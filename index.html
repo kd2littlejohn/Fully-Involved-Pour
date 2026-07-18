@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=172" />
+    <link rel="stylesheet" href="styles.css?v=173" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -1373,6 +1373,23 @@
       <div class="quick-detail" id="friendInventoryDetail"></div>
     </dialog>
 
+    <dialog class="bottle-dialog invite-welcome-dialog" id="inviteWelcomeDialog">
+      <div class="invite-welcome">
+        <span class="invite-welcome-mark" aria-hidden="true">🔥</span>
+        <p class="invite-welcome-eyebrow">You're invited</p>
+        <h2 class="invite-welcome-title"><span id="inviteWelcomeFrom">A friend</span> poured you an invite</h2>
+        <p class="invite-welcome-copy">
+          Welcome to <strong>Fully Involved Pour</strong> — where there's proof, there's fire.
+          Track every bottle, every pour, and the ones that earn a permanent spot on your Core Bar,
+          then compare cabinets with <span id="inviteWelcomeFromInline">your friend</span>.
+        </p>
+        <div class="invite-welcome-actions">
+          <button class="primary-action" id="inviteAcceptButton" type="button">Accept &amp; follow back</button>
+          <button class="secondary-action" id="inviteDismissButton" type="button">Explore first</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog class="bottle-dialog library-dialog" id="libraryDialog">
       <div class="library-panel">
         <div class="form-head">
@@ -1590,7 +1607,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=131"></script>
+    <script src="app.js?v=132"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

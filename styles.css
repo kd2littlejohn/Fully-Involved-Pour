@@ -4394,6 +4394,68 @@ button.mini-flavor-chip:focus-visible {
   color: var(--accent);
 }
 
+.invite-welcome-dialog {
+  max-width: 420px;
+  text-align: center;
+}
+
+.invite-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 6px;
+}
+
+.invite-welcome-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: var(--accent);
+  font-size: 1.9rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+
+.invite-welcome-eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.invite-welcome-title {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.invite-welcome-title #inviteWelcomeFrom {
+  color: var(--accent);
+}
+
+.invite-welcome-copy {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  opacity: 0.85;
+}
+
+.invite-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.invite-welcome-actions .primary-action,
+.invite-welcome-actions .secondary-action {
+  width: 100%;
+}
+
 .friend-list {
   display: grid;
   gap: 10px;
