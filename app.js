@@ -5581,7 +5581,13 @@ function journalDaysOpen(bottle) {
 }
 
 function renderJournalDesktop(visiblePours) {
+  renderJournalTodayJourney(visiblePours);
+  renderJournalJourneyInsights(visiblePours);
   renderJournalJourneyTimeline(visiblePours);
+  renderJournalMemoryPhotos(visiblePours);
+  renderJournalLegacyShelf(visiblePours);
+  renderJournalFlavorJourney(visiblePours);
+  renderJournalInsightCards(visiblePours);
 }
 
 function renderJournalTodayJourney(visiblePours) {

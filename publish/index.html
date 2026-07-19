@@ -355,6 +355,10 @@
                     <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M8 3h8c.2 3.2-.4 6.1-2 8.3-.7.9-1 1.7-1 2.8V18h-2v-3.9c0-1.1-.3-1.9-1-2.8C8.4 9.1 7.8 6.2 8 3Z"></path><path d="M9 21h6"></path></svg>
                     Start a Pour Story
                   </button>
+                  <button class="secondary-action" id="homeHeroAddBottle" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                    Add Bottle
+                  </button>
                   <button class="secondary-action" id="homeHeroBrowse" type="button">
                     <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M5 7.5h14"></path><path d="M6.5 7.5 8 20h8l1.5-12.5"></path><path d="M9 4h6"></path></svg>
                     Browse Collection
@@ -598,21 +602,48 @@
         </div>
 
         <section class="pour-log-board journal-board journal-page is-hidden" id="pourLogView">
-          <section class="journal-compass-hero journal-hero" aria-labelledby="journalHeroTitle">
-            <div class="journal-compass-copy journal-hero-copy">
-              <p class="journal-kicker">Fully Involved Pour Journal</p>
-              <h1 id="journalHeroTitle">Journal</h1>
-              <span>Every pour has a story worth remembering.</span>
-              <div class="journal-memory-callout">
-                <strong>Reflect on the journey</strong>
-                <p>Capture the bottle, the people, the place, and what changed in the glass.</p>
+          <div class="journal-top-grid">
+            <section class="journal-compass-hero journal-hero" aria-labelledby="journalHeroTitle">
+              <div class="journal-compass-copy journal-hero-copy">
+                <p class="journal-kicker">Journal</p>
+                <h1 id="journalHeroTitle">Every pour<br />has a story.</h1>
+                <span>Capture it. Relive it. Share it.</span>
+                <div class="journal-memory-callout">
+                  <p>Your whiskey journey is more than bottles and scores. It&apos;s the moments, the people, and the memories behind every pour.</p>
+                </div>
+                <div class="journal-actions" aria-label="Journal actions">
+                  <button class="primary-action" id="openPourForm" type="button">Start a Pour Story</button>
+                  <button class="secondary-action" data-journal-empty-action="memory-coming-soon" type="button">Create a Memory</button>
+                </div>
               </div>
-              <div class="journal-actions" aria-label="Journal actions">
-                <button class="primary-action" id="openPourForm" type="button">Start a Pour Story</button>
-                <button class="secondary-action" data-journal-empty-action="memory-coming-soon" type="button">Create a Memory</button>
+              <div class="journal-hero-pillars" aria-label="Journal philosophy">
+                <article>
+                  <span aria-hidden="true">✦</span>
+                  <strong>Discover</strong>
+                  <em>Find new bottles<br />Expand your palate</em>
+                </article>
+                <article>
+                  <span aria-hidden="true">♢</span>
+                  <strong>Experience</strong>
+                  <em>Enjoy the pour<br />Be present</em>
+                </article>
+                <article>
+                  <span aria-hidden="true">▤</span>
+                  <strong>Reflect</strong>
+                  <em>Record notes<br />Track journeys</em>
+                </article>
+                <article>
+                  <span aria-hidden="true">♧</span>
+                  <strong>Share</strong>
+                  <em>Share with friends<br />Build connections</em>
+                </article>
               </div>
-            </div>
-          </section>
+            </section>
+            <aside class="journal-today-stack" aria-label="Journal side summary">
+              <section class="journal-today-card" id="journalTodayJourney"></section>
+              <section class="journal-insights-card" id="journalJourneyInsights"></section>
+            </aside>
+          </div>
 
           <section class="journal-library-bar" aria-label="Journal search and focus">
             <div>

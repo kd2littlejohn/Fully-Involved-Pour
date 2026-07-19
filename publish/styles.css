@@ -8,7 +8,7 @@
 
 /* Journal presentation replacement */
 .journal-page {
-  width: min(1500px, calc(100vw - 40px));
+  width: min(1500px, 100%);
   max-width: 1500px;
   margin: clamp(18px, 3vw, 42px) auto 0;
   padding-bottom: calc(110px + env(safe-area-inset-bottom));
@@ -10842,7 +10842,7 @@ textarea::placeholder {
 .journal-page {
   position: relative;
   isolation: isolate;
-  width: min(1500px, calc(100vw - 40px));
+  width: min(1500px, 100%);
   max-width: 1500px;
   margin: clamp(18px, 3vw, 42px) auto 0;
   padding-bottom: calc(110px + env(safe-area-inset-bottom));
@@ -10916,7 +10916,7 @@ textarea::placeholder {
   gap: clamp(28px, 4.8vw, 84px);
   align-items: center;
   min-height: clamp(520px, 39vw, 640px);
-  padding: clamp(34px, 5vw, 78px);
+  padding: clamp(38px, 5vw, 76px);
   border: 1px solid rgba(201, 154, 69, 0.42);
   border-radius: 18px;
   background:
@@ -10935,9 +10935,9 @@ textarea::placeholder {
   z-index: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(5, 5, 4, 0.98) 0%, rgba(5, 5, 4, 0.94) 42%, rgba(5, 5, 4, 0.58) 62%, rgba(5, 5, 4, 0.18) 100%),
-    linear-gradient(180deg, rgba(5, 5, 4, 0.1) 0%, transparent 44%, rgba(5, 5, 4, 0.58) 100%),
-    radial-gradient(ellipse at 76% 58%, rgba(217, 138, 25, 0.13), transparent 30%),
+    linear-gradient(90deg, rgba(5, 5, 4, 0.98) 0%, rgba(5, 5, 4, 0.88) 36%, rgba(5, 5, 4, 0.48) 64%, rgba(5, 5, 4, 0.2) 100%),
+    linear-gradient(180deg, rgba(5, 5, 4, 0.04) 0%, transparent 44%, rgba(5, 5, 4, 0.56) 100%),
+    radial-gradient(ellipse at 76% 58%, rgba(217, 138, 25, 0.18), transparent 34%),
     radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(5, 5, 4, 0.32) 100%);
   opacity: 1;
 }
@@ -10964,27 +10964,27 @@ textarea::placeholder {
   margin: 0;
   color: var(--fip-cream);
   font-family: var(--serif);
-  font-size: clamp(3.7rem, 7vw, 7.6rem);
-  line-height: 0.88;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-size: clamp(4.4rem, 6vw, 6.65rem);
+  line-height: 0.92;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .journal-page .journal-hero-copy > span {
   display: block;
-  max-width: 510px;
-  margin-top: 22px;
+  max-width: 540px;
+  margin-top: 18px;
   color: #f3dfbd;
   font-family: var(--serif);
-  font-size: clamp(1.28rem, 2.2vw, 2rem);
+  font-size: clamp(1.5rem, 2.05vw, 2.05rem);
   line-height: 1.18;
 }
 
 .journal-page .journal-memory-callout {
-  max-width: 360px;
-  margin-top: clamp(26px, 4vw, 54px);
-  padding-left: 18px;
-  border-left: 1px solid rgba(217, 138, 25, 0.62);
+  max-width: 620px;
+  margin-top: 22px;
+  padding-left: 0;
+  border-left: 0;
 }
 
 .journal-page .journal-memory-callout strong {
@@ -10997,16 +10997,17 @@ textarea::placeholder {
 }
 
 .journal-page .journal-memory-callout p {
-  margin: 6px 0 0;
+  margin: 0;
   color: #d7c7ad;
-  line-height: 1.45;
+  font-size: 1.02rem;
+  line-height: 1.55;
 }
 
 .journal-page .journal-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  margin-top: 22px;
+  margin-top: 28px;
 }
 
 .journal-page .journal-actions .primary-action,
@@ -11516,6 +11517,10 @@ textarea::placeholder {
     font-size: 0.78rem;
   }
 
+  /* Back into flow: the <=1199px rule floats the compass beside the copy,
+     which has no room to do so once the layout stacks. Stays relative so it
+     remains the containing block for the .journal-compass-destination labels. */
+
   .journal-page .journal-library-bar {
     margin: 16px 0 8px;
     padding: 14px;
@@ -11535,11 +11540,11 @@ textarea::placeholder {
   }
 
   .journal-page .fip-compass-shell {
-    left: 0;
-    right: 0;
-    bottom: 18px;
+    position: relative;
+    inset: auto;
     width: 100%;
     min-height: 268px;
+    margin-top: 18px;
   }
 
   .journal-page .fip-compass-shell .fip-compass {
@@ -15446,6 +15451,17 @@ body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions {
   margin-top: 0;
 }
 
+/* The desktop home hero is a baked marketing image (home-hero-approved-final.jpg)
+   with the title and buttons drawn in; the HTML copy is an invisible click-overlay
+   (opacity ~0). A third HTML button can't render there and would shift the overlay
+   off the drawn buttons, so the Add Bottle CTA is mobile-only, where the real HTML
+   hero renders (copy opacity restored to 1 at <=767px). */
+@media (min-width: 768px) {
+  #homeHeroAddBottle {
+    display: none;
+  }
+}
+
 body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions .primary-action,
 body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions .secondary-action {
   min-width: 240px;
@@ -15672,14 +15688,14 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .home-recommended-card
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero {
-    height: 570px;
-    min-height: 570px;
+    height: auto;
+    min-height: 470px;
     border-radius: 10px;
     background-position: 52% center;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .hero-overlay {
-    padding: 34px 18px 0;
+    padding: 28px 18px 30px;
     background:
       linear-gradient(90deg, rgba(3, 3, 2, 0.88), rgba(3, 3, 2, 0.36) 72%, rgba(3, 3, 2, 0.12)),
       linear-gradient(180deg, rgba(3, 3, 2, 0.08), rgba(3, 3, 2, 0.66));
@@ -15691,14 +15707,14 @@ body:has(.dashboard-view:not(.is-hidden)) .dashboard-view .home-recommended-card
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .home-hero-title {
-    font-size: clamp(2.35rem, 12vw, 3.35rem);
-    line-height: 0.95;
+    font-size: clamp(1.7rem, 8.4vw, 2.45rem);
+    line-height: 0.98;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-compass-hero .hero-description {
     max-width: 25ch;
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: 0.9rem;
+    line-height: 1.48;
   }
 
   body:has(.dashboard-view:not(.is-hidden)) .home-hero-actions {
