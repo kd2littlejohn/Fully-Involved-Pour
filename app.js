@@ -3029,7 +3029,7 @@ function typeFilterCount(type) {
   return bottles.filter((bottle) => bottleMatchesTypeValue(bottle, type)).length;
 }
 
-function proofRangeLabel(bottlesToMeasure) {
+function collectionProofRangeLabel(bottlesToMeasure) {
   const proofs = bottlesToMeasure.map((bottle) => Number(bottle.proof || 0)).filter(Boolean);
   if (!proofs.length) return "—";
   const buckets = [
@@ -3300,7 +3300,7 @@ function renderStats() {
   els.buyNextCount.textContent = bottles.filter((bottle) => bottle.favorite).length;
   els.topDistillery.textContent = favoriteCategoryLabel(inventory);
   els.topDistilleryMeta.textContent = inventory.length ? `${inventory.length} owned bottles` : "no data";
-  els.openedSealed.textContent = proofRangeLabel(inventory);
+  els.openedSealed.textContent = collectionProofRangeLabel(inventory);
   const finished = bottles.filter((bottle) => bottle.status === "finished" || bottle.fillLevel === "empty").length;
   els.openedSealedMeta.textContent = inventory.length ? `${sealed.length} sealed · ${finished} finished` : "no owned bottles";
   const shownOwnedCount = visibleBottles()
@@ -5652,7 +5652,7 @@ function renderJournalBottleJourneys(visiblePours) {
   wireJournalQuickCards(els.journalBottleJourneysPreview);
 }
 
-function latestPourForBottle(bottleId, visiblePours = pours) {
+function latestVisiblePourForBottle(bottleId, visiblePours = pours) {
   return [...visiblePours]
     .filter((pour) => pour.bottleId === bottleId)
     .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0];
@@ -5675,7 +5675,7 @@ function renderJournalContinueJourney(visiblePours) {
     els.journalContinueJourneyPreview.innerHTML = journalEmptyState("No active bottle journey yet.", "Add a bottle and record its first pour to begin tracking what changes.", "Add Bottle", "add-bottle");
     return;
   }
-  const latest = latestPourForBottle(bottle.id, visiblePours);
+  const latest = latestVisiblePourForBottle(bottle.id, visiblePours);
   const status = journeyStatus(bottle);
   const score = Number(latest?.rating || bottle.rating || 0);
   els.journalContinueJourneyPreview.innerHTML = `
@@ -5710,7 +5710,7 @@ function renderJournalTodayJourney(visiblePours) {
   }
   const daysOpen = journalDaysOpen(bottle);
   const status = journeyStatus(bottle);
-  const latest = latestPourForBottle(bottle.id, visiblePours);
+  const latest = latestVisiblePourForBottle(bottle.id, visiblePours);
   const score = Number(latest?.rating || bottle.rating || 0);
   els.journalTodayJourney.innerHTML = `
     <div class="journal-card-label">Today's Journey</div>
