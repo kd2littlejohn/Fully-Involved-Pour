@@ -16,7 +16,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FI Pour" />
-    <link rel="stylesheet" href="styles.css?v=171" />
+    <link rel="stylesheet" href="styles.css?v=173" />
   </head>
   <body>
     <div class="welcome-screen is-hidden" id="welcomeScreen">
@@ -68,7 +68,7 @@
           </button>
           <button class="nav-item" data-view="pour-log" data-nav-icon="✎" type="button">
             <span class="nav-icon" aria-hidden="true">✎</span>
-            <span class="nav-label">Journal</span>
+            <span class="nav-label">Journey</span>
           </button>
           <button class="nav-item" data-view="buy-next" data-nav-icon="⌕" type="button">
             <span class="nav-icon" aria-hidden="true">⌕</span>
@@ -605,38 +605,22 @@
           <div class="journal-top-grid">
             <section class="journal-compass-hero journal-hero" aria-labelledby="journalHeroTitle">
               <div class="journal-compass-copy journal-hero-copy">
-                <p class="journal-kicker">Journal</p>
+                <p class="journal-kicker">My Whiskey Journey</p>
                 <h1 id="journalHeroTitle">Every pour<br />has a story.</h1>
-                <span>Capture it. Relive it. Share it.</span>
+                <span>Track every bottle, every pour, and every chapter of your whiskey journey.</span>
                 <div class="journal-memory-callout">
-                  <p>Your whiskey journey is more than bottles and scores. It&apos;s the moments, the people, and the memories behind every pour.</p>
+                  <p>Follow bottle evolution, journey stages, scores, recent activity, and the people and memories connected to your pours.</p>
                 </div>
                 <div class="journal-actions" aria-label="Journal actions">
                   <button class="primary-action" id="openPourForm" type="button">Start a Pour Story</button>
-                  <button class="secondary-action" data-journal-empty-action="memory-coming-soon" type="button">Create a Memory</button>
+                  <button class="secondary-action" data-journal-target="journalJourneyTimeline" type="button">View Timeline</button>
                 </div>
               </div>
-              <div class="journal-hero-pillars" aria-label="Journal philosophy">
-                <article>
-                  <span aria-hidden="true">✦</span>
-                  <strong>Discover</strong>
-                  <em>Find new bottles<br />Expand your palate</em>
-                </article>
-                <article>
-                  <span aria-hidden="true">♢</span>
-                  <strong>Experience</strong>
-                  <em>Enjoy the pour<br />Be present</em>
-                </article>
-                <article>
-                  <span aria-hidden="true">▤</span>
-                  <strong>Reflect</strong>
-                  <em>Record notes<br />Track journeys</em>
-                </article>
-                <article>
-                  <span aria-hidden="true">♧</span>
-                  <strong>Share</strong>
-                  <em>Share with friends<br />Build connections</em>
-                </article>
+              <div class="journal-hero-journey-visual" aria-hidden="true">
+                <div class="journal-hero-score">9.0<span>FIP</span></div>
+                <div class="journal-hero-stage">
+                  <span></span><span></span><span></span><span></span>
+                </div>
               </div>
             </section>
             <aside class="journal-today-stack" aria-label="Journal side summary">
@@ -651,18 +635,18 @@
               <strong>Browse your real Pour Stories, memories, people, and bottles.</strong>
             </div>
             <label class="journal-search">
-              <span>Search Journal</span>
+              <span>Search Journey</span>
               <input id="journalSearch" type="search" placeholder="Search stories, bottles, people..." />
             </label>
             <button class="journal-search-button" id="journalSearchButton" type="button">Search</button>
           </section>
 
           <nav class="journal-sections-nav" aria-label="Journal sections">
-            <button data-journal-target="journalRecentSection" type="button">Recent</button>
-            <button data-journal-target="journalTimelineSection" type="button">Timeline</button>
-            <button data-journal-target="journalMemoriesSection" type="button">Memories</button>
-            <button data-journal-target="journalPeopleSection" type="button">People</button>
+            <button class="is-active" data-journal-target="journalContinueSection" type="button">Overview</button>
+            <button data-journal-target="journalJourneyTimeline" type="button">Timeline</button>
             <button data-journal-target="journalBottlesSection" type="button">Bottles</button>
+            <button data-journal-target="journalPeopleSection" type="button">People</button>
+            <button data-journal-target="journalMemoriesSection" type="button">Memories</button>
           </nav>
 
           <div class="quick-tabs journal-tools-tabs" role="tablist" id="pourStoriesTabs" aria-label="Journal tools">
@@ -672,21 +656,38 @@
           </div>
 
           <div class="quick-tab-panel" data-story-tab-panel="sessions">
+            <section class="journal-preview-section" id="journalContinueSection" aria-label="Continue your journey">
+              <div class="section-heading compact">
+                <div>
+                  <p>Continue Your Journey</p>
+                </div>
+              </div>
+              <div id="journalContinueJourneyPreview"></div>
+            </section>
+
             <section class="journal-preview-section" id="journalRecentSection" aria-label="Recent pour stories">
               <div class="section-heading compact">
                 <div>
-                  <p>Recent</p>
-                  <h2>Latest stories</h2>
+                  <p>Recent Pour Stories</p>
                 </div>
+                <button class="text-link" data-journal-target="journalJourneyTimeline" type="button">View All</button>
               </div>
               <div class="journal-card-grid" id="journalRecentPreview"></div>
+            </section>
+
+            <section class="journal-preview-section" id="journalBottleJourneysSection" aria-label="Bottle Journeys">
+              <div class="section-heading compact">
+                <div>
+                  <p>Bottle Journeys</p>
+                </div>
+              </div>
+              <div id="journalBottleJourneysPreview"></div>
             </section>
 
             <section class="journal-preview-section journal-desktop-timeline" id="journalJourneyTimeline" aria-label="Bottle Journey Timeline">
               <div class="section-heading compact">
                 <div>
-                  <p>Timeline</p>
-                  <h2>Bottle journeys</h2>
+                  <p>Timeline Preview</p>
                 </div>
               </div>
             </section>
@@ -712,36 +713,45 @@
             </section>
             <div class="pour-list" id="pourList"></div>
 
-            <section class="journal-preview-grid">
-              <div class="journal-preview-section" id="journalMemoriesSection" aria-label="Memories">
-                <div class="section-heading compact">
-                  <div>
-                    <p>Memories</p>
-                    <h2>Moments to revisit</h2>
-                  </div>
+            <section class="journal-preview-section" id="journalBottlesSection" aria-label="Bottles">
+              <div class="section-heading compact">
+                <div>
+                  <p>Bottles in Your Story</p>
                 </div>
-                <div class="journal-card-grid" id="journalMemoriesPreview"></div>
+                <button class="text-link" data-journal-target="journalBottlesSection" type="button">View All</button>
               </div>
+              <div class="journal-bottle-grid" id="journalBottlePreview"></div>
+            </section>
 
+            <section class="journal-preview-grid journal-supporting-grid">
               <div class="journal-preview-section" id="journalPeopleSection" aria-label="People">
                 <div class="section-heading compact">
                   <div>
                     <p>People</p>
-                    <h2>Shared pours</h2>
                   </div>
+                  <button class="text-link" data-journal-target="journalPeopleSection" type="button">View All</button>
                 </div>
                 <div class="journal-card-grid" id="journalPeoplePreview"></div>
               </div>
+
+              <div class="journal-preview-section" id="journalMemoriesSection" aria-label="Memories">
+                <div class="section-heading compact">
+                  <div>
+                  <p>Recent Memories</p>
+                  </div>
+                  <button class="text-link" data-journal-target="journalMemoriesSection" type="button">View All</button>
+                </div>
+                <div class="journal-card-grid" id="journalMemoriesPreview"></div>
+              </div>
             </section>
 
-            <section class="journal-preview-section" id="journalBottlesSection" aria-label="Bottles">
-              <div class="section-heading compact">
-                <div>
-                  <p>Bottles</p>
-                  <h2>Stories by bottle</h2>
-                </div>
+            <section class="journal-bottom-cta" aria-label="Start your next chapter">
+              <div aria-hidden="true" class="journal-bottom-glass"></div>
+              <strong>The next chapter begins with your next pour.</strong>
+              <div class="journal-actions">
+                <button class="primary-action" data-journal-empty-action="start-pour" type="button">Start a Pour Story</button>
+                <button class="secondary-action" data-journal-target="journalJourneyTimeline" type="button">View Timeline</button>
               </div>
-              <div class="journal-bottle-grid" id="journalBottlePreview"></div>
             </section>
           </div>
 
@@ -1586,7 +1596,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <script src="app.js?v=130"></script>
+    <script src="app.js?v=132"></script>
     <script>
       // Service worker: register and quietly swap in new versions when a deploy lands.
       if ("serviceWorker" in navigator) {

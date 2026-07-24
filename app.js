@@ -1660,6 +1660,8 @@ const els = {
   pwDeleteEntry: document.querySelector("#pwDeleteEntry"),
   journalSearch: document.querySelector("#journalSearch"),
   journalSearchButton: document.querySelector("#journalSearchButton"),
+  journalContinueJourneyPreview: document.querySelector("#journalContinueJourneyPreview"),
+  journalBottleJourneysPreview: document.querySelector("#journalBottleJourneysPreview"),
   journalRecentPreview: document.querySelector("#journalRecentPreview"),
   journalMemoriesPreview: document.querySelector("#journalMemoriesPreview"),
   journalPeoplePreview: document.querySelector("#journalPeoplePreview"),
@@ -5469,7 +5471,7 @@ function renderPourLog() {
   els.analyzePours?.closest(".pour-actions")?.classList.toggle("is-hidden", pours.length === 0);
   renderJournalPreviews(visiblePours);
 
-  document.querySelector("#journalTimelineSection")?.classList.toggle("is-hidden", visiblePours.length === 0);
+  document.querySelector("#journalTimelineSection")?.classList.toggle("is-hidden", true);
   els.pourList?.classList.toggle("is-hidden", visiblePours.length === 0);
   els.pourList.innerHTML = visiblePours.length
     ? visiblePours
@@ -5581,13 +5583,122 @@ function journalDaysOpen(bottle) {
 }
 
 function renderJournalDesktop(visiblePours) {
+  renderJournalContinueJourney(visiblePours);
   renderJournalTodayJourney(visiblePours);
   renderJournalJourneyInsights(visiblePours);
+  renderJournalBottleJourneys(visiblePours);
   renderJournalJourneyTimeline(visiblePours);
   renderJournalMemoryPhotos(visiblePours);
   renderJournalLegacyShelf(visiblePours);
   renderJournalFlavorJourney(visiblePours);
   renderJournalInsightCards(visiblePours);
+}
+
+function journalBottleJourneyMeta(bottle, visiblePours = pours) {
+  const bottlePours = visiblePours
+    .filter((pour) => pour.bottleId === bottle.id)
+    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const latest = bottlePours[0];
+  const status = journeyStatus(bottle);
+  const stage = status?.label || labelFillLevel(calculatedFillLevel(bottle)) || labelStatus(bottle.status);
+  const score = Number(latest?.rating || bottle.rating || 0);
+  return {
+    bottle,
+    latest,
+    stage,
+    score,
+    storyCount: bottlePours.length,
+    lastDate: latest?.date || bottle.openedDate || bottle.purchaseDate || "",
+  };
+}
+
+function renderJournalBottleJourneys(visiblePours) {
+  if (!els.journalBottleJourneysPreview) return;
+  const journeys = bottles
+    .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
+    .map((bottle) => journalBottleJourneyMeta(bottle, visiblePours))
+    .filter((meta) => meta.storyCount || meta.bottle.openedDate || meta.bottle.status === "open" || meta.bottle.status === "finished" || meta.bottle.fillLevel)
+    .sort((a, b) => new Date(b.lastDate || 0) - new Date(a.lastDate || 0) || b.storyCount - a.storyCount)
+    .slice(0, 4);
+
+  setJournalSectionVisible("#journalBottleJourneysSection", true);
+  els.journalBottleJourneysPreview.innerHTML = journeys.length
+    ? `
+      <div class="journal-bottle-journey-list">
+        ${journeys
+          .map(
+            (meta) => `
+              <article class="journal-bottle-journey-card" data-quick="${escapeHtml(meta.bottle.id)}" role="button" tabindex="0">
+                ${journalBottleMedia(meta.bottle, "journal-bottle-journey-photo")}
+                <div class="journal-bottle-journey-body">
+                  <strong>${escapeHtml(meta.bottle.name)}</strong>
+                  <span>${escapeHtml(meta.bottle.type || meta.bottle.category || meta.bottle.distillery || "Bottle Journey")}</span>
+                  <div class="journal-stage-track" aria-label="${escapeHtml(`${meta.bottle.name} journey stage`)}">
+                    <i></i><i></i><i></i><i></i>
+                  </div>
+                  <em>${escapeHtml(meta.stage)}${meta.lastDate ? ` · Last ${formatDate(meta.lastDate)}` : ""}</em>
+                </div>
+                <div class="journal-bottle-journey-meta">
+                  ${journalScoreMedallion(meta.score, "Bottle journey FIP score")}
+                  <span>${meta.storyCount} ${meta.storyCount === 1 ? "Story" : "Stories"}</span>
+                </div>
+              </article>
+            `,
+          )
+          .join("")}
+      </div>
+    `
+    : journalEmptyState("No bottle journeys yet.", "Add a bottle and record its first pour to begin tracking how it evolves.", "Start a Pour Story", "start-pour");
+  wireJournalQuickCards(els.journalBottleJourneysPreview);
+}
+
+function latestPourForBottle(bottleId, visiblePours = pours) {
+  return [...visiblePours]
+    .filter((pour) => pour.bottleId === bottleId)
+    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0];
+}
+
+function journalScoreMedallion(score, label = "") {
+  const value = Number(score);
+  return `
+    <span class="journal-score-medallion" aria-label="${escapeHtml(label || "FIP score")}">
+      <strong>${value ? value.toFixed(1) : "—"}</strong>
+      ${value ? "<em>/10</em>" : ""}
+    </span>
+  `;
+}
+
+function renderJournalContinueJourney(visiblePours) {
+  if (!els.journalContinueJourneyPreview) return;
+  const bottle = currentJournalBottle(visiblePours);
+  if (!bottle) {
+    els.journalContinueJourneyPreview.innerHTML = journalEmptyState("No active bottle journey yet.", "Add a bottle and record its first pour to begin tracking what changes.", "Add Bottle", "add-bottle");
+    return;
+  }
+  const latest = latestPourForBottle(bottle.id, visiblePours);
+  const status = journeyStatus(bottle);
+  const score = Number(latest?.rating || bottle.rating || 0);
+  els.journalContinueJourneyPreview.innerHTML = `
+    <article class="journal-continue-card" data-quick="${escapeHtml(bottle.id)}">
+      ${journalBottleMedia(bottle, "journal-continue-bottle")}
+      <div class="journal-continue-body">
+        <strong>${escapeHtml(bottle.name)}</strong>
+        <span>Current Stage</span>
+        <b>${escapeHtml(status?.label || labelFillLevel(calculatedFillLevel(bottle)) || labelStatus(bottle.status))}</b>
+        <span>Last Pour Story: ${latest?.date ? escapeHtml(formatDate(latest.date)) : "No Pour Story yet"}</span>
+        <span>Score: ${score ? score.toFixed(1) : "—"}</span>
+      </div>
+      <div class="journal-continue-side">
+        <p>Return to this bottle and see what has changed.</p>
+        <button class="secondary-action" data-journal-continue="${escapeHtml(bottle.id)}" type="button">Add the Next Pour</button>
+      </div>
+    </article>
+  `;
+  els.journalContinueJourneyPreview.querySelector("[data-journal-continue]")?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openPourForm(bottle.id);
+  });
+  els.journalContinueJourneyPreview.querySelector("[data-quick]")?.addEventListener("click", () => openBottleQuick(bottle.id));
 }
 
 function renderJournalTodayJourney(visiblePours) {
@@ -5599,19 +5710,21 @@ function renderJournalTodayJourney(visiblePours) {
   }
   const daysOpen = journalDaysOpen(bottle);
   const status = journeyStatus(bottle);
+  const latest = latestPourForBottle(bottle.id, visiblePours);
+  const score = Number(latest?.rating || bottle.rating || 0);
   els.journalTodayJourney.innerHTML = `
     <div class="journal-card-label">Today's Journey</div>
     <div class="journal-today-bottle">
-      ${journalBottlePlaceholder(bottle, "journal-today-thumb")}
+      ${journalBottleMedia(bottle, "journal-today-thumb")}
       <div>
         <strong>${escapeHtml(bottle.name)}</strong>
-        <span>${escapeHtml(bottle.distillery || bottle.type || "")}</span>
+        <span>${bottle.openedDate ? `Opened ${escapeHtml(formatDate(bottle.openedDate))}` : daysOpen === null ? "Not opened yet" : `Opened ${daysOpen} days ago`}</span>
       </div>
     </div>
     <div class="journal-today-meta">
-      <article><span>Fill Level</span><strong>${escapeHtml(status?.label || labelFillLevel(calculatedFillLevel(bottle)))}</strong></article>
-      <article><span>Current Score</span><strong>${numberOrDash(bottle.rating)}</strong></article>
-      <article><span>Days Open</span><strong>${daysOpen === null ? "—" : daysOpen}</strong></article>
+      <article><span>Stage</span><strong>${escapeHtml(status?.label || labelFillLevel(calculatedFillLevel(bottle)))}</strong></article>
+      <article><span>Current Score</span><strong>${score ? score.toFixed(1) : "—"}</strong></article>
+      <article><span>Last Story</span><strong>${latest?.date ? escapeHtml(formatDate(latest.date)) : "—"}</strong></article>
     </div>
     <button class="primary-action" data-journal-continue="${escapeHtml(bottle.id)}" type="button">Continue Journey</button>
   `;
@@ -5622,89 +5735,88 @@ function renderJournalJourneyInsights(visiblePours) {
   if (!els.journalJourneyInsights) return;
   const owned = bottles.filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status));
   if (!visiblePours.length && !owned.length) {
-    els.journalJourneyInsights.innerHTML = journalEmptyState("Journal insights will appear here.", "Add bottles and Pour Stories to build a real picture of your whiskey journey.");
+    els.journalJourneyInsights.innerHTML = journalEmptyState("Journey insights will appear here.", "Add bottles and Pour Stories to build a real picture of your whiskey journey.");
     return;
   }
-  const topProof = [...owned]
-    .map((bottle) => proofRangeLabel(bottle.proof))
-    .filter(Boolean)
-    .reduce((map, label) => map.set(label, (map.get(label) || 0) + 1), new Map());
-  const favoriteProof = [...topProof.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
-  const favoriteNote = [...new Set(owned.flatMap((bottle) => bottle.flavors || []))][0] || "—";
-  const companions = new Map();
-  visiblePours.forEach((pour) => {
-    const name = (pour.companion || "").trim();
-    if (name) companions.set(name, (companions.get(name) || 0) + 1);
-  });
-  const companion = [...companions.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
-  const distilleries = new Map();
-  owned.forEach((bottle) => {
-    if (bottle.distillery) distilleries.set(bottle.distillery, (distilleries.get(bottle.distillery) || 0) + 1);
-  });
-  const distillery = [...distilleries.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
+  const rated = visiblePours.filter((pour) => Number(pour.rating) > 0);
+  const averageScore = rated.length ? rated.reduce((sum, pour) => sum + Number(pour.rating), 0) / rated.length : 0;
+  const activeBottles = owned.filter((bottle) => bottle.status === "open" || (bottle.openedDate && bottle.fillLevel !== "empty")).length;
+  const currentJourneys = owned.filter((bottle) => {
+    const meta = journalBottleJourneyMeta(bottle, visiblePours);
+    return meta.storyCount > 0 || bottle.status === "open" || Boolean(bottle.openedDate);
+  }).length;
+  const bottleKills = owned.filter((bottle) => bottle.status === "finished" || bottle.fillLevel === "empty").length;
   els.journalJourneyInsights.innerHTML = `
     <div class="journal-card-label">Journey Insights</div>
     <div class="journal-insight-list">
-      <article><span>Stories written</span><strong>${visiblePours.length}</strong></article>
-      <article><span>Favorite proof</span><strong>${escapeHtml(favoriteProof)}</strong></article>
-      <article><span>Favorite tasting note</span><strong>${escapeHtml(favoriteNote)}</strong></article>
-      <article><span>Most shared companion</span><strong>${escapeHtml(companion)}</strong></article>
-      <article><span>Favorite distillery</span><strong>${escapeHtml(distillery)}</strong></article>
+      <article><strong>${activeBottles}</strong><span>Active Bottles</span></article>
+      <article><strong>${currentJourneys}</strong><span>Current Journeys</span></article>
+      <article><strong>${bottleKills}</strong><span>Bottle Kills</span></article>
+      <article><strong>${visiblePours.length}</strong><span>Pour Stories</span></article>
+      <article><strong>${averageScore ? averageScore.toFixed(1) : "—"}</strong><span>Avg FIP Score</span></article>
     </div>
   `;
 }
 
 function renderJournalJourneyTimeline(visiblePours) {
   if (!els.journalJourneyTimeline) return;
-  const activeJourneys = bottles
-    .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
-    .map((bottle) => {
-      const bottlePours = visiblePours.filter((pour) => pour.bottleId === bottle.id);
-      const firstPour = [...bottlePours].sort((a, b) => new Date(a.date) - new Date(b.date))[0];
-      const lastPour = [...bottlePours].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-      const hasJourney = bottle.openedDate || bottle.purchaseDate || bottle.status === "open" || bottle.status === "finished" || bottle.fillLevel === "empty" || bottlePours.length;
-      return hasJourney ? { bottle, firstPour, lastPour, bottlePours } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => new Date(b.lastPour?.date || b.bottle.openedDate || b.bottle.purchaseDate || 0) - new Date(a.lastPour?.date || a.bottle.openedDate || a.bottle.purchaseDate || 0))
-    .slice(0, 4);
+  const timelinePours = visiblePours.slice(0, 4);
 
-  if (!activeJourneys.length) {
+  if (!timelinePours.length) {
     setJournalSectionVisible("#journalJourneyTimeline", true);
     els.journalJourneyTimeline.innerHTML = `
       <div class="section-heading compact">
-        <div><p>Timeline</p><h2>Bottle journeys</h2></div>
+        <div><p>Timeline Preview</p></div>
       </div>
-      ${journalEmptyState("No bottle journeys yet.", "Start a Pour Story from a bottle to begin tracking how it changes over time.", "Start a Pour Story", "start-pour")}
+      ${journalEmptyState("No timeline yet.", "Start a Pour Story to begin your timeline.", "Start a Pour Story", "start-pour")}
     `;
     return;
   }
   setJournalSectionVisible("#journalJourneyTimeline", true);
   els.journalJourneyTimeline.innerHTML = `
     <div class="section-heading compact">
-      <div><p>Timeline</p><h2>Bottle journeys</h2></div>
+      <div><p>Timeline Preview</p></div>
+      <button class="text-link" data-journal-target="journalJourneyTimeline" type="button">View All</button>
     </div>
-    <div class="journal-journey-list">
-      ${activeJourneys
-        .map(({ bottle, firstPour, lastPour, bottlePours }) => {
-          const daysOpen = journalDaysOpen(bottle);
-          const status = journeyStatus(bottle);
+    <div class="journal-timeline-preview-list">
+      ${timelinePours
+        .map((pour, index, all) => {
+          const bottle = pourBottle(pour);
+          const date = pour.date ? new Date(`${pour.date}T12:00:00`) : null;
+          const month = date ? date.toLocaleString(undefined, { month: "short" }).toUpperCase() : "";
+          const day = date ? date.getDate() : "";
+          const year = date ? date.getFullYear() : "";
           return `
-            <article class="journal-journey-card" data-quick="${escapeHtml(bottle.id)}" role="button" tabindex="0">
-              ${journalBottleMedia(bottle, "journal-journey-photo")}
-              <div>
-                <strong>${escapeHtml(bottle.name)}</strong>
-                <span>${escapeHtml(status?.label || labelStatus(bottle.status))}</span>
-                <p>${daysOpen === null ? "Opened date not set" : `Opened ${daysOpen} days ago`}${firstPour ? ` · First pour ${formatDate(firstPour.date)}` : ""}</p>
-              </div>
-              <em>${bottlePours.length} ${bottlePours.length === 1 ? "story" : "stories"}${lastPour ? ` · Last ${formatDate(lastPour.date)}` : ""}</em>
+            <article class="journal-timeline-preview-item" data-edit-pour="${escapeHtml(pour.id)}" role="button" tabindex="0">
+              <span class="journal-timeline-node" aria-hidden="true"></span>
+              <time datetime="${escapeHtml(pour.date || "")}"><em>${escapeHtml(month)}</em><strong>${escapeHtml(String(day || ""))}</strong><small>${escapeHtml(String(year || ""))}</small></time>
+              ${journalBottleMedia(bottle, "journal-timeline-thumb")}
+              <b>${escapeHtml(bottle?.name || "Unknown bottle")}</b>
+              <span>${escapeHtml(pour.occasion || "Pour Story")}</span>
+              ${journalScoreMedallion(pour.rating || bottle?.rating, "Story FIP score")}
             </article>
           `;
         })
         .join("")}
     </div>
   `;
-  els.journalJourneyTimeline.querySelectorAll("[data-quick]").forEach((card) => {
+  wireJournalStoryCards(els.journalJourneyTimeline);
+}
+
+function journalMemoryImage(pour, bottle) {
+  if (pour.photoUrl) return pour.photoUrl;
+  if (pour.imageUrl) return pour.imageUrl;
+  if (Array.isArray(pour.photos) && pour.photos[0]) return pour.photos[0]?.url || pour.photos[0];
+  if (Array.isArray(bottle?.gallery)) return bottle.gallery.find((photo) => photo?.url)?.url || "";
+  return "";
+}
+
+function journalMemoryTitle(pour) {
+  return pour.memory?.trim() || pour.occasion?.trim() || pour.location?.trim() || "Pour Memory";
+}
+
+function wireJournalQuickCards(container, selector = "[data-quick]") {
+  container.querySelectorAll(selector).forEach((card) => {
     const open = () => openBottleQuick(card.dataset.quick);
     card.addEventListener("click", open);
     card.addEventListener("keydown", (event) => {
@@ -5861,29 +5973,15 @@ function renderJournalRecentPreview(visiblePours) {
         .map((pour) => {
           const bottle = pourBottle(pour);
           const score = Number(pour.rating || bottle?.rating || 0);
-          const status = journeyStatus(bottle);
-          const fillCopy = bottle ? status?.label || labelFillLevel(calculatedFillLevel(bottle)) : "Unlinked bottle";
           return `
             <article class="journal-story-card" data-edit-pour="${escapeHtml(pour.id)}" role="button" tabindex="0">
               ${journalBottleMedia(bottle, "journal-story-photo")}
               <div class="journal-story-content">
-                <div class="journal-story-head">
-                  <div>
-                    <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
-                    <span>${formatDate(pour.date)} · ${escapeHtml(pour.occasion || "Pour story")}</span>
-                  </div>
-                  <span class="journal-story-favorite" aria-label="Favorite story">★</span>
-                </div>
-                <div class="journal-story-score-row">
-                  <b>${score ? score.toFixed(1) : "—"}</b>
-                  <span aria-label="FIP score stars">★★★★★</span>
-                </div>
-                <em>Fill: ${escapeHtml(fillCopy)}</em>
-                <p>${escapeHtml(pour.memory || pour.notes || "No notes logged yet.")}</p>
-                <div class="journal-story-footer">
-                  <span>${escapeHtml(pour.companion || "No companion logged")}</span>
-                </div>
+                <strong>${escapeHtml(bottle?.name || "Unknown bottle")}</strong>
+                <span>${formatDate(pour.date)} · ${escapeHtml(pour.occasion || "Pour Story")}</span>
               </div>
+              ${journalScoreMedallion(score, "Story FIP score")}
+              <span class="journal-row-chevron" aria-hidden="true">›</span>
             </article>
           `;
         })
@@ -5894,18 +5992,22 @@ function renderJournalRecentPreview(visiblePours) {
 
 function renderJournalMemoriesPreview(visiblePours) {
   if (!els.journalMemoriesPreview) return;
-  const memories = visiblePours.filter((pour) => pour.memory?.trim()).slice(0, 3);
+  const memories = visiblePours.filter((pour) => pour.memory?.trim() || pour.occasion?.trim()).slice(0, 4);
   setJournalSectionVisible("#journalMemoriesSection", true);
   els.journalMemoriesPreview.innerHTML = memories.length
     ? memories
         .map((pour) => {
           const bottle = pourBottle(pour);
-          const memoryPhoto = Array.isArray(bottle?.gallery) ? bottle.gallery.find((photo) => photo?.url)?.url : "";
+          const memoryPhoto = journalMemoryImage(pour, bottle);
+          const title = journalMemoryTitle(pour);
           return `
             <article class="journal-memory-card" data-edit-pour="${escapeHtml(pour.id)}" role="button" tabindex="0">
-              ${memoryPhoto ? `<img class="journal-memory-photo" src="${escapeHtml(memoryPhoto)}" alt="${escapeHtml(pour.memory)}" />` : ""}
-              <strong>${escapeHtml(pour.memory)}</strong>
-              <span>${escapeHtml(bottle?.name || "Unknown bottle")} · ${formatDate(pour.date)}</span>
+              <span class="journal-memory-image-slot">
+                ${memoryPhoto ? `<img class="journal-memory-photo" src="${escapeHtml(memoryPhoto)}" alt="${escapeHtml(title)}" />` : ""}
+              </span>
+              <strong>${escapeHtml(title)}</strong>
+              <span>${formatDate(pour.date)}</span>
+              <em>1 Story</em>
             </article>
           `;
         })
@@ -5945,7 +6047,7 @@ function renderJournalPeoplePreview(visiblePours) {
   setJournalSectionVisible("#journalPeopleSection", true);
   els.journalPeoplePreview.innerHTML = people.length
     ? people.map((person) => journalPersonCard(person)).join("")
-    : journalEmptyState("The best pours are often shared.", "The friends, family, and fellow whiskey lovers you tag in your Pour Stories will appear here.");
+    : journalEmptyState("The best pours are often shared.", "Friends and fellow whiskey lovers connected to your Pour Stories will appear here.");
 }
 
 function sharedPersonPhoto(name) {
@@ -5999,8 +6101,12 @@ function renderJournalBottlePreview(visiblePours) {
   if (!els.journalBottlePreview) return;
   const ownedBottles = bottles
     .filter((bottle) => !["wishlist", "buy-next"].includes(bottle.status))
-    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
-    .slice(0, 8);
+    .sort((a, b) => {
+      const aMeta = visiblePours.filter((pour) => pour.bottleId === a.id);
+      const bMeta = visiblePours.filter((pour) => pour.bottleId === b.id);
+      return bMeta.length - aMeta.length || Number(b.rating || 0) - Number(a.rating || 0) || String(a.name || "").localeCompare(String(b.name || ""));
+    })
+    .slice(0, 4);
   setJournalSectionVisible("#journalBottlesSection", true);
   const bottleCounts = new Map();
   visiblePours.forEach((pour) => {
@@ -6021,8 +6127,9 @@ function renderJournalBottlePreview(visiblePours) {
               ${journalBottleMedia(bottle, "journal-bottle-photo")}
               <div>
                 <strong>${escapeHtml(bottle.name)}</strong>
-                <span>${escapeHtml([bottle.distillery, bottle.type].filter(Boolean).join(" · ") || "Bottle in your collection")}</span>
-                <em>${storyMeta ? `${storyMeta.count} ${storyMeta.count === 1 ? "story" : "stories"} · Last ${formatDate(storyMeta.lastDate)}` : "No Pour Stories yet"}</em>
+                <span>${storyMeta ? `${storyMeta.count} ${storyMeta.count === 1 ? "Story" : "Stories"}` : "No Stories Yet"}</span>
+                ${journalScoreMedallion(bottle.rating, "Bottle FIP score")}
+                <em>${storyMeta ? `Last: ${formatDate(storyMeta.lastDate)}` : "Ready for a Pour Story"}</em>
               </div>
             </article>
           `;
@@ -6030,16 +6137,7 @@ function renderJournalBottlePreview(visiblePours) {
         )
         .join("")
     : journalEmptyState("No bottles in your collection yet.", "Add a bottle to begin building your journal.", "Add a Bottle", "add-bottle");
-  els.journalBottlePreview.querySelectorAll("[data-quick]").forEach((card) => {
-    const open = () => openBottleQuick(card.dataset.quick);
-    card.addEventListener("click", open);
-    card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        open();
-      }
-    });
-  });
+  wireJournalQuickCards(els.journalBottlePreview);
 }
 
 function showJournalComingSoon(title, copy) {
