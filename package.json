@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "mkdir -p dist && cp -R publish/. dist"
+    "build": "mkdir -p dist/server dist/.openai && cp -R publish/. dist && cp .openai/hosting.json dist/.openai/hosting.json && cp sites-server/index.js dist/server/index.js"
   }
 }
