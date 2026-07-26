@@ -2408,17 +2408,108 @@ function preserveLocalImages(cloudBottles, localBottles) {
   });
 }
 
+function bottleTimestamp(b) {
+  return Number((b && (b.updatedAt || b.createdAt)) || 0);
+}
+function pourTimestamp(p) {
+  if (!p) return 0;
+  if (p.updatedAt) return Number(p.updatedAt) || 0;
+  if (p.date) {
+    const t = new Date(`${p.date}T12:00:00`).getTime();
+    if (!Number.isNaN(t)) return t;
+  }
+  return 0;
+}
+
+// Union two lists by id, keeping the newer of any item on both sides. Local
+// wins ties, so work done offline (which the cloud hasn't seen yet) survives
+// sign-in instead of being overwritten by an older cloud copy. Without deletion
+// tombstones this can resurrect an item deleted on another device — an accepted
+// trade-off versus losing unsynced local work.
+function mergeById(localList, cloudList, getTs) {
+  const byId = new Map();
+  (cloudList || []).forEach((item) => {
+    if (item && item.id != null) byId.set(item.id, item);
+  });
+  (localList || []).forEach((item) => {
+    if (!item || item.id == null) return;
+    const existing = byId.get(item.id);
+    if (!existing || getTs(item) >= getTs(existing)) byId.set(item.id, item);
+  });
+  return Array.from(byId.values());
+}
+
+// Upload any inline base64 (`data:`) photos to Cloud Storage and replace them
+// with the download URL, so photos added before sign-in sync across devices as
+// small URLs instead of bloating the user document (and triggering the trim in
+// pushCloudData). Best-effort and per-item: a failed upload leaves the local
+// data: URL in place (still shown locally). Returns true if anything changed.
+async function migrateLocalPhotosToStorage() {
+  if (!currentUser || !storage) return false;
+  let changed = false;
+  const upload = async (dataUrl, tag) => {
+    const blob = await (await fetch(dataUrl)).blob();
+    const path = `bottle-photos/${currentUser.uid}/${Date.now()}-${tag}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    return uploadFileToStorage(blob, path);
+  };
+  for (const bottle of bottles) {
+    if (isDataUrl(bottle.imageUrl)) {
+      try {
+        bottle.imageUrl = await upload(bottle.imageUrl, "main");
+        changed = true;
+      } catch (error) {
+        console.warn("Photo migration (bottle) skipped", error);
+      }
+    }
+    if (Array.isArray(bottle.gallery)) {
+      for (const photo of bottle.gallery) {
+        if (photo && isDataUrl(photo.url)) {
+          try {
+            photo.url = await upload(photo.url, "gallery");
+            changed = true;
+          } catch (error) {
+            console.warn("Photo migration (gallery) skipped", error);
+          }
+        }
+      }
+    }
+  }
+  for (const pour of pours) {
+    for (const key of ["photoUrl", "imageUrl", "memoryPhotoUrl"]) {
+      if (isDataUrl(pour[key])) {
+        try {
+          pour[key] = await upload(pour[key], "pour");
+          changed = true;
+        } catch (error) {
+          console.warn("Photo migration (pour) skipped", error);
+        }
+      }
+    }
+  }
+  if (changed) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
+    localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+  }
+  return changed;
+}
+
 async function pullCloudData(uid) {
-  // In-memory bottles == the localStorage copy at this point, before the cloud
-  // overwrites it. Kept so we can restore any locally-held photos the cloud
-  // copy is missing (see preserveLocalImages).
+  // In-memory bottles/pours == the localStorage copy at this point, before the
+  // cloud is folded in. Kept so a sign-in merges (rather than overwrites) any
+  // work done offline, instead of the older cloud copy clobbering it.
   const localBottles = bottles;
+  const localPours = pours;
   try {
     const snap = await userDocRef(uid).get();
     if (snap.exists) {
       const data = snap.data();
-      bottles = preserveLocalImages((data.bottles || []).map(normalizeBottle), localBottles);
-      pours = data.pours || [];
+      const cloudBottles = preserveLocalImages((data.bottles || []).map(normalizeBottle), localBottles);
+      // Merge by id, newest-per-item wins — preserves offline additions on this
+      // device while still picking up newer edits made on another device.
+      bottles = mergeById(localBottles, cloudBottles, bottleTimestamp);
+      pours = mergeById(localPours, data.pours || [], pourTimestamp);
+      // infinityBottles stay cloud-authoritative (entries may lack ids, so a
+      // merge-by-id could drop them); this preserves the prior behavior.
       infinityBottles = (data.infinityBottles || []).map((entry) => ({ additions: [], notes: "", ...entry }));
       currentProfile = {
         username: data.username || "",
@@ -2438,9 +2529,14 @@ async function pullCloudData(uid) {
       });
       if (libraryChanged) renderDistilleryOptions();
       persistCustomLibrary();
+      // Upload any pre-sign-in inline photos, then push the merged result so the
+      // cloud picks up offline additions (with photos now hosted in Storage).
+      await migrateLocalPhotosToStorage();
+      pushCloudData();
     } else {
       currentProfile = { username: "" };
-      await userDocRef(uid).set({ bottles, pours, infinityBottles, customLibrary, username: "", updatedAt: Date.now() });
+      await migrateLocalPhotosToStorage();
+      pushCloudData();
     }
     syncCoreBarScores();
     updateAccountUI();
