@@ -18002,3 +18002,27 @@ body:has(#collectionView:not(.is-hidden)):not(:has(.dashboard-view:not(.is-hidde
     grid-template-columns: 1fr;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Mobile bottom-nav icons
+   The base `.topbar .nav-icon { display: none }` hides nav icons at every width
+   for the desktop labels-only top bar. The mobile bottom bar (max-width: 640px)
+   is already laid out to stack an icon above each label (`.nav-item` is a grid
+   and `.nav-icon` is pre-sized 24x22), but that global rule kept the icon
+   hidden. Reveal the now-SVG icons there so the bottom bar reads as a proper
+   tab bar. Scoped tighter (`.topbar .nav-list .nav-icon`) so it beats the
+   global rule without affecting the desktop top bar.
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .topbar .nav-list .nav-icon {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-inline: auto;
+  }
+  .topbar .nav-list .nav-icon > svg {
+    width: 22px;
+    height: 22px;
+  }
+}
