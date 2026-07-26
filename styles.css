@@ -6,6 +6,29 @@
   src: url("assets/fonts/fraunces-variable.woff2") format("woff2");
 }
 
+/* Self-hosted Inter (body) — replaces the Google Fonts dependency so the PWA
+   has no render-blocking external font request, works offline, and doesn't
+   leak visitor IPs to a third party. Variable weight axis covers 400-800. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/fonts/inter-latin-variable.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/fonts/inter-latin-ext-variable.woff2") format("woff2");
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF,
+    U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* Journal presentation replacement */
 .journal-page {
   width: min(1500px, calc(100vw - 40px));
@@ -9458,7 +9481,7 @@ body {
   background:
     radial-gradient(circle at 18% -8%, rgba(184, 138, 52, 0.11), transparent 30rem),
     radial-gradient(circle at 84% 4%, rgba(156, 74, 34, 0.08), transparent 26rem),
-    linear-gradient(180deg, #080806 0%, #0d0b08 42%, #080806 100%);
+    linear-gradient(180deg, var(--charcoal) 0%, #0d0b08 42%, var(--charcoal) 100%);
   color: var(--ink);
   font-family: var(--sans);
   letter-spacing: 0;
@@ -10119,7 +10142,7 @@ textarea::placeholder {
   body {
     background:
       radial-gradient(circle at 50% -6%, rgba(184, 138, 52, 0.12), transparent 22rem),
-      linear-gradient(180deg, #080806 0%, #0d0b08 100%);
+      linear-gradient(180deg, var(--charcoal) 0%, #0d0b08 100%);
   }
 
   .topbar {
@@ -10274,6 +10297,15 @@ textarea::placeholder {
   font-family: var(--serif);
   font-size: 0.95rem;
   line-height: 1;
+}
+
+/* Inline SVG nav icons inherit the .nav-icon box size and currentColor, so the
+   active/hover color rules keep working and they render identically on every
+   platform (unlike the previous Unicode glyphs). */
+.nav-icon > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .nav-label {
@@ -11812,7 +11844,7 @@ textarea::placeholder {
   --fip-cream: #f2e5cc;
   --fip-cream-soft: #dccbb0;
   --fip-muted: #aaa094;
-  --fip-stone: #7f766c;
+  --fip-stone: #9c9284; /* was #7f766c — lightened to clear WCAG AA (4.5:1) on dark surfaces */
   --fip-success: #6e8e38;
   --fip-warning: #d48a20;
   --fip-error: #a94b3b;
@@ -17968,5 +18000,29 @@ body:has(#collectionView:not(.is-hidden)):not(:has(.dashboard-view:not(.is-hidde
 
   .bottle-detail-page .bottle-gallery-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Mobile bottom-nav icons
+   The base `.topbar .nav-icon { display: none }` hides nav icons at every width
+   for the desktop labels-only top bar. The mobile bottom bar (max-width: 640px)
+   is already laid out to stack an icon above each label (`.nav-item` is a grid
+   and `.nav-icon` is pre-sized 24x22), but that global rule kept the icon
+   hidden. Reveal the now-SVG icons there so the bottom bar reads as a proper
+   tab bar. Scoped tighter (`.topbar .nav-list .nav-icon`) so it beats the
+   global rule without affecting the desktop top bar.
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .topbar .nav-list .nav-icon {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-inline: auto;
+  }
+  .topbar .nav-list .nav-icon > svg {
+    width: 22px;
+    height: 22px;
   }
 }
