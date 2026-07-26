@@ -2917,14 +2917,33 @@ function selectInviteMethod(method) {
 }
 
 // Best-effort record of who invited whom. Never blocks the actual invite.
-function logInvite(method, contact) {
+async function sha256Hex(text) {
+  const data = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function logInvite(method, contact) {
   if (!currentUser || !db) return;
+  // Store only a hash of the invitee's contact, never the raw email/phone/
+  // handle — that's a third party who hasn't consented to us keeping their
+  // address. The hash still lets us recognize an accepted invite later without
+  // holding PII. (Invites are also write-only for clients per firestore.rules.)
+  let contactHash = "";
+  try {
+    const normalized = String(contact || "").trim().toLowerCase();
+    if (normalized) contactHash = await sha256Hex(normalized);
+  } catch (error) {
+    console.warn("Invite hash skipped", error);
+  }
   db.collection("invites")
     .add({
       inviterUid: currentUser.uid,
       inviterUsername: currentProfile?.username || "",
       method,
-      contact: contact || "",
+      contactHash,
       createdAt: Date.now(),
     })
     .catch((error) => console.warn("Invite log skipped", error));
