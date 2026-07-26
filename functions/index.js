@@ -289,3 +289,70 @@ exports.removeBottleBackground = onCall(
     }
   },
 );
+
+// --- Community photo moderation ---------------------------------------------
+// Ordinary users submit photos to the `bottleSubmissions` review queue (see the
+// client's shareBottlePhoto + firestore.rules). Publishing an approved photo
+// into the public `sharedBottlePhotos` catalog happens only here, gated on an
+// `admin` custom claim. Set the claim once with the Admin SDK, e.g.:
+//   admin.auth().setCustomUserClaims(uid, { admin: true })
+
+function requireAdmin(request) {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  if (request.auth.token.admin !== true) {
+    throw new HttpsError("permission-denied", "Only an administrator can moderate submissions.");
+  }
+}
+
+function catalogKey(name, distillery) {
+  return `${name || ""}-${distillery || ""}`.toLowerCase().split("/").join("-");
+}
+
+exports.approveBottleSubmission = onCall({ cors: true }, async (request) => {
+  requireAdmin(request);
+  const submissionId = String(request.data?.submissionId || "").trim();
+  if (!submissionId) {
+    throw new HttpsError("invalid-argument", "A submissionId is required.");
+  }
+
+  const subRef = db.collection("bottleSubmissions").doc(submissionId);
+  const snap = await subRef.get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "That submission no longer exists.");
+  }
+  const submission = snap.data();
+  const name = String(submission.name || "").trim();
+  const distillery = String(submission.distillery || "").trim();
+  const imageUrl = String(submission.imageUrl || "");
+  if (!/^https:\/\//i.test(imageUrl)) {
+    throw new HttpsError("failed-precondition", "Submission has no valid image URL.");
+  }
+
+  const key = catalogKey(name, distillery);
+  await db.collection("sharedBottlePhotos").doc(key).set({
+    name,
+    distillery,
+    imageUrl,
+    submittedBy: submission.submittedBy || null,
+    submittedAt: submission.submittedAt || Date.now(),
+    approvedBy: request.auth.uid,
+    approvedAt: Date.now(),
+  });
+  await subRef.set(
+    { approved: true, approvedBy: request.auth.uid, approvedAt: Date.now() },
+    { merge: true },
+  );
+  return { ok: true, key };
+});
+
+exports.rejectBottleSubmission = onCall({ cors: true }, async (request) => {
+  requireAdmin(request);
+  const submissionId = String(request.data?.submissionId || "").trim();
+  if (!submissionId) {
+    throw new HttpsError("invalid-argument", "A submissionId is required.");
+  }
+  await db.collection("bottleSubmissions").doc(submissionId).delete();
+  return { ok: true };
+});

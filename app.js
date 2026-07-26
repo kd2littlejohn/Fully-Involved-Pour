@@ -927,21 +927,24 @@ async function loadSharedBottlePhotos() {
 
 async function shareBottlePhoto(bottle) {
   if (!currentUser || !db || !bottle.imageUrl) return;
-  const key = curatedImageKey(bottle.name, bottle.distillery).replaceAll("/", "-");
+  // Community photos are no longer published directly by clients. Only a real
+  // Storage-hosted photo can become public (skip inline data: URLs), and it now
+  // goes into a review queue that an admin/Cloud Function approves into the
+  // public catalog (sharedBottlePhotos). See firestore.rules.
+  if (!/^https:\/\//i.test(bottle.imageUrl)) return;
   const statusEl = document.querySelector("#quickPhotoStatus");
   try {
-    await db.collection("sharedBottlePhotos").doc(key).set({
-      name: bottle.name,
-      distillery: bottle.distillery,
+    await db.collection("bottleSubmissions").add({
+      name: bottle.name || "",
+      distillery: bottle.distillery || "",
       imageUrl: bottle.imageUrl,
       submittedBy: currentUser.uid,
       submittedAt: Date.now(),
     });
-    sharedCuratedImages.set(key, bottle.imageUrl);
-    if (statusEl) statusEl.textContent = "✓ Shared with everyone";
+    if (statusEl) statusEl.textContent = "✓ Submitted for review";
   } catch (error) {
-    console.error("Failed to share bottle photo", error);
-    if (statusEl) statusEl.textContent = "Could not share this photo. Try again.";
+    console.error("Failed to submit bottle photo", error);
+    if (statusEl) statusEl.textContent = "Could not submit this photo. Try again.";
   }
 }
 
