@@ -2349,12 +2349,75 @@ function userDocRef(uid) {
   return db.collection("users").doc(uid);
 }
 
+// --- Cloud-sync safety -------------------------------------------------------
+// The whole collection syncs as a single Firestore document, which has a hard
+// 1 MiB limit. Bottles added before sign-in store their photo as a base64
+// `data:` URL inline; a few of those can push the document over the limit, and
+// the write would then fail silently. These helpers keep the synced document
+// under the limit and make any failure visible instead of silent.
+const SAFE_DOC_BYTES = 900 * 1024; // headroom below Firestore's 1 MiB doc limit
+let cloudPhotoTrimWarned = false; // one-shot per session (push runs on every save)
+let cloudSyncErrorWarned = false; // reset on a successful write
+
+function isDataUrl(value) {
+  return typeof value === "string" && /^data:/i.test(value.trim());
+}
+
+function estimateJsonBytes(obj) {
+  try {
+    return new Blob([JSON.stringify(obj)]).size;
+  } catch {
+    return JSON.stringify(obj).length; // rough fallback
+  }
+}
+
+// Cloud copies with inline `data:` photos removed. The local copies keep their
+// images; preserveLocalImages() restores them on the next pull.
+function cloudSafeBottles(list) {
+  return (list || []).map((bottle) => {
+    const copy = { ...bottle };
+    if (isDataUrl(copy.imageUrl)) copy.imageUrl = "";
+    if (Array.isArray(copy.gallery)) {
+      copy.gallery = copy.gallery.filter((photo) => photo && !isDataUrl(photo.url));
+    }
+    return copy;
+  });
+}
+
+function cloudSafePours(list) {
+  return (list || []).map((pour) => {
+    const copy = { ...pour };
+    ["photoUrl", "imageUrl", "memoryPhotoUrl"].forEach((key) => {
+      if (isDataUrl(copy[key])) copy[key] = "";
+    });
+    return copy;
+  });
+}
+
+// When the cloud copy of a bottle has no image (e.g. its inline photo was
+// trimmed on a previous push), keep the image we still have locally so a pull
+// doesn't erase the user's photo.
+function preserveLocalImages(cloudBottles, localBottles) {
+  const localById = new Map((localBottles || []).map((b) => [b.id, b]));
+  return (cloudBottles || []).map((b) => {
+    if (!b.imageUrl) {
+      const local = localById.get(b.id);
+      if (local && local.imageUrl) return { ...b, imageUrl: local.imageUrl };
+    }
+    return b;
+  });
+}
+
 async function pullCloudData(uid) {
+  // In-memory bottles == the localStorage copy at this point, before the cloud
+  // overwrites it. Kept so we can restore any locally-held photos the cloud
+  // copy is missing (see preserveLocalImages).
+  const localBottles = bottles;
   try {
     const snap = await userDocRef(uid).get();
     if (snap.exists) {
       const data = snap.data();
-      bottles = (data.bottles || []).map(normalizeBottle);
+      bottles = preserveLocalImages((data.bottles || []).map(normalizeBottle), localBottles);
       pours = data.pours || [];
       infinityBottles = (data.infinityBottles || []).map((entry) => ({ additions: [], notes: "", ...entry }));
       currentProfile = {
@@ -2391,22 +2454,41 @@ async function pullCloudData(uid) {
 
 async function pushCloudData() {
   if (!currentUser || !db) return;
+  const base = {
+    infinityBottles,
+    customLibrary,
+    username: currentProfile?.username || "",
+    greetingMode: localStorage.getItem(GREETING_MODE_KEY) || "username",
+    greetingName: localStorage.getItem(GREETING_NAME_KEY) || "",
+    updatedAt: Date.now(),
+  };
+  let payload = { ...base, bottles, pours };
+  let trimmedPhotos = false;
+  // Only strip inline photos when the document would exceed the safe size, so
+  // users whose collection fits keep syncing their photos as before.
+  if (estimateJsonBytes(payload) > SAFE_DOC_BYTES) {
+    payload = { ...base, bottles: cloudSafeBottles(bottles), pours: cloudSafePours(pours) };
+    trimmedPhotos = true;
+  }
   try {
-    await userDocRef(currentUser.uid).set(
-      {
-        bottles,
-        pours,
-        infinityBottles,
-        customLibrary,
-        username: currentProfile?.username || "",
-        greetingMode: localStorage.getItem(GREETING_MODE_KEY) || "username",
-        greetingName: localStorage.getItem(GREETING_NAME_KEY) || "",
-        updatedAt: Date.now(),
-      },
-      { merge: true },
-    );
+    await userDocRef(currentUser.uid).set(payload, { merge: true });
+    cloudSyncErrorWarned = false;
+    if (trimmedPhotos && !cloudPhotoTrimWarned) {
+      cloudPhotoTrimWarned = true;
+      showToast(
+        "Some photos are too large to sync, so they're kept on this device only — your bottles and notes did sync.",
+        { icon: "📸" },
+      );
+    }
   } catch (error) {
     console.error("Cloud sync failed to save", error);
+    if (!cloudSyncErrorWarned) {
+      cloudSyncErrorWarned = true;
+      showToast(
+        "Couldn't save your latest changes to the cloud. They're safe on this device and will sync when the connection recovers.",
+        { icon: "⚠️" },
+      );
+    }
   }
 }
 
