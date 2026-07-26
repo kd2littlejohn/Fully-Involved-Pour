@@ -187,6 +187,15 @@ service cloud.firestore {
       allow update, delete: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
     }
 
+    // ---- aiUsage/{uid} ---------------------------------------------------
+    // Per-user AI rate-limit counters, written only by the Cloud Functions
+    // (Admin SDK, which bypasses these rules). Clients must never read or write
+    // them — a client that could reset its own counter would defeat the limit.
+    // Explicit deny (also covered by the default-deny below; kept for clarity).
+    match /aiUsage/{uid} {
+      allow read, write: if false;
+    }
+
     // ---- default deny ----------------------------------------------------
     match /{document=**} {
       allow read, write: if false;

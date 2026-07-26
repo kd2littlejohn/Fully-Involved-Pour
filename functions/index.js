@@ -1,8 +1,72 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
+const db = admin.firestore();
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+
+// Per-user AI usage limits, to cap abuse loops and runaway Anthropic / compute
+// cost. Counting is unit-based so heavier calls (vision label scan, background
+// removal) draw the quota down faster than a plain text prompt.
+const DAILY_LIMIT_UNITS = 150; // total AI units per user per UTC day
+const MINUTE_LIMIT_UNITS = 20; // burst guard: units per rolling minute
+
+// Atomically records `cost` units against the caller and throws
+// resource-exhausted once a window is exceeded. Counters live in aiUsage/{uid}
+// and are written only via the Admin SDK (clients are denied by the Firestore
+// rules' default-deny). Fails OPEN on unexpected infrastructure errors so a
+// Firestore blip can't take the AI features down — the explicit quota error is
+// always rethrown.
+async function enforceRateLimit(uid, cost) {
+  const ref = db.collection("aiUsage").doc(uid);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const now = Date.now();
+      const today = new Date(now).toISOString().slice(0, 10);
+      const data = snap.exists ? snap.data() : {};
+
+      const dayCount = data.day === today ? data.dayCount || 0 : 0;
+      let minuteStart = data.minuteStart || 0;
+      let minuteCount = data.minuteCount || 0;
+      if (now - minuteStart >= 60000) {
+        minuteStart = now;
+        minuteCount = 0;
+      }
+
+      if (dayCount + cost > DAILY_LIMIT_UNITS) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "You've reached today's limit for AI features. It resets tomorrow.",
+        );
+      }
+      if (minuteCount + cost > MINUTE_LIMIT_UNITS) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "You're using AI features very quickly — give it a moment and try again.",
+        );
+      }
+
+      tx.set(
+        ref,
+        {
+          day: today,
+          dayCount: dayCount + cost,
+          minuteStart,
+          minuteCount: minuteCount + cost,
+          updatedAt: now,
+        },
+        { merge: true },
+      );
+    });
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error("Rate limit check failed; allowing request", error);
+  }
+}
 
 async function callClaude(apiKey, { system, prompt, maxTokens, content, messages }) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -54,6 +118,7 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
 
   const system = `${SOMMELIER_PERSONA}\n\nHere is a summary of their current collection:\n${collectionSummary || "(their collection is empty so far)"}`;
   const messages = [...history, { role: "user", content: prompt }];
+  await enforceRateLimit(request.auth.uid, 1);
   const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 400 });
   return { reply: reply || "I couldn't come up with a response just now — try rephrasing." };
 });
@@ -72,6 +137,7 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
 
   const prompt = `Bottle name: ${bottleName}`;
 
+  await enforceRateLimit(request.auth.uid, 1);
   const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 200 });
 
   let parsed;
@@ -107,6 +173,7 @@ exports.generateTastingProfile = onCall({ secrets: [anthropicApiKey], cors: true
 
   const prompt = `Bottle: ${bottleName}\nDistillery: ${distillery || "unknown"}\nType: ${type || "unknown"}\nProof: ${proof || "unknown"}\nKnown flavor tags so far: ${(Array.isArray(flavors) ? flavors : []).join(", ") || "none"}\n\nGenerate a plausible, expert tasting profile for this bottle.`;
 
+  await enforceRateLimit(request.auth.uid, 1);
   const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 300 });
 
   let parsed;
@@ -148,6 +215,7 @@ exports.scanBottleLabel = onCall(
 {"found": true or false, "name": "full bottle/expression name", "distillery": "producer or distillery", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "state or country if determinable", "proof": number or 0, "ageStatement": "e.g. 10 Year or empty string", "msrp": typical retail price in USD as a number or 0}
 Set "found" to false ONLY if no spirits bottle is visible in the image at all. If a bottle is visible but some details are unreadable or unknown, still set "found" to true, fill in what you can, and leave unknown text fields as empty strings and unknown numbers as 0. For msrp, only include it if this is a well-known bottle whose typical retail price you know; otherwise 0.`;
 
+    await enforceRateLimit(request.auth.uid, 4);
     const raw = await callClaude(anthropicApiKey.value(), {
       system,
       maxTokens: 300,
@@ -207,6 +275,7 @@ exports.removeBottleBackground = onCall(
     if (!imageBase64) {
       throw new HttpsError("invalid-argument", "An image is required.");
     }
+    await enforceRateLimit(request.auth.uid, 4);
     try {
       const removeBackground = getRemoveBackground();
       const inputBuffer = Buffer.from(imageBase64, "base64");
