@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Fully Involved Pour — Cloud Storage security rules
+//
+// Access model (as approved):
+//   - Deny by default.
+//   - No unauthenticated writes.
+//   - A user may upload/replace/delete files ONLY within their own
+//     user-scoped path.
+//   - Uploads must be images and under a maximum size.
+//   - There is no separate "verified catalog" storage location — the only
+//     path the app writes is the per-user one below, which doubles as the
+//     "unverified custom-bottle submission" upload path. So there is nothing
+//     for ordinary users to write in a shared-catalog area to lock down here.
+//
+// Actual path used by app.js: `bottle-photos/{uid}/<timestamp>-<tag>-<name>.jpg`
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImageUnder(maxBytes) {
+      return request.resource != null &&
+             request.resource.contentType.matches('image/.*') &&
+             request.resource.size < maxBytes;
+    }
+
+    // Per-user bottle photos (crop / cutout / gallery / label-scan) and
+    // unverified custom-bottle submissions.
+    match /bottle-photos/{uid}/{fileName=**} {
+      // Bottle photos are shared social content (friend cabinets, community
+      // pool), so any signed-in user may read. Cross-user display in the app
+      // actually goes through tokenized download URLs, which bypass rules —
+      // so this read allowance could be tightened to `isUser(uid)` without
+      // breaking the current app. Left at signed-in read by design; see the
+      // summary for the alternative.
+      allow read: if isSignedIn();
+
+      // Only the owner may write within their own path, images only,
+      // capped at 15 MB (uploads are downscaled client-side well below this).
+      allow write: if isSignedIn()
+                   && request.auth.uid == uid
+                   && isImageUnder(15 * 1024 * 1024);
+    }
+
+    // Everything else: deny.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

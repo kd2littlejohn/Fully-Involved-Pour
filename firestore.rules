@@ -1,0 +1,182 @@
+rules_version = '2';
+
+// Fully Involved Pour — Firestore security rules
+//
+// Access model (as approved):
+//   - No unauthenticated writes anywhere; deny by default.
+//   - Users read/write only their own private data.
+//   - Authenticated users may read shared/social data (profiles, follows they
+//     are part of, salutes, faceoff votes, community bottle photos).
+//   - Authenticated users may create unverified community bottle-photo
+//     submissions (stamped with their own uid).
+//
+// IMPORTANT — how this maps to the app's actual schema (see app.js):
+// The app is local-first. A user's bottles, pours, "Pour Stories"
+// (infinityBottles), and custom library all live inside the single
+// `users/{uid}` document (and in localStorage), NOT in separate top-level
+// collections. So the intended-model concepts "userBottles", "private pours",
+// and "Pour Stories" are all governed by the `users/{uid}` owner-only rule
+// below. The forward-looking rules for standalone collections
+// (userBottles / pours / pourStories / notifications / recommendations /
+// sharedMoments) are included but the app does not read or write them today —
+// they are safe (owner-scoped) and future-proof. Confirm the paths before
+// migrating any of that data out of `users/{uid}`.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ---------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // True when the incoming document stamps the caller as its own author,
+    // via the given field. Used to stop users writing records on behalf of
+    // someone else.
+    function writerOwns(field) {
+      return isSignedIn() && request.resource.data[field] == request.auth.uid;
+    }
+
+    // ---- users/{uid} -----------------------------------------------------
+    // The whole per-user sync blob: bottles, pours, infinityBottles
+    // ("Pour Stories"), customLibrary, greeting prefs, username.
+    // Owner-only, both read and write. This is the collection that actually
+    // holds "userBottles", "private pours", and "Pour Stories" today.
+    match /users/{uid} {
+      allow read, write: if isUser(uid);
+    }
+
+    // ---- profiles/{uid} --------------------------------------------------
+    // Public-facing username card. Any signed-in user may read it (used to
+    // resolve a follower/followee's display name). Only the owner may write,
+    // and only their own uid.
+    match /profiles/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isUser(uid);
+    }
+
+    // ---- usernames/{key} -------------------------------------------------
+    // Username registry for uniqueness + follow-by-username lookup.
+    // Doc shape: { uid, username }. Any signed-in user may read (to check
+    // availability and to look up who to follow). A user may only create or
+    // update a registry entry that points at their own uid, and may only
+    // delete an entry they own (e.g. releasing a previous username).
+    match /usernames/{key} {
+      allow read: if isSignedIn();
+      allow create, update: if writerOwns('uid');
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // ---- follows/{followDocId} -------------------------------------------
+    // Relationship edge. Doc id is `${followerUid}_${followingUid}`.
+    // Doc shape: { followerUid, followingUid, ... }.
+    // Readable by either party (queries filter by followerUid == me OR
+    // followingUid == me). Only the follower may create the edge (and only
+    // one naming themselves as follower); only the follower may delete it.
+    match /follows/{followDocId} {
+      allow read: if isSignedIn() &&
+        (resource.data.followerUid == request.auth.uid ||
+         resource.data.followingUid == request.auth.uid);
+      allow create: if writerOwns('followerUid');
+      allow delete: if isSignedIn() && resource.data.followerUid == request.auth.uid;
+      // No updates: an edge is create-or-delete only.
+    }
+
+    // ---- reactions/{ownerUid_bottleId_reactorUid} ------------------------
+    // "Salutes" on a friend's bottle. Doc shape:
+    // { ownerUid, bottleId, reactorUid, ... }. Any signed-in user may read
+    // (salute counts are shown on friends' cabinets). Only the reactor may
+    // create/delete their own salute.
+    match /reactions/{reactionId} {
+      allow read: if isSignedIn();
+      allow create: if writerOwns('reactorUid');
+      allow delete: if isSignedIn() && resource.data.reactorUid == request.auth.uid;
+    }
+
+    // ---- faceoffVotes/{pairKey_uid} --------------------------------------
+    // Head-to-head bottle vote. Doc shape: { pairKey, winner, voterUid, ... }.
+    // Any signed-in user may read (aggregate tallies). A user may only
+    // write/replace/remove their own vote (voterUid == uid).
+    match /faceoffVotes/{voteId} {
+      allow read: if isSignedIn();
+      allow create, update: if writerOwns('voterUid');
+      allow delete: if isSignedIn() && resource.data.voterUid == request.auth.uid;
+    }
+
+    // ---- invites/{autoId} ------------------------------------------------
+    // Best-effort "who invited whom" telemetry (auto-id docs). Doc shape:
+    // { inviterUid, ... }. Write-only from the client — the app never reads
+    // it back — so reads are denied. Only the inviter may create a record
+    // naming themselves.
+    match /invites/{inviteId} {
+      allow read: if false;
+      allow create: if writerOwns('inviterUid');
+    }
+
+    // ---- sharedBottlePhotos/{key} ----------------------------------------
+    // Community-submitted ("unverified") bottle photos, keyed by bottle
+    // identity (name+distillery), NOT by uid. Doc shape:
+    // { name, distillery, imageUrl, submittedBy, submittedAt }.
+    // Any signed-in user may read the pool. Any signed-in user may create or
+    // replace an entry, but only stamped with their own uid as submittedBy —
+    // this is the "authenticated users may create unverified bottle
+    // submissions" clause. NOTE: because the key is the bottle identity
+    // rather than the uid, last-writer-wins — any user can replace the
+    // community photo for a given bottle (always recording themselves as the
+    // submitter). See the summary: this is the one spot where the app's
+    // shipped "Share with everyone" feature and the "verified catalog is not
+    // user-writable" intent meet. The verified catalog is hardcoded in JS
+    // (curatedBottleImages), not stored in Firestore, so there is no
+    // verified-catalog collection to lock down here.
+    match /sharedBottlePhotos/{key} {
+      allow read: if isSignedIn();
+      allow create, update: if writerOwns('submittedBy');
+    }
+
+    // ---- forward-looking, owner-scoped collections -----------------------
+    // NOT used by app.js today (the data lives inside users/{uid}). Included
+    // so the intended access model is represented and secure if/when the app
+    // migrates. Confirm these paths before relying on them.
+    match /userBottles/{uid}/{document=**} {
+      allow read, write: if isUser(uid);
+    }
+    match /pours/{uid}/{document=**} {
+      allow read, write: if isUser(uid);
+    }
+    match /notifications/{uid}/{document=**} {
+      allow read: if isUser(uid);
+      // Notifications are expected to be written server-side (Admin SDK, which
+      // bypasses rules). Deny client writes.
+      allow write: if false;
+    }
+    match /recommendations/{uid}/{document=**} {
+      allow read: if isUser(uid);
+      allow write: if false; // produced server-side
+    }
+    // Pour Stories as standalone docs: owner may read/write their own; others
+    // may read only when the doc is explicitly marked shared.
+    match /pourStories/{storyId} {
+      allow read: if isSignedIn() &&
+        (resource.data.ownerUid == request.auth.uid || resource.data.shared == true);
+      allow create: if writerOwns('ownerUid');
+      allow update, delete: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+    // Shared moments: owner-authored, readable by signed-in users only when
+    // marked shared.
+    match /sharedMoments/{momentId} {
+      allow read: if isSignedIn() &&
+        (resource.data.ownerUid == request.auth.uid || resource.data.shared == true);
+      allow create: if writerOwns('ownerUid');
+      allow update, delete: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // ---- default deny ----------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
