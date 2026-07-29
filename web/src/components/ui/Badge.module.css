@@ -1,0 +1,25 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--fip-space-2);
+  border-radius: var(--fip-radius-sm);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-muted);
+  background: var(--fip-card-soft);
+}
+
+.amber {
+  color: var(--fip-amber);
+  border-color: var(--fip-border);
+  background: var(--fip-amber-soft);
+}
+
+.brass {
+  color: var(--fip-brass);
+  border-color: var(--fip-border);
+  background: var(--fip-brass-soft);
+}

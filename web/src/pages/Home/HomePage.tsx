@@ -1,18 +1,101 @@
+import { signInWithPopup } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
+import { Section, SectionRow } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
+import { BottleCard } from '../../components/domain/BottleCard'
+import { PourStoryCard } from '../../components/domain/PourStoryCard'
+import { useAuth } from '../../hooks/useAuth'
+import { useUserData } from '../../hooks/useUserData'
+import { auth, googleProvider } from '../../data/firebase'
+import { getFeaturedOpenBottle, getRecentBottles, getRecentPours, greetingForHour } from '../../features/home/selectors'
 
-// Full spec (greeting, Continue Pour Story, Recent bottles/stories, Recommendations)
-// lands in Phase 1 — this is the Phase 0 routing/shell placeholder.
 export function HomePage() {
+  const { user, loading: authLoading } = useAuth()
+  const { userDoc, loading: dataLoading } = useUserData()
+
+  const greeting = greetingForHour(new Date().getHours())
+  const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
+
+  if (authLoading || dataLoading) {
+    return <PageHeader eyebrow="Home" title={`${greeting}.`} />
+  }
+
+  if (!user) {
+    return (
+      <>
+        <PageHeader eyebrow="Home" title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
+        <EmptyState
+          title="Your whiskey journey starts here."
+          message="Sign in to start building your collection and capturing every pour."
+          action={<Button onClick={() => signInWithPopup(auth, googleProvider)}>Sign in with Google</Button>}
+        />
+      </>
+    )
+  }
+
+  const { bottles, pours } = userDoc
+  const featuredBottle = getFeaturedOpenBottle(bottles)
+  const recentBottles = getRecentBottles(bottles)
+  const recentPours = getRecentPours(pours)
+  const bottleNameById = new Map(bottles.map((b) => [b.id, b.name]))
+
   return (
     <>
-      <PageHeader eyebrow="Home" title="Good evening." subtitle="Drink what you enjoy. Share what matters." />
-      <EmptyState
-        title="Your whiskey journey starts here."
-        message="Add a bottle to begin building your collection."
-        action={<Button>Add a Bottle</Button>}
+      <PageHeader
+        eyebrow="Home"
+        title={name ? `${greeting}, ${name}.` : `${greeting}.`}
+        subtitle="What story will you add today?"
       />
+
+      {bottles.length === 0 ? (
+        <EmptyState
+          title="Your whiskey journey starts here."
+          message="Add a bottle to begin building your collection."
+          action={<Button>Add a Bottle</Button>}
+        />
+      ) : (
+        <>
+          {featuredBottle ? (
+            <Section title="Continue Your Pour Story">
+              <SectionRow>
+                <BottleCard bottle={featuredBottle} />
+              </SectionRow>
+            </Section>
+          ) : null}
+
+          <Section title="Recently Added" viewAllHref="/collection">
+            <SectionRow>
+              {recentBottles.map((bottle) => (
+                <BottleCard key={bottle.id} bottle={bottle} />
+              ))}
+            </SectionRow>
+          </Section>
+
+          <Section title="Recent Pour Stories" viewAllHref="/journal">
+            {recentPours.length === 0 ? (
+              <EmptyState
+                title="Your first Pour Story starts here."
+                message="Open a bottle, capture the pour, and begin your whiskey journey."
+                action={<Button>Start a Pour Story</Button>}
+              />
+            ) : (
+              <SectionRow>
+                {recentPours.map((pour) => (
+                  <PourStoryCard key={pour.id} pour={pour} bottleName={bottleNameById.get(pour.bottleId) ?? 'Unknown bottle'} />
+                ))}
+              </SectionRow>
+            )}
+          </Section>
+
+          <Section title="Discover What's Next" viewAllHref="/discover">
+            <EmptyState
+              title="Recommendations start with your collection."
+              message="Head to Discover to see trending bottles and personalized picks."
+            />
+          </Section>
+        </>
+      )}
     </>
   )
 }

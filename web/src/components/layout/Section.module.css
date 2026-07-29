@@ -1,0 +1,33 @@
+.section {
+  padding: var(--fip-space-6) var(--fip-shell-x);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--fip-space-4);
+}
+
+.title {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+}
+
+.viewAll {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-copper);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.viewAll:hover {
+  color: var(--fip-amber);
+}
+
+.row {
+  display: flex;
+  gap: var(--fip-space-4);
+  overflow-x: auto;
+  padding-bottom: var(--fip-space-2);
+}

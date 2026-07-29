@@ -1,0 +1,23 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-1) var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.score {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-sm);
+}
+
+.label {
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  opacity: 0.85;
+}
