@@ -1,0 +1,25 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  margin-bottom: var(--fip-space-4);
+}
+
+.label {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+}
+
+.control {
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border);
+  border-radius: var(--fip-radius-md);
+  padding: var(--fip-space-3);
+  min-height: 44px;
+  color: var(--fip-cream);
+}
+
+.control:focus-visible {
+  border-color: var(--fip-amber);
+}

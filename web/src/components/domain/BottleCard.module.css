@@ -61,3 +61,19 @@
   align-items: center;
   justify-content: space-between;
 }
+
+.journey {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.journeyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--fip-radius-round);
+}

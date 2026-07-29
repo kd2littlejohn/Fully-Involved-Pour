@@ -1,0 +1,12 @@
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-2);
+}
+
+.error {
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+  margin-bottom: var(--fip-space-3);
+}

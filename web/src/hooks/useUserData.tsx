@@ -1,20 +1,28 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from './useAuth'
-import { EMPTY_USER_DOC, fetchUserDoc } from '../data/repositories/userDoc'
+import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
-import type { UserDoc } from '../data/types'
+import type { Bottle, UserDoc } from '../data/types'
+
+export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 
 interface UserDataState {
   userDoc: UserDoc
   loading: boolean
   signedIn: boolean
+  addBottle: (input: NewBottleInput) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
   userDoc: EMPTY_USER_DOC,
   loading: true,
   signedIn: false,
+  addBottle: async () => {},
 })
+
+function generateId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
 
 export function UserDataProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth()
@@ -51,9 +59,22 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     }
   }, [user, authLoading])
 
+  const addBottle = useCallback(
+    async (input: NewBottleInput) => {
+      if (!user) return
+      const bottle: Bottle = { ...input, id: generateId(), createdAt: Date.now() }
+      const nextBottles = [...userDoc.bottles, bottle]
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+    },
+    [user, userDoc],
+  )
+
   const value = useMemo<UserDataState>(
-    () => ({ userDoc, loading: authLoading || dataLoading, signedIn: Boolean(user) }),
-    [userDoc, authLoading, dataLoading, user],
+    () => ({ userDoc, loading: authLoading || dataLoading, signedIn: Boolean(user), addBottle }),
+    [userDoc, authLoading, dataLoading, user, addBottle],
   )
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>
