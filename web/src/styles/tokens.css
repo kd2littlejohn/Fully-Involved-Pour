@@ -1,0 +1,83 @@
+/* Fully Involved Pour design tokens.
+   Ported verbatim from the live app's styles.css (:root block) — see
+   FIP_PRODUCT_VISION_AND_DESIGN_SYSTEM.md §15-18 for the source spec. */
+
+:root {
+  color-scheme: dark;
+
+  /* Color */
+  --fip-black: #080706;
+  --fip-charcoal: #11100e;
+  --fip-card: #14110d;
+  --fip-card-soft: #1a150f;
+  --fip-oak: #1b140f;
+  --fip-oak-deep: #120d09;
+  --fip-amber: #d88a14;
+  --fip-amber-soft: rgba(216, 138, 20, 0.16);
+  --fip-copper: #b86516;
+  --fip-copper-soft: rgba(184, 101, 22, 0.18);
+  --fip-brass: #b88a45;
+  --fip-brass-soft: rgba(184, 138, 69, 0.16);
+  --fip-cream: #f2e5cc;
+  --fip-cream-soft: #dccbb0;
+  --fip-muted: #aaa094;
+  --fip-stone: #7f766c;
+  --fip-success: #6e8e38;
+  --fip-warning: #d48a20;
+  --fip-error: #a94b3b;
+  --fip-border: rgba(184, 138, 69, 0.28);
+  --fip-border-strong: rgba(216, 138, 20, 0.62);
+  --fip-border-subtle: rgba(242, 229, 204, 0.08);
+
+  /* Typography */
+  --fip-font-display: "Fraunces", Georgia, "Times New Roman", "Iowan Old Style", serif;
+  --fip-font-script: "Alex Brush", cursive;
+  --fip-font-body: InterVariable, Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --fip-text-xs: 0.75rem;
+  --fip-text-sm: 0.875rem;
+  --fip-text-md: 1rem;
+  --fip-text-lg: 1.125rem;
+  --fip-text-xl: 1.375rem;
+  --fip-text-2xl: clamp(1.75rem, 1.2rem + 1.8vw, 2.5rem);
+  --fip-text-3xl: clamp(2.4rem, 1.45rem + 3.4vw, 4.5rem);
+  --fip-leading-tight: 1.05;
+  --fip-leading-copy: 1.55;
+  --fip-tracking-label: 0.12em;
+
+  /* Spacing (8pt system) */
+  --fip-space-1: 4px;
+  --fip-space-2: 8px;
+  --fip-space-3: 12px;
+  --fip-space-4: 16px;
+  --fip-space-5: 20px;
+  --fip-space-6: 24px;
+  --fip-space-8: 32px;
+  --fip-space-10: 40px;
+  --fip-space-12: 48px;
+  --fip-space-16: 64px;
+  --fip-space-24: 96px;
+
+  /* Radius */
+  --fip-radius-sm: 8px;
+  --fip-radius-md: 12px;
+  --fip-radius-lg: 16px;
+  --fip-radius-xl: 22px;
+  --fip-radius-round: 999px;
+
+  /* Shadow / focus / motion */
+  --fip-shadow-soft: 0 18px 52px rgba(0, 0, 0, 0.32);
+  --fip-shadow-card: 0 20px 58px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(242, 229, 204, 0.045);
+  --fip-shadow-lift: 0 28px 76px rgba(0, 0, 0, 0.52);
+  --fip-focus: 0 0 0 3px rgba(216, 138, 20, 0.34), 0 0 0 1px rgba(242, 229, 204, 0.72);
+  --fip-motion-fast: 140ms;
+  --fip-motion: 220ms;
+  --fip-motion-slow: 360ms;
+  --fip-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* Layout */
+  --fip-page-max: 1500px;
+  --fip-content-max: 1220px;
+  --fip-readable-max: 760px;
+  --fip-shell-x: max(24px, calc((100% - var(--fip-content-max)) / 2));
+}

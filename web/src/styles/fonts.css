@@ -1,0 +1,18 @@
+/* Display serif + script signature, self-hosted (ported from the live app).
+   Inter (body) is self-hosted via @fontsource-variable/inter, imported in main.tsx. */
+
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/fraunces-variable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Alex Brush";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/alex-brush.woff2") format("woff2");
+}
