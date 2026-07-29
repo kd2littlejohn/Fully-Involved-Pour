@@ -1,0 +1,20 @@
+.section {
+  margin-bottom: var(--fip-space-6);
+}
+
+.heading {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  margin-bottom: var(--fip-space-3);
+}
+
+.notes {
+  color: var(--fip-cream-soft);
+  line-height: var(--fip-leading-copy);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}

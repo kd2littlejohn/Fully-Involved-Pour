@@ -1,0 +1,32 @@
+.picker {
+  margin-bottom: var(--fip-space-6);
+  max-width: 320px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: var(--fip-space-3);
+  border-bottom: 1px solid var(--fip-border-subtle);
+  text-align: left;
+  font-size: var(--fip-text-sm);
+}
+
+.table th {
+  color: var(--fip-muted);
+  font-weight: 600;
+  width: 30%;
+}
+
+.table td {
+  color: var(--fip-cream);
+}
+
+.colHeading {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+}

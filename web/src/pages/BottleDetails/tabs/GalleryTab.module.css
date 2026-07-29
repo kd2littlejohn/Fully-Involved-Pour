@@ -1,0 +1,24 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--fip-space-3);
+}
+
+.item {
+  border-radius: var(--fip-radius-md);
+  overflow: hidden;
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.image {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.caption {
+  padding: var(--fip-space-2) var(--fip-space-3);
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+}
