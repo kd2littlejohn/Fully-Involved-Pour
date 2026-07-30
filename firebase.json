@@ -5,5 +5,16 @@
       "codebase": "default",
       "ignore": ["node_modules", ".git", "*.log"]
     }
-  ]
+  ],
+  "hosting": {
+    "site": "fully-involved-pour",
+    "public": "web/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
 }
