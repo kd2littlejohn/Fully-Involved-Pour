@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { auth, googleProvider } from '../../data/firebase'
 import { getFeaturedOpenBottle, getRecentBottles, getRecentPours, greetingForHour } from '../../features/home/selectors'
+import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 
 export function HomePage() {
   const { user, loading: authLoading } = useAuth()
@@ -77,7 +78,7 @@ export function HomePage() {
               <EmptyState
                 title="Your first Pour Story starts here."
                 message="Open a bottle, capture the pour, and begin your whiskey journey."
-                action={<Button>Start a Pour Story</Button>}
+                action={<StartPourStoryButton />}
               />
             ) : (
               <SectionRow>

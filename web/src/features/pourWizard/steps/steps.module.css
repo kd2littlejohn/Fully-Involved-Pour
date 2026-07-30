@@ -1,0 +1,25 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 var(--fip-space-4);
+}
+
+@media (min-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-bottom: var(--fip-space-4);
+}
+
+.sectionLabel {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+  margin-bottom: var(--fip-space-2);
+}

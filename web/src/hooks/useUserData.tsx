@@ -3,15 +3,17 @@ import { useAuth } from './useAuth'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
-import type { Bottle, UserDoc } from '../data/types'
+import type { Bottle, Pour, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
+export type NewPourInput = Omit<Pour, 'id'>
 
 interface UserDataState {
   userDoc: UserDoc
   loading: boolean
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<void>
+  addPour: (input: NewPourInput) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
@@ -19,6 +21,7 @@ const UserDataContext = createContext<UserDataState>({
   loading: true,
   signedIn: false,
   addBottle: async () => {},
+  addPour: async () => {},
 })
 
 function generateId(): string {
@@ -87,9 +90,31 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  const addPour = useCallback(
+    async (input: NewPourInput) => {
+      if (!user) return
+      const pour: Pour = { ...input, id: generateId() }
+      const nextPours = [...userDoc.pours, pour]
+
+      // Logging a pour on a still-sealed bottle marks it opened — a real
+      // product behavior (not a schema change), using existing fields only.
+      const nextBottles = userDoc.bottles.map((bottle) => {
+        if (bottle.id !== pour.bottleId || bottle.status !== 'sealed') return bottle
+        return { ...bottle, status: 'open' as const, openedDate: bottle.openedDate ?? pour.date }
+      })
+
+      const nextDoc: UserDoc = { ...userDoc, pours: nextPours, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return // dev fixture data — never touches Firestore
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { pours: nextPours, bottles: nextBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
   const value = useMemo<UserDataState>(
-    () => ({ userDoc, loading: authLoading || dataLoading, signedIn: Boolean(user), addBottle }),
-    [userDoc, authLoading, dataLoading, user, addBottle],
+    () => ({ userDoc, loading: authLoading || dataLoading, signedIn: Boolean(user), addBottle, addPour }),
+    [userDoc, authLoading, dataLoading, user, addBottle, addPour],
   )
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>

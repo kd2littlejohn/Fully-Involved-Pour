@@ -1,0 +1,25 @@
+.chip {
+  min-height: 36px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  background: transparent;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--fip-motion) var(--fip-ease),
+    border-color var(--fip-motion) var(--fip-ease),
+    color var(--fip-motion) var(--fip-ease);
+}
+
+.chip:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.chipActive {
+  background: var(--fip-amber-soft);
+  border-color: var(--fip-amber);
+  color: var(--fip-amber);
+}

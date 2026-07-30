@@ -1,0 +1,69 @@
+.stepper {
+  display: flex;
+  align-items: center;
+  margin: 0 0 var(--fip-space-6);
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.step:last-child {
+  flex: 0;
+}
+
+.circle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--fip-radius-round);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  border: 1px solid var(--fip-border);
+  color: var(--fip-muted);
+  background: var(--fip-card);
+}
+
+.circleActive {
+  border-color: var(--fip-amber);
+  color: var(--fip-black);
+  background: var(--fip-amber);
+}
+
+.circleDone {
+  border-color: var(--fip-amber);
+  color: var(--fip-amber);
+  background: transparent;
+}
+
+.line {
+  flex: 1;
+  height: 1px;
+  background: var(--fip-border);
+  margin: 0 var(--fip-space-1);
+}
+
+.lineDone {
+  background: var(--fip-amber);
+}
+
+.label {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .label {
+    display: block;
+    margin-left: var(--fip-space-2);
+    font-size: var(--fip-text-xs);
+    color: var(--fip-muted);
+    white-space: nowrap;
+  }
+}

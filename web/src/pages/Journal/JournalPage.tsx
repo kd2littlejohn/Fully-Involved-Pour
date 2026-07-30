@@ -11,6 +11,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { auth, googleProvider } from '../../data/firebase'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
+import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import styles from './JournalPage.module.css'
 
 const TABS = [
@@ -51,7 +52,7 @@ export function JournalPage() {
         <EmptyState
           title="Your first Pour Story starts here."
           message="Open a bottle, capture the pour, and begin your whiskey journey."
-          action={<Button>Start a Pour Story</Button>}
+          action={<StartPourStoryButton />}
         />
       </>
     )
@@ -68,7 +69,7 @@ export function JournalPage() {
       <PageHeader eyebrow="Journal" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
 
       <div className={styles.actions}>
-        <Button>Start a Pour Story</Button>
+        <StartPourStoryButton />
         <Button variant="secondary">Create a Memory</Button>
       </div>
 

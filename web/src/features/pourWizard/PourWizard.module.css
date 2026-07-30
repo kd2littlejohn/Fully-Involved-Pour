@@ -1,0 +1,11 @@
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}
+
+.nextActions {
+  display: flex;
+  gap: var(--fip-space-3);
+}
