@@ -1,16 +1,14 @@
 import { useState } from 'react'
-import { signInWithPopup } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Button } from '../../components/ui/Button'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { Timeline } from '../../components/domain/Timeline'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { BottleCard } from '../../components/domain/BottleCard'
 import { MemoryCard } from '../../components/domain/MemoryCard'
+import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { auth, googleProvider } from '../../data/firebase'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
@@ -40,7 +38,7 @@ export function JournalPage() {
         <EmptyState
           title="Your first Pour Story starts here."
           message="Sign in to start capturing your pours."
-          action={<Button onClick={() => signInWithPopup(auth, googleProvider)}>Sign in with Google</Button>}
+          action={<SignInButton />}
         />
       </>
     )

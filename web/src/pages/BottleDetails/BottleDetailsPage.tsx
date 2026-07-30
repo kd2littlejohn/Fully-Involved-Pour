@@ -1,16 +1,14 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { signInWithPopup } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Button } from '../../components/ui/Button'
 import { LinkButton } from '../../components/ui/LinkButton'
+import { SignInButton } from '../../components/domain/SignInButton'
 import { Badge } from '../../components/ui/Badge'
 import { ScoreRing } from '../../components/ui/ScoreRing'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { auth, googleProvider } from '../../data/firebase'
 import type { BottleStatus } from '../../data/types'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { getCurrentScore } from '../../features/bottleDetails/selectors'
@@ -53,7 +51,7 @@ export function BottleDetailsPage() {
         <EmptyState
           title="Sign in to continue."
           message="Fully Involved Pour uses Google sign-in to sync your collection."
-          action={<Button onClick={() => signInWithPopup(auth, googleProvider)}>Sign in with Google</Button>}
+          action={<SignInButton />}
         />
       </>
     )

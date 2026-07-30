@@ -1,13 +1,14 @@
-import { signInWithPopup, signOut } from 'firebase/auth'
+import { signOut } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { StatTile } from '../../components/ui/StatTile'
 import { Badge } from '../../components/ui/Badge'
+import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { auth, googleProvider } from '../../data/firebase'
+import { auth } from '../../data/firebase'
 import {
   getCollectionStats,
   getAverageProof,
@@ -34,7 +35,7 @@ export function ProfilePage() {
         <EmptyState
           title="Sign in to continue."
           message="Fully Involved Pour uses Google sign-in to sync your collection."
-          action={<Button onClick={() => signInWithPopup(auth, googleProvider)}>Sign in with Google</Button>}
+          action={<SignInButton />}
         />
       </>
     )

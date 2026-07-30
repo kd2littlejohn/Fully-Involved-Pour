@@ -1,13 +1,12 @@
-import { signInWithPopup } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section, SectionRow } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { BottleCard } from '../../components/domain/BottleCard'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
+import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { auth, googleProvider } from '../../data/firebase'
 import { getFeaturedOpenBottle, getRecentBottles, getRecentPours, greetingForHour } from '../../features/home/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 
@@ -29,7 +28,7 @@ export function HomePage() {
         <EmptyState
           title="Your whiskey journey starts here."
           message="Sign in to start building your collection and capturing every pour."
-          action={<Button onClick={() => signInWithPopup(auth, googleProvider)}>Sign in with Google</Button>}
+          action={<SignInButton />}
         />
       </>
     )

@@ -1,12 +1,10 @@
-import { signInWithPopup } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section, SectionRow } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Button } from '../../components/ui/Button'
 import { BottleCard } from '../../components/domain/BottleCard'
+import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { auth, googleProvider } from '../../data/firebase'
 import { getWishlistBottles, getTopRatedBottles, getDistilleryStats } from '../../features/discover/selectors'
 import { AddToWishlistButton } from '../../features/discover/AddToWishlistButton'
 import styles from './DiscoverPage.module.css'
@@ -26,7 +24,7 @@ export function DiscoverPage() {
         <EmptyState
           title="Recommendations start with your collection."
           message="Sign in to see what to try next."
-          action={<Button onClick={() => signInWithPopup(auth, googleProvider)}>Sign in with Google</Button>}
+          action={<SignInButton />}
         />
       </>
     )

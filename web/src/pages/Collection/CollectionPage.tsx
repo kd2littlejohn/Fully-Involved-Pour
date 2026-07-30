@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react'
-import { signInWithPopup } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { BottleCard } from '../../components/domain/BottleCard'
 import { AddBottleForm } from '../../components/domain/AddBottleForm'
+import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { auth, googleProvider } from '../../data/firebase'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
 
@@ -55,7 +54,7 @@ export function CollectionPage() {
         <EmptyState
           title="Your whiskey journey starts here."
           message="Sign in to start building your collection."
-          action={<Button onClick={() => signInWithPopup(auth, googleProvider)}>Sign in with Google</Button>}
+          action={<SignInButton />}
         />
       </>
     )
