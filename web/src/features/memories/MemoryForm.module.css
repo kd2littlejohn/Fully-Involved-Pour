@@ -1,0 +1,19 @@
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-2);
+}
+
+.error {
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+  margin-bottom: var(--fip-space-3);
+}
+
+.hint {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  margin-top: calc(-1 * var(--fip-space-1));
+  margin-bottom: var(--fip-space-4);
+}

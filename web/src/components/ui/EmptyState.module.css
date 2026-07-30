@@ -1,0 +1,32 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--fip-space-4);
+  padding: var(--fip-space-16) var(--fip-space-4);
+  max-width: var(--fip-readable-max);
+  margin: 0 auto;
+}
+
+.mark {
+  width: 56px;
+  height: 56px;
+  opacity: 0.55;
+}
+
+.title {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-cream);
+}
+
+.message {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-md);
+}
+
+.action {
+  margin-top: var(--fip-space-2);
+}

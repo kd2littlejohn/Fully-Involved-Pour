@@ -1,0 +1,47 @@
+.favorite {
+  margin-bottom: var(--fip-space-6);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-amber-soft);
+  border: 1px solid var(--fip-border);
+}
+
+.favoriteLabel {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.favoriteName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  margin-top: var(--fip-space-1);
+}
+
+.statList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.statRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.statName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+}
+
+.statMeta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}

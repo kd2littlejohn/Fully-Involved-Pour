@@ -1,0 +1,23 @@
+.tile {
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  text-align: center;
+}
+
+.value {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-amber);
+  line-height: 1;
+}
+
+.label {
+  margin-top: var(--fip-space-2);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}

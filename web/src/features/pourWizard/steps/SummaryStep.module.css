@@ -1,0 +1,33 @@
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-4);
+  margin-bottom: var(--fip-space-5);
+}
+
+.headerText {
+  flex: 1;
+}
+
+.tierLabel {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+.tierMeaning {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  margin: var(--fip-space-2) 0 var(--fip-space-4);
+}
+
+.checkboxRow input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--fip-amber);
+}

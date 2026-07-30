@@ -1,0 +1,79 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  width: 220px;
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color var(--fip-motion) var(--fip-ease),
+    transform var(--fip-motion-fast) var(--fip-ease);
+}
+
+.card:hover {
+  border-color: var(--fip-border);
+}
+
+.card:active {
+  transform: translateY(1px);
+}
+
+.imageWrap {
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fip-oak-deep);
+  border-radius: var(--fip-radius-md);
+  overflow: hidden;
+}
+
+.image {
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.placeholder {
+  color: var(--fip-stone);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.name {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  line-height: var(--fip-leading-tight);
+}
+
+.distillery {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.journey {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.journeyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--fip-radius-round);
+}

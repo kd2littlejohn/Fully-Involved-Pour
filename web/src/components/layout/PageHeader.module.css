@@ -1,0 +1,23 @@
+.header {
+  padding: var(--fip-space-8) var(--fip-shell-x) var(--fip-space-4);
+}
+
+.eyebrow {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-cream);
+  margin-top: var(--fip-space-2);
+}
+
+.subtitle {
+  margin-top: var(--fip-space-2);
+  color: var(--fip-muted);
+  max-width: var(--fip-readable-max);
+}

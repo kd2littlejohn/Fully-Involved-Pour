@@ -1,0 +1,90 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-1);
+  margin: var(--fip-space-4) var(--fip-shell-x) 0;
+  color: var(--fip-muted);
+  text-decoration: none;
+  font-size: var(--fip-text-sm);
+  min-height: 44px;
+}
+
+.back:hover {
+  color: var(--fip-cream);
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fip-space-6);
+  padding: var(--fip-space-4) var(--fip-shell-x) var(--fip-space-6);
+}
+
+.imageWrap {
+  width: 140px;
+  height: 180px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fip-oak-deep);
+  border-radius: var(--fip-radius-lg);
+  overflow: hidden;
+}
+
+.image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.placeholder {
+  color: var(--fip-stone);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.name {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  line-height: var(--fip-leading-tight);
+}
+
+.distillery {
+  color: var(--fip-muted);
+  margin-top: var(--fip-space-1);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-3);
+}
+
+.journey {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.journeyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--fip-radius-round);
+}
+
+.score {
+  margin-left: auto;
+}

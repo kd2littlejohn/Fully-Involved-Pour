@@ -1,0 +1,1698 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=overlays-content" />
+    <title>Fully Involved Pour</title>
+    <meta name="description" content="Fully Involved Pour is a premium whiskey companion for remembering every bottle, pour, and story that matters." />
+    <meta name="theme-color" content="#14100c" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="assets/logo-badge-192.png" />
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FI Pour" />
+    <link rel="stylesheet" href="styles.css?v=173" />
+  </head>
+  <body>
+    <div class="welcome-screen is-hidden" id="welcomeScreen">
+      <div class="welcome-card">
+        <img
+          class="brand-mark"
+          src="assets/compass-mark.png"
+          alt="Fully Involved Pour compass logo"
+        />
+        <strong>Fully Involved Pour</strong>
+        <span>Drink what you enjoy. Share what matters.</span>
+        <p>
+          Track every bottle, every pour, and the ones that earn a permanent spot on your Core
+          Bar. Start in seconds &mdash; no account needed.
+        </p>
+        <div class="welcome-actions">
+          <button class="primary-action" id="welcomeAddBottle" type="button">Add Your First Bottle</button>
+          <button class="secondary-action" id="welcomeSignIn" type="button">Sign in with Google</button>
+        </div>
+        <p class="welcome-footnote">
+          Signing in syncs your collection across devices and unlocks following friends.
+        </p>
+      </div>
+    </div>
+
+    <div class="app-shell" id="appShell">
+      <header class="topbar" aria-label="Application header">
+        <div class="brand">
+          <img
+            class="brand-mark"
+            src="public/images/brand/fip-compass.png"
+            alt="Fully Involved Pour compass logo"
+          />
+          <div class="brand-wordmark">
+            <span class="brand-fully">Fully</span>
+            <span class="brand-involved">Involved</span>
+            <span class="brand-pour">Pour</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Views">
+          <button class="nav-item is-active" data-view="dashboard" data-nav-icon="⌂" type="button">
+            <span class="nav-icon" aria-hidden="true">⌂</span>
+            <span class="nav-label">Home</span>
+          </button>
+          <button class="nav-item" data-view="collection" data-nav-icon="▦" type="button">
+            <span class="nav-icon" aria-hidden="true">▦</span>
+            <span class="nav-label">Collection</span>
+          </button>
+          <button class="nav-item" data-view="pour-log" data-nav-icon="✎" type="button">
+            <span class="nav-icon" aria-hidden="true">✎</span>
+            <span class="nav-label">Journey</span>
+          </button>
+          <button class="nav-item" data-view="buy-next" data-nav-icon="⌕" type="button">
+            <span class="nav-icon" aria-hidden="true">⌕</span>
+            <span class="nav-label">Discover</span>
+          </button>
+          <button class="nav-item" data-view="profile" data-nav-icon="◦" type="button">
+            <span class="nav-icon" aria-hidden="true">◦</span>
+            <span class="nav-label">Profile</span>
+          </button>
+        </nav>
+
+        <div class="account-box" id="accountBox" aria-label="Account">
+          <button class="icon-button" id="headerSearchButton" type="button" aria-label="Search your collection">
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m16.2 16.2 4.3 4.3"></path>
+            </svg>
+          </button>
+          <button class="icon-button friends-toggle" id="friendsToggle" type="button" aria-label="Friends">
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
+              <path d="M10 21h4"></path>
+            </svg>
+            <span class="nav-badge is-hidden" id="friendsBadge"></span>
+          </button>
+          <button class="secondary-action" id="signInButton" type="button">Sign in with Google</button>
+          <div class="account-menu-wrap">
+            <button
+              class="account-avatar-badge is-hidden"
+              id="accountAvatarBadge"
+              type="button"
+              aria-label="Account settings"
+              aria-haspopup="true"
+              aria-expanded="false"
+            >
+              <span id="accountInitials"></span>
+            </button>
+            <div class="account-menu is-hidden" id="accountMenu" role="menu">
+              <div class="account-menu-head">
+                <strong id="accountMenuName">Signed in</strong>
+                <span id="accountMenuEmail"></span>
+              </div>
+              <button class="account-menu-item" id="accountMenuJourney" type="button" role="menuitem">My Journey</button>
+              <button class="account-menu-item" id="accountMenuEditName" type="button" role="menuitem">Change Name</button>
+              <button class="account-menu-item" id="accountMenuFriends" type="button" role="menuitem">Friends</button>
+              <button class="account-menu-item" id="accountMenuAbout" type="button" role="menuitem">About</button>
+              <button class="account-menu-item account-menu-danger" id="accountMenuSignOut" type="button" role="menuitem">Sign Out</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <nav class="sub-nav is-hidden" id="collectionSubNav" aria-label="Collection views">
+        <button class="sub-nav-item" data-view="collection" type="button">All</button>
+        <button class="sub-nav-item" data-view="core-bar" type="button">Core Bar</button>
+        <button class="sub-nav-item" data-view="opened" type="button">Opened</button>
+        <button class="sub-nav-item" data-view="finished" type="button">Finished</button>
+        <button class="sub-nav-item" data-view="compare" type="button">Compare</button>
+        <button class="sub-nav-item" data-view="infinity" type="button">Infinity Bottle</button>
+      </nav>
+
+      <nav class="sub-nav is-hidden" id="discoverSubNav" aria-label="Discover views">
+        <button class="sub-nav-item" data-view="buy-next" type="button">🎯 Buy Next</button>
+        <button class="sub-nav-item" data-view="wishlist" type="button">☆ Wish List</button>
+        <button class="sub-nav-item" id="discoverLibraryButton" type="button">📚 Whiskey Library</button>
+      </nav>
+
+      <main class="main">
+        <section class="hero collection-hero" aria-label="Collection overview">
+          <img src="assets/hero-bar.png" alt="Bourbon and spirits bottles arranged on a warm home bar" />
+          <div class="hero-overlay">
+            <div class="hero-copy">
+              <p>Fully Involved Pour</p>
+              <h1>Collection</h1>
+              <strong class="hero-slogan">Drink what you enjoy. Share what matters.</strong>
+              <span class="hero-description">
+                Your bottles. Your journey.
+              </span>
+            </div>
+            <div class="hero-actions">
+              <button class="primary-action" id="openBottleForm" type="button">
+                <span aria-hidden="true">+</span>
+                Add Bottle
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="inventory-overview" aria-label="Inventory summary">
+          <div>
+            <p>Your whiskey library</p>
+            <h2>Collection</h2>
+            <span id="inventoryRatio">0 of 0 bottles</span>
+          </div>
+          <div class="inventory-overview-actions">
+            <button class="secondary-action" id="toggleSelect" type="button">Select</button>
+            <button class="primary-action" id="inventoryAddBottle" type="button">Add Bottle</button>
+          </div>
+        </section>
+
+        <section class="toolbar" aria-label="Collection tools">
+          <label class="search-field">
+            <span aria-hidden="true">⌕</span>
+            <input id="searchInput" type="search" placeholder="Search bottle, distillery, region, note" />
+          </label>
+
+          <select id="sortSelect" aria-label="Sort bottles">
+            <option value="recent">Recently Added</option>
+            <option value="name">Name A-Z</option>
+            <option value="rating">Highest Rated</option>
+            <option value="proof">Proof High to Low</option>
+            <option value="proof-low">Proof Low to High</option>
+            <option value="opened">Recently Opened</option>
+            <option value="custom">My order (arrange)</option>
+          </select>
+
+          <details class="more-actions">
+            <summary>More</summary>
+            <div class="backup-actions" aria-label="Backup tools">
+              <button class="secondary-action" id="openLibrary" type="button">Library</button>
+              <button class="secondary-action" id="exportCollection" type="button">Export</button>
+              <button class="secondary-action import-action" id="importCollectionButton" type="button">
+                <span id="importActionLabel">Import</span>
+              </button>
+              <input id="importFile" type="file" accept=".csv,.xlsx,.xls,.json" class="visually-hidden-file-input" />
+              <button class="secondary-action" id="downloadImportTemplate" type="button">Template</button>
+            </div>
+          </details>
+        </section>
+
+        <section class="quick-filters" aria-label="Quick filters">
+          <button class="quick-filter is-selected" data-filter="all" type="button">All <span data-filter-count="all">0</span></button>
+          <button class="quick-filter" data-type-filter="bourbon" type="button">Bourbon <span data-type-count="bourbon">0</span></button>
+          <button class="quick-filter" data-type-filter="rye" type="button">Rye <span data-type-count="rye">0</span></button>
+          <button class="quick-filter" data-type-filter="scotch" type="button">Scotch <span data-type-count="scotch">0</span></button>
+          <button class="quick-filter" data-type-filter="american whiskey" type="button">American Whiskey <span data-type-count="american whiskey">0</span></button>
+          <button class="quick-filter" data-filter="favorites" type="button">Favorites <span data-filter-count="favorites">0</span></button>
+          <button class="quick-filter" data-filter="open" type="button">Opened <span data-filter-count="open">0</span></button>
+          <button class="quick-filter" data-filter="sealed" type="button">Sealed <span data-filter-count="sealed">0</span></button>
+          <button class="quick-filter" data-filter="wishlist" type="button">Wishlist <span data-filter-count="wishlist">0</span></button>
+        </section>
+
+        <details class="filter-shell">
+          <summary>Advanced filters</summary>
+          <section class="filter-drawer" aria-label="Advanced filters">
+          <div>
+            <span>Status</span>
+            <button data-filter="owned" type="button">Owned</button>
+            <button data-filter="open" type="button">Opened</button>
+            <button data-filter="finished" type="button">Finished</button>
+            <button data-filter="buy-next" type="button">Buy Next</button>
+            <button data-filter="wishlist" type="button">Wishlist</button>
+          </div>
+          <div>
+            <span>Category</span>
+            <button data-category="all" class="is-selected" type="button">All</button>
+            <button data-category="high-proof" type="button">High Proof</button>
+            <button data-category="wheated" type="button">Wheated</button>
+            <button data-category="rye" type="button">Rye</button>
+            <button data-category="special-occasion" type="button">Special Occasion</button>
+            <button data-category="store-pick" type="button">Store Pick</button>
+            <button data-category="daily" type="button">Daily</button>
+            <button data-category="finished" type="button">Finished</button>
+            <button data-category="showstopper" type="button">Showstopper</button>
+            <button data-category="crowd-pleaser" type="button">Crowd Pleaser</button>
+            <button data-category="other" type="button">Other</button>
+          </div>
+          <div>
+            <span>Proof Band</span>
+            <button data-proof="all" class="is-selected" type="button">All</button>
+            <button data-proof="under-80" type="button">&lt;80</button>
+            <button data-proof="80-99" type="button">80-99.9</button>
+            <button data-proof="100-114" type="button">100-114.9</button>
+            <button data-proof="115-plus" type="button">115+</button>
+          </div>
+          <div>
+            <span>Pour Style</span>
+            <button data-pour="all" class="is-selected" type="button">All</button>
+            <button data-pour="daily" type="button">Daily</button>
+            <button data-pour="share" type="button">Share</button>
+            <button data-pour="special" type="button">Special</button>
+            <button data-pour="cocktail" type="button">Cocktail</button>
+          </div>
+          <div>
+            <span>Core Bar</span>
+            <button data-filter="core-bar" type="button">Core Bar Only</button>
+          </div>
+          </section>
+        </details>
+
+        <section class="content-grid">
+          <div class="bottle-section" id="collectionView">
+            <div class="section-heading">
+              <div>
+                <p id="viewEyebrow">Collection</p>
+                <h2 id="viewTitle">Your bottles</h2>
+              </div>
+              <div class="section-heading-actions">
+                <button class="primary-action is-hidden" id="viewAddButton" type="button"></button>
+                <div class="segmented view-mode-toggle" id="viewModeToggle" aria-label="Layout">
+                  <button class="is-selected" data-view-mode="list" type="button" aria-label="List view" title="List view">☰</button>
+                  <button data-view-mode="card" type="button" aria-label="Card view" title="Card view">▦</button>
+                </div>
+                <span id="resultCount">0 shown</span>
+              </div>
+            </div>
+            <div class="view-banner is-hidden" id="viewBanner"></div>
+            <form class="quick-add is-hidden" id="wishlistQuickAdd">
+              <div class="name-field wishlist-name-field">
+                <input id="wishlistQuickName" placeholder="Add a bottle to your wish list…" autocomplete="off" />
+                <div class="ai-suggestions" id="wishlistQuickSuggestions" aria-live="polite"></div>
+              </div>
+              <button class="primary-action" type="submit">Add</button>
+            </form>
+            <div class="buy-next-suggest is-hidden" id="buyNextSuggest"></div>
+            <div class="bottle-grid" id="bottleGrid"></div>
+          </div>
+        </section>
+
+        <section class="stats-grid" aria-label="Collection stats">
+          <article>
+            <span>Total Bottles</span>
+            <strong id="totalBottles">0</strong>
+            <em id="totalBottlesMeta">0 owned</em>
+          </article>
+          <article>
+            <span>Open Bottles</span>
+            <strong id="openBottles">0</strong>
+            <em>ready to pour</em>
+          </article>
+          <article>
+            <span>Favorite Category</span>
+            <strong id="topDistillery">—</strong>
+            <em id="topDistilleryMeta">no data</em>
+          </article>
+          <article>
+            <span>Favorite Proof Range</span>
+            <strong id="openedSealed">0 / 0</strong>
+            <em id="openedSealedMeta">no owned bottles</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Average FIP Score</span>
+            <strong id="averageRating">0.0</strong>
+            <em>rated bottles</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Journaled Bottles</span>
+            <strong id="coreBarCount">0</strong>
+            <em>with Pour Stories</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Favorites</span>
+            <strong id="buyNextCount">0</strong>
+            <em>marked bottles</em>
+          </article>
+          <article class="secondary-stat">
+            <span>Wishlist</span>
+            <strong id="estimatedValue">0</strong>
+            <em>future pours</em>
+          </article>
+        </section>
+
+        <div class="dashboard-view is-hidden" id="dashboardView" aria-label="Collection insights">
+          <section class="hero home-hero home-compass-hero" aria-label="Fully Involved Pour home hero">
+            <div class="home-hero-visual" aria-hidden="true">
+              <img class="home-hero-compass-overlay" src="public/images/brand/fip-compass.png" alt="" />
+            </div>
+            <div class="hero-overlay">
+              <div class="hero-copy home-hero-copy">
+                <h1 class="home-hero-title">
+                  <span>Drink what</span>
+                  <span>You enjoy.</span>
+                  <span class="accent">Share what</span>
+                  <span class="accent">Matters.</span>
+                </h1>
+                <hr class="home-hero-divider" />
+                <p class="hero-description">
+                  Discover new whiskey, enjoy every pour,<br />
+                  capture the story, and share the moments<br />
+                  that matter.
+                </p>
+                <div class="home-hero-actions">
+                  <button class="primary-action" id="homeHeroLogPour" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M8 3h8c.2 3.2-.4 6.1-2 8.3-.7.9-1 1.7-1 2.8V18h-2v-3.9c0-1.1-.3-1.9-1-2.8C8.4 9.1 7.8 6.2 8 3Z"></path><path d="M9 21h6"></path></svg>
+                    Start a Pour Story
+                  </button>
+                  <button class="secondary-action" id="homeHeroAddBottle" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                    Add Bottle
+                  </button>
+                  <button class="secondary-action" id="homeHeroBrowse" type="button">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M5 7.5h14"></path><path d="M6.5 7.5 8 20h8l1.5-12.5"></path><path d="M9 4h6"></path></svg>
+                    Browse Collection
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="home-greeting" aria-label="Greeting">
+            <h1 id="homeGreeting">Good evening.</h1>
+            <p>What story will you add today?</p>
+          </section>
+
+          <section class="insights-card continue-story is-hidden" id="continueStoryCard" aria-label="Continue your pour story">
+            <div class="section-heading">
+              <div>
+                <p>Current Bottle</p>
+                <h2>Continue Your Journey</h2>
+              </div>
+            </div>
+            <div class="continue-story-body" id="continueStoryBody"></div>
+          </section>
+
+          <section class="pillar-nav home-compass-band" id="homeJourneyPillars" aria-label="Discover, experience, reflect, and share">
+            <button class="pillar-card" data-journey-panel="discover" type="button" aria-label="Discover. Explore what's new. Every journey starts with curiosity.">
+              <span class="pillar-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 4 L13.4 10.6 L20 12 L13.4 13.4 L12 20 L10.6 13.4 L4 12 L10.6 10.6 Z" />
+                </svg>
+              </span>
+              <strong>Discover</strong>
+              <span>Explore what's new. Every journey starts with curiosity.</span>
+            </button>
+            <button class="pillar-card" data-journey-panel="experience" type="button" aria-label="Experience. Savor the moment. Great whiskey is meant to be enjoyed.">
+              <span class="pillar-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8.5 3h7c.2 2.5-.3 5.7-2.2 8-.6.8-.8 1.4-.8 2.4v3.1h-1v-3.1c0-1-.2-1.6-.8-2.4-1.9-2.3-2.4-5.5-2.2-8Z" />
+                  <path d="M9 19h6" />
+                </svg>
+              </span>
+              <strong>Experience</strong>
+              <span>Savor the moment. Great whiskey is meant to be enjoyed.</span>
+            </button>
+            <button class="pillar-card" data-journey-panel="reflect" type="button" aria-label="Reflect. Capture what mattered. Every pour has a story.">
+              <span class="pillar-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 6c-1.8-1.4-4.8-1.4-7.5-.5v13c2.7-.9 5.7-.9 7.5.5 1.8-1.4 4.8-1.4 7.5-.5v-13C16.8 4.6 13.8 4.6 12 6Z" />
+                  <path d="M12 6v13" />
+                </svg>
+              </span>
+              <strong>Reflect</strong>
+              <span>Capture what mattered. Every pour has a story.</span>
+            </button>
+            <button class="pillar-card" data-journey-panel="share" type="button" aria-label="Share. Whiskey is better together. Pass the story forward.">
+              <span class="pillar-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="8.2" r="2.6" />
+                  <path d="M6.5 19.3c0-3 2.5-5.1 5.5-5.1s5.5 2.1 5.5 5.1" />
+                  <circle cx="4.8" cy="9.4" r="1.9" />
+                  <path d="M2 18.3c0-2.1 1.3-3.7 2.9-4.2" />
+                  <circle cx="19.2" cy="9.4" r="1.9" />
+                  <path d="M22 18.3c0-2.1-1.3-3.7-2.9-4.2" />
+                </svg>
+              </span>
+              <strong>Share</strong>
+              <span>Whiskey is better together. Pass the story forward.</span>
+            </button>
+          </section>
+
+          <section class="collection-preview home-section-card home-recent-activity" aria-label="Recent activity">
+            <div class="section-heading">
+              <div>
+                <p>Recent Activity</p>
+                <h2>What changed lately</h2>
+              </div>
+            </div>
+            <div class="journey-collection-tabs" id="journeyCollectionTabs" role="tablist" aria-label="Recent activity filters">
+              <button class="is-active" data-journey-collection-tab="recent" type="button" role="tab" aria-selected="true" aria-controls="recentBottlesPanel">Recently Added</button>
+              <button data-journey-collection-tab="stories" type="button" role="tab" aria-selected="false" aria-controls="recentStoriesPanel">Recent Pour Stories</button>
+            </div>
+            <div class="home-activity-panel" id="recentBottlesPanel" data-home-activity-panel="recent" role="tabpanel">
+              <div class="collection-preview-row" id="collectionPreviewRow"></div>
+            </div>
+            <div class="home-activity-panel is-hidden" id="recentStoriesPanel" data-home-activity-panel="stories" role="tabpanel">
+              <div class="pour-story-list" id="recentPourStories"></div>
+            </div>
+          </section>
+
+          <section class="dashboard-section" aria-label="Collection snapshot">
+            <div class="section-heading">
+              <div>
+                <p>Summary</p>
+                <h2>Journey Summary</h2>
+              </div>
+            </div>
+            <div class="profile-journey-grid" id="collectionSnapshotGrid"></div>
+          </section>
+
+          <div class="journey-panel-backdrop is-hidden" id="journeyPanelBackdrop"></div>
+          <section class="journey-action-panel is-hidden" id="journeyActionPanel" role="dialog" aria-modal="true" aria-labelledby="journeyPanelTitle" tabindex="-1">
+            <div class="journey-action-panel-head">
+              <div>
+                <p id="journeyPanelKicker">Fully Involved Pour</p>
+                <h2 id="journeyPanelTitle">Journey</h2>
+              </div>
+              <button class="icon-button" id="journeyPanelClose" type="button" aria-label="Close journey panel">×</button>
+            </div>
+            <div class="journey-action-panel-body" id="journeyPanelBody"></div>
+          </section>
+
+          <section class="insights-card home-section-card" aria-label="Legacy Shelf Preview">
+            <div class="section-heading">
+              <div>
+                <p>Milestones</p>
+                <h2>Legacy Shelf Preview</h2>
+              </div>
+            </div>
+            <div class="legacy-shelf-preview-grid" id="homeLegacyShelfPreview"></div>
+          </section>
+
+          <section class="insights-card home-section-card home-recommended-card" aria-label="Recommended bottles">
+            <div class="section-heading">
+              <div>
+                <p>Next Pour</p>
+                <h2>Recommended For You</h2>
+              </div>
+            </div>
+            <div class="recommendation" id="recommendation"></div>
+          </section>
+
+          <section class="home-closing-statement" aria-label="Brand statement">
+            <h2>Your journey. Your way.</h2>
+            <p>Every bottle has a story. Make yours unforgettable.</p>
+          </section>
+
+          <div class="home-support-hooks is-hidden" aria-hidden="true">
+          <div class="core-bar-highlight" id="coreBarHighlight"></div>
+          <div class="top-rated-highlight" id="topRatedHighlight"></div>
+          <div class="pour-streak-highlight" id="pourStreakHighlight"></div>
+
+          <section class="insights-card" aria-label="Journey insights">
+            <div class="section-heading">
+              <div>
+                <p>Journey Insights</p>
+                <h2>Your journey so far</h2>
+              </div>
+            </div>
+            <div class="journey-insights-grid" id="journeyInsightsGrid"></div>
+          </section>
+
+          <section class="dashboard-grid">
+          <div class="insights-card">
+            <div class="section-heading">
+              <div>
+                <p>Pour assistant</p>
+                <h2>Ask your assistant</h2>
+              </div>
+            </div>
+            <div class="dashboard-prompt-chips">
+              <button type="button" data-dashboard-prompt="What's the vibe tonight?">What's the vibe tonight?</button>
+              <button type="button" data-dashboard-prompt="What bottle should I buy next?">Buy picks</button>
+            </div>
+            <form class="dashboard-assistant-form" id="dashboardAssistantForm">
+              <input id="dashboardAssistantPrompt" type="text" placeholder="Ask about tonight's pour..." />
+              <button class="primary-action" type="submit">Ask</button>
+            </form>
+          </div>
+
+          <div class="insights-card">
+            <div class="section-heading">
+              <div>
+                <p>Profile</p>
+                <h2>Flavor radar</h2>
+              </div>
+            </div>
+
+            <div class="quick-tabs" role="tablist" id="profileTabs">
+              <button class="quick-tab is-active" data-profile-tab="radar" type="button">Radar</button>
+              <button class="quick-tab" data-profile-tab="cadence" type="button">Cadence</button>
+              <button class="quick-tab" data-profile-tab="seasons" type="button">Seasons</button>
+            </div>
+
+            <div class="quick-tab-panel" data-profile-tab-panel="radar">
+              <div class="flavor-radar" id="flavorRadar"></div>
+              <div class="flavor-list" id="flavorList"></div>
+              <div class="flavor-bottle-list" id="flavorBottleList"></div>
+            </div>
+
+            <div class="quick-tab-panel is-hidden" data-profile-tab-panel="cadence">
+              <div class="mini-cadence-block">
+                <h4>By day of week</h4>
+                <div class="mini-bars mb-dow" id="cadenceDowBars"></div>
+                <div class="mini-axis mb-dow" id="cadenceDowAxis"></div>
+              </div>
+              <div class="mini-cadence-block">
+                <h4>By month</h4>
+                <div class="mini-bars mb-month" id="cadenceMonthBars"></div>
+                <div class="mini-axis mb-month" id="cadenceMonthAxis"></div>
+              </div>
+            </div>
+
+            <div class="quick-tab-panel is-hidden" data-profile-tab-panel="seasons" id="seasonMoodBoard"></div>
+          </div>
+
+          <div class="insights-card">
+            <div class="section-heading">
+              <div>
+                <p>🎰 Random Pour</p>
+                <h2>Spin the Bar</h2>
+              </div>
+            </div>
+            <div class="spin-reel" id="spinReel">
+              <div class="spin-reel-empty">Pick a number — it decides how many times the wheel flips before it stops.</div>
+            </div>
+            <div class="spin-number-picker">
+              <label>
+                Your number
+                <input id="spinNumber" type="number" min="1" max="50" placeholder="e.g. 7" />
+              </label>
+              <button class="field-ai-btn" id="spinRandomNumber" type="button" title="Pick a random number">🎲</button>
+            </div>
+            <div class="spin-actions">
+              <button class="primary-action" id="spinBottleButton" type="button">🎰 Spin</button>
+              <button class="secondary-action is-hidden" id="spinLogPour" type="button">Log This Pour</button>
+            </div>
+          </div>
+
+          <div class="insights-card">
+            <div class="section-heading">
+              <div>
+                <p>Shelves</p>
+                <h2>Inventory map</h2>
+              </div>
+            </div>
+            <div class="shelf-list" id="shelfList"></div>
+          </div>
+          </section>
+          </div>
+        </div>
+
+        <section class="pour-log-board journal-board journal-page is-hidden" id="pourLogView">
+          <div class="journal-top-grid">
+            <section class="journal-compass-hero journal-hero" aria-labelledby="journalHeroTitle">
+              <div class="journal-compass-copy journal-hero-copy">
+                <p class="journal-kicker">My Whiskey Journey</p>
+                <h1 id="journalHeroTitle">Every pour<br />has a story.</h1>
+                <span>Track every bottle, every pour, and every chapter of your whiskey journey.</span>
+                <div class="journal-memory-callout">
+                  <p>Follow bottle evolution, journey stages, scores, recent activity, and the people and memories connected to your pours.</p>
+                </div>
+                <div class="journal-actions" aria-label="Journal actions">
+                  <button class="primary-action" id="openPourForm" type="button">Start a Pour Story</button>
+                  <button class="secondary-action" data-journal-target="journalJourneyTimeline" type="button">View Timeline</button>
+                </div>
+              </div>
+              <div class="journal-hero-journey-visual" aria-hidden="true">
+                <div class="journal-hero-score">9.0<span>FIP</span></div>
+                <div class="journal-hero-stage">
+                  <span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+            </section>
+            <aside class="journal-today-stack" aria-label="Journal side summary">
+              <section class="journal-today-card" id="journalTodayJourney"></section>
+              <section class="journal-insights-card" id="journalJourneyInsights"></section>
+            </aside>
+          </div>
+
+          <section class="journal-library-bar" aria-label="Journal search and focus">
+            <div>
+              <p>Remember what mattered</p>
+              <strong>Browse your real Pour Stories, memories, people, and bottles.</strong>
+            </div>
+            <label class="journal-search">
+              <span>Search Journey</span>
+              <input id="journalSearch" type="search" placeholder="Search stories, bottles, people..." />
+            </label>
+            <button class="journal-search-button" id="journalSearchButton" type="button">Search</button>
+          </section>
+
+          <nav class="journal-sections-nav" aria-label="Journal sections">
+            <button class="is-active" data-journal-target="journalContinueSection" type="button">Overview</button>
+            <button data-journal-target="journalJourneyTimeline" type="button">Timeline</button>
+            <button data-journal-target="journalBottlesSection" type="button">Bottles</button>
+            <button data-journal-target="journalPeopleSection" type="button">People</button>
+            <button data-journal-target="journalMemoriesSection" type="button">Memories</button>
+          </nav>
+
+          <div class="quick-tabs journal-tools-tabs" role="tablist" id="pourStoriesTabs" aria-label="Journal tools">
+            <button class="quick-tab is-active" data-story-tab="sessions" type="button">Stories</button>
+            <button class="quick-tab" data-story-tab="notes" type="button">Tasting Notes</button>
+            <button class="quick-tab" data-story-tab="assistant" type="button">Ask Assistant</button>
+          </div>
+
+          <div class="quick-tab-panel" data-story-tab-panel="sessions">
+            <section class="journal-preview-section" id="journalContinueSection" aria-label="Continue your journey">
+              <div class="section-heading compact">
+                <div>
+                  <p>Continue Your Journey</p>
+                </div>
+              </div>
+              <div id="journalContinueJourneyPreview"></div>
+            </section>
+
+            <section class="journal-preview-section" id="journalRecentSection" aria-label="Recent pour stories">
+              <div class="section-heading compact">
+                <div>
+                  <p>Recent Pour Stories</p>
+                </div>
+                <button class="text-link" data-journal-target="journalJourneyTimeline" type="button">View All</button>
+              </div>
+              <div class="journal-card-grid" id="journalRecentPreview"></div>
+            </section>
+
+            <section class="journal-preview-section" id="journalBottleJourneysSection" aria-label="Bottle Journeys">
+              <div class="section-heading compact">
+                <div>
+                  <p>Bottle Journeys</p>
+                </div>
+              </div>
+              <div id="journalBottleJourneysPreview"></div>
+            </section>
+
+            <section class="journal-preview-section journal-desktop-timeline" id="journalJourneyTimeline" aria-label="Bottle Journey Timeline">
+              <div class="section-heading compact">
+                <div>
+                  <p>Timeline Preview</p>
+                </div>
+              </div>
+            </section>
+
+            <section class="pour-stats is-hidden" aria-label="Pour log stats">
+              <article><span>Total Pours</span><strong id="totalPours">0</strong></article>
+              <article><span>This Week</span><strong id="weeklyPours">0</strong></article>
+              <article><span>Ounces This Week</span><strong id="weeklyOunces">0</strong></article>
+              <article><span>Bottle Alerts</span><strong id="bottleAlerts">0</strong></article>
+            </section>
+
+            <div class="pour-actions is-hidden">
+              <button class="secondary-action" id="analyzePours" type="button">Analyze</button>
+            </div>
+            <div class="ai-output" id="pourAnalysis"></div>
+            <section class="journal-preview-section" id="journalTimelineSection" aria-label="Journal timeline">
+              <div class="section-heading compact">
+                <div>
+                  <p>Timeline</p>
+                  <h2>All pour stories</h2>
+                </div>
+              </div>
+            </section>
+            <div class="pour-list" id="pourList"></div>
+
+            <section class="journal-preview-section" id="journalBottlesSection" aria-label="Bottles">
+              <div class="section-heading compact">
+                <div>
+                  <p>Bottles in Your Story</p>
+                </div>
+                <button class="text-link" data-journal-target="journalBottlesSection" type="button">View All</button>
+              </div>
+              <div class="journal-bottle-grid" id="journalBottlePreview"></div>
+            </section>
+
+            <section class="journal-preview-grid journal-supporting-grid">
+              <div class="journal-preview-section" id="journalPeopleSection" aria-label="People">
+                <div class="section-heading compact">
+                  <div>
+                    <p>People</p>
+                  </div>
+                  <button class="text-link" data-journal-target="journalPeopleSection" type="button">View All</button>
+                </div>
+                <div class="journal-card-grid" id="journalPeoplePreview"></div>
+              </div>
+
+              <div class="journal-preview-section" id="journalMemoriesSection" aria-label="Memories">
+                <div class="section-heading compact">
+                  <div>
+                  <p>Recent Memories</p>
+                  </div>
+                  <button class="text-link" data-journal-target="journalMemoriesSection" type="button">View All</button>
+                </div>
+                <div class="journal-card-grid" id="journalMemoriesPreview"></div>
+              </div>
+            </section>
+
+            <section class="journal-bottom-cta" aria-label="Start your next chapter">
+              <div aria-hidden="true" class="journal-bottom-glass"></div>
+              <strong>The next chapter begins with your next pour.</strong>
+              <div class="journal-actions">
+                <button class="primary-action" data-journal-empty-action="start-pour" type="button">Start a Pour Story</button>
+                <button class="secondary-action" data-journal-target="journalJourneyTimeline" type="button">View Timeline</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="quick-tab-panel is-hidden" data-story-tab-panel="notes">
+            <div class="tasting-board" id="tastingView">
+              <div class="section-heading">
+                <div>
+                  <p>Bottle Reviews</p>
+                  <h2>Guided notes</h2>
+                </div>
+                <button class="secondary-action" id="saveTastingNote" type="button">Save Note</button>
+              </div>
+              <div class="tasting-workspace">
+                <div class="tasting-form">
+                  <label>
+                    Bottle
+                    <select id="tastingBottle"></select>
+                  </label>
+                  <div class="tasting-grid">
+                    <label>
+                      Nose
+                      <textarea id="tastingNose" rows="3" placeholder="Caramel, cherry, ethanol, oak..."></textarea>
+                    </label>
+                    <label>
+                      Palate
+                      <textarea id="tastingPalate" rows="3" placeholder="Sweet entry, spice, fruit, proof..."></textarea>
+                    </label>
+                    <label>
+                      Finish
+                      <textarea id="tastingFinish" rows="3" placeholder="Short, drying, warm, long oak..."></textarea>
+                    </label>
+                    <label>
+                      Score
+                      <input id="tastingScore" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button class="secondary-action" id="buildTastingNote" type="button">Build Note</button>
+                    <button class="secondary-action ai-action" id="aiTastingNote" type="button">✨ AI Tasting Note</button>
+                    <button class="primary-action" id="logTastingPour" type="button">Log Pour</button>
+                  </div>
+                </div>
+                <div class="tasting-preview">
+                  <span>Generated Note</span>
+                  <p id="generatedTastingNote">Build a note from your tasting inputs.</p>
+                </div>
+              </div>
+              <div class="note-list" id="noteList"></div>
+            </div>
+          </div>
+
+          <div class="quick-tab-panel is-hidden" data-story-tab-panel="assistant">
+            <div class="section-heading compact">
+              <div>
+                <p>AI Tools</p>
+                <h2>Pour assistant</h2>
+              </div>
+              <div class="section-heading-actions">
+                <button class="secondary-action" id="clearAssistantChat" type="button">New Chat</button>
+                <button class="secondary-action" id="refreshAiTools" type="button">Refresh</button>
+              </div>
+            </div>
+
+            <div class="assistant-shell">
+              <aside class="assistant-rail">
+                <button data-assistant-prompt="What's the vibe tonight?" type="button">Dispatch</button>
+                <button data-assistant-prompt="What should I try next based on my collection?" type="button">
+                  Next Pour
+                </button>
+                <button data-assistant-prompt="What bottle should I buy next?" type="button">Buy Picks</button>
+                <button data-assistant-prompt="Help me write tasting notes for what I'm sipping." type="button">
+                  Tasting
+                </button>
+                <button data-assistant-prompt="I love high-proof bourbons. What am I missing?" type="button">
+                  Expert
+                </button>
+              </aside>
+
+              <div class="assistant-chat">
+                <div class="assistant-messages" id="assistantMessages" aria-live="polite"></div>
+                <form class="assistant-input" id="assistantForm">
+                  <textarea
+                    id="assistantPrompt"
+                    rows="2"
+                    placeholder="Ask your pour assistant about tonight's pour, buy picks, tasting notes, or comparisons..."
+                  ></textarea>
+                  <button class="primary-action" type="submit">Send</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="infinity-board is-hidden" id="infinityView">
+          <div class="section-heading">
+            <div>
+              <p>♾ Infinity Bottle</p>
+              <h2>Your Blends</h2>
+            </div>
+            <button class="primary-action" id="newInfinityBottle" type="button">+ New Infinity Bottle</button>
+          </div>
+
+          <details class="infinity-howto">
+            <summary>How infinity bottles work</summary>
+            <div class="infinity-howto-body">
+              <p>
+                An infinity bottle is a blending bottle you keep topping off with leftover pours instead of
+                letting the last ounce of every bottle go to waste. It never truly empties — every addition
+                changes the blend a little, so no batch tastes quite the same twice.
+              </p>
+              <ul>
+                <li>Start with any clean empty bottle — the size doesn't matter.</li>
+                <li>Pour in what's left of a bottle you're finishing, rather than dumping in full pours.</li>
+                <li>Keep proof roughly in the same range so one addition doesn't overpower the blend.</li>
+                <li>Log every addition — it's the only way to reverse-engineer why a batch turned out great.</li>
+                <li>There's no "finishing" it. Keep adding, keep tasting, keep logging.</li>
+              </ul>
+            </div>
+          </details>
+
+          <div class="infinity-grid" id="infinityGrid"></div>
+        </section>
+
+        <section class="compare-board is-hidden" id="compareView">
+          <div class="section-heading">
+            <div>
+              <p>🔥 Fireground Faceoff</p>
+              <h2>Compare</h2>
+            </div>
+          </div>
+          <div class="compare-panel">
+            <div class="compare-controls">
+              <select id="compareA" aria-label="Bottle A"></select>
+              <select id="compareB" aria-label="Bottle B"></select>
+              <button class="primary-action" data-ai-action="compare" type="button">Compare</button>
+            </div>
+            <div class="ai-output" id="compareOutput"></div>
+            <button class="secondary-action faceoff-launch is-hidden" id="viewFullFaceoff" type="button">
+              View Full Comparison →
+            </button>
+          </div>
+        </section>
+
+        <section class="faceoff-board is-hidden" id="faceoffView">
+          <div class="section-heading">
+            <div>
+              <p>🔥 Fireground Faceoff</p>
+              <h2>Head-to-head comparison</h2>
+            </div>
+            <div class="faceoff-header-actions">
+              <button class="secondary-action" id="shareFaceoff" type="button">Share</button>
+              <button class="secondary-action" id="closeFaceoff" type="button">← Back</button>
+            </div>
+          </div>
+          <div id="faceoffBody"></div>
+        </section>
+
+        <section class="profile-board is-hidden" id="profileView">
+          <div class="section-heading">
+            <div>
+              <p>Profile</p>
+              <h2>My Journey</h2>
+            </div>
+          </div>
+
+          <div class="profile-journey-grid">
+            <article>
+              <span>Bottles</span>
+              <strong id="profileBottleCount">0</strong>
+            </article>
+            <article>
+              <span>Pour Stories</span>
+              <strong id="profilePourCount">0</strong>
+            </article>
+            <article>
+              <span>Bottle Kills</span>
+              <strong id="profileBottleKills">0</strong>
+            </article>
+            <article>
+              <span>Favorite Distillery</span>
+              <strong id="profileFavoriteDistillery">—</strong>
+            </article>
+            <article>
+              <span>Favorite Proof Range</span>
+              <strong id="profileFavoriteProof">—</strong>
+            </article>
+            <article>
+              <span>Favorite Companion</span>
+              <strong id="profileFavoriteCompanion">—</strong>
+            </article>
+            <article>
+              <span>Collection Value</span>
+              <strong id="profileCollectionValue">$0</strong>
+            </article>
+          </div>
+
+          <div class="section-heading compact">
+            <div>
+              <p>What mattered, not just what scored highest</p>
+              <h2>Legacy Shelf</h2>
+            </div>
+          </div>
+          <div class="legacy-shelf-grid" id="profileLegacyShelf"></div>
+
+          <div class="section-heading compact">
+            <div>
+              <p>Palate</p>
+              <h2>Top flavor notes</h2>
+            </div>
+          </div>
+          <div class="profile-flavor-tags" id="profileFlavorTags"></div>
+
+          <div class="section-heading compact">
+            <div>
+              <p>Account</p>
+              <h2>Settings</h2>
+            </div>
+          </div>
+          <div class="profile-account-actions">
+            <button class="secondary-action" id="profileEditUsername" type="button">Edit Username</button>
+            <button class="secondary-action" id="profileFriendsButton" type="button">Friends</button>
+            <button class="secondary-action" id="profileSignOut" type="button">Sign Out</button>
+          </div>
+        </section>
+
+        <section class="about-board is-hidden" id="aboutView">
+          <div class="section-heading">
+            <div>
+              <p>About</p>
+              <h2>Fully Involved Pour</h2>
+            </div>
+          </div>
+          <p class="about-lede">
+            Fully Involved Pour is a personal whiskey journal designed around the journey of discovering whiskey,
+            experiencing great pours, reflecting on meaningful moments, and sharing those experiences with others.
+          </p>
+
+          <div class="about-pillars">
+            <article>
+              <h3>🧭 Discover</h3>
+              <p>Explore what's new. Every journey starts with curiosity.</p>
+            </article>
+            <article>
+              <h3>🥃 Experience</h3>
+              <p>Savor the moment. Great whiskey is meant to be enjoyed.</p>
+            </article>
+            <article>
+              <h3>📖 Reflect</h3>
+              <p>Capture what mattered. Every pour has a story.</p>
+            </article>
+            <article>
+              <h3>👥 Share</h3>
+              <p>Whiskey is better together. Pass the story forward.</p>
+            </article>
+          </div>
+
+          <p class="about-tagline">Drink what you enjoy. Share what matters.</p>
+        </section>
+
+        <section class="bottle-detail-board is-hidden" id="bottleDetailView"></section>
+
+        <footer class="brand-footer">
+          <strong>Drink what you enjoy. Share what matters.</strong>
+        </footer>
+      </main>
+    </div>
+
+    <div class="select-bar is-hidden" id="selectBar" role="region" aria-label="Bulk actions">
+      <button class="secondary-action" id="selectCancel" type="button">Cancel</button>
+      <span id="selectCount">0 selected</span>
+      <button class="select-delete" id="selectDelete" type="button" disabled>Delete</button>
+    </div>
+
+    <div class="friends-backdrop is-hidden" id="friendsBackdrop"></div>
+    <aside class="friends-drawer" id="friendsDrawer" aria-label="Friends">
+      <div class="section-heading">
+        <div>
+          <p>Social</p>
+          <h2>Friends</h2>
+        </div>
+        <button class="icon-button" id="closeFriendsDrawer" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="follow-form">
+        <input id="followUsernameInput" placeholder="friend_username" autocomplete="off" />
+        <button class="primary-action" id="followButton" type="button">Follow</button>
+      </div>
+      <p class="auth-gate-note" id="followError"></p>
+
+      <div class="section-heading compact">
+        <div>
+          <p>Following <span id="followingCount">0</span></p>
+          <h2>People you follow</h2>
+        </div>
+      </div>
+      <div class="friend-list" id="friendList"></div>
+
+      <div class="section-heading compact">
+        <div>
+          <p>Followers <span id="followerCount">0</span></p>
+          <h2>People following you</h2>
+        </div>
+      </div>
+      <div class="friend-list" id="followerList"></div>
+    </aside>
+
+    <dialog class="bottle-dialog" id="bottleDialog">
+      <form method="dialog" class="bottle-form" id="bottleForm">
+        <div class="form-head">
+          <div>
+            <p>Collection entry</p>
+            <h2 id="formTitle">Add Bottle</h2>
+          </div>
+          <button class="icon-button" id="closeDialog" type="button" aria-label="Close">×</button>
+        </div>
+
+        <input type="hidden" id="bottleId" />
+        <label class="scan-label-action" id="scanLabelAction">
+          <span aria-hidden="true">📷</span>
+          <span id="scanLabelText">Scan label with AI — photo fills the form</span>
+          <input id="labelScanInput" type="file" accept="image/*" />
+        </label>
+        <div class="selected-bottle-preview is-empty" id="selectedBottlePreview" aria-live="polite">
+          <img id="selectedBottleImage" alt="" />
+          <div>
+            <span>Selected bottle</span>
+            <strong id="selectedBottleLabel"></strong>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label class="name-field">
+            Bottle
+            <input id="name" required placeholder="E.H. Taylor Small Batch" />
+            <div class="ai-suggestions" id="aiSuggestions" aria-live="polite"></div>
+          </label>
+          <label>
+            Distillery
+            <div class="field-with-action">
+              <input id="distillery" required placeholder="Buffalo Trace" list="distilleryOptions" />
+              <button class="field-ai-btn" id="aiFillDistillery" type="button" title="Auto-fill with AI">✨</button>
+            </div>
+            <datalist id="distilleryOptions"></datalist>
+          </label>
+          <label>
+            Type
+            <select id="type">
+              <option>Bourbon</option>
+              <option>Rye</option>
+              <option>Whiskey</option>
+              <option>Scotch</option>
+              <option>Irish</option>
+              <option>Tequila</option>
+              <option>Rum</option>
+              <option>Other Spirit</option>
+            </select>
+          </label>
+          <label>
+            Proof
+            <input id="proof" type="number" min="0" step="0.1" placeholder="100" />
+          </label>
+          <label>
+            Paid
+            <input id="price" type="number" min="0" step="1" placeholder="55" />
+          </label>
+          <label>
+            Rating
+            <input id="rating" type="number" min="0" max="10" step="0.1" placeholder="8.4" />
+          </label>
+          <label>
+            Status
+            <select id="status">
+              <option value="sealed">Sealed</option>
+              <option value="open">Open</option>
+              <option value="finished">Finished</option>
+              <option value="buy-next">Buy Next</option>
+              <option value="wishlist">Wish List</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          Flavor tags
+          <input id="flavors" placeholder="caramel, oak, cherry, baking spice" />
+        </label>
+        <label>
+          <span class="field-label-row">
+            <span>Notes</span>
+            <button class="secondary-action ai-action" id="formAiTastingNote" type="button">✨ AI Tasting Note</button>
+          </span>
+          <textarea id="notes" rows="4" placeholder="Where you found it, who recommended it, or tasting notes."></textarea>
+        </label>
+
+        <details class="advanced-details">
+          <summary>Advanced details</summary>
+          <div class="form-grid">
+            <label>
+              Region
+              <input id="region" placeholder="Kentucky" />
+            </label>
+            <label>
+              Image URL
+              <input id="imageUrl" placeholder="Optional bottle photo URL" />
+            </label>
+            <div class="form-photo-panel" id="formPhotoPanel">
+              <img id="formPhotoPreview" alt="" />
+              <div>
+                <span>Photo</span>
+                <strong id="formPhotoName">Start typing a bottle name</strong>
+                <div class="photo-form-actions">
+                  <label class="upload-photo-action">
+                    Upload Photo
+                    <input id="photoUpload" type="file" accept="image/*" />
+                  </label>
+                </div>
+              </div>
+            </div>
+            <label>
+              Size
+              <select id="bottleSize">
+                <option value="750">750 ML</option>
+                <option value="375">375 ML</option>
+                <option value="700">700 ML</option>
+                <option value="1000">1 Liter</option>
+                <option value="1750">1.75 Liter</option>
+              </select>
+            </label>
+            <label>
+              MSRP
+              <input id="msrp" type="number" min="0" step="1" placeholder="50" />
+            </label>
+            <label>
+              Age Statement
+              <input id="ageStatement" placeholder="12 years, NAS, batch year" />
+            </label>
+            <label>
+              Store / Location
+              <input id="storeLocation" placeholder="Total Wine, local shop, gift" />
+            </label>
+            <label>
+              Shelf
+              <input id="shelf" placeholder="Main bar, bunker, top shelf" />
+            </label>
+            <label>
+              Quantity
+              <input id="quantity" type="number" min="1" step="1" placeholder="1" />
+            </label>
+            <label>
+              Fill Level
+              <select id="fillLevel">
+                <option value="full">Full</option>
+                <option value="three-quarter">3/4</option>
+                <option value="half">1/2</option>
+                <option value="low">Low</option>
+                <option value="empty">Empty</option>
+              </select>
+            </label>
+            <label>
+              Opened
+              <input id="openedDate" type="date" />
+            </label>
+            <div class="category-field">
+              <span>Category (choose any that fit)</span>
+              <div class="category-tag-picker" id="categoryPicker" role="group" aria-label="Category tags">
+                <button class="category-tag-btn" data-category-tag="daily" type="button">Daily</button>
+                <button class="category-tag-btn" data-category-tag="high-proof" type="button">High Proof</button>
+                <button class="category-tag-btn" data-category-tag="wheated" type="button">Wheated</button>
+                <button class="category-tag-btn" data-category-tag="rye" type="button">Rye</button>
+                <button class="category-tag-btn" data-category-tag="special-occasion" type="button">Special Occasion</button>
+                <button class="category-tag-btn" data-category-tag="store-pick" type="button">Store Pick</button>
+                <button class="category-tag-btn" data-category-tag="finished" type="button">Finished</button>
+                <button class="category-tag-btn" data-category-tag="showstopper" type="button">Showstopper</button>
+                <button class="category-tag-btn" data-category-tag="crowd-pleaser" type="button">Crowd Pleaser</button>
+                <button class="category-tag-btn" data-category-tag="other" type="button">Other</button>
+              </div>
+            </div>
+            <label>
+              Pour Style
+              <select id="pourStyle">
+                <option value="daily">Daily</option>
+                <option value="share">Share</option>
+                <option value="special">Special</option>
+                <option value="cocktail">Cocktail</option>
+              </select>
+            </label>
+            <label>
+              Pour Tier
+              <select id="pourTier">
+                <option value="crowd">Crowd Pour</option>
+                <option value="reserve">Reserve Pour</option>
+                <option value="vip">VIP Pour</option>
+              </select>
+            </label>
+            <div class="core-score-field">
+              <span>Core Bar Score</span>
+              <strong id="coreScoreDisplay">—</strong>
+              <small id="coreScoreNote">Earned automatically from rating, pour frequency, rebuys, value, and how often you recommend it.</small>
+            </div>
+            <label>
+              Priority
+              <select id="priority">
+                <option value="1">🔥 Must Try</option>
+                <option value="2">⭐ Highly Recommended</option>
+                <option value="3" selected>🥃 Solid Choice</option>
+                <option value="4">📦 Collection Piece</option>
+                <option value="5">⌛ Save for Later</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="legacy-shelf-field">
+            <label class="legacy-shelf-toggle">
+              <input type="checkbox" id="legacyShelf" />
+              <span>⭐ Add to Legacy Shelf</span>
+            </label>
+            <input
+              id="legacyShelfReason"
+              type="text"
+              placeholder="Why it matters — e.g. First Bourbon I Loved, Shared with Dad"
+              maxlength="120"
+            />
+          </div>
+
+          <div class="mash-bill-field">
+            <span>Mash Bill</span>
+            <div class="mash-bill-grid">
+              <label>
+                Corn %
+                <input id="mashBillCorn" type="number" min="0" max="100" step="1" placeholder="75" />
+              </label>
+              <label>
+                Rye/Wheat %
+                <input id="mashBillRyeWheat" type="number" min="0" max="100" step="1" placeholder="13" />
+              </label>
+              <label>
+                Malted Barley %
+                <input id="mashBillMalted" type="number" min="0" max="100" step="1" placeholder="12" />
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <span class="add-another-status" id="addAnotherStatus"></span>
+        <div class="form-actions">
+          <button class="secondary-action" id="deleteBottle" type="button">Delete</button>
+          <button class="secondary-action" id="saveAndAddAnother" type="button">Save &amp; Add Another</button>
+          <button class="primary-action" value="default" type="submit">Save Bottle</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="bottle-dialog" id="quickBottleDialog">
+      <div class="quick-detail" id="quickBottleDetail"></div>
+    </dialog>
+
+    <dialog class="bottle-dialog" id="infinityDialog">
+      <div class="quick-detail" id="infinityDetail"></div>
+    </dialog>
+
+    <dialog class="photo-zoom-dialog" id="photoZoomDialog" aria-label="Bottle photo">
+      <button class="icon-button photo-zoom-close" id="closePhotoZoom" type="button" aria-label="Close">×</button>
+      <img id="photoZoomImage" alt="" />
+    </dialog>
+
+    <dialog class="bottle-dialog" id="usernameDialog">
+      <form class="bottle-form" id="usernameForm">
+        <div class="form-head">
+          <div>
+            <p>Account</p>
+            <h2>Choose a username</h2>
+          </div>
+        </div>
+        <p class="auth-gate-note" style="color: var(--muted)">
+          Friends will find and follow you by this username instead of your email.
+        </p>
+        <label>
+          Username
+          <input id="usernameInput" placeholder="bourbon_baron" autocomplete="off" />
+        </label>
+        <p class="auth-gate-note" id="usernameError"></p>
+
+        <fieldset class="greeting-choice">
+          <legend>Greet me as</legend>
+          <label class="greeting-radio">
+            <input type="radio" name="greetingMode" value="username" id="greetingModeUsername" />
+            My username
+          </label>
+          <label class="greeting-radio">
+            <input type="radio" name="greetingMode" value="custom" id="greetingModeCustom" />
+            A different name
+          </label>
+          <input id="greetingNameInput" placeholder="Kevin" autocomplete="off" />
+        </fieldset>
+
+        <div class="form-actions">
+          <button class="primary-action" id="saveUsername" type="button">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="bottle-dialog" id="friendInventoryDialog">
+      <div class="quick-detail" id="friendInventoryDetail"></div>
+    </dialog>
+
+    <dialog class="bottle-dialog library-dialog" id="libraryDialog">
+      <div class="library-panel">
+        <div class="form-head">
+          <div>
+            <p>Bottles not in your collection</p>
+            <h2>Whiskey library</h2>
+          </div>
+          <button class="icon-button" id="closeLibrary" type="button" aria-label="Close">×</button>
+        </div>
+        <label>
+          Search Library
+          <input id="librarySearch" placeholder="Weller, rye, Scotch, Buffalo Trace..." />
+        </label>
+        <div class="library-list" id="libraryList"></div>
+      </div>
+    </dialog>
+
+    <dialog class="pour-wizard-dialog" id="pourDialog">
+      <div class="pour-wizard" id="pourWizard">
+        <div class="pour-wizard-head">
+          <button class="icon-button" id="closePourDialog" type="button" aria-label="Close">×</button>
+          <h2 id="pourWizardTitle">Start a Pour Story</h2>
+          <button class="pour-wizard-draft" id="savePourDraft" type="button">Save Draft</button>
+        </div>
+
+        <ol class="pour-wizard-steps" id="pourWizardSteps">
+          <li data-step-dot="1"><span>1</span></li>
+          <li data-step-dot="2"><span>2</span></li>
+          <li data-step-dot="3"><span>3</span></li>
+          <li data-step-dot="4"><span>4</span></li>
+          <li data-step-dot="5"><span>5</span></li>
+          <li data-step-dot="6"><span>6</span></li>
+        </ol>
+
+        <div class="pour-wizard-layout">
+          <aside class="pour-wizard-context" id="pwBottleContext" aria-label="Current bottle"></aside>
+          <div class="pour-wizard-main">
+        <!-- Step 1: Session -->
+        <section class="pour-wizard-step" data-step-panel="1">
+          <p class="pour-wizard-eyebrow">Session Details</p>
+          <div class="pour-wizard-rows">
+            <label class="pour-wizard-row">
+              <span>Bottle</span>
+              <select id="pwBottle"></select>
+            </label>
+            <label class="pour-wizard-row">
+              <span>Date</span>
+              <input id="pwDate" type="date" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Location</span>
+              <input id="pwLocation" placeholder="Home, firehouse, cabin" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>With</span>
+              <input id="pwCompanion" placeholder="Solo, my brother, the crew" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Occasion</span>
+              <input id="pwOccasion" placeholder="Friday night, celebration" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Glass</span>
+              <input id="pwGlass" placeholder="Glencairn, rocks, neat" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Weather</span>
+              <input id="pwWeather" placeholder="78°F · Sunny" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Mood</span>
+              <input id="pwMood" placeholder="Relaxed, celebrating" />
+            </label>
+            <label class="pour-wizard-row">
+              <span>Ounces</span>
+              <input id="pwOunces" type="number" min="0.25" step="0.25" placeholder="1.5" />
+            </label>
+          </div>
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwSessionNotes" rows="3" placeholder="Set the scene for this pour."></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="2" type="button">Next: Nose</button>
+        </section>
+
+        <!-- Step 2: Nose -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="2">
+          <div class="pour-wizard-score-head">
+            <h3>Nose</h3>
+            <span>Max 2.5 pts</span>
+          </div>
+          <div class="pour-wizard-score" id="pwNoseScoreDisplay"><strong>0.0</strong> / 2.5</div>
+          <p class="pour-wizard-score-sub">Aroma, intensity &amp; complexity</p>
+          <input class="pour-wizard-slider" id="pwNose" type="range" min="0" max="2.5" step="0.1" value="0" />
+          <p class="pour-wizard-chips-label">Select Aromas (tap to add)</p>
+          <div class="pour-wizard-chips" id="pwNoseChips"></div>
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwNoseNotes" rows="3" placeholder="What does it smell like?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="3" type="button">Next: Palate</button>
+          <button class="pour-wizard-back" data-goto="1" type="button">Back</button>
+        </section>
+
+        <!-- Step 3: Palate -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="3">
+          <div class="pour-wizard-score-head">
+            <h3>Palate</h3>
+            <span>Max 3.5 pts</span>
+          </div>
+          <div class="pour-wizard-score" id="pwPalateScoreDisplay"><strong>0.0</strong> / 3.5</div>
+          <p class="pour-wizard-score-sub">Flavor, body &amp; mouthfeel</p>
+          <input class="pour-wizard-slider" id="pwPalate" type="range" min="0" max="3.5" step="0.1" value="0" />
+          <p class="pour-wizard-chips-label">Select Flavors (tap to add)</p>
+          <div class="pour-wizard-chips" id="pwPalateChips"></div>
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwPalateNotes" rows="3" placeholder="How does it taste?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="4" type="button">Next: Finish</button>
+          <button class="pour-wizard-back" data-goto="2" type="button">Back</button>
+        </section>
+
+        <!-- Step 4: Finish -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="4">
+          <div class="pour-wizard-score-head">
+            <h3>Finish</h3>
+            <span>Max 2.0 pts</span>
+          </div>
+          <div class="pour-wizard-score" id="pwFinishScoreDisplay"><strong>0.0</strong> / 2.0</div>
+          <p class="pour-wizard-score-sub">Length, warmth &amp; aftertaste</p>
+          <input class="pour-wizard-slider" id="pwFinish" type="range" min="0" max="2" step="0.1" value="0" />
+
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwFinishNotes" rows="3" placeholder="How does it finish?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="5" type="button">Next: Complexity &amp; Balance</button>
+          <button class="pour-wizard-back" data-goto="3" type="button">Back</button>
+        </section>
+
+        <!-- Step 5: Complexity & Balance -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="5">
+          <div class="pour-wizard-score-head">
+            <h3>Complexity &amp; Balance</h3>
+            <span>Max 1.0 pt</span>
+          </div>
+          <div class="pour-wizard-score" id="pwComplexityScoreDisplay"><strong>0.0</strong> / 1.0</div>
+          <p class="pour-wizard-score-sub">Depth, integration &amp; balance</p>
+          <input class="pour-wizard-slider" id="pwComplexity" type="range" min="0" max="1" step="0.1" value="0" />
+
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwComplexityNotes" rows="3" placeholder="How balanced, layered, or memorable is this pour?"></textarea>
+          </label>
+          <button class="primary-action pour-wizard-next" data-goto="6" type="button">Next: Summary</button>
+          <button class="pour-wizard-back" data-goto="4" type="button">Back</button>
+        </section>
+
+        <!-- Step 6: Summary -->
+        <section class="pour-wizard-step is-hidden" data-step-panel="6">
+          <p class="pour-wizard-eyebrow">Pour Story Summary</p>
+          <div class="pour-summary-bottle" id="pwSummaryBottle"></div>
+
+          <div class="pour-summary-breakdown">
+            <div class="pour-summary-line">
+              <span>Nose</span>
+              <div class="pour-summary-bar"><i id="pwBarNose"></i></div>
+              <strong id="pwOutNose">0.0 / 2.5</strong>
+            </div>
+            <div class="pour-summary-line">
+              <span>Palate</span>
+              <div class="pour-summary-bar"><i id="pwBarPalate"></i></div>
+              <strong id="pwOutPalate">0.0 / 3.5</strong>
+            </div>
+            <div class="pour-summary-line">
+              <span>Finish</span>
+              <div class="pour-summary-bar"><i id="pwBarFinish"></i></div>
+              <strong id="pwOutFinish">0.0 / 2.0</strong>
+            </div>
+            <div class="pour-summary-line">
+              <span>Complexity &amp; Balance</span>
+              <div class="pour-summary-bar"><i id="pwBarComplexity"></i></div>
+              <strong id="pwOutComplexity">0.0 / 1.0</strong>
+            </div>
+            <div class="pour-summary-line">
+              <span>Value / Buy Again</span>
+              <div class="pour-summary-bar"><i id="pwBarValue"></i></div>
+              <strong id="pwOutValue">0.0 / 1.0</strong>
+            </div>
+          </div>
+
+          <div class="pour-summary-verdict">
+            <div class="pour-summary-fip">
+              <strong id="pwFipScore">0.0</strong><span>/ 10</span>
+            </div>
+            <div class="pour-summary-tier" id="pwTier"></div>
+          </div>
+
+          <div class="pour-buy-again-choice" role="radiogroup" aria-label="Value / Buy Again">
+            <p>Value / Buy Again</p>
+            <button type="button" data-value-choice="absolutely" data-value-score="1">Absolutely <span>1.0</span></button>
+            <button type="button" data-value-choice="probably" data-value-score="0.75">Probably <span>0.75</span></button>
+            <button type="button" data-value-choice="maybe" data-value-score="0.5">Maybe <span>0.5</span></button>
+            <button type="button" data-value-choice="probably-not" data-value-score="0.25">Probably Not <span>0.25</span></button>
+            <button type="button" data-value-choice="no" data-value-score="0">No <span>0.0</span></button>
+          </div>
+
+          <label class="pour-wizard-notes">
+            Notes
+            <textarea id="pwSummaryNotes" rows="3" placeholder="Final thoughts on this pour."></textarea>
+          </label>
+
+          <div class="pour-wizard-summary-actions">
+            <button class="secondary-action is-hidden" id="pwDeleteEntry" type="button">Delete Entry</button>
+            <button class="primary-action" id="pwSaveStory" type="button">Save Story</button>
+          </div>
+          <button class="pour-wizard-back" data-goto="5" type="button">Back</button>
+        </section>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <div class="install-banner is-hidden" id="installBanner" role="dialog" aria-label="Install app">
+      <img src="assets/logo-badge-192.png" alt="" />
+      <div class="install-copy">
+        <strong>Install Fully Involved Pour</strong>
+        <span id="installHint">Add it to your home screen for the full-screen app.</span>
+      </div>
+      <div class="install-actions">
+        <button class="primary-action" id="installAccept" type="button">Install</button>
+        <button class="icon-button" id="installDismiss" type="button" aria-label="Dismiss">×</button>
+      </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+    <script src="app.js?v=132"></script>
+    <script>
+      // Service worker: register and quietly swap in new versions when a deploy lands.
+      if ("serviceWorker" in navigator) {
+        // Already-controlled means a SW was running before this load, so a swap is an update.
+        const wasControlled = Boolean(navigator.serviceWorker.controller);
+        let registration;
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("sw.js")
+            .then((reg) => {
+              registration = reg;
+            })
+            .catch(() => {});
+        });
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (refreshing || !wasControlled) return;
+          refreshing = true;
+          window.location.reload();
+        });
+
+        // Browsers only check for a new sw.js on navigation by default, so a long-lived
+        // tab or installed PWA can sit on a stale version indefinitely. Proactively poll
+        // whenever the app is reopened/foregrounded so deploys land without a manual refresh.
+        function checkForUpdate() {
+          registration?.update().catch(() => {});
+        }
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") checkForUpdate();
+        });
+        window.addEventListener("focus", checkForUpdate);
+        window.setInterval(checkForUpdate, 20 * 60 * 1000);
+      }
+
+      // Custom "Add to Home Screen" experience.
+      (function () {
+        const banner = document.getElementById("installBanner");
+        const accept = document.getElementById("installAccept");
+        const dismiss = document.getElementById("installDismiss");
+        const hint = document.getElementById("installHint");
+        const DISMISS_KEY = "fip-install-dismissed";
+
+        const standalone =
+          window.matchMedia("(display-mode: standalone)").matches ||
+          window.navigator.standalone === true;
+        const isIOS =
+          /iphone|ipad|ipod/i.test(window.navigator.userAgent) && !window.MSStream;
+
+        let deferredPrompt = null;
+
+        function isDismissed() {
+          return localStorage.getItem(DISMISS_KEY) === "1";
+        }
+
+        function showBanner() {
+          if (standalone || isDismissed()) return;
+          banner.classList.remove("is-hidden");
+        }
+        function hideBanner() {
+          banner.classList.add("is-hidden");
+        }
+
+        dismiss.addEventListener("click", () => {
+          localStorage.setItem(DISMISS_KEY, "1");
+          hideBanner();
+        });
+
+        // Android / desktop Chrome fire this when the app is installable.
+        window.addEventListener("beforeinstallprompt", (event) => {
+          event.preventDefault();
+          deferredPrompt = event;
+          accept.classList.remove("is-hidden");
+          hint.textContent = "Add it to your home screen for the full-screen app.";
+          showBanner();
+        });
+
+        accept.addEventListener("click", async () => {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          const choice = await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          if (choice.outcome === "accepted") hideBanner();
+        });
+
+        window.addEventListener("appinstalled", () => {
+          localStorage.setItem(DISMISS_KEY, "1");
+          hideBanner();
+        });
+
+        // iOS Safari has no install event — show manual steps instead.
+        if (isIOS && !standalone && !isDismissed()) {
+          accept.classList.add("is-hidden");
+          hint.textContent = "Tap the Share button, then “Add to Home Screen.”";
+          showBanner();
+        }
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--fip-page-max);
+  margin: 0 auto;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0));
+}
+
+@media (min-width: 900px) {
+  .main {
+    padding-bottom: var(--fip-space-16);
+  }
+}
