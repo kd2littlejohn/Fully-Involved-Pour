@@ -48,7 +48,7 @@ describe('PourStoryDetail', () => {
     expect(screen.getByText('Back porch')).toBeInTheDocument()
     expect(screen.getByText('Dad')).toBeInTheDocument()
     expect(screen.getByText('Great catch-up.')).toBeInTheDocument()
-    expect(screen.getByText('Vanilla')).toBeInTheDocument()
+    expect(screen.getAllByText('Vanilla').length).toBeGreaterThan(0)
     expect(screen.getByText('Sweet and warm.')).toBeInTheDocument()
   })
 

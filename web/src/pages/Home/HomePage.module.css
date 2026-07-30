@@ -1,0 +1,6 @@
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-6);
+}

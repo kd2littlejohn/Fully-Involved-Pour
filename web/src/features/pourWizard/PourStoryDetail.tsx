@@ -9,6 +9,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { BUY_AGAIN_OPTIONS, FIP_MAX } from '../fip/scoring'
 import { fipTier } from '../fip/tiers'
 import { PourWizard } from './PourWizard'
+import { TastingGradient } from './TastingGradient'
 import styles from './PourStoryDetail.module.css'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -38,6 +39,7 @@ export function PourStoryDetail({ pour, bottle, onClose }: PourStoryDetailProps)
 
   const tier = fipTier(pour.rating)
   const buyAgainLabel = BUY_AGAIN_OPTIONS.find((o) => o.value === pour.buyAgain)?.label
+  const tastingTags = Array.from(new Set([...pour.fip.noseAromas, ...pour.fip.palateFlavors]))
 
   const sessionRows: SpecRow[] = []
   if (pour.location) sessionRows.push({ label: 'Location', value: pour.location })
@@ -65,6 +67,13 @@ export function PourStoryDetail({ pour, bottle, onClose }: PourStoryDetailProps)
           <div className={styles.date}>{dateFormatter.format(new Date(pour.date))}</div>
         </div>
       </div>
+
+      {tastingTags.length > 0 ? (
+        <div className={styles.section}>
+          <h3 className={styles.heading}>Tasting Notes</h3>
+          <TastingGradient tags={tastingTags} />
+        </div>
+      ) : null}
 
       {sessionRows.length > 0 ? (
         <div className={styles.section}>

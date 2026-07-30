@@ -23,6 +23,7 @@ interface AddBottleFormProps {
   onSubmit: (input: AddBottleFormInput) => Promise<void>
   onCancel: () => void
   defaultStatus?: BottleStatus
+  initialValues?: Partial<AddBottleFormInput>
 }
 
 const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
@@ -32,16 +33,16 @@ const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
   { value: 'finished', label: 'Finished' },
 ]
 
-export function AddBottleForm({ onSubmit, onCancel, defaultStatus = 'sealed' }: AddBottleFormProps) {
-  const [name, setName] = useState('')
-  const [distillery, setDistillery] = useState('')
-  const [type, setType] = useState('')
-  const [status, setStatus] = useState<BottleStatus>(defaultStatus)
-  const [proof, setProof] = useState('')
-  const [region, setRegion] = useState('')
-  const [ageStatement, setAgeStatement] = useState('')
-  const [msrp, setMsrp] = useState('')
-  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined)
+export function AddBottleForm({ onSubmit, onCancel, defaultStatus = 'sealed', initialValues }: AddBottleFormProps) {
+  const [name, setName] = useState(initialValues?.name ?? '')
+  const [distillery, setDistillery] = useState(initialValues?.distillery ?? '')
+  const [type, setType] = useState(initialValues?.type ?? '')
+  const [status, setStatus] = useState<BottleStatus>(initialValues?.status ?? defaultStatus)
+  const [proof, setProof] = useState(initialValues?.proof ? String(initialValues.proof) : '')
+  const [region, setRegion] = useState(initialValues?.region ?? '')
+  const [ageStatement, setAgeStatement] = useState(initialValues?.ageStatement ?? '')
+  const [msrp, setMsrp] = useState(initialValues?.msrp ? String(initialValues.msrp) : '')
+  const [imageUrl, setImageUrl] = useState<string | undefined>(initialValues?.imageUrl)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 

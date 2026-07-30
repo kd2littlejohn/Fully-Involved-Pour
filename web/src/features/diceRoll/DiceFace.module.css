@@ -1,0 +1,29 @@
+.face {
+  flex-shrink: 0;
+}
+
+.body {
+  fill: var(--fip-card);
+  stroke: var(--fip-border-strong);
+  stroke-width: 2;
+}
+
+.pip {
+  fill: var(--fip-amber);
+}
+
+.rolling {
+  animation: spin var(--fip-motion-fast) linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(8deg) scale(1.05);
+  }
+  to {
+    transform: rotate(0deg) scale(1);
+  }
+}

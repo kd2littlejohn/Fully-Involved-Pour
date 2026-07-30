@@ -1,0 +1,88 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fip-space-5);
+}
+
+.pickRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
+.pickLabel {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-stone);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.pickButtons {
+  display: flex;
+  gap: var(--fip-space-2);
+}
+
+.pickButton {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--fip-radius-sm);
+  border: 1px solid var(--fip-border);
+  background: transparent;
+  color: var(--fip-cream);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  cursor: pointer;
+}
+
+.pickButton:hover:not(:disabled) {
+  border-color: var(--fip-border-strong);
+  color: var(--fip-amber);
+}
+
+.pickButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fip-space-2);
+  text-align: center;
+}
+
+.imageWrap {
+  width: 140px;
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fip-oak-deep);
+  border-radius: var(--fip-radius-md);
+  overflow: hidden;
+  margin-bottom: var(--fip-space-2);
+}
+
+.image {
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.name {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+.distillery {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.actions {
+  display: flex;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}

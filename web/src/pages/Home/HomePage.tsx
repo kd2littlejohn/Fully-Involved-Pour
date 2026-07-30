@@ -1,18 +1,25 @@
+import { useState } from 'react'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section, SectionRow } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
+import { Modal } from '../../components/ui/Modal'
 import { BottleCard } from '../../components/domain/BottleCard'
+import { AddBottleForm } from '../../components/domain/AddBottleForm'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { SignInButton } from '../../components/domain/SignInButton'
+import { QuickAddFromPhotoButton } from '../../features/addBottle/QuickAddFromPhotoButton'
+import { RollTheDiceButton } from '../../features/diceRoll/RollTheDiceButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { getFeaturedOpenBottle, getRecentBottles, getRecentPours, greetingForHour } from '../../features/home/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
+import styles from './HomePage.module.css'
 
 export function HomePage() {
   const { user, loading: authLoading } = useAuth()
-  const { userDoc, loading: dataLoading } = useUserData()
+  const { userDoc, loading: dataLoading, addBottle } = useUserData()
+  const [showAddForm, setShowAddForm] = useState(false)
 
   const greeting = greetingForHour(new Date().getHours())
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
@@ -52,10 +59,23 @@ export function HomePage() {
         <EmptyState
           title="Your whiskey journey starts here."
           message="Add a bottle to begin building your collection."
-          action={<Button>Add a Bottle</Button>}
+          action={
+            <div className={styles.actions}>
+              <Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>
+              <QuickAddFromPhotoButton />
+            </div>
+          }
         />
       ) : (
         <>
+          <div className={styles.actions}>
+            <Button variant="secondary" onClick={() => setShowAddForm(true)}>
+              Add a Bottle
+            </Button>
+            <QuickAddFromPhotoButton />
+            <RollTheDiceButton />
+          </div>
+
           {featuredBottle ? (
             <Section title="Continue Your Pour Story">
               <SectionRow>
@@ -97,6 +117,18 @@ export function HomePage() {
           </Section>
         </>
       )}
+
+      {showAddForm ? (
+        <Modal title="Add a Bottle" onClose={() => setShowAddForm(false)}>
+          <AddBottleForm
+            onCancel={() => setShowAddForm(false)}
+            onSubmit={async (input) => {
+              await addBottle(input)
+              setShowAddForm(false)
+            }}
+          />
+        </Modal>
+      ) : null}
     </>
   )
 }
