@@ -8,10 +8,12 @@ import { AddBottleForm } from '../../components/domain/AddBottleForm'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
+import { getCoreBarBottles } from '../../features/coreBar/selectors'
+import { InfinityBottleButton } from '../../features/infinityBottle/InfinityBottleButton'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
 
-type Filter = 'all' | 'open' | 'sealed' | 'wishlist' | 'favorites'
+type Filter = 'all' | 'open' | 'sealed' | 'wishlist' | 'favorites' | 'core-bar'
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -19,6 +21,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'sealed', label: 'Sealed' },
   { value: 'wishlist', label: 'Wishlist' },
   { value: 'favorites', label: 'Favorites' },
+  { value: 'core-bar', label: 'Core Bar' },
 ]
 
 function matchesFilter(bottle: Bottle, filter: Filter): boolean {
@@ -27,6 +30,8 @@ function matchesFilter(bottle: Bottle, filter: Filter): boolean {
       return true
     case 'favorites':
       return Boolean(bottle.favorite)
+    case 'core-bar':
+      return false // Core Bar is computed from pours, handled separately below.
     default:
       return bottle.status === filter
   }
@@ -38,10 +43,12 @@ export function CollectionPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [showAddForm, setShowAddForm] = useState(false)
 
-  const filteredBottles = useMemo(
-    () => userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter)),
-    [userDoc.bottles, filter],
-  )
+  const coreBarBottles = useMemo(() => getCoreBarBottles(userDoc.bottles, userDoc.pours), [userDoc.bottles, userDoc.pours])
+
+  const filteredBottles = useMemo(() => {
+    if (filter === 'core-bar') return coreBarBottles
+    return userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter))
+  }, [userDoc.bottles, filter, coreBarBottles])
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Collection" title="Your bottles." />
@@ -82,15 +89,25 @@ export function CollectionPage() {
                   onClick={() => setFilter(option.value)}
                   aria-pressed={option.value === filter}
                 >
-                  {option.label} ({userDoc.bottles.filter((b) => matchesFilter(b, option.value)).length})
+                  {option.label} ({option.value === 'core-bar' ? coreBarBottles.length : userDoc.bottles.filter((b) => matchesFilter(b, option.value)).length})
                 </button>
               ))}
             </div>
-            <Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>
+            <div className={styles.toolbarActions}>
+              <InfinityBottleButton />
+              <Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>
+            </div>
           </div>
 
           {filteredBottles.length === 0 ? (
-            <EmptyState title="No bottles here yet." message="Try a different filter, or add a bottle to this view." />
+            <EmptyState
+              title={filter === 'core-bar' ? 'No Core Bar bottles yet.' : 'No bottles here yet.'}
+              message={
+                filter === 'core-bar'
+                  ? 'Log a few Pour Stories for a bottle to see it earn a permanent spot here.'
+                  : 'Try a different filter, or add a bottle to this view.'
+              }
+            />
           ) : (
             <div className={styles.grid}>
               {filteredBottles.map((bottle) => (

@@ -3,7 +3,7 @@ import { useAuth } from './useAuth'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
-import type { Bottle, GalleryPhoto, Memory, Pour, UserDoc } from '../data/types'
+import type { Bottle, GalleryPhoto, InfinityBottleAddition, Memory, Pour, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type NewPourInput = Omit<Pour, 'id'>
@@ -23,6 +23,8 @@ interface UserDataState {
   updateMemory: (memoryId: string, patch: MemoryPatch) => Promise<void>
   deleteMemory: (memoryId: string) => Promise<void>
   addGalleryPhoto: (bottleId: string, photo: GalleryPhoto) => Promise<void>
+  createInfinityBottle: (name: string) => Promise<void>
+  addInfinityAddition: (infinityBottleId: string, addition: InfinityBottleAddition) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
@@ -37,6 +39,8 @@ const UserDataContext = createContext<UserDataState>({
   updateMemory: async () => {},
   deleteMemory: async () => {},
   addGalleryPhoto: async () => {},
+  createInfinityBottle: async () => {},
+  addInfinityAddition: async () => {},
 })
 
 function generateId(): string {
@@ -206,6 +210,35 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  const createInfinityBottle = useCallback(
+    async (name: string) => {
+      if (!user) return
+      const infinityBottle = { id: generateId(), name, additions: [] }
+      const nextInfinityBottles = [...userDoc.infinityBottles, infinityBottle]
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const addInfinityAddition = useCallback(
+    async (infinityBottleId: string, addition: InfinityBottleAddition) => {
+      if (!user) return
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
+        ib.id === infinityBottleId ? { ...ib, additions: [...ib.additions, addition] } : ib,
+      )
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
   const value = useMemo<UserDataState>(
     () => ({
       userDoc,
@@ -219,6 +252,8 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateMemory,
       deleteMemory,
       addGalleryPhoto,
+      createInfinityBottle,
+      addInfinityAddition,
     }),
     [
       userDoc,
@@ -233,6 +268,8 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateMemory,
       deleteMemory,
       addGalleryPhoto,
+      createInfinityBottle,
+      addInfinityAddition,
     ],
   )
 
