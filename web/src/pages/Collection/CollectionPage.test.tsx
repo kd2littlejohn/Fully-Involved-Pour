@@ -90,4 +90,24 @@ describe('CollectionPage', () => {
       expect.objectContaining({ name: "Blanton's", status: 'sealed' }),
     )
   })
+
+  it('switches between grid and list view', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    // Grid view by default — status renders as a Badge.
+    expect(screen.getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.click(screen.getByRole('button', { name: 'List view' }))
+
+    expect(screen.getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getAllByText('Eagle Rare').length).toBeGreaterThan(0)
+  })
 })

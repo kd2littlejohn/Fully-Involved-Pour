@@ -1,6 +1,11 @@
 import styles from './BottlePlaceholder.module.css'
 
-export function BottlePlaceholder() {
+interface BottlePlaceholderProps {
+  // Hides the "No Photo" label for tight spaces like list-row thumbnails.
+  compact?: boolean
+}
+
+export function BottlePlaceholder({ compact = false }: BottlePlaceholderProps) {
   return (
     <div className={styles.wrap}>
       <svg className={styles.icon} viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -12,7 +17,7 @@ export function BottlePlaceholder() {
         <path d="M17 2h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <path d="M13 30h22" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5" />
       </svg>
-      <span className={styles.label}>No Photo</span>
+      {compact ? null : <span className={styles.label}>No Photo</span>}
     </div>
   )
 }

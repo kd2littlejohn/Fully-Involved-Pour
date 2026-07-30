@@ -4,6 +4,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { BottleCard } from '../../components/domain/BottleCard'
+import { BottleListRow } from '../../components/domain/BottleListRow'
 import { AddBottleForm } from '../../components/domain/AddBottleForm'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
@@ -42,6 +43,7 @@ export function CollectionPage() {
   const { userDoc, loading: dataLoading, addBottle } = useUserData()
   const [filter, setFilter] = useState<Filter>('all')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const coreBarBottles = useMemo(() => getCoreBarBottles(userDoc.bottles, userDoc.pours), [userDoc.bottles, userDoc.pours])
 
@@ -94,6 +96,35 @@ export function CollectionPage() {
               ))}
             </div>
             <div className={styles.toolbarActions}>
+              <div className={styles.viewToggle} role="group" aria-label="View as">
+                <button
+                  type="button"
+                  className={viewMode === 'grid' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
+                  onClick={() => setViewMode('grid')}
+                  aria-pressed={viewMode === 'grid'}
+                  aria-label="Grid view"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className={viewMode === 'list' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
+                  onClick={() => setViewMode('list')}
+                  aria-pressed={viewMode === 'list'}
+                  aria-label="List view"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="6" x2="20" y2="6" />
+                    <line x1="4" y1="12" x2="20" y2="12" />
+                    <line x1="4" y1="18" x2="20" y2="18" />
+                  </svg>
+                </button>
+              </div>
               <InfinityBottleButton />
               <Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>
             </div>
@@ -108,10 +139,16 @@ export function CollectionPage() {
                   : 'Try a different filter, or add a bottle to this view.'
               }
             />
-          ) : (
+          ) : viewMode === 'grid' ? (
             <div className={styles.grid}>
               {filteredBottles.map((bottle) => (
                 <BottleCard key={bottle.id} bottle={bottle} />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.list}>
+              {filteredBottles.map((bottle) => (
+                <BottleListRow key={bottle.id} bottle={bottle} />
               ))}
             </div>
           )}
