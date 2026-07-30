@@ -30,3 +30,40 @@
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
 }
+
+.radarWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--fip-space-6);
+}
+
+.legend {
+  display: flex;
+  gap: var(--fip-space-4);
+  margin-top: var(--fip-space-2);
+}
+
+.legendItem {
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.voteRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-6);
+  padding-top: var(--fip-space-4);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.voteLabel {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.voteThanks {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
