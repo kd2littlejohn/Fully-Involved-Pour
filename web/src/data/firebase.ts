@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { getFunctions } from 'firebase/functions'
 
@@ -17,7 +17,11 @@ const firebaseConfig = {
 
 export const firebaseApp = initializeApp(firebaseConfig)
 export const auth = getAuth(firebaseApp)
-export const db = getFirestore(firebaseApp)
+// Nearly every mutation across the app submits optional fields as literal
+// `undefined` when blank (e.g. `distillery: distillery.trim() || undefined`)
+// — Firestore rejects that by default. This mirrors the app's actual data
+// shape instead of requiring every call site to strip undefined keys.
+export const db = initializeFirestore(firebaseApp, { ignoreUndefinedProperties: true })
 export const storage = getStorage(firebaseApp)
 export const functions = getFunctions(firebaseApp)
 export const googleProvider = new GoogleAuthProvider()
