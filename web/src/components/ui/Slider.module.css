@@ -7,7 +7,7 @@
 
 .header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
 }
 
@@ -17,10 +17,24 @@
   font-weight: 600;
 }
 
+.max {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-stone);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin-top: var(--fip-space-1);
+}
+
 .value {
   font-family: var(--fip-font-display);
-  font-size: var(--fip-text-lg);
+  font-size: var(--fip-text-2xl);
+  line-height: 1;
   color: var(--fip-amber);
+}
+
+.valueMax {
+  font-size: var(--fip-text-md);
+  color: var(--fip-muted);
 }
 
 .input {

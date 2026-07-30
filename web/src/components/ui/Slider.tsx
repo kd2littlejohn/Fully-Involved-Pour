@@ -13,11 +13,15 @@ export function Slider({ id, label, max, step = 0.1, value, onChange }: SliderPr
   return (
     <div className={styles.wrap}>
       <div className={styles.header}>
-        <label className={styles.label} htmlFor={id}>
-          {label}
-        </label>
+        <div>
+          <label className={styles.label} htmlFor={id}>
+            {label}
+          </label>
+          <div className={styles.max}>Max {max} pts</div>
+        </div>
         <span className={styles.value}>
-          {value.toFixed(1)} / {max}
+          {value.toFixed(1)}
+          <span className={styles.valueMax}> / {max}</span>
         </span>
       </div>
       <input
