@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { Bottle, BottleStatus } from '../../data/types'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { Badge } from '../ui/Badge'
+import { BottlePlaceholder } from '../ui/BottlePlaceholder'
 import styles from './BottleCard.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -28,11 +29,7 @@ export function BottleCard({ bottle }: BottleCardProps) {
   return (
     <Link to={`/collection/${bottle.id}`} className={styles.card}>
       <div className={styles.imageWrap}>
-        {bottle.imageUrl ? (
-          <img className={styles.image} src={bottle.imageUrl} alt="" />
-        ) : (
-          <span className={styles.placeholder}>No photo</span>
-        )}
+        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder />}
       </div>
       <div>
         <div className={styles.name}>{bottle.name}</div>

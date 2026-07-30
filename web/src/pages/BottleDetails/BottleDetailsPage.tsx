@@ -6,6 +6,7 @@ import { LinkButton } from '../../components/ui/LinkButton'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { Badge } from '../../components/ui/Badge'
 import { ScoreRing } from '../../components/ui/ScoreRing'
+import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -84,11 +85,7 @@ export function BottleDetailsPage() {
 
       <div className={styles.hero}>
         <div className={styles.imageWrap}>
-          {bottle.imageUrl ? (
-            <img className={styles.image} src={bottle.imageUrl} alt="" />
-          ) : (
-            <span className={styles.placeholder}>No photo</span>
-          )}
+          {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder />}
         </div>
         <div className={styles.info}>
           <h1 className={styles.name}>{bottle.name}</h1>

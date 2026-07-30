@@ -1,0 +1,18 @@
+import styles from './BottlePlaceholder.module.css'
+
+export function BottlePlaceholder() {
+  return (
+    <div className={styles.wrap}>
+      <svg className={styles.icon} viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path
+          d="M19 2h10v9.5c0 1.4.6 2.7 1.7 3.6 2.8 2.4 4.3 5.9 4.3 9.6v31.3c0 3.3-2.7 6-6 6H19c-3.3 0-6-2.7-6-6V24.7c0-3.7 1.5-7.2 4.3-9.6A4.7 4.7 0 0 0 19 11.5V2Z"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <path d="M17 2h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M13 30h22" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5" />
+      </svg>
+      <span className={styles.label}>No Photo</span>
+    </div>
+  )
+}

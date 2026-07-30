@@ -38,13 +38,6 @@
   object-fit: contain;
 }
 
-.placeholder {
-  color: var(--fip-stone);
-  font-size: var(--fip-text-xs);
-  letter-spacing: var(--fip-tracking-label);
-  text-transform: uppercase;
-}
-
 .name {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
