@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LinkButton } from '../../components/ui/LinkButton'
+import { Button } from '../../components/ui/Button'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { Badge } from '../../components/ui/Badge'
 import { ScoreRing } from '../../components/ui/ScoreRing'
@@ -37,9 +38,12 @@ const TABS = [
 
 export function BottleDetailsPage() {
   const { bottleId } = useParams()
+  const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
-  const { userDoc, loading: dataLoading } = useUserData()
+  const { userDoc, loading: dataLoading, deleteBottle } = useUserData()
   const [activeTab, setActiveTab] = useState('overview')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Bottle" title="Bottle details" />
@@ -77,11 +81,37 @@ export function BottleDetailsPage() {
   const score = getCurrentScore(bottle, userDoc.pours)
   const otherBottles = userDoc.bottles.filter((b) => b.id !== bottle.id)
 
+  const currentBottleId = bottle.id
+  async function handleDelete() {
+    setDeleting(true)
+    await deleteBottle(currentBottleId)
+    setDeleting(false)
+    navigate('/collection')
+  }
+
   return (
     <>
-      <Link to="/collection" className={styles.back}>
-        ← Back to Collection
-      </Link>
+      <div className={styles.topRow}>
+        <Link to="/collection" className={styles.back}>
+          ← Back to Collection
+        </Link>
+
+        {confirmingDelete ? (
+          <div className={styles.confirm}>
+            <span className={styles.confirmText}>Delete this bottle?</span>
+            <Button variant="ghost" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="secondary" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Confirm Delete'}
+            </Button>
+          </div>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirmingDelete(true)}>
+            Delete Bottle
+          </Button>
+        )}
+      </div>
 
       <div className={styles.hero}>
         <div className={styles.imageWrap}>
@@ -112,7 +142,7 @@ export function BottleDetailsPage() {
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 
       <TabPanel>
-        {activeTab === 'overview' ? <OverviewTab bottle={bottle} /> : null}
+        {activeTab === 'overview' ? <OverviewTab bottle={bottle} pours={userDoc.pours} /> : null}
         {activeTab === 'pour-stories' ? <PourStoriesTab bottle={bottle} pours={userDoc.pours} /> : null}
         {activeTab === 'journey' ? <JourneyTab bottle={bottle} pours={userDoc.pours} /> : null}
         {activeTab === 'gallery' ? <GalleryTab bottle={bottle} /> : null}

@@ -17,6 +17,7 @@ interface UserDataState {
   loading: boolean
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<void>
+  deleteBottle: (bottleId: string) => Promise<void>
   addPour: (input: NewPourInput) => Promise<void>
   updatePour: (pourId: string, patch: PourPatch) => Promise<void>
   deletePour: (pourId: string) => Promise<void>
@@ -34,6 +35,7 @@ const UserDataContext = createContext<UserDataState>({
   loading: true,
   signedIn: false,
   addBottle: async () => {},
+  deleteBottle: async () => {},
   addPour: async () => {},
   updatePour: async () => {},
   deletePour: async () => {},
@@ -108,6 +110,25 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       if (mockMode) return // dev fixture data — never touches Firestore
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { bottles: nextBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const deleteBottle = useCallback(
+    async (bottleId: string) => {
+      if (!user) return
+      const nextBottles = userDoc.bottles.filter((b) => b.id !== bottleId)
+      // Pour Stories are meaningless without their bottle — every render
+      // path (Home, Journal, Compare) looks the bottle up and skips the
+      // pour entirely if it's missing, so leaving them behind would just
+      // silently orphan them. Memories keep an optional bottleId and
+      // already render fine without a linked bottle, so they're untouched.
+      const nextPours = userDoc.pours.filter((p) => p.bottleId !== bottleId)
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles, pours: nextPours }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles, pours: nextPours })
     },
     [user, userDoc, mockMode],
   )
@@ -263,6 +284,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       loading: authLoading || dataLoading,
       signedIn: Boolean(user),
       addBottle,
+      deleteBottle,
       addPour,
       updatePour,
       deletePour,
@@ -280,6 +302,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       dataLoading,
       user,
       addBottle,
+      deleteBottle,
       addPour,
       updatePour,
       deletePour,

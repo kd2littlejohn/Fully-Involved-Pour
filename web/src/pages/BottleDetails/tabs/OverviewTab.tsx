@@ -1,8 +1,10 @@
-import type { Bottle } from '../../../data/types'
+import type { Bottle, Pour } from '../../../data/types'
 import { mashBillSummary } from '../../../features/bottleDetails/selectors'
 import { SpecList, type SpecRow } from '../../../components/ui/SpecList'
 import { Badge } from '../../../components/ui/Badge'
 import { EmptyState } from '../../../components/ui/EmptyState'
+import { FlavorRadar } from '../../../features/flavorRadar/FlavorRadar'
+import { flavorRadarValues } from '../../../features/flavorRadar/flavorCategories'
 import styles from './OverviewTab.module.css'
 
 const FILL_LEVEL_LABEL: Record<string, string> = {
@@ -13,7 +15,7 @@ const FILL_LEVEL_LABEL: Record<string, string> = {
   empty: 'Empty',
 }
 
-export function OverviewTab({ bottle }: { bottle: Bottle }) {
+export function OverviewTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }) {
   const rows: SpecRow[] = []
 
   if (bottle.type) rows.push({ label: 'Type', value: bottle.type })
@@ -30,12 +32,21 @@ export function OverviewTab({ bottle }: { bottle: Bottle }) {
   if (bottle.storeLocation) rows.push({ label: 'Store', value: bottle.storeLocation })
   if (bottle.shelf) rows.push({ label: 'Shelf', value: bottle.shelf })
 
-  if (rows.length === 0 && !bottle.notes && (bottle.flavors?.length ?? 0) === 0) {
+  const radarValues = flavorRadarValues(bottle, pours)
+
+  if (rows.length === 0 && !bottle.notes && (bottle.flavors?.length ?? 0) === 0 && !radarValues) {
     return <EmptyState title="No details added yet." message="Edit this bottle to add proof, price, mash bill, and more." />
   }
 
   return (
     <>
+      {radarValues ? (
+        <div className={styles.section}>
+          <h3 className={styles.heading}>Flavor Profile</h3>
+          <FlavorRadar bottle={bottle} pours={pours} />
+        </div>
+      ) : null}
+
       {rows.length > 0 ? (
         <div className={styles.section}>
           <SpecList rows={rows} />

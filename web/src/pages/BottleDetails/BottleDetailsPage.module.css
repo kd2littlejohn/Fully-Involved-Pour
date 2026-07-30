@@ -1,8 +1,16 @@
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--fip-space-3);
+  margin: var(--fip-space-4) var(--fip-shell-x) 0;
+}
+
 .back {
   display: inline-flex;
   align-items: center;
   gap: var(--fip-space-1);
-  margin: var(--fip-space-4) var(--fip-shell-x) 0;
   color: var(--fip-muted);
   text-decoration: none;
   font-size: var(--fip-text-sm);
@@ -11,6 +19,17 @@
 
 .back:hover {
   color: var(--fip-cream);
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+}
+
+.confirmText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
 }
 
 .hero {

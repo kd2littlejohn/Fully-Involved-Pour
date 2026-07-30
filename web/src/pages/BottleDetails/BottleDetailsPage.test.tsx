@@ -54,6 +54,8 @@ const pour: Pour = {
   fip: { nose: 2, palate: 3, finish: 1.6, complexity: 0.8, value: 0.8, total: 8.2, noseAromas: [], palateFlavors: [] },
 }
 
+const mockDeleteBottle = vi.fn().mockResolvedValue(undefined)
+
 function mockSignedInWith(bottles: Bottle[], pours: Pour[] = []) {
   mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
   mockUseUserData.mockReturnValue({
@@ -61,6 +63,7 @@ function mockSignedInWith(bottles: Bottle[], pours: Pour[] = []) {
     loading: false,
     signedIn: true,
     addBottle: vi.fn(),
+    deleteBottle: mockDeleteBottle,
   })
 }
 
@@ -94,6 +97,18 @@ describe('BottleDetailsPage', () => {
       .getAllByText(/Added to collection|Opened|Pour Story/)
       .map((el) => el.textContent)
     expect(labels).toEqual(['Added to collection', 'Opened', 'Pour Story — 8.2'])
+  })
+
+  it('requires confirmation before deleting, then calls deleteBottle', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Bottle' }))
+    expect(screen.getByText('Delete this bottle?')).toBeInTheDocument()
+    expect(mockDeleteBottle).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm Delete' }))
+    expect(mockDeleteBottle).toHaveBeenCalledWith('b1')
   })
 
   it('compares two bottles side by side once one is selected', async () => {
