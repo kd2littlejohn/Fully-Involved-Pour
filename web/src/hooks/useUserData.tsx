@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useAuth } from './useAuth'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
+import { claimUsername as claimUsernameRepo } from '../data/repositories/username'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
 import type { Bottle, GalleryPhoto, InfinityBottleAddition, Memory, Pour, UserDoc } from '../data/types'
@@ -25,6 +26,7 @@ interface UserDataState {
   addGalleryPhoto: (bottleId: string, photo: GalleryPhoto) => Promise<void>
   createInfinityBottle: (name: string) => Promise<void>
   addInfinityAddition: (infinityBottleId: string, addition: InfinityBottleAddition) => Promise<void>
+  claimUsername: (username: string) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
@@ -41,6 +43,7 @@ const UserDataContext = createContext<UserDataState>({
   addGalleryPhoto: async () => {},
   createInfinityBottle: async () => {},
   addInfinityAddition: async () => {},
+  claimUsername: async () => {},
 })
 
 function generateId(): string {
@@ -239,6 +242,21 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  const claimUsername = useCallback(
+    async (username: string) => {
+      if (!user) return
+      if (!mockMode) {
+        await claimUsernameRepo(user.uid, username)
+      }
+      const nextDoc: UserDoc = { ...userDoc, username }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { username })
+    },
+    [user, userDoc, mockMode],
+  )
+
   const value = useMemo<UserDataState>(
     () => ({
       userDoc,
@@ -254,6 +272,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addGalleryPhoto,
       createInfinityBottle,
       addInfinityAddition,
+      claimUsername,
     }),
     [
       userDoc,
@@ -270,6 +289,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addGalleryPhoto,
       createInfinityBottle,
       addInfinityAddition,
+      claimUsername,
     ],
   )
 

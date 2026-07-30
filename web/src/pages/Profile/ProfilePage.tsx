@@ -18,6 +18,7 @@ import {
 } from '../../features/profile/selectors'
 import { getDistilleryStats } from '../../features/discover/selectors'
 import { getCompanionStats } from '../../features/journal/selectors'
+import { UsernameClaim } from '../../features/profile/UsernameClaim'
 import styles from './ProfilePage.module.css'
 
 export function ProfilePage() {
@@ -54,6 +55,8 @@ export function ProfilePage() {
   return (
     <>
       <PageHeader eyebrow="Profile" title="My Journey" subtitle={user.displayName ?? user.email ?? undefined} />
+
+      <UsernameClaim current={userDoc.username} />
 
       <Section title="Collection at a Glance">
         <div className={styles.statsGrid}>

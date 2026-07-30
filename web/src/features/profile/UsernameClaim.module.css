@@ -1,0 +1,17 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: 0 var(--fip-shell-x) var(--fip-space-6);
+  flex-wrap: wrap;
+}
+
+.handle {
+  color: var(--fip-copper);
+  font-weight: 600;
+}
+
+.error {
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+}
