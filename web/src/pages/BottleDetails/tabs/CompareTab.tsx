@@ -6,6 +6,7 @@ import { EmptyState } from '../../../components/ui/EmptyState'
 import { controlClassName } from '../../../components/ui/Field'
 import { Button } from '../../../components/ui/Button'
 import { RadarChart } from '../../../components/ui/RadarChart'
+import { BottlePlaceholder } from '../../../components/ui/BottlePlaceholder'
 import { FIP_MAX } from '../../../features/fip/scoring'
 import { castFaceoffVote } from '../../../features/faceoff/repository'
 import { useAuth } from '../../../hooks/useAuth'
@@ -87,6 +88,24 @@ export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
 
       {other ? (
         <>
+          <div className={styles.faceoffHeader}>
+            <div className={styles.faceoffBottle}>
+              <div className={styles.faceoffImageWrap}>
+                {bottle.imageUrl ? <img className={styles.faceoffImage} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder />}
+              </div>
+              <div className={styles.faceoffName}>{bottle.name}</div>
+              <div className={styles.faceoffScore}>{formatScore(getCurrentScore(bottle, pours))}</div>
+            </div>
+            <div className={styles.vs}>VS</div>
+            <div className={styles.faceoffBottle}>
+              <div className={styles.faceoffImageWrap}>
+                {other.imageUrl ? <img className={styles.faceoffImage} src={other.imageUrl} alt="" /> : <BottlePlaceholder />}
+              </div>
+              <div className={styles.faceoffName}>{other.name}</div>
+              <div className={styles.faceoffScore}>{formatScore(getCurrentScore(other, pours))}</div>
+            </div>
+          </div>
+
           {bottleRadar && otherRadar ? (
             <div className={styles.radarWrap}>
               <RadarChart

@@ -31,6 +31,57 @@
   font-size: var(--fip-text-md);
 }
 
+.faceoffHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fip-space-6);
+  margin-bottom: var(--fip-space-6);
+}
+
+.faceoffBottle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fip-space-2);
+  flex: 1;
+  max-width: 160px;
+  text-align: center;
+}
+
+.faceoffImageWrap {
+  width: 100px;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fip-oak-deep);
+  border-radius: var(--fip-radius-md);
+  overflow: hidden;
+}
+
+.faceoffImage {
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.faceoffName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-sm);
+}
+
+.faceoffScore {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-amber);
+}
+
+.vs {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-stone);
+}
+
 .radarWrap {
   display: flex;
   flex-direction: column;
