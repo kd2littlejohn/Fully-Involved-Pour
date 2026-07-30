@@ -39,7 +39,7 @@ export function HomePage() {
   const featuredBottle = getFeaturedOpenBottle(bottles)
   const recentBottles = getRecentBottles(bottles)
   const recentPours = getRecentPours(pours)
-  const bottleNameById = new Map(bottles.map((b) => [b.id, b.name]))
+  const bottleById = new Map(bottles.map((b) => [b.id, b]))
 
   return (
     <>
@@ -82,9 +82,10 @@ export function HomePage() {
               />
             ) : (
               <SectionRow>
-                {recentPours.map((pour) => (
-                  <PourStoryCard key={pour.id} pour={pour} bottleName={bottleNameById.get(pour.bottleId) ?? 'Unknown bottle'} />
-                ))}
+                {recentPours.map((pour) => {
+                  const bottle = bottleById.get(pour.bottleId)
+                  return bottle ? <PourStoryCard key={pour.id} pour={pour} bottle={bottle} /> : null
+                })}
               </SectionRow>
             )}
           </Section>

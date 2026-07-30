@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { ProgressStepper } from '../../components/ui/ProgressStepper'
 import { Button } from '../../components/ui/Button'
-import { usePourDraft } from '../../hooks/usePourDraft'
+import { useWizardDraft } from './useWizardDraft'
 import { useUserData, type NewPourInput } from '../../hooks/useUserData'
 import { buyAgainToValueScore, computeFipTotal } from '../fip/scoring'
+import type { Pour } from '../../data/types'
 import { SessionStep } from './steps/SessionStep'
 import { NoseStep } from './steps/NoseStep'
 import { PalateStep } from './steps/PalateStep'
@@ -25,13 +26,15 @@ const STEPS = [
 interface PourWizardProps {
   bottleId: string
   bottleName: string
+  existingPour?: Pour
   onClose: () => void
   onSaved?: () => void
 }
 
-export function PourWizard({ bottleId, bottleName, onClose, onSaved }: PourWizardProps) {
-  const { draft, updateDraft, clearDraft } = usePourDraft(bottleId)
-  const { addPour } = useUserData()
+export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSaved }: PourWizardProps) {
+  const isEditing = Boolean(existingPour)
+  const { draft, updateDraft, clearDraft } = useWizardDraft(bottleId, existingPour)
+  const { addPour, updatePour } = useUserData()
   const [stepIndex, setStepIndex] = useState(0)
   const [saving, setSaving] = useState(false)
 
@@ -74,8 +77,14 @@ export function PourWizard({ bottleId, bottleName, onClose, onSaved }: PourWizar
       },
     }
 
-    await addPour(pour)
-    clearDraft()
+    if (existingPour) {
+      const { bottleId: _bottleId, ...patch } = pour
+      await updatePour(existingPour.id, patch)
+    } else {
+      await addPour(pour)
+      clearDraft()
+    }
+
     setSaving(false)
     onSaved?.()
     onClose()
@@ -88,15 +97,21 @@ export function PourWizard({ bottleId, bottleName, onClose, onSaved }: PourWizar
   }
 
   return (
-    <Modal title={`Add a Pour Story — ${bottleName}`} onClose={onClose}>
+    <Modal title={`${isEditing ? 'Edit' : 'Add a'} Pour Story — ${bottleName}`} onClose={onClose}>
       <ProgressStepper labels={STEPS.map((s) => s.label)} activeIndex={stepIndex} />
 
       <Step draft={draft} updateDraft={updateDraft} />
 
       <div className={styles.actions}>
-        <Button variant="ghost" onClick={handleSaveDraft} disabled={saving}>
-          Save Draft
-        </Button>
+        {isEditing ? (
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+        ) : (
+          <Button variant="ghost" onClick={handleSaveDraft} disabled={saving}>
+            Save Draft
+          </Button>
+        )}
         <div className={styles.nextActions}>
           {stepIndex > 0 ? (
             <Button variant="secondary" onClick={() => setStepIndex((i) => i - 1)} disabled={saving}>
@@ -105,7 +120,7 @@ export function PourWizard({ bottleId, bottleName, onClose, onSaved }: PourWizar
           ) : null}
           {isLastStep ? (
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save Story'}
+              {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Save Story'}
             </Button>
           ) : (
             <Button onClick={() => setStepIndex((i) => i + 1)} disabled={saving}>

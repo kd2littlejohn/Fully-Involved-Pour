@@ -7,6 +7,7 @@ import type { Bottle, Pour, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type NewPourInput = Omit<Pour, 'id'>
+export type PourPatch = Omit<Pour, 'id' | 'bottleId'>
 
 interface UserDataState {
   userDoc: UserDoc
@@ -14,6 +15,8 @@ interface UserDataState {
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<void>
   addPour: (input: NewPourInput) => Promise<void>
+  updatePour: (pourId: string, patch: PourPatch) => Promise<void>
+  deletePour: (pourId: string) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
@@ -22,6 +25,8 @@ const UserDataContext = createContext<UserDataState>({
   signedIn: false,
   addBottle: async () => {},
   addPour: async () => {},
+  updatePour: async () => {},
+  deletePour: async () => {},
 })
 
 function generateId(): string {
@@ -112,9 +117,43 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  const updatePour = useCallback(
+    async (pourId: string, patch: PourPatch) => {
+      if (!user) return
+      const nextPours = userDoc.pours.map((p) => (p.id === pourId ? { ...p, ...patch } : p))
+      const nextDoc: UserDoc = { ...userDoc, pours: nextPours }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { pours: nextPours })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const deletePour = useCallback(
+    async (pourId: string) => {
+      if (!user) return
+      const nextPours = userDoc.pours.filter((p) => p.id !== pourId)
+      const nextDoc: UserDoc = { ...userDoc, pours: nextPours }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { pours: nextPours })
+    },
+    [user, userDoc, mockMode],
+  )
+
   const value = useMemo<UserDataState>(
-    () => ({ userDoc, loading: authLoading || dataLoading, signedIn: Boolean(user), addBottle, addPour }),
-    [userDoc, authLoading, dataLoading, user, addBottle, addPour],
+    () => ({
+      userDoc,
+      loading: authLoading || dataLoading,
+      signedIn: Boolean(user),
+      addBottle,
+      addPour,
+      updatePour,
+      deletePour,
+    }),
+    [userDoc, authLoading, dataLoading, user, addBottle, addPour, updatePour, deletePour],
   )
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>

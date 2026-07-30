@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--fip-space-2);
+  width: 100%;
   padding: var(--fip-space-4);
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
@@ -9,6 +10,14 @@
   box-shadow: var(--fip-shadow-card);
   text-decoration: none;
   color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--fip-motion) var(--fip-ease);
+}
+
+.card:hover {
+  border-color: var(--fip-border);
 }
 
 .header {

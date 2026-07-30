@@ -22,7 +22,7 @@ export function PourStoriesTab({ bottle, pours }: { bottle: Bottle; pours: Pour[
     <Section title={`${bottlePours.length} Pour ${bottlePours.length === 1 ? 'Story' : 'Stories'}`}>
       <SectionRow>
         {bottlePours.map((pour) => (
-          <PourStoryCard key={pour.id} pour={pour} bottleName={bottle.name} />
+          <PourStoryCard key={pour.id} pour={pour} bottle={bottle} />
         ))}
       </SectionRow>
       <StartPourStoryButton bottleId={bottle.id} label="+ Add Story" variant="secondary" />

@@ -58,7 +58,7 @@ export function JournalPage() {
     )
   }
 
-  const bottleNameById = new Map(bottles.map((b) => [b.id, b.name]))
+  const bottleById = new Map(bottles.map((b) => [b.id, b]))
   const recentPours = [...pours].sort((a, b) => b.date.localeCompare(a.date))
   const timelineEvents = getJournalTimeline(bottles, pours)
   const companions = getCompanionStats(pours)
@@ -78,9 +78,10 @@ export function JournalPage() {
       <TabPanel>
         {activeTab === 'stories' ? (
           <div className={styles.storiesGrid}>
-            {recentPours.map((pour) => (
-              <PourStoryCard key={pour.id} pour={pour} bottleName={bottleNameById.get(pour.bottleId) ?? 'Unknown bottle'} />
-            ))}
+            {recentPours.map((pour) => {
+              const bottle = bottleById.get(pour.bottleId)
+              return bottle ? <PourStoryCard key={pour.id} pour={pour} bottle={bottle} /> : null
+            })}
           </div>
         ) : null}
 
