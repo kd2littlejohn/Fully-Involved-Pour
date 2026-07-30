@@ -3,6 +3,7 @@ import type { Bottle, Memory } from '../../data/types'
 import type { NewMemoryInput } from '../../hooks/useUserData'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { Button } from '../../components/ui/Button'
+import { PhotoUploadField } from '../photoUpload/PhotoUploadField'
 import styles from './MemoryForm.module.css'
 
 interface MemoryFormProps {
@@ -20,6 +21,7 @@ export function MemoryForm({ bottles, initial, onSubmit, onCancel }: MemoryFormP
   const [people, setPeople] = useState(initial?.people.join(', ') ?? '')
   const [bottleId, setBottleId] = useState(initial?.bottleId ?? '')
   const [story, setStory] = useState(initial?.story ?? '')
+  const [photoUrl, setPhotoUrl] = useState(initial?.photoUrl)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -47,6 +49,7 @@ export function MemoryForm({ bottles, initial, onSubmit, onCancel }: MemoryFormP
           .filter(Boolean),
         bottleId: bottleId || undefined,
         story: story.trim(),
+        photoUrl,
       })
     } finally {
       setSubmitting(false)
@@ -119,6 +122,8 @@ export function MemoryForm({ bottles, initial, onSubmit, onCancel }: MemoryFormP
           </select>
         </Field>
       ) : null}
+
+      <PhotoUploadField label="Photo (optional)" folder="memory-photos" currentUrl={photoUrl} onUploaded={setPhotoUrl} />
 
       <Field label="The story" htmlFor="memory-story">
         <textarea

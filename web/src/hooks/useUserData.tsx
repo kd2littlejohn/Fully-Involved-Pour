@@ -3,7 +3,7 @@ import { useAuth } from './useAuth'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
-import type { Bottle, Memory, Pour, UserDoc } from '../data/types'
+import type { Bottle, GalleryPhoto, Memory, Pour, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type NewPourInput = Omit<Pour, 'id'>
@@ -22,6 +22,7 @@ interface UserDataState {
   addMemory: (input: NewMemoryInput) => Promise<void>
   updateMemory: (memoryId: string, patch: MemoryPatch) => Promise<void>
   deleteMemory: (memoryId: string) => Promise<void>
+  addGalleryPhoto: (bottleId: string, photo: GalleryPhoto) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
@@ -35,6 +36,7 @@ const UserDataContext = createContext<UserDataState>({
   addMemory: async () => {},
   updateMemory: async () => {},
   deleteMemory: async () => {},
+  addGalleryPhoto: async () => {},
 })
 
 function generateId(): string {
@@ -191,6 +193,19 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  const addGalleryPhoto = useCallback(
+    async (bottleId: string, photo: GalleryPhoto) => {
+      if (!user) return
+      const nextBottles = userDoc.bottles.map((b) => (b.id === bottleId ? { ...b, gallery: [...(b.gallery ?? []), photo] } : b))
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
   const value = useMemo<UserDataState>(
     () => ({
       userDoc,
@@ -203,8 +218,22 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addMemory,
       updateMemory,
       deleteMemory,
+      addGalleryPhoto,
     }),
-    [userDoc, authLoading, dataLoading, user, addBottle, addPour, updatePour, deletePour, addMemory, updateMemory, deleteMemory],
+    [
+      userDoc,
+      authLoading,
+      dataLoading,
+      user,
+      addBottle,
+      addPour,
+      updatePour,
+      deletePour,
+      addMemory,
+      updateMemory,
+      deleteMemory,
+      addGalleryPhoto,
+    ],
   )
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>
