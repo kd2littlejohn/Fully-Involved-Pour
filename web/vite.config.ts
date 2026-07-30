@@ -34,6 +34,13 @@ export default defineConfig({
       // Runtime caching strategy (network-first pages, Firebase bypass, etc.)
       // is finalized in the deployment-polish phase, once the deploy pipeline
       // itself is decided — see plan §Deploy pipeline. Defaults are fine for now.
+      workbox: {
+        // Dev-mode mock-auth fixture chunks (see src/data/devMode.ts) are
+        // never imported at runtime in a production build, but the default
+        // precache glob would otherwise still have every visitor's service
+        // worker fetch and cache them on install. Exclude them explicitly.
+        globIgnores: ['**/mockAuth-*.js', '**/mockData-*.js'],
+      },
     }),
   ],
 })

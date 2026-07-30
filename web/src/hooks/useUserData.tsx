@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useAuth } from './useAuth'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
+import { isMockAuthEnabled } from '../data/devMode'
 import type { Bottle, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
@@ -26,6 +27,7 @@ function generateId(): string {
 
 export function UserDataProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth()
+  const mockMode = isMockAuthEnabled()
   const [userDoc, setUserDoc] = useState<UserDoc>(EMPTY_USER_DOC)
   const [dataLoading, setDataLoading] = useState(true)
 
@@ -36,6 +38,18 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       setUserDoc(EMPTY_USER_DOC)
       setDataLoading(false)
       return
+    }
+
+    if (mockMode) {
+      let cancelled = false
+      import('../data/mockData').then(({ MOCK_USER_DOC }) => {
+        if (cancelled) return
+        setUserDoc(MOCK_USER_DOC)
+        setDataLoading(false)
+      })
+      return () => {
+        cancelled = true
+      }
     }
 
     const cached = readCachedUserDoc(user.uid)
@@ -57,7 +71,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [user, authLoading])
+  }, [user, authLoading, mockMode])
 
   const addBottle = useCallback(
     async (input: NewBottleInput) => {
@@ -66,10 +80,11 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       const nextBottles = [...userDoc.bottles, bottle]
       const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
       setUserDoc(nextDoc)
+      if (mockMode) return // dev fixture data — never touches Firestore
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { bottles: nextBottles })
     },
-    [user, userDoc],
+    [user, userDoc, mockMode],
   )
 
   const value = useMemo<UserDataState>(

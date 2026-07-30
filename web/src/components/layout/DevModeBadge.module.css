@@ -1,0 +1,15 @@
+.badge {
+  position: fixed;
+  top: var(--fip-space-2);
+  right: var(--fip-space-2);
+  z-index: 50;
+  padding: var(--fip-space-1) var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-error);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  pointer-events: none;
+}
