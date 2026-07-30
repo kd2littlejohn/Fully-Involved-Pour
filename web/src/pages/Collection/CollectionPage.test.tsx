@@ -8,6 +8,7 @@ import type { Bottle } from '../../data/types'
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockAddBottle = vi.fn().mockResolvedValue(undefined)
+const mockDeleteBottles = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -109,5 +110,46 @@ describe('CollectionPage', () => {
     expect(screen.getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getAllByText('Eagle Rare').length).toBeGreaterThan(0)
+  })
+
+  it('selects all and bulk-deletes with confirmation', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+      deleteBottles: mockDeleteBottles,
+    })
+    renderCollection()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Select All' }))
+    expect(screen.getByText('4 selected')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Selected' }))
+    expect(screen.getByText('Delete 4 bottles?')).toBeInTheDocument()
+    expect(mockDeleteBottles).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm Delete' }))
+    expect(mockDeleteBottles).toHaveBeenCalledWith(['b1', 'b2', 'b3', 'b4'])
+  })
+
+  it('selects individual bottles by clicking their card', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+      deleteBottles: mockDeleteBottles,
+    })
+    renderCollection()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Select' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Eagle Rare' }))
+
+    expect(screen.getByText('1 selected')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Eagle Rare' })).toHaveAttribute('aria-checked', 'true')
   })
 })

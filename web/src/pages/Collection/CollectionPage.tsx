@@ -40,10 +40,14 @@ function matchesFilter(bottle: Bottle, filter: Filter): boolean {
 
 export function CollectionPage() {
   const { user, loading: authLoading } = useAuth()
-  const { userDoc, loading: dataLoading, addBottle } = useUserData()
+  const { userDoc, loading: dataLoading, addBottle, deleteBottles } = useUserData()
   const [filter, setFilter] = useState<Filter>('all')
   const [showAddForm, setShowAddForm] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const coreBarBottles = useMemo(() => getCoreBarBottles(userDoc.bottles, userDoc.pours), [userDoc.bottles, userDoc.pours])
 
@@ -51,6 +55,34 @@ export function CollectionPage() {
     if (filter === 'core-bar') return coreBarBottles
     return userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter))
   }, [userDoc.bottles, filter, coreBarBottles])
+
+  const allFilteredSelected = filteredBottles.length > 0 && filteredBottles.every((b) => selectedIds.has(b.id))
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+    setConfirmingBulkDelete(false)
+  }
+
+  function toggleSelected(bottleId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(bottleId)) next.delete(bottleId)
+      else next.add(bottleId)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(allFilteredSelected ? new Set() : new Set(filteredBottles.map((b) => b.id)))
+  }
+
+  async function handleBulkDelete() {
+    setBulkDeleting(true)
+    await deleteBottles(Array.from(selectedIds))
+    setBulkDeleting(false)
+    exitSelectMode()
+  }
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Collection" title="Your bottles." />
@@ -125,10 +157,51 @@ export function CollectionPage() {
                   </svg>
                 </button>
               </div>
+              {selectMode ? (
+                <Button variant="ghost" onClick={exitSelectMode}>
+                  Cancel
+                </Button>
+              ) : (
+                <Button variant="ghost" onClick={() => setSelectMode(true)}>
+                  Select
+                </Button>
+              )}
               <InfinityBottleButton />
               <Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>
             </div>
           </div>
+
+          {selectMode ? (
+            <div className={styles.selectBar}>
+              {confirmingBulkDelete ? (
+                <div className={styles.confirm}>
+                  <span className={styles.confirmText}>
+                    Delete {selectedIds.size} {selectedIds.size === 1 ? 'bottle' : 'bottles'}?
+                  </span>
+                  <Button variant="ghost" onClick={() => setConfirmingBulkDelete(false)} disabled={bulkDeleting}>
+                    Cancel
+                  </Button>
+                  <Button variant="secondary" onClick={handleBulkDelete} disabled={bulkDeleting}>
+                    {bulkDeleting ? 'Deleting…' : 'Confirm Delete'}
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button variant="ghost" onClick={toggleSelectAll}>
+                    {allFilteredSelected ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  <span className={styles.selectCount}>{selectedIds.size} selected</span>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setConfirmingBulkDelete(true)}
+                    disabled={selectedIds.size === 0}
+                  >
+                    Delete Selected
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : null}
 
           {filteredBottles.length === 0 ? (
             <EmptyState
@@ -142,13 +215,25 @@ export function CollectionPage() {
           ) : viewMode === 'grid' ? (
             <div className={styles.grid}>
               {filteredBottles.map((bottle) => (
-                <BottleCard key={bottle.id} bottle={bottle} />
+                <BottleCard
+                  key={bottle.id}
+                  bottle={bottle}
+                  selectable={selectMode}
+                  selected={selectedIds.has(bottle.id)}
+                  onToggleSelect={() => toggleSelected(bottle.id)}
+                />
               ))}
             </div>
           ) : (
             <div className={styles.list}>
               {filteredBottles.map((bottle) => (
-                <BottleListRow key={bottle.id} bottle={bottle} />
+                <BottleListRow
+                  key={bottle.id}
+                  bottle={bottle}
+                  selectable={selectMode}
+                  selected={selectedIds.has(bottle.id)}
+                  onToggleSelect={() => toggleSelected(bottle.id)}
+                />
               ))}
             </div>
           )}

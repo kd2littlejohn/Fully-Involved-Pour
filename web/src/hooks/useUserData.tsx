@@ -18,6 +18,7 @@ interface UserDataState {
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<void>
   deleteBottle: (bottleId: string) => Promise<void>
+  deleteBottles: (bottleIds: string[]) => Promise<void>
   addPour: (input: NewPourInput) => Promise<void>
   updatePour: (pourId: string, patch: PourPatch) => Promise<void>
   deletePour: (pourId: string) => Promise<void>
@@ -36,6 +37,7 @@ const UserDataContext = createContext<UserDataState>({
   signedIn: false,
   addBottle: async () => {},
   deleteBottle: async () => {},
+  deleteBottles: async () => {},
   addPour: async () => {},
   updatePour: async () => {},
   deletePour: async () => {},
@@ -114,16 +116,17 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
-  const deleteBottle = useCallback(
-    async (bottleId: string) => {
-      if (!user) return
-      const nextBottles = userDoc.bottles.filter((b) => b.id !== bottleId)
+  const deleteBottles = useCallback(
+    async (bottleIds: string[]) => {
+      if (!user || bottleIds.length === 0) return
+      const idSet = new Set(bottleIds)
+      const nextBottles = userDoc.bottles.filter((b) => !idSet.has(b.id))
       // Pour Stories are meaningless without their bottle — every render
       // path (Home, Journal, Compare) looks the bottle up and skips the
       // pour entirely if it's missing, so leaving them behind would just
       // silently orphan them. Memories keep an optional bottleId and
       // already render fine without a linked bottle, so they're untouched.
-      const nextPours = userDoc.pours.filter((p) => p.bottleId !== bottleId)
+      const nextPours = userDoc.pours.filter((p) => !idSet.has(p.bottleId))
       const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles, pours: nextPours }
       setUserDoc(nextDoc)
       if (mockMode) return
@@ -132,6 +135,8 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     },
     [user, userDoc, mockMode],
   )
+
+  const deleteBottle = useCallback((bottleId: string) => deleteBottles([bottleId]), [deleteBottles])
 
   const addPour = useCallback(
     async (input: NewPourInput) => {
@@ -285,6 +290,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       signedIn: Boolean(user),
       addBottle,
       deleteBottle,
+      deleteBottles,
       addPour,
       updatePour,
       deletePour,
@@ -303,6 +309,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       user,
       addBottle,
       deleteBottle,
+      deleteBottles,
       addPour,
       updatePour,
       deletePour,

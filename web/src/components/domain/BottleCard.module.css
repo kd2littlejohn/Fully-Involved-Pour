@@ -1,4 +1,5 @@
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--fip-space-3);
@@ -21,6 +22,34 @@
 
 .card:active {
   transform: translateY(1px);
+}
+
+.cardSelected {
+  border-color: var(--fip-amber);
+  cursor: pointer;
+}
+
+.checkbox {
+  position: absolute;
+  top: var(--fip-space-3);
+  right: var(--fip-space-3);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--fip-radius-round);
+  border: 2px solid var(--fip-border-strong);
+  background: var(--fip-oak-deep);
+  color: var(--fip-black);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  z-index: 1;
+}
+
+.checkboxChecked {
+  background: var(--fip-amber);
+  border-color: var(--fip-amber);
 }
 
 .imageWrap {

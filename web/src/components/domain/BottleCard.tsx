@@ -21,13 +21,21 @@ const STATUS_TONE: Record<BottleStatus, 'default' | 'amber' | 'brass'> = {
 
 interface BottleCardProps {
   bottle: Bottle
+  selectable?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }
 
-export function BottleCard({ bottle }: BottleCardProps) {
+export function BottleCard({ bottle, selectable = false, selected = false, onToggleSelect }: BottleCardProps) {
   const journeyStage = bottleJourneyStage(bottle)
 
-  return (
-    <Link to={`/collection/${bottle.id}`} className={styles.card}>
+  const content = (
+    <>
+      {selectable ? (
+        <span className={selected ? `${styles.checkbox} ${styles.checkboxChecked}` : styles.checkbox} aria-hidden="true">
+          {selected ? '✓' : null}
+        </span>
+      ) : null}
       <div className={styles.imageWrap}>
         {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder />}
       </div>
@@ -45,6 +53,33 @@ export function BottleCard({ bottle }: BottleCardProps) {
           {journeyStage.label}
         </div>
       ) : null}
+    </>
+  )
+
+  if (selectable) {
+    return (
+      <div
+        className={selected ? `${styles.card} ${styles.cardSelected}` : styles.card}
+        role="checkbox"
+        aria-checked={selected}
+        aria-label={bottle.name}
+        tabIndex={0}
+        onClick={onToggleSelect}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggleSelect?.()
+          }
+        }}
+      >
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <Link to={`/collection/${bottle.id}`} className={styles.card}>
+      {content}
     </Link>
   )
 }

@@ -13,6 +13,26 @@
   background: var(--fip-card);
 }
 
+.checkbox {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--fip-radius-round);
+  border: 2px solid var(--fip-border-strong);
+  background: var(--fip-oak-deep);
+  color: var(--fip-black);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+}
+
+.checkboxChecked {
+  background: var(--fip-amber);
+  border-color: var(--fip-amber);
+}
+
 .imageWrap {
   width: 56px;
   height: 56px;

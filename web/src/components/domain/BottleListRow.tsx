@@ -19,11 +19,23 @@ const STATUS_TONE: Record<BottleStatus, 'default' | 'amber' | 'brass'> = {
   finished: 'default',
 }
 
-export function BottleListRow({ bottle }: { bottle: Bottle }) {
+interface BottleListRowProps {
+  bottle: Bottle
+  selectable?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
+}
+
+export function BottleListRow({ bottle, selectable = false, selected = false, onToggleSelect }: BottleListRowProps) {
   const journeyStage = bottleJourneyStage(bottle)
 
-  return (
-    <Link to={`/collection/${bottle.id}`} className={styles.row}>
+  const content = (
+    <>
+      {selectable ? (
+        <span className={selected ? `${styles.checkbox} ${styles.checkboxChecked}` : styles.checkbox} aria-hidden="true">
+          {selected ? '✓' : null}
+        </span>
+      ) : null}
       <div className={styles.imageWrap}>
         {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder compact />}
       </div>
@@ -42,6 +54,33 @@ export function BottleListRow({ bottle }: { bottle: Bottle }) {
         <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
         {typeof bottle.rating === 'number' ? <span className={styles.score}>{bottle.rating.toFixed(1)}</span> : null}
       </div>
+    </>
+  )
+
+  if (selectable) {
+    return (
+      <div
+        className={styles.row}
+        role="checkbox"
+        aria-checked={selected}
+        aria-label={bottle.name}
+        tabIndex={0}
+        onClick={onToggleSelect}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggleSelect?.()
+          }
+        }}
+      >
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <Link to={`/collection/${bottle.id}`} className={styles.row}>
+      {content}
     </Link>
   )
 }
