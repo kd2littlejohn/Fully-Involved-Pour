@@ -7,6 +7,7 @@ import styles from './AddBottleForm.module.css'
 interface AddBottleFormProps {
   onSubmit: (input: { name: string; distillery?: string; type?: string; status: BottleStatus; proof?: number }) => Promise<void>
   onCancel: () => void
+  defaultStatus?: BottleStatus
 }
 
 const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
@@ -16,11 +17,11 @@ const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
   { value: 'finished', label: 'Finished' },
 ]
 
-export function AddBottleForm({ onSubmit, onCancel }: AddBottleFormProps) {
+export function AddBottleForm({ onSubmit, onCancel, defaultStatus = 'sealed' }: AddBottleFormProps) {
   const [name, setName] = useState('')
   const [distillery, setDistillery] = useState('')
   const [type, setType] = useState('')
-  const [status, setStatus] = useState<BottleStatus>('sealed')
+  const [status, setStatus] = useState<BottleStatus>(defaultStatus)
   const [proof, setProof] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
