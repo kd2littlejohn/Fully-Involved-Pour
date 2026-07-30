@@ -7,16 +7,19 @@ import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { Timeline } from '../../components/domain/Timeline'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { BottleCard } from '../../components/domain/BottleCard'
+import { MemoryCard } from '../../components/domain/MemoryCard'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { auth, googleProvider } from '../../data/firebase'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
+import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
 import styles from './JournalPage.module.css'
 
 const TABS = [
   { id: 'stories', label: 'Stories' },
   { id: 'timeline', label: 'Timeline' },
+  { id: 'memories', label: 'Memories' },
   { id: 'people', label: 'People' },
   { id: 'bottle-journeys', label: 'Bottle Journeys' },
 ]
@@ -43,16 +46,21 @@ export function JournalPage() {
     )
   }
 
-  const { bottles, pours } = userDoc
+  const { bottles, pours, memories } = userDoc
 
-  if (pours.length === 0) {
+  if (pours.length === 0 && memories.length === 0) {
     return (
       <>
         <PageHeader eyebrow="Journal" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
         <EmptyState
           title="Your first Pour Story starts here."
           message="Open a bottle, capture the pour, and begin your whiskey journey."
-          action={<StartPourStoryButton />}
+          action={
+            <div className={styles.actions}>
+              <StartPourStoryButton />
+              <CreateMemoryButton />
+            </div>
+          }
         />
       </>
     )
@@ -60,6 +68,7 @@ export function JournalPage() {
 
   const bottleById = new Map(bottles.map((b) => [b.id, b]))
   const recentPours = [...pours].sort((a, b) => b.date.localeCompare(a.date))
+  const recentMemories = [...memories].sort((a, b) => b.date.localeCompare(a.date))
   const timelineEvents = getJournalTimeline(bottles, pours)
   const companions = getCompanionStats(pours)
   const journeyBottles = getBottleJourneys(bottles)
@@ -70,7 +79,7 @@ export function JournalPage() {
 
       <div className={styles.actions}>
         <StartPourStoryButton />
-        <Button variant="secondary">Create a Memory</Button>
+        <CreateMemoryButton />
       </div>
 
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
@@ -86,6 +95,18 @@ export function JournalPage() {
         ) : null}
 
         {activeTab === 'timeline' ? <Timeline events={timelineEvents} /> : null}
+
+        {activeTab === 'memories' ? (
+          recentMemories.length === 0 ? (
+            <EmptyState title="No memories captured yet." message="Save the people, places, and moments connected to your pours." />
+          ) : (
+            <div className={styles.storiesGrid}>
+              {recentMemories.map((memory) => (
+                <MemoryCard key={memory.id} memory={memory} bottleName={memory.bottleId ? bottleById.get(memory.bottleId)?.name : undefined} />
+              ))}
+            </div>
+          )
+        ) : null}
 
         {activeTab === 'people' ? (
           companions.length === 0 ? (

@@ -5,6 +5,7 @@ import type { UserDoc } from '../types'
 export const EMPTY_USER_DOC: UserDoc = {
   bottles: [],
   pours: [],
+  memories: [],
   infinityBottles: [],
   customLibrary: [],
 }
@@ -22,6 +23,7 @@ export async function fetchUserDoc(uid: string): Promise<UserDoc> {
     ...data,
     bottles: data.bottles ?? [],
     pours: data.pours ?? [],
+    memories: data.memories ?? [],
     infinityBottles: data.infinityBottles ?? [],
     customLibrary: data.customLibrary ?? [],
   }

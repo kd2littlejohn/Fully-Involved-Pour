@@ -1,0 +1,64 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+  overflow: hidden;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color var(--fip-motion) var(--fip-ease);
+}
+
+.card:hover {
+  border-color: var(--fip-border);
+}
+
+.photoWrap {
+  position: relative;
+  height: 160px;
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 7, 6, 0) 40%, rgba(8, 7, 6, 0.85) 100%);
+}
+
+.body {
+  padding: var(--fip-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.title {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  line-height: var(--fip-leading-tight);
+}
+
+.meta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.story {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

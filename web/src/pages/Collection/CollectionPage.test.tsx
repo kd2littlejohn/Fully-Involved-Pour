@@ -36,7 +36,7 @@ describe('CollectionPage', () => {
   it('shows a sign-in prompt when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: false,
       addBottle: mockAddBottle,
@@ -50,7 +50,7 @@ describe('CollectionPage', () => {
   it('filters the grid by status when a chip is clicked', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
       addBottle: mockAddBottle,
@@ -72,7 +72,7 @@ describe('CollectionPage', () => {
   it('submits a new bottle through the Add Bottle modal', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
       addBottle: mockAddBottle,

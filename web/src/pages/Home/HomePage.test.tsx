@@ -27,7 +27,7 @@ describe('HomePage', () => {
   it('shows a sign-in prompt when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: false,
     })
@@ -41,7 +41,7 @@ describe('HomePage', () => {
   it('shows the add-a-bottle empty state when signed in with no bottles', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
     })
@@ -78,7 +78,7 @@ describe('HomePage', () => {
 
     mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [bottle], pours: [pour], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [bottle], pours: [pour], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
     })

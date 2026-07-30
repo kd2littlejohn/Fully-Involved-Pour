@@ -1,4 +1,4 @@
-import type { Bottle, Pour, UserDoc } from './types'
+import type { Bottle, Memory, Pour, UserDoc } from './types'
 
 // Dev-only fixture collection — lets every page be exercised against
 // realistic populated data (multiple statuses, companions, FIP tiers,
@@ -202,11 +202,36 @@ const pours: Pour[] = [
   },
 ]
 
+const memories: Memory[] = [
+  {
+    id: 'mock-memory-1',
+    title: "Dad's retirement toast",
+    date: daysAgo(40),
+    location: 'Back porch',
+    people: ['Dad', 'Mike'],
+    bottleId: blantons.id,
+    occasion: 'Retirement',
+    story: 'Poured Blanton\'s to celebrate 30 years on the job. Dad told the story of his first call for the hundredth time — never gets old.',
+    createdAt: Date.now() - 40 * 24 * 60 * 60 * 1000,
+  },
+  {
+    id: 'mock-memory-2',
+    title: 'Anniversary at home',
+    date: daysAgo(40),
+    people: ['Sarah'],
+    bottleId: blantons.id,
+    occasion: 'Anniversary',
+    story: 'Stayed in and shared a pour instead of going out. Turned out better than any restaurant reservation would have.',
+    createdAt: Date.now() - 40 * 24 * 60 * 60 * 1000,
+  },
+]
+
 export const MOCK_USER_DOC: UserDoc = {
   username: 'devpreview',
   greetingName: 'Dev',
   bottles: [eagleRare, wellerSpecial, blantons, pappy15, fourRoses, oldGrandDad],
   pours,
+  memories,
   infinityBottles: [],
   customLibrary: [],
 }

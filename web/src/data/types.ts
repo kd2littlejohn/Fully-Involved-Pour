@@ -89,6 +89,19 @@ export interface Pour {
   fip: FipBreakdown
 }
 
+export interface Memory {
+  id: string
+  title: string
+  date: string
+  location?: string
+  people: string[]
+  bottleId?: string
+  occasion?: string
+  story: string
+  photoUrl?: string
+  createdAt?: number
+}
+
 export interface InfinityBottleAddition {
   bottleId?: string
   name: string
@@ -115,6 +128,7 @@ export interface UserDoc {
   updatedAt?: number
   bottles: Bottle[]
   pours: Pour[]
+  memories: Memory[]
   infinityBottles: InfinityBottle[]
   customLibrary: CustomLibraryEntry[]
 }

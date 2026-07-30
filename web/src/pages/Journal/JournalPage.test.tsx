@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { JournalPage } from './JournalPage'
-import type { Bottle, Pour } from '../../data/types'
+import type { Bottle, Memory, Pour } from '../../data/types'
 
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
@@ -56,11 +56,15 @@ const pours: Pour[] = [
   },
 ]
 
+const memories: Memory[] = [
+  { id: 'm1', title: "Dad's retirement toast", date: '2026-04-01', people: ['Dad'], bottleId: 'b1', story: 'Celebrated 30 years on the job.' },
+]
+
 describe('JournalPage', () => {
   it('shows a sign-in prompt when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: false,
       addBottle: vi.fn(),
@@ -72,7 +76,7 @@ describe('JournalPage', () => {
   it('shows the empty state when signed in with no pours', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -84,7 +88,7 @@ describe('JournalPage', () => {
   it('shows the Stories tab by default with pour cards', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -97,7 +101,7 @@ describe('JournalPage', () => {
   it('computes the favorite companion from real pour.companion data', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -112,7 +116,7 @@ describe('JournalPage', () => {
   it('shows only opened/finished bottles on the Bottle Journeys tab', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -121,5 +125,32 @@ describe('JournalPage', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Bottle Journeys' }))
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
     expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
+  })
+
+  it('shows the verbatim empty state on the Memories tab when there are none', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    renderJournal()
+    await userEvent.click(screen.getByRole('tab', { name: 'Memories' }))
+    expect(screen.getByText('No memories captured yet.')).toBeInTheDocument()
+  })
+
+  it('shows saved memories with their linked bottle name', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories, infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    renderJournal()
+    await userEvent.click(screen.getByRole('tab', { name: 'Memories' }))
+    expect(screen.getByText("Dad's retirement toast")).toBeInTheDocument()
+    expect(screen.getByText(/Eagle Rare/)).toBeInTheDocument()
   })
 })

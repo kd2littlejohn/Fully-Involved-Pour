@@ -3,11 +3,13 @@ import { useAuth } from './useAuth'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
-import type { Bottle, Pour, UserDoc } from '../data/types'
+import type { Bottle, Memory, Pour, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type NewPourInput = Omit<Pour, 'id'>
 export type PourPatch = Omit<Pour, 'id' | 'bottleId'>
+export type NewMemoryInput = Omit<Memory, 'id' | 'createdAt'>
+export type MemoryPatch = Omit<Memory, 'id' | 'createdAt'>
 
 interface UserDataState {
   userDoc: UserDoc
@@ -17,6 +19,9 @@ interface UserDataState {
   addPour: (input: NewPourInput) => Promise<void>
   updatePour: (pourId: string, patch: PourPatch) => Promise<void>
   deletePour: (pourId: string) => Promise<void>
+  addMemory: (input: NewMemoryInput) => Promise<void>
+  updateMemory: (memoryId: string, patch: MemoryPatch) => Promise<void>
+  deleteMemory: (memoryId: string) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
@@ -27,6 +32,9 @@ const UserDataContext = createContext<UserDataState>({
   addPour: async () => {},
   updatePour: async () => {},
   deletePour: async () => {},
+  addMemory: async () => {},
+  updateMemory: async () => {},
+  deleteMemory: async () => {},
 })
 
 function generateId(): string {
@@ -143,6 +151,46 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  const addMemory = useCallback(
+    async (input: NewMemoryInput) => {
+      if (!user) return
+      const memory: Memory = { ...input, id: generateId(), createdAt: Date.now() }
+      const nextMemories = [...userDoc.memories, memory]
+      const nextDoc: UserDoc = { ...userDoc, memories: nextMemories }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { memories: nextMemories })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const updateMemory = useCallback(
+    async (memoryId: string, patch: MemoryPatch) => {
+      if (!user) return
+      const nextMemories = userDoc.memories.map((m) => (m.id === memoryId ? { ...m, ...patch } : m))
+      const nextDoc: UserDoc = { ...userDoc, memories: nextMemories }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { memories: nextMemories })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const deleteMemory = useCallback(
+    async (memoryId: string) => {
+      if (!user) return
+      const nextMemories = userDoc.memories.filter((m) => m.id !== memoryId)
+      const nextDoc: UserDoc = { ...userDoc, memories: nextMemories }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { memories: nextMemories })
+    },
+    [user, userDoc, mockMode],
+  )
+
   const value = useMemo<UserDataState>(
     () => ({
       userDoc,
@@ -152,8 +200,11 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addPour,
       updatePour,
       deletePour,
+      addMemory,
+      updateMemory,
+      deleteMemory,
     }),
-    [userDoc, authLoading, dataLoading, user, addBottle, addPour, updatePour, deletePour],
+    [userDoc, authLoading, dataLoading, user, addBottle, addPour, updatePour, deletePour, addMemory, updateMemory, deleteMemory],
   )
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>
