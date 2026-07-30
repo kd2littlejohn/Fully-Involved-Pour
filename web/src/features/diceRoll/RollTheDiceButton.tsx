@@ -6,6 +6,7 @@ import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { StartPourStoryButton } from '../pourWizard/StartPourStoryButton'
 import { useUserData } from '../../hooks/useUserData'
 import { DiceFace } from './DiceFace'
+import type { Bottle } from '../../data/types'
 import styles from './RollTheDiceButton.module.css'
 
 const FACES = [1, 2, 3, 4, 5, 6]
@@ -17,11 +18,17 @@ export function RollTheDiceButton() {
   const [open, setOpen] = useState(false)
   const [dieValue, setDieValue] = useState(1)
   const [rolling, setRolling] = useState(false)
-  const [settled, setSettled] = useState(false)
+  const [pickedBottle, setPickedBottle] = useState<Bottle | undefined>(undefined)
   const rollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const pourable = userDoc.bottles.filter((b) => b.status === 'open' || b.status === 'sealed')
-  const pickedBottle = settled && pourable.length > 0 ? pourable[(dieValue - 1) % pourable.length] : undefined
+
+  // The die face is just for show — the bottle itself is always an
+  // independent random draw, never tied to whichever number comes up.
+  function drawRandomBottle(): Bottle | undefined {
+    if (pourable.length === 0) return undefined
+    return pourable[Math.floor(Math.random() * pourable.length)]
+  }
 
   useEffect(() => {
     return () => {
@@ -30,7 +37,7 @@ export function RollTheDiceButton() {
   }, [])
 
   function reset() {
-    setSettled(false)
+    setPickedBottle(undefined)
     setRolling(false)
     if (rollTimer.current) clearInterval(rollTimer.current)
   }
@@ -42,7 +49,7 @@ export function RollTheDiceButton() {
 
   function handleRoll() {
     if (rolling) return
-    setSettled(false)
+    setPickedBottle(undefined)
     setRolling(true)
     const startedAt = Date.now()
     rollTimer.current = setInterval(() => {
@@ -50,7 +57,7 @@ export function RollTheDiceButton() {
       if (Date.now() - startedAt >= ROLL_DURATION_MS) {
         if (rollTimer.current) clearInterval(rollTimer.current)
         setRolling(false)
-        setSettled(true)
+        setPickedBottle(drawRandomBottle())
       }
     }, ROLL_TICK_MS)
   }
@@ -59,7 +66,7 @@ export function RollTheDiceButton() {
     if (rolling) return
     reset()
     setDieValue(n)
-    setSettled(true)
+    setPickedBottle(drawRandomBottle())
   }
 
   return (
@@ -100,7 +107,7 @@ export function RollTheDiceButton() {
                 </div>
               </div>
 
-              {!settled ? (
+              {!pickedBottle ? (
                 <Button onClick={handleRoll} disabled={rolling}>
                   {rolling ? 'Rolling…' : 'Roll the Dice'}
                 </Button>
