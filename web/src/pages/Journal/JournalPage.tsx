@@ -12,6 +12,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
+import { SommelierPanel } from '../../features/sommelier/SommelierPanel'
 import styles from './JournalPage.module.css'
 
 const TABS = [
@@ -20,6 +21,7 @@ const TABS = [
   { id: 'memories', label: 'Memories' },
   { id: 'people', label: 'People' },
   { id: 'bottle-journeys', label: 'Bottle Journeys' },
+  { id: 'assistant', label: 'Ask Assistant' },
 ]
 
 export function JournalPage() {
@@ -46,24 +48,6 @@ export function JournalPage() {
 
   const { bottles, pours, memories } = userDoc
 
-  if (pours.length === 0 && memories.length === 0) {
-    return (
-      <>
-        <PageHeader eyebrow="Journal" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
-        <EmptyState
-          title="Your first Pour Story starts here."
-          message="Open a bottle, capture the pour, and begin your whiskey journey."
-          action={
-            <div className={styles.actions}>
-              <StartPourStoryButton />
-              <CreateMemoryButton />
-            </div>
-          }
-        />
-      </>
-    )
-  }
-
   const bottleById = new Map(bottles.map((b) => [b.id, b]))
   const recentPours = [...pours].sort((a, b) => b.date.localeCompare(a.date))
   const recentMemories = [...memories].sort((a, b) => b.date.localeCompare(a.date))
@@ -84,12 +68,25 @@ export function JournalPage() {
 
       <TabPanel>
         {activeTab === 'stories' ? (
-          <div className={styles.storiesGrid}>
-            {recentPours.map((pour) => {
-              const bottle = bottleById.get(pour.bottleId)
-              return bottle ? <PourStoryCard key={pour.id} pour={pour} bottle={bottle} /> : null
-            })}
-          </div>
+          recentPours.length === 0 ? (
+            <EmptyState
+              title="Your first Pour Story starts here."
+              message="Open a bottle, capture the pour, and begin your whiskey journey."
+              action={
+                <div className={styles.actions}>
+                  <StartPourStoryButton />
+                  <CreateMemoryButton />
+                </div>
+              }
+            />
+          ) : (
+            <div className={styles.storiesGrid}>
+              {recentPours.map((pour) => {
+                const bottle = bottleById.get(pour.bottleId)
+                return bottle ? <PourStoryCard key={pour.id} pour={pour} bottle={bottle} /> : null
+              })}
+            </div>
+          )
         ) : null}
 
         {activeTab === 'timeline' ? <Timeline events={timelineEvents} /> : null}
@@ -141,6 +138,8 @@ export function JournalPage() {
             </div>
           )
         ) : null}
+
+        {activeTab === 'assistant' ? <SommelierPanel /> : null}
       </TabPanel>
     </>
   )

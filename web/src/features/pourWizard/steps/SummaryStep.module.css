@@ -31,3 +31,13 @@
   height: 20px;
   accent-color: var(--fip-amber);
 }
+
+.aiRow {
+  margin-bottom: var(--fip-space-2);
+}
+
+.aiStatus {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: 0 0 var(--fip-space-4);
+}

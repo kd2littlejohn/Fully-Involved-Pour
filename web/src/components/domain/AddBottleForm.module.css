@@ -10,3 +10,45 @@
   font-size: var(--fip-text-sm);
   margin-bottom: var(--fip-space-3);
 }
+
+.scanButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fip-space-2);
+  width: 100%;
+  padding: var(--fip-space-3) var(--fip-space-4);
+  margin-bottom: var(--fip-space-4);
+  border: 1px dashed var(--fip-border-strong);
+  border-radius: var(--fip-radius-md);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.hiddenFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.nameRow {
+  display: flex;
+  gap: var(--fip-space-2);
+  align-items: center;
+}
+
+.nameRow input {
+  flex: 1;
+}
+
+.aiStatus {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: calc(-1 * var(--fip-space-2)) 0 var(--fip-space-3);
+}

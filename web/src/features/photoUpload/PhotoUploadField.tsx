@@ -2,6 +2,7 @@ import { useId, useState, type ChangeEvent } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { useAuth } from '../../hooks/useAuth'
 import { uploadPhoto, PhotoTooLargeError } from './uploadPhoto'
+import { cutoutBottlePhoto } from './cutoutBottlePhoto'
 import styles from './PhotoUploadField.module.css'
 
 interface PhotoUploadFieldProps {
@@ -24,7 +25,10 @@ export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: Phot
     setUploading(true)
     setError(null)
     try {
-      const url = await uploadPhoto(user.uid, file, folder)
+      // Bottle photos get a clean server-side background cutout; personal
+      // memory snapshots stay as-is.
+      const fileToUpload = folder === 'bottle-photos' ? await cutoutBottlePhoto(file) : file
+      const url = await uploadPhoto(user.uid, fileToUpload, folder)
       setPreview(url)
       onUploaded(url)
     } catch (err) {

@@ -10,6 +10,10 @@ vi.mock('./uploadPhoto', () => ({
   PhotoTooLargeError: class PhotoTooLargeError extends Error {},
 }))
 
+vi.mock('./cutoutBottlePhoto', () => ({
+  cutoutBottlePhoto: (file: File) => Promise.resolve(file),
+}))
+
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({ user: { uid: 'u1' }, loading: false }),
 }))

@@ -34,7 +34,8 @@ interface PourWizardProps {
 export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSaved }: PourWizardProps) {
   const isEditing = Boolean(existingPour)
   const { draft, updateDraft, clearDraft } = useWizardDraft(bottleId, existingPour)
-  const { addPour, updatePour } = useUserData()
+  const { userDoc, addPour, updatePour } = useUserData()
+  const bottle = userDoc?.bottles.find((b) => b.id === bottleId)
   const [stepIndex, setStepIndex] = useState(0)
   const [saving, setSaving] = useState(false)
 
@@ -100,7 +101,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
     <Modal title={`${isEditing ? 'Edit' : 'Add a'} Pour Story — ${bottleName}`} onClose={onClose}>
       <ProgressStepper labels={STEPS.map((s) => s.label)} activeIndex={stepIndex} />
 
-      <Step draft={draft} updateDraft={updateDraft} />
+      <Step draft={draft} updateDraft={updateDraft} bottle={bottle} />
 
       <div className={styles.actions}>
         {isEditing ? (
