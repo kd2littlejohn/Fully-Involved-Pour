@@ -145,6 +145,8 @@ export function AddBottleForm({ onSubmit, onCancel, defaultStatus = 'sealed', in
         />
       </label>
 
+      <PhotoUploadField label="Bottle photo (optional)" folder="bottle-photos" currentUrl={imageUrl} onUploaded={setImageUrl} />
+
       <Field label="Bottle name" htmlFor="bottle-name">
         <div className={styles.nameRow}>
           <input
@@ -241,8 +243,6 @@ export function AddBottleForm({ onSubmit, onCancel, defaultStatus = 'sealed', in
           placeholder="40"
         />
       </Field>
-
-      <PhotoUploadField label="Bottle photo (optional)" folder="bottle-photos" currentUrl={imageUrl} onUploaded={setImageUrl} />
 
       <div className={styles.actions}>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
