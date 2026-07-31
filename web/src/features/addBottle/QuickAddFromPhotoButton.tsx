@@ -64,7 +64,6 @@ export function QuickAddFromPhotoButton() {
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           className={styles.hiddenInput}
           onChange={handleFile}
           disabled={scanning}
