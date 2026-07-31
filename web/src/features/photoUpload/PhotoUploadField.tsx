@@ -32,7 +32,16 @@ export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: Phot
       setPreview(url)
       onUploaded(url)
     } catch (err) {
-      setError(err instanceof PhotoTooLargeError ? err.message : 'Photo upload failed. Please try again.')
+      if (err instanceof PhotoTooLargeError) {
+        setError(err.message)
+      } else if (err && typeof err === 'object' && 'code' in err) {
+        // Surfaces the real Firebase error code (e.g. storage/unauthorized)
+        // directly in the UI — most failures here happen on mobile, where
+        // there's no easy way to check the browser console.
+        setError(`Photo upload failed: ${String((err as { code: unknown }).code)}`)
+      } else {
+        setError('Photo upload failed. Please try again.')
+      }
     } finally {
       setUploading(false)
     }

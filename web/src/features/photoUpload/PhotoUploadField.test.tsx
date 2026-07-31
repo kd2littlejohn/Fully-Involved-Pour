@@ -45,4 +45,14 @@ describe('PhotoUploadField', () => {
 
     expect(await screen.findByText('Photo upload failed. Please try again.')).toBeInTheDocument()
   })
+
+  it('surfaces the real Firebase error code when the upload fails', async () => {
+    mockUpload.mockRejectedValue(Object.assign(new Error('User does not have permission'), { code: 'storage/unauthorized' }))
+    render(<PhotoUploadField label="Photo" folder="bottle-photos" onUploaded={vi.fn()} />)
+
+    const file = new File(['data'], 'photo.jpg', { type: 'image/jpeg' })
+    await userEvent.upload(screen.getByLabelText('Photo'), file)
+
+    expect(await screen.findByText('Photo upload failed: storage/unauthorized')).toBeInTheDocument()
+  })
 })
