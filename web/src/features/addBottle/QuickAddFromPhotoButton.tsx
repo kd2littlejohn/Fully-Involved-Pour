@@ -3,10 +3,14 @@ import { Modal } from '../../components/ui/Modal'
 import { AddBottleForm, type AddBottleFormInput } from '../../components/domain/AddBottleForm'
 import { downscaleImageToJpegBase64 } from '../ai/imageToBase64'
 import { scanBottleLabel } from '../../data/repositories/ai'
+import { uploadPhoto } from '../photoUpload/uploadPhoto'
+import { cutoutBottlePhoto } from '../photoUpload/cutoutBottlePhoto'
+import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import styles from './QuickAddFromPhotoButton.module.css'
 
 export function QuickAddFromPhotoButton() {
+  const { user } = useAuth()
   const { addBottle } = useUserData()
   const [scanning, setScanning] = useState(false)
   const [scanNotice, setScanNotice] = useState<string | null>(null)
@@ -16,15 +20,22 @@ export function QuickAddFromPhotoButton() {
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
-    if (!file) return
+    if (!file || !user) return
     setScanning(true)
     setScanNotice(null)
     try {
       const base64 = await downscaleImageToJpegBase64(file)
-      const info = await scanBottleLabel(base64, 'image/jpeg')
+      // The same photo used to scan the label also becomes the bottle's
+      // display photo — a failed upload shouldn't block the scan result,
+      // so it's swallowed independently rather than failing the whole flow.
+      const uploadPromise = cutoutBottlePhoto(file)
+        .then((cutout) => uploadPhoto(user.uid, cutout, 'bottle-photos'))
+        .catch(() => undefined)
+      const [info, imageUrl] = await Promise.all([scanBottleLabel(base64, 'image/jpeg'), uploadPromise])
+
       if (!info.found) {
         setScanNotice("Couldn't read a bottle label in that photo — fill in the details manually below.")
-        setPrefill({})
+        setPrefill({ imageUrl })
       } else {
         setPrefill({
           name: info.name,
@@ -34,6 +45,7 @@ export function QuickAddFromPhotoButton() {
           proof: info.proof,
           ageStatement: info.ageStatement,
           msrp: info.msrp,
+          imageUrl,
         })
       }
     } catch {

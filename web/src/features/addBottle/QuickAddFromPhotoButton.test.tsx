@@ -5,6 +5,7 @@ import { QuickAddFromPhotoButton } from './QuickAddFromPhotoButton'
 
 const mockScan = vi.fn()
 const mockAddBottle = vi.fn().mockResolvedValue(undefined)
+const mockUploadPhoto = vi.fn()
 
 vi.mock('../ai/imageToBase64', () => ({
   downscaleImageToJpegBase64: () => Promise.resolve('base64data'),
@@ -12,6 +13,14 @@ vi.mock('../ai/imageToBase64', () => ({
 
 vi.mock('../../data/repositories/ai', () => ({
   scanBottleLabel: (...args: unknown[]) => mockScan(...args),
+}))
+
+vi.mock('../photoUpload/uploadPhoto', () => ({
+  uploadPhoto: (...args: unknown[]) => mockUploadPhoto(...args),
+}))
+
+vi.mock('../photoUpload/cutoutBottlePhoto', () => ({
+  cutoutBottlePhoto: (file: File) => Promise.resolve(file),
 }))
 
 vi.mock('../../hooks/useUserData', () => ({
@@ -25,6 +34,7 @@ vi.mock('../../hooks/useAuth', () => ({
 beforeEach(() => {
   mockScan.mockReset()
   mockAddBottle.mockClear()
+  mockUploadPhoto.mockReset().mockResolvedValue('https://example.com/photo.jpg')
 })
 
 describe('QuickAddFromPhotoButton', () => {
@@ -45,9 +55,14 @@ describe('QuickAddFromPhotoButton', () => {
     expect(await screen.findByDisplayValue('Eagle Rare 10 Year')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Buffalo Trace')).toBeInTheDocument()
     expect(screen.getByDisplayValue('90')).toBeInTheDocument()
+
+    // The scanned photo becomes the bottle's photo too, not just AI input.
+    expect(mockUploadPhoto).toHaveBeenCalledWith('u1', expect.any(File), 'bottle-photos')
+    const preview = document.querySelector('img[src="https://example.com/photo.jpg"]')
+    expect(preview).toBeInTheDocument()
   })
 
-  it('still opens the form for manual entry when the scan finds nothing', async () => {
+  it('still opens the form for manual entry when the scan finds nothing, but keeps the photo', async () => {
     mockScan.mockResolvedValue({ found: false })
     render(<QuickAddFromPhotoButton />)
 
@@ -59,5 +74,19 @@ describe('QuickAddFromPhotoButton', () => {
       await screen.findByText("Couldn't read a bottle label in that photo — fill in the details manually below."),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Bottle name')).toHaveValue('')
+    expect(document.querySelector('img[src="https://example.com/photo.jpg"]')).toBeInTheDocument()
+  })
+
+  it('still prefills details if only the photo upload fails', async () => {
+    mockScan.mockResolvedValue({ found: true, name: 'Eagle Rare 10 Year' })
+    mockUploadPhoto.mockRejectedValue(new Error('storage down'))
+    render(<QuickAddFromPhotoButton />)
+
+    const file = new File(['data'], 'bottle.jpg', { type: 'image/jpeg' })
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+
+    expect(await screen.findByDisplayValue('Eagle Rare 10 Year')).toBeInTheDocument()
+    expect(document.querySelector('img')).not.toBeInTheDocument()
   })
 })
