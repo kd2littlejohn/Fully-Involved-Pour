@@ -8,6 +8,7 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { Badge } from '../../components/ui/Badge'
 import { ScoreRing } from '../../components/ui/ScoreRing'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
+import { StatTile } from '../../components/ui/StatTile'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -81,6 +82,12 @@ export function BottleDetailsPage() {
   const score = getCurrentScore(bottle, userDoc.pours)
   const otherBottles = userDoc.bottles.filter((b) => b.id !== bottle.id)
 
+  const quickStats: { value: string; label: string }[] = []
+  if (bottle.proof) quickStats.push({ value: String(bottle.proof), label: 'Proof' })
+  if (bottle.ageStatement) quickStats.push({ value: bottle.ageStatement, label: 'Age' })
+  if (bottle.msrp) quickStats.push({ value: `$${bottle.msrp}`, label: 'MSRP' })
+  if (bottle.distillery) quickStats.push({ value: bottle.distillery, label: 'Distillery' })
+
   const currentBottleId = bottle.id
   async function handleDelete() {
     setDeleting(true)
@@ -138,6 +145,14 @@ export function BottleDetailsPage() {
           </div>
         ) : null}
       </div>
+
+      {quickStats.length > 0 ? (
+        <div className={styles.quickStats}>
+          {quickStats.map((stat) => (
+            <StatTile key={stat.label} value={stat.value} label={stat.label} />
+          ))}
+        </div>
+      ) : null}
 
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 

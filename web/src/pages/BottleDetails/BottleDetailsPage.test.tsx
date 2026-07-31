@@ -78,7 +78,7 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
     expect(screen.getByRole('heading', { name: 'Eagle Rare' })).toBeInTheDocument()
-    expect(screen.getByText('90')).toBeInTheDocument()
+    expect(screen.getAllByText('90').length).toBeGreaterThan(0)
   })
 
   it('switches to the Pour Stories tab and shows real pours', async () => {
