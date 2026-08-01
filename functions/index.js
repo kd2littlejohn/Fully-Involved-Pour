@@ -2,9 +2,14 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+// Sonnet for the conversational sommelier persona, where tone and quality carry
+// the product. Haiku for the structured lookup/extraction calls below -- they're
+// short, schema-constrained JSON tasks with tight maxTokens, exactly what Haiku
+// is priced and built for.
+const ANTHROPIC_MODEL_SONNET = "claude-sonnet-5";
+const ANTHROPIC_MODEL_HAIKU = "claude-haiku-4-5";
 
-async function callClaude(apiKey, { system, prompt, maxTokens, content, messages }) {
+async function callClaude(apiKey, { model, system, prompt, maxTokens, content, messages }) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -13,7 +18,7 @@ async function callClaude(apiKey, { system, prompt, maxTokens, content, messages
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model,
       max_tokens: maxTokens || 400,
       system,
       messages: messages || [{ role: "user", content: content || prompt }],
@@ -54,7 +59,7 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
 
   const system = `${SOMMELIER_PERSONA}\n\nHere is a summary of their current collection:\n${collectionSummary || "(their collection is empty so far)"}`;
   const messages = [...history, { role: "user", content: prompt }];
-  const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 400 });
+  const reply = await callClaude(anthropicApiKey.value(), { model: ANTHROPIC_MODEL_SONNET, system, messages, maxTokens: 400 });
   return { reply: reply || "I couldn't come up with a response just now — try rephrasing." };
 });
 
@@ -72,7 +77,7 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
 
   const prompt = `Bottle name: ${bottleName}`;
 
-  const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 200 });
+  const raw = await callClaude(anthropicApiKey.value(), { model: ANTHROPIC_MODEL_HAIKU, system, prompt, maxTokens: 200 });
 
   let parsed;
   try {
@@ -107,7 +112,7 @@ exports.generateTastingProfile = onCall({ secrets: [anthropicApiKey], cors: true
 
   const prompt = `Bottle: ${bottleName}\nDistillery: ${distillery || "unknown"}\nType: ${type || "unknown"}\nProof: ${proof || "unknown"}\nKnown flavor tags so far: ${(Array.isArray(flavors) ? flavors : []).join(", ") || "none"}\n\nGenerate a plausible, expert tasting profile for this bottle.`;
 
-  const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 300 });
+  const raw = await callClaude(anthropicApiKey.value(), { model: ANTHROPIC_MODEL_HAIKU, system, prompt, maxTokens: 300 });
 
   let parsed;
   try {
@@ -149,6 +154,7 @@ exports.scanBottleLabel = onCall(
 Set "found" to false ONLY if no spirits bottle is visible in the image at all. If a bottle is visible but some details are unreadable or unknown, still set "found" to true, fill in what you can, and leave unknown text fields as empty strings and unknown numbers as 0. For msrp, only include it if this is a well-known bottle whose typical retail price you know; otherwise 0.`;
 
     const raw = await callClaude(anthropicApiKey.value(), {
+      model: ANTHROPIC_MODEL_HAIKU,
       system,
       maxTokens: 300,
       content: [
@@ -201,7 +207,7 @@ Return 3 to 5 recommendations. If their collection is too sparse or generic to i
 
   const prompt = `Their current collection:\n${collectionSummary}\n\nRecommend bottles for them to try next.`;
 
-  const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 500 });
+  const raw = await callClaude(anthropicApiKey.value(), { model: ANTHROPIC_MODEL_HAIKU, system, prompt, maxTokens: 500 });
 
   let parsed;
   try {
