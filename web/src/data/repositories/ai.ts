@@ -7,7 +7,7 @@ export interface SommelierTurn {
   content: string
 }
 
-// Same 5 Cloud Functions the live app calls (functions/index.js) — untouched
+// Same 6 Cloud Functions the live app calls (functions/index.js) — untouched
 // on the backend. Dev-mode mock sessions have no real Firebase Auth ID token,
 // so calling these for real would just fail with "unauthenticated"; return
 // canned responses instead so the UI flow stays testable without real
@@ -98,6 +98,38 @@ export async function scanBottleLabel(imageBase64: string, mediaType: string): P
   const callable = httpsCallable<{ imageBase64: string; mediaType: string }, LabelScanResult>(functions, 'scanBottleLabel')
   const result = await callable({ imageBase64, mediaType })
   return result.data
+}
+
+export interface RecommendedBottle {
+  name: string
+  distillery: string
+  type: string
+  reason: string
+}
+
+export async function recommendBottles(collectionSummary: string): Promise<RecommendedBottle[]> {
+  if (isMockAuthEnabled()) {
+    return [
+      {
+        name: 'Elijah Craig Barrel Proof',
+        distillery: 'Heaven Hill',
+        type: 'Bourbon',
+        reason: 'Your top-rated bottles lean toward high-proof, oak-forward bourbons.',
+      },
+      {
+        name: 'Redbreast 12',
+        distillery: 'Midleton',
+        type: 'Irish',
+        reason: 'A rich, sherry-cask Irish pot still worth trying alongside your bourbon collection.',
+      },
+    ]
+  }
+  const callable = httpsCallable<{ collectionSummary: string }, { recommendations: RecommendedBottle[] }>(
+    functions,
+    'recommendBottles',
+  )
+  const result = await callable({ collectionSummary })
+  return result.data.recommendations
 }
 
 export async function removeBottleBackground(imageBase64: string): Promise<string> {

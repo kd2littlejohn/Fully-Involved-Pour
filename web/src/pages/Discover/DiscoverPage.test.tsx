@@ -75,6 +75,8 @@ describe('DiscoverPage', () => {
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument() // Top Rated
     expect(screen.getByText('Favorite Distillery')).toBeInTheDocument()
     expect(screen.getAllByText('Buffalo Trace').length).toBeGreaterThan(0)
+    expect(screen.getByText('Recommended for You')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Get AI Recommendations/ })).toBeInTheDocument()
     expect(screen.getAllByText('Not available yet.')).toHaveLength(3) // New Releases/Trending/Nearby Stores
   })
 

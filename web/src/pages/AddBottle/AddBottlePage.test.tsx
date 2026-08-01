@@ -63,7 +63,7 @@ vi.mock('./OwnershipFieldsCard', () => ({
   OwnershipFieldsCard: ({ values }: { values: { status: string } }) => <div data-testid="fake-status">{values.status}</div>,
 }))
 
-function renderPage(initialState?: { defaultStatus?: string }) {
+function renderPage(initialState?: { defaultStatus?: string; prefill?: { name?: string; distillery?: string; type?: string } }) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: '/bottles/new', state: initialState }]}>
       <AddBottlePage />
@@ -89,6 +89,14 @@ describe('AddBottlePage', () => {
     renderPage({ defaultStatus: 'wishlist' })
 
     expect(screen.getByTestId('fake-status')).toHaveTextContent('wishlist')
+  })
+
+  it('prefills essential fields from location state (e.g. an AI recommendation)', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    renderPage({ defaultStatus: 'wishlist', prefill: { name: 'Redbreast 12', distillery: 'Midleton', type: 'Irish' } })
+
+    expect(screen.getByLabelText('Bottle name')).toHaveValue('Redbreast 12')
+    expect(screen.getByTestId('fake-distillery')).toHaveTextContent('Midleton')
   })
 
   it('requires a bottle name before submitting', async () => {

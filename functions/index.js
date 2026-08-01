@@ -185,6 +185,43 @@ Set "found" to false ONLY if no spirits bottle is visible in the image at all. I
   },
 );
 
+exports.recommendBottles = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to get AI recommendations.");
+  }
+
+  const collectionSummary = String(request.data?.collectionSummary || "").slice(0, 4000);
+  if (!collectionSummary.trim()) {
+    throw new HttpsError("invalid-argument", "A collection summary is required.");
+  }
+
+  const system = `You are a whiskey/spirits sommelier recommending bottles for someone to try next, based on their existing collection. Only recommend real, well-known, currently-produced bottles you are confident actually exist -- never invent a bottle name. Never recommend a bottle that is already listed in their collection below. Tie each recommendation to something specific about their taste (distilleries, types, or ratings they already have). Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"recommendations": [{"name": "...", "distillery": "...", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "reason": "one concise sentence"}]}
+Return 3 to 5 recommendations. If their collection is too sparse or generic to infer real taste, return an empty array rather than guessing.`;
+
+  const prompt = `Their current collection:\n${collectionSummary}\n\nRecommend bottles for them to try next.`;
+
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 500 });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    console.error("Failed to parse recommendation JSON", raw);
+    return { recommendations: [] };
+  }
+
+  const recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
+  return {
+    recommendations: recommendations.slice(0, 5).map((rec) => ({
+      name: String(rec.name || ""),
+      distillery: String(rec.distillery || ""),
+      type: String(rec.type || ""),
+      reason: String(rec.reason || ""),
+    })).filter((rec) => rec.name),
+  };
+});
+
 // Server-side background removal so the clean cutout works on any device (incl. iOS,
 // where the in-browser model stalls). Runs the open-source model bundled with the
 // package — no external API, no per-image cost. Lazy-required so it only weighs on

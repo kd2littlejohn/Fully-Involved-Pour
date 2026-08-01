@@ -13,6 +13,11 @@ import styles from './AddBottlePage.module.css'
 
 interface LocationState {
   defaultStatus?: BottleStatus
+  prefill?: {
+    name?: string
+    distillery?: string
+    type?: string
+  }
 }
 
 export function AddBottlePage() {
@@ -21,13 +26,14 @@ export function AddBottlePage() {
   const { user, loading: authLoading } = useAuth()
   const { addBottle } = useUserData()
 
-  const defaultStatus = (location.state as LocationState | null)?.defaultStatus ?? 'sealed'
+  const state = location.state as LocationState | null
+  const defaultStatus = state?.defaultStatus ?? 'sealed'
 
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined)
   const [essential, setEssential] = useState<EssentialFieldsValues>({
-    name: '',
-    distillery: '',
-    type: '',
+    name: state?.prefill?.name ?? '',
+    distillery: state?.prefill?.distillery ?? '',
+    type: state?.prefill?.type ?? '',
     proof: '',
     ageStatement: '',
     region: '',

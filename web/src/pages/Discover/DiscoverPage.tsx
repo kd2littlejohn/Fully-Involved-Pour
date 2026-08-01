@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { getWishlistBottles, getTopRatedBottles, getDistilleryStats } from '../../features/discover/selectors'
 import { AddToWishlistButton } from '../../features/discover/AddToWishlistButton'
+import { AiRecommendations } from '../../features/discover/AiRecommendations'
 import styles from './DiscoverPage.module.css'
 
 export function DiscoverPage() {
@@ -104,6 +105,10 @@ export function DiscoverPage() {
             </div>
           </>
         )}
+      </Section>
+
+      <Section title="Recommended for You">
+        <AiRecommendations />
       </Section>
 
       <Section title="New Releases">
