@@ -87,5 +87,27 @@ describe('HomePage', () => {
 
     expect(screen.getAllByText('Eagle Rare').length).toBeGreaterThan(0)
     expect(screen.getByText('Working Fire')).toBeInTheDocument()
+    expect(screen.queryByText('Coming Soon')).not.toBeInTheDocument()
+  })
+
+  it('shows a Coming Soon section when a bottle is incoming', () => {
+    const incoming: Bottle = {
+      id: 'b2',
+      name: 'Elmer T. Lee',
+      status: 'incoming',
+      createdAt: 1,
+    }
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: [incoming], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+    })
+
+    renderHome()
+
+    expect(screen.getByText('Coming Soon')).toBeInTheDocument()
+    expect(screen.getAllByText('Elmer T. Lee').length).toBeGreaterThan(0)
   })
 })

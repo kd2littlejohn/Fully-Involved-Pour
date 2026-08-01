@@ -8,6 +8,7 @@ export interface OwnershipFieldsValues {
   price: string
   storeLocation: string
   openedDate: string
+  expectedDate: string
   notes: string
 }
 
@@ -21,6 +22,7 @@ const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
   { value: 'open', label: 'Opened' },
   { value: 'finished', label: 'Finished' },
   { value: 'wishlist', label: 'Wish List' },
+  { value: 'incoming', label: 'Incoming' },
 ]
 
 export function OwnershipFieldsCard({ values, onChange }: OwnershipFieldsCardProps) {
@@ -84,6 +86,18 @@ export function OwnershipFieldsCard({ values, onChange }: OwnershipFieldsCardPro
                 type="date"
                 value={values.openedDate}
                 onChange={(e) => onChange({ openedDate: e.target.value })}
+              />
+            </Field>
+          ) : null}
+
+          {values.status === 'incoming' ? (
+            <Field label="Expected arrival (optional)" htmlFor="ab-expected-date">
+              <input
+                id="ab-expected-date"
+                className={controlClassName}
+                type="date"
+                value={values.expectedDate}
+                onChange={(e) => onChange({ expectedDate: e.target.value })}
               />
             </Field>
           ) : null}

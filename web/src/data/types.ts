@@ -6,7 +6,7 @@
  * cleanup is a separate, explicitly-approved change, not part of this rebuild.
  */
 
-export type BottleStatus = 'open' | 'sealed' | 'wishlist' | 'finished'
+export type BottleStatus = 'open' | 'sealed' | 'wishlist' | 'finished' | 'incoming'
 export type FillLevel = 'full' | 'three-quarter' | 'half' | 'quarter' | 'empty'
 export type PourStyle = 'daily' | 'share' | 'special' | 'cocktail'
 export type PourTier = 'crowd' | 'reserve' | 'vip'
@@ -39,6 +39,7 @@ export interface Bottle {
   fillLevel?: FillLevel
   bottleSize?: number
   openedDate?: string
+  expectedDate?: string
   categories?: string[]
   category?: string
   pourStyle?: PourStyle

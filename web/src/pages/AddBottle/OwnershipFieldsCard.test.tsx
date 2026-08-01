@@ -8,6 +8,7 @@ const baseValues: OwnershipFieldsValues = {
   price: '',
   storeLocation: '',
   openedDate: '',
+  expectedDate: '',
   notes: '',
 }
 
@@ -22,12 +23,12 @@ describe('OwnershipFieldsCard', () => {
     expect(screen.getByLabelText('Status')).toBeInTheDocument()
   })
 
-  it('only offers the four real bottle statuses', async () => {
+  it('only offers the five real bottle statuses', async () => {
     render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: 'Your Bottle' }))
 
     const options = screen.getAllByRole('option').map((o) => o.textContent)
-    expect(options).toEqual(['Sealed', 'Opened', 'Finished', 'Wish List'])
+    expect(options).toEqual(['Sealed', 'Opened', 'Finished', 'Wish List', 'Incoming'])
   })
 
   it('only shows Opened date when status is open', async () => {
@@ -42,6 +43,13 @@ describe('OwnershipFieldsCard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Your Bottle' }))
 
     expect(screen.queryByLabelText('Opened date')).not.toBeInTheDocument()
+  })
+
+  it('only shows Expected arrival when status is incoming', async () => {
+    render(<OwnershipFieldsCard values={{ ...baseValues, status: 'incoming' }} onChange={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Your Bottle' }))
+
+    expect(screen.getByLabelText('Expected arrival (optional)')).toBeInTheDocument()
   })
 
   it('reports changes via onChange', async () => {

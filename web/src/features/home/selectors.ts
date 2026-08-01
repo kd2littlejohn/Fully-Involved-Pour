@@ -10,6 +10,12 @@ export function getRecentBottles(bottles: Bottle[], limit = 4): Bottle[] {
   return [...bottles].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).slice(0, limit)
 }
 
+export function getIncomingBottles(bottles: Bottle[]): Bottle[] {
+  return [...bottles]
+    .filter((b) => b.status === 'incoming')
+    .sort((a, b) => (a.expectedDate ?? '').localeCompare(b.expectedDate ?? ''))
+}
+
 export function getRecentPours(pours: Pour[], limit = 4): Pour[] {
   return [...pours].sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit)
 }

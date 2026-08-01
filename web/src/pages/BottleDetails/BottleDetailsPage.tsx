@@ -27,6 +27,7 @@ const STATUS_LABEL: Record<BottleStatus, string> = {
   sealed: 'Sealed',
   wishlist: 'Wishlist',
   finished: 'Finished',
+  incoming: 'Incoming',
 }
 
 const TABS = [
@@ -128,7 +129,9 @@ export function BottleDetailsPage() {
           <h1 className={styles.name}>{bottle.name}</h1>
           {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
           <div className={styles.badges}>
-            <Badge tone={bottle.status === 'open' ? 'amber' : bottle.status === 'wishlist' ? 'brass' : 'default'}>
+            <Badge
+              tone={bottle.status === 'open' ? 'amber' : bottle.status === 'wishlist' || bottle.status === 'incoming' ? 'brass' : 'default'}
+            >
               {STATUS_LABEL[bottle.status]}
             </Badge>
             {journeyStage ? (

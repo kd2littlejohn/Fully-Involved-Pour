@@ -43,6 +43,7 @@ export function AddBottlePage() {
     price: '',
     storeLocation: '',
     openedDate: '',
+    expectedDate: '',
     notes: '',
   })
   const [nameError, setNameError] = useState<string | null>(null)
@@ -83,6 +84,7 @@ export function AddBottlePage() {
         price: ownership.price ? Number(ownership.price) : undefined,
         storeLocation: ownership.storeLocation.trim() || undefined,
         openedDate: ownership.status === 'open' ? ownership.openedDate.trim() || undefined : undefined,
+        expectedDate: ownership.status === 'incoming' ? ownership.expectedDate.trim() || undefined : undefined,
         notes: ownership.notes.trim() || undefined,
       })
       navigate(id ? `/collection/${id}` : '/collection')

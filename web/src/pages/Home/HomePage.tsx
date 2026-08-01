@@ -9,7 +9,13 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { RollTheDiceButton } from '../../features/diceRoll/RollTheDiceButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { getFeaturedOpenBottle, getRecentBottles, getRecentPours, greetingForHour } from '../../features/home/selectors'
+import {
+  getFeaturedOpenBottle,
+  getIncomingBottles,
+  getRecentBottles,
+  getRecentPours,
+  greetingForHour,
+} from '../../features/home/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import styles from './HomePage.module.css'
 
@@ -39,6 +45,7 @@ export function HomePage() {
 
   const { bottles, pours } = userDoc
   const featuredBottle = getFeaturedOpenBottle(bottles)
+  const incomingBottles = getIncomingBottles(bottles)
   const recentBottles = getRecentBottles(bottles)
   const recentPours = getRecentPours(pours)
   const bottleById = new Map(bottles.map((b) => [b.id, b]))
@@ -74,6 +81,16 @@ export function HomePage() {
             <Section title="Continue Your Pour Story">
               <SectionRow>
                 <BottleCard bottle={featuredBottle} />
+              </SectionRow>
+            </Section>
+          ) : null}
+
+          {incomingBottles.length > 0 ? (
+            <Section title="Coming Soon" viewAllHref="/collection">
+              <SectionRow>
+                {incomingBottles.map((bottle) => (
+                  <BottleCard key={bottle.id} bottle={bottle} />
+                ))}
               </SectionRow>
             </Section>
           ) : null}

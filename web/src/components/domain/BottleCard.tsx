@@ -10,6 +10,7 @@ const STATUS_LABEL: Record<BottleStatus, string> = {
   sealed: 'Sealed',
   wishlist: 'Wishlist',
   finished: 'Finished',
+  incoming: 'Incoming',
 }
 
 const STATUS_TONE: Record<BottleStatus, 'default' | 'amber' | 'brass'> = {
@@ -17,6 +18,7 @@ const STATUS_TONE: Record<BottleStatus, 'default' | 'amber' | 'brass'> = {
   sealed: 'default',
   wishlist: 'brass',
   finished: 'default',
+  incoming: 'brass',
 }
 
 interface BottleCardProps {

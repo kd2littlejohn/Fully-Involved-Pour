@@ -11,6 +11,12 @@ function daysAgo(days: number): string {
   return date.toISOString().slice(0, 10)
 }
 
+function daysFromNow(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
 const eagleRare: Bottle = {
   id: 'mock-eagle-rare',
   name: 'Eagle Rare 10 Year',
@@ -99,6 +105,19 @@ const oldGrandDad: Bottle = {
   status: 'finished',
   openedDate: daysAgo(120),
   createdAt: Date.now() - 300 * 24 * 60 * 60 * 1000,
+}
+
+const elmerTLee: Bottle = {
+  id: 'mock-elmer-t-lee',
+  name: 'Elmer T. Lee Single Barrel',
+  distillery: 'Buffalo Trace',
+  type: 'Single Barrel Bourbon',
+  proof: 90,
+  price: 34.99,
+  status: 'incoming',
+  storeLocation: 'Allocated — ABC Liquor waitlist',
+  expectedDate: daysFromNow(9),
+  createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
 }
 
 const pours: Pour[] = [
@@ -229,7 +248,7 @@ const memories: Memory[] = [
 export const MOCK_USER_DOC: UserDoc = {
   username: 'devpreview',
   greetingName: 'Dev',
-  bottles: [eagleRare, wellerSpecial, blantons, pappy15, fourRoses, oldGrandDad],
+  bottles: [eagleRare, wellerSpecial, blantons, pappy15, fourRoses, oldGrandDad, elmerTLee],
   pours,
   memories,
   infinityBottles: [],

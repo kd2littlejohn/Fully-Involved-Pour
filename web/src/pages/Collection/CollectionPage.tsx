@@ -13,13 +13,14 @@ import { InfinityBottleButton } from '../../features/infinityBottle/InfinityBott
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
 
-type Filter = 'all' | 'open' | 'sealed' | 'wishlist' | 'favorites' | 'core-bar'
+type Filter = 'all' | 'open' | 'sealed' | 'wishlist' | 'incoming' | 'favorites' | 'core-bar'
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Opened' },
   { value: 'sealed', label: 'Sealed' },
   { value: 'wishlist', label: 'Wishlist' },
+  { value: 'incoming', label: 'Incoming' },
   { value: 'favorites', label: 'Favorites' },
   { value: 'core-bar', label: 'Core Bar' },
 ]
