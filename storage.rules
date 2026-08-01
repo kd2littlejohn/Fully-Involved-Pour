@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Bottle and memory photos: same {folder}/{uid}/{fileName} shape the app
+    // has always used (matches the archived legacy/app.js convention too).
+    // Read is public because the app renders these via plain <img src> tags
+    // with no auth header — write is locked to the owning, authenticated
+    // user, and validated server-side rather than trusting the client.
+    match /bottle-photos/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /memory-photos/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.contentType.matches('image/.*')
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Deny everything else by default — no public write access anywhere.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

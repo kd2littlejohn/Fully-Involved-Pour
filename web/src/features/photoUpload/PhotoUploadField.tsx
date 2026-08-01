@@ -1,7 +1,7 @@
-import { useId, useState, type ChangeEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { useAuth } from '../../hooks/useAuth'
-import { uploadPhoto, PhotoTooLargeError } from './uploadPhoto'
+import { uploadPhoto } from './uploadPhoto'
 import { cutoutBottlePhoto } from './cutoutBottlePhoto'
 import styles from './PhotoUploadField.module.css'
 
@@ -17,31 +17,44 @@ export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: Phot
   const inputId = useId()
   const [preview, setPreview] = useState(currentUrl)
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
+
+  useEffect(
+    () => () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    },
+    [],
+  )
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
-    if (!file || !user) return
+    event.target.value = ''
+    if (!file) return
+
+    // Instant local preview while the real upload runs in the background.
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    const localUrl = URL.createObjectURL(file)
+    objectUrlRef.current = localUrl
+    setPreview(localUrl)
+
     setUploading(true)
+    setProgress(0)
     setError(null)
     try {
       // Bottle photos get a clean server-side background cutout; personal
       // memory snapshots stay as-is.
       const fileToUpload = folder === 'bottle-photos' ? await cutoutBottlePhoto(file) : file
-      const url = await uploadPhoto(user.uid, fileToUpload, folder)
+      const url = await uploadPhoto(user?.uid, fileToUpload, folder, setProgress)
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
       setPreview(url)
       onUploaded(url)
     } catch (err) {
-      if (err instanceof PhotoTooLargeError) {
-        setError(err.message)
-      } else if (err && typeof err === 'object' && 'code' in err) {
-        // Surfaces the real Firebase error code (e.g. storage/unauthorized)
-        // directly in the UI — most failures here happen on mobile, where
-        // there's no easy way to check the browser console.
-        setError(`Photo upload failed: ${String((err as { code: unknown }).code)}`)
-      } else {
-        setError('Photo upload failed. Please try again.')
-      }
+      setError(err instanceof Error ? err.message : 'Photo upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -49,7 +62,16 @@ export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: Phot
 
   return (
     <Field label={label} htmlFor={inputId}>
-      {preview ? <img className={styles.preview} src={preview} alt="" /> : null}
+      {preview ? (
+        <div className={styles.previewWrap}>
+          <img className={styles.preview} src={preview} alt="" />
+          {uploading ? (
+            <div className={styles.progressTrack}>
+              <div className={styles.progressFill} style={{ width: `${Math.round(progress * 100)}%` }} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <input
         id={inputId}
         type="file"
@@ -58,7 +80,7 @@ export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: Phot
         onChange={handleChange}
         disabled={uploading}
       />
-      {uploading ? <p className={styles.status}>Uploading…</p> : null}
+      {uploading ? <p className={styles.status}>Uploading… {Math.round(progress * 100)}%</p> : null}
       {error ? (
         <p className={styles.error} role="alert">
           {error}

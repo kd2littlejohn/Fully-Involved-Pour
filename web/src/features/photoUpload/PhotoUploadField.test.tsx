@@ -7,7 +7,6 @@ const mockUpload = vi.fn()
 
 vi.mock('./uploadPhoto', () => ({
   uploadPhoto: (...args: unknown[]) => mockUpload(...args),
-  PhotoTooLargeError: class PhotoTooLargeError extends Error {},
 }))
 
 vi.mock('./cutoutBottlePhoto', () => ({
@@ -20,10 +19,12 @@ vi.mock('../../hooks/useAuth', () => ({
 
 beforeEach(() => {
   mockUpload.mockReset()
+  URL.createObjectURL = vi.fn(() => 'blob:local-preview')
+  URL.revokeObjectURL = vi.fn()
 })
 
 describe('PhotoUploadField', () => {
-  it('uploads the selected file and calls onUploaded with the resulting URL', async () => {
+  it('shows an instant local preview, then swaps to the uploaded URL', async () => {
     mockUpload.mockResolvedValue('https://example.com/photo.jpg')
     const onUploaded = vi.fn()
     render(<PhotoUploadField label="Photo" folder="memory-photos" onUploaded={onUploaded} />)
@@ -32,27 +33,18 @@ describe('PhotoUploadField', () => {
     const input = screen.getByLabelText('Photo')
     await userEvent.upload(input, file)
 
-    expect(mockUpload).toHaveBeenCalledWith('u1', file, 'memory-photos')
+    expect(mockUpload).toHaveBeenCalledWith('u1', file, 'memory-photos', expect.any(Function))
     expect(onUploaded).toHaveBeenCalledWith('https://example.com/photo.jpg')
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:local-preview')
   })
 
-  it('shows an error message when the upload fails', async () => {
-    mockUpload.mockRejectedValue(new Error('network down'))
+  it('shows the upload error message', async () => {
+    mockUpload.mockRejectedValue(new Error('You do not have permission to upload this image.'))
     render(<PhotoUploadField label="Photo" folder="bottle-photos" onUploaded={vi.fn()} />)
 
     const file = new File(['data'], 'photo.jpg', { type: 'image/jpeg' })
     await userEvent.upload(screen.getByLabelText('Photo'), file)
 
-    expect(await screen.findByText('Photo upload failed. Please try again.')).toBeInTheDocument()
-  })
-
-  it('surfaces the real Firebase error code when the upload fails', async () => {
-    mockUpload.mockRejectedValue(Object.assign(new Error('User does not have permission'), { code: 'storage/unauthorized' }))
-    render(<PhotoUploadField label="Photo" folder="bottle-photos" onUploaded={vi.fn()} />)
-
-    const file = new File(['data'], 'photo.jpg', { type: 'image/jpeg' })
-    await userEvent.upload(screen.getByLabelText('Photo'), file)
-
-    expect(await screen.findByText('Photo upload failed: storage/unauthorized')).toBeInTheDocument()
+    expect(await screen.findByText('You do not have permission to upload this image.')).toBeInTheDocument()
   })
 })
