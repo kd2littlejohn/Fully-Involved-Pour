@@ -7,7 +7,7 @@ export interface SommelierTurn {
   content: string
 }
 
-// Same 6 Cloud Functions the live app calls (functions/index.js) — untouched
+// Same 7 Cloud Functions the live app calls (functions/index.js) — untouched
 // on the backend. Dev-mode mock sessions have no real Firebase Auth ID token,
 // so calling these for real would just fail with "unauthenticated"; return
 // canned responses instead so the UI flow stays testable without real
@@ -97,6 +97,29 @@ export async function scanBottleLabel(imageBase64: string, mediaType: string): P
   }
   const callable = httpsCallable<{ imageBase64: string; mediaType: string }, LabelScanResult>(functions, 'scanBottleLabel')
   const result = await callable({ imageBase64, mediaType })
+  return result.data
+}
+
+export interface DistilleryInfoResult {
+  known: boolean
+  location?: string
+  founded?: number
+  parentCompany?: string
+  description?: string
+}
+
+export async function lookupDistillery(distilleryName: string): Promise<DistilleryInfoResult> {
+  if (isMockAuthEnabled()) {
+    return {
+      known: true,
+      location: 'Frankfort, Kentucky',
+      founded: 1857,
+      parentCompany: 'Sazerac Company',
+      description: 'One of the oldest continuously operating distilleries in the US, known for its high-rye and wheated bourbon mash bills.',
+    }
+  }
+  const callable = httpsCallable<{ distilleryName: string }, DistilleryInfoResult>(functions, 'lookupDistillery')
+  const result = await callable({ distilleryName })
   return result.data
 }
 

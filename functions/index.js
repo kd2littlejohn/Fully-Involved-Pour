@@ -93,6 +93,42 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
   };
 });
 
+exports.lookupDistillery = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to look up distillery info.");
+  }
+
+  const distilleryName = String(request.data?.distilleryName || "").trim();
+  if (distilleryName.length < 2) {
+    throw new HttpsError("invalid-argument", "A distillery name is required.");
+  }
+
+  const system = `You are a whiskey/spirits industry expert. Given a distillery name, provide real background facts about it, ONLY if you genuinely recognize this as a real, existing distillery. If you do not recognize it or are not confident, set "known" to false and leave the other fields empty -- never invent or guess plausible-sounding but unverified details. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"known": true or false, "location": "city, state/country", "founded": year as a number or 0, "parentCompany": "owning company, or empty string if independent/unknown", "description": "one or two concise sentences about the distillery's style or history"}`;
+
+  const prompt = `Distillery name: ${distilleryName}`;
+
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 250 });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    console.error("Failed to parse distillery lookup JSON", raw);
+    return { known: false };
+  }
+
+  if (!parsed.known) return { known: false };
+
+  return {
+    known: true,
+    location: String(parsed.location || ""),
+    founded: Number(parsed.founded || 0),
+    parentCompany: String(parsed.parentCompany || ""),
+    description: String(parsed.description || ""),
+  };
+});
+
 exports.generateTastingProfile = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Sign in to generate an AI tasting note.");

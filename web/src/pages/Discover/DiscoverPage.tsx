@@ -8,7 +8,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { getWishlistBottles, getTopRatedBottles, getDistilleryStats } from '../../features/discover/selectors'
 import { AddToWishlistButton } from '../../features/discover/AddToWishlistButton'
 import { AiRecommendations } from '../../features/discover/AiRecommendations'
-import styles from './DiscoverPage.module.css'
+import { DistilleryList } from '../../features/discover/DistilleryList'
 
 export function DiscoverPage() {
   const { user, loading: authLoading } = useAuth()
@@ -88,22 +88,7 @@ export function DiscoverPage() {
         {distilleries.length === 0 ? (
           <EmptyState title="No distilleries yet." message="Add a bottle's distillery to see this build up over time." />
         ) : (
-          <>
-            <div className={styles.favorite}>
-              <div className={styles.favoriteLabel}>Favorite Distillery</div>
-              <div className={styles.favoriteName}>{distilleries[0]?.name}</div>
-            </div>
-            <div className={styles.statList}>
-              {distilleries.map((d) => (
-                <div className={styles.statRow} key={d.name}>
-                  <span className={styles.statName}>{d.name}</span>
-                  <span className={styles.statMeta}>
-                    {d.count} {d.count === 1 ? 'bottle' : 'bottles'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
+          <DistilleryList distilleries={distilleries} />
         )}
       </Section>
 

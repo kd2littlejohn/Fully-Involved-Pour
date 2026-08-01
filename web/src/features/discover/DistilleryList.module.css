@@ -27,21 +27,40 @@
 }
 
 .statRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--fip-space-4);
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
 }
 
+.statHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--fip-space-4);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
 .statName {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
+  color: var(--fip-cream);
 }
 
 .statMeta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.detail {
+  padding: 0 var(--fip-space-4) var(--fip-space-4);
+}
+
+.detailText {
+  margin: var(--fip-space-1) 0 0;
   color: var(--fip-muted);
   font-size: var(--fip-text-sm);
 }

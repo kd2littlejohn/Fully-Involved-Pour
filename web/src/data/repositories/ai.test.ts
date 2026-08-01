@@ -9,6 +9,7 @@ import {
   scanBottleLabel,
   removeBottleBackground,
   recommendBottles,
+  lookupDistillery,
 } from './ai'
 
 describe('ai repository (mock mode)', () => {
@@ -45,5 +46,11 @@ describe('ai repository (mock mode)', () => {
     const results = await recommendBottles('Eagle Rare (Buffalo Trace, Bourbon)')
     expect(results.length).toBeGreaterThan(0)
     expect(results[0]?.name).toBeTruthy()
+  })
+
+  it('lookupDistillery returns known info in mock mode', async () => {
+    const result = await lookupDistillery('Buffalo Trace')
+    expect(result.known).toBe(true)
+    expect(result.location).toBeTruthy()
   })
 })
