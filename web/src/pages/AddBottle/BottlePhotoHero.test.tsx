@@ -1,7 +1,14 @@
+import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BottlePhotoHero } from './BottlePhotoHero'
+import type { LabelScanResult } from '../../data/repositories/ai'
+
+function ControlledHero({ onScanResult }: { onScanResult: (info: LabelScanResult) => void }) {
+  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined)
+  return <BottlePhotoHero imageUrl={imageUrl} onImageChange={setImageUrl} onScanResult={onScanResult} />
+}
 
 const mockUpload = vi.fn()
 const mockScan = vi.fn()
@@ -84,6 +91,26 @@ describe('BottlePhotoHero', () => {
     await userEvent.upload(screen.getByLabelText('Choose Photo'), file)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have permission to upload this image.')
+  })
+
+  it('lets you scan an already-chosen photo instead of picking it again', async () => {
+    mockUpload.mockResolvedValue('https://example.com/bottle.jpg')
+    mockScan.mockResolvedValue({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' })
+    const onScanResult = vi.fn()
+    render(<ControlledHero onScanResult={onScanResult} />)
+
+    const file = new File(['data'], 'bottle.jpg', { type: 'image/jpeg' })
+    await userEvent.upload(screen.getByLabelText('Choose Photo'), file)
+
+    const scanButton = await screen.findByRole('button', { name: /Scan This Photo for Details/ })
+    expect(mockScan).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('Scan Label with AI', { exact: false })).not.toBeInTheDocument()
+
+    await userEvent.click(scanButton)
+
+    expect(mockScan).toHaveBeenCalledWith('base64data', 'image/jpeg')
+    expect(onScanResult).toHaveBeenCalledWith({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' })
+    expect(mockUpload).toHaveBeenCalledTimes(1) // reuses the already-uploaded photo, no re-upload
   })
 
   it('shows a Remove button once an image is set, and clears it on click', async () => {

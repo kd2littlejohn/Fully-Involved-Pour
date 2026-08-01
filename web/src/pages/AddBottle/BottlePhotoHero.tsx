@@ -22,6 +22,7 @@ export function BottlePhotoHero({ imageUrl, onImageChange, onScanResult }: Bottl
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const objectUrlRef = useRef<string | null>(null)
+  const lastFileRef = useRef<File | null>(null)
   const scanInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
@@ -34,6 +35,7 @@ export function BottlePhotoHero({ imageUrl, onImageChange, onScanResult }: Bottl
   )
 
   async function handleFile(file: File, mode: Mode) {
+    lastFileRef.current = file
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     const localUrl = URL.createObjectURL(file)
     objectUrlRef.current = localUrl
@@ -75,6 +77,26 @@ export function BottlePhotoHero({ imageUrl, onImageChange, onScanResult }: Bottl
     }
   }
 
+  async function handleScanCurrentPhoto() {
+    const file = lastFileRef.current
+    if (!file || busy) return
+    setError(null)
+    setScanning(true)
+    try {
+      const base64 = await downscaleImageToJpegBase64(file)
+      const info = await scanBottleLabel(base64, 'image/jpeg')
+      if (!info.found) {
+        setError("Couldn't read a bottle label in that photo — fill in the details manually below.")
+      } else {
+        onScanResult(info)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Photo upload failed. Please try again.')
+    } finally {
+      setScanning(false)
+    }
+  }
+
   function handleChange(mode: Mode) {
     return (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
@@ -112,17 +134,23 @@ export function BottlePhotoHero({ imageUrl, onImageChange, onScanResult }: Bottl
       ) : null}
 
       <div className={styles.actions}>
-        <label className={styles.primaryAction}>
-          ✨ Scan Label with AI
-          <input
-            ref={scanInputRef}
-            type="file"
-            accept="image/*"
-            className={styles.hiddenInput}
-            onChange={handleChange('scan')}
-            disabled={busy}
-          />
-        </label>
+        {imageUrl && lastFileRef.current ? (
+          <button type="button" className={styles.primaryAction} onClick={() => void handleScanCurrentPhoto()} disabled={busy}>
+            ✨ Scan This Photo for Details
+          </button>
+        ) : (
+          <label className={styles.primaryAction}>
+            ✨ Scan Label with AI
+            <input
+              ref={scanInputRef}
+              type="file"
+              accept="image/*"
+              className={styles.hiddenInput}
+              onChange={handleChange('scan')}
+              disabled={busy}
+            />
+          </label>
+        )}
 
         <div className={styles.secondaryRow}>
           <label className={styles.secondaryAction}>
