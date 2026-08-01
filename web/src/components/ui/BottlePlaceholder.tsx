@@ -3,9 +3,32 @@ import styles from './BottlePlaceholder.module.css'
 interface BottlePlaceholderProps {
   // Hides the "No Photo" label for tight spaces like list-row thumbnails.
   compact?: boolean
+  // When given, renders the bottle's initials instead of the generic icon.
+  name?: string
 }
 
-export function BottlePlaceholder({ compact = false }: BottlePlaceholderProps) {
+function getInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  // Prefer words with letters (skips age statements like "12" or "10") so
+  // "Redbreast 12" reads as "RE", not "R1".
+  const lettered = words.filter((word) => /[a-zA-Z]/.test(word))
+  const [first, second] = lettered.length > 0 ? lettered : words
+  if (!first) return ''
+  if (!second) return first.slice(0, 2).toUpperCase()
+  return (first.charAt(0) + second.charAt(0)).toUpperCase()
+}
+
+export function BottlePlaceholder({ compact = false, name }: BottlePlaceholderProps) {
+  const initials = name ? getInitials(name) : ''
+
+  if (initials) {
+    return (
+      <div className={compact ? `${styles.avatar} ${styles.avatarCompact}` : styles.avatar} aria-hidden="true">
+        <span className={styles.initials}>{initials}</span>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.wrap}>
       <svg className={styles.icon} viewBox="0 0 48 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

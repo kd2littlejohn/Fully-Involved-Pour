@@ -113,6 +113,12 @@ describe('BottlePhotoHero', () => {
     expect(mockUpload).toHaveBeenCalledTimes(1) // reuses the already-uploaded photo, no re-upload
   })
 
+  it('shows the bottle initials in the placeholder when a name is given but no photo yet', () => {
+    render(<BottlePhotoHero name="Eagle Rare 10 Year" onImageChange={vi.fn()} onScanResult={vi.fn()} />)
+
+    expect(screen.getByText('ER')).toBeInTheDocument()
+  })
+
   it('shows a Remove button once an image is set, and clears it on click', async () => {
     const onImageChange = vi.fn()
     render(<BottlePhotoHero imageUrl="https://example.com/bottle.jpg" onImageChange={onImageChange} onScanResult={vi.fn()} />)

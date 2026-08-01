@@ -39,7 +39,7 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
         </span>
       ) : null}
       <div className={styles.imageWrap}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder compact />}
+        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder compact name={bottle.name} />}
       </div>
 
       <div className={styles.info}>

@@ -39,7 +39,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
         </span>
       ) : null}
       <div className={styles.imageWrap}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder />}
+        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
       </div>
       <div>
         <div className={styles.name}>{bottle.name}</div>

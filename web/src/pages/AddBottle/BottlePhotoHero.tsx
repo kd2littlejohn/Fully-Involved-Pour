@@ -9,13 +9,14 @@ import styles from './BottlePhotoHero.module.css'
 
 interface BottlePhotoHeroProps {
   imageUrl?: string
+  name?: string
   onImageChange: (url: string | undefined) => void
   onScanResult: (info: LabelScanResult) => void
 }
 
 type Mode = 'scan' | 'camera' | 'library'
 
-export function BottlePhotoHero({ imageUrl, onImageChange, onScanResult }: BottlePhotoHeroProps) {
+export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }: BottlePhotoHeroProps) {
   const { user } = useAuth()
   const [uploading, setUploading] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -119,7 +120,7 @@ export function BottlePhotoHero({ imageUrl, onImageChange, onScanResult }: Bottl
   return (
     <div className={styles.hero}>
       <div className={styles.frame}>
-        {imageUrl ? <img className={styles.image} src={imageUrl} alt="" /> : <BottlePlaceholder />}
+        {imageUrl ? <img className={styles.image} src={imageUrl} alt="" /> : <BottlePlaceholder name={name} />}
         {busy ? (
           <div className={styles.overlay}>
             <span className={styles.overlayText}>{scanning ? 'Reading label…' : `Uploading… ${Math.round(progress * 100)}%`}</span>

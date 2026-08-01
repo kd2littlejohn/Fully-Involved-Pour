@@ -91,7 +91,11 @@ export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
           <div className={styles.faceoffHeader}>
             <div className={styles.faceoffBottle}>
               <div className={styles.faceoffImageWrap}>
-                {bottle.imageUrl ? <img className={styles.faceoffImage} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder />}
+                {bottle.imageUrl ? (
+                  <img className={styles.faceoffImage} src={bottle.imageUrl} alt="" />
+                ) : (
+                  <BottlePlaceholder name={bottle.name} />
+                )}
               </div>
               <div className={styles.faceoffName}>{bottle.name}</div>
               <div className={styles.faceoffScore}>{formatScore(getCurrentScore(bottle, pours))}</div>
@@ -99,7 +103,11 @@ export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
             <div className={styles.vs}>VS</div>
             <div className={styles.faceoffBottle}>
               <div className={styles.faceoffImageWrap}>
-                {other.imageUrl ? <img className={styles.faceoffImage} src={other.imageUrl} alt="" /> : <BottlePlaceholder />}
+                {other.imageUrl ? (
+                  <img className={styles.faceoffImage} src={other.imageUrl} alt="" />
+                ) : (
+                  <BottlePlaceholder name={other.name} />
+                )}
               </div>
               <div className={styles.faceoffName}>{other.name}</div>
               <div className={styles.faceoffScore}>{formatScore(getCurrentScore(other, pours))}</div>

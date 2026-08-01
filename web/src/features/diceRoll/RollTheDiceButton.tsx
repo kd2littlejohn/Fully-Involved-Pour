@@ -117,7 +117,7 @@ export function RollTheDiceButton() {
                     {pickedBottle.imageUrl ? (
                       <img className={styles.image} src={pickedBottle.imageUrl} alt="" />
                     ) : (
-                      <BottlePlaceholder />
+                      <BottlePlaceholder name={pickedBottle.name} />
                     )}
                   </div>
                   <div className={styles.name}>{pickedBottle.name}</div>

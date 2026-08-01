@@ -133,7 +133,7 @@ export function AddBottlePage() {
       </div>
 
       <div className={styles.content}>
-        <BottlePhotoHero imageUrl={imageUrl} onImageChange={setImageUrl} onScanResult={handleScanResult} />
+        <BottlePhotoHero imageUrl={imageUrl} name={essential.name} onImageChange={setImageUrl} onScanResult={handleScanResult} />
 
         <div className={styles.cards}>
           <EssentialFieldsCard

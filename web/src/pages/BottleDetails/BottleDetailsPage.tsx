@@ -123,7 +123,7 @@ export function BottleDetailsPage() {
 
       <div className={styles.hero}>
         <div className={styles.imageWrap}>
-          {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder />}
+          {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
         </div>
         <div className={styles.info}>
           <h1 className={styles.name}>{bottle.name}</h1>
