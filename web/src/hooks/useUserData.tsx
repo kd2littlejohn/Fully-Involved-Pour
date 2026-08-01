@@ -16,7 +16,7 @@ interface UserDataState {
   userDoc: UserDoc
   loading: boolean
   signedIn: boolean
-  addBottle: (input: NewBottleInput) => Promise<void>
+  addBottle: (input: NewBottleInput) => Promise<string | undefined>
   deleteBottle: (bottleId: string) => Promise<void>
   deleteBottles: (bottleIds: string[]) => Promise<void>
   addPour: (input: NewPourInput) => Promise<void>
@@ -104,14 +104,15 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
 
   const addBottle = useCallback(
     async (input: NewBottleInput) => {
-      if (!user) return
+      if (!user) return undefined
       const bottle: Bottle = { ...input, id: generateId(), createdAt: Date.now() }
       const nextBottles = [...userDoc.bottles, bottle]
       const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
       setUserDoc(nextDoc)
-      if (mockMode) return // dev fixture data — never touches Firestore
+      if (mockMode) return bottle.id // dev fixture data — never touches Firestore
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { bottles: nextBottles })
+      return bottle.id
     },
     [user, userDoc, mockMode],
   )

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -9,6 +9,7 @@ const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockAddBottle = vi.fn().mockResolvedValue(undefined)
 const mockDeleteBottles = vi.fn().mockResolvedValue(undefined)
+const mockNavigate = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -17,6 +18,11 @@ vi.mock('../../hooks/useAuth', () => ({
 vi.mock('../../hooks/useUserData', () => ({
   useUserData: () => mockUseUserData(),
 }))
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 
 function renderCollection() {
   return render(
@@ -70,7 +76,7 @@ describe('CollectionPage', () => {
     expect(screen.queryByText(/Pappy 15/)).not.toBeInTheDocument()
   })
 
-  it('submits a new bottle through the Add Bottle modal', async () => {
+  it('navigates to the Add Bottle page when Add a Bottle is clicked', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
       userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
@@ -83,13 +89,7 @@ describe('CollectionPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Add a Bottle' }))
 
-    const dialog = screen.getByRole('dialog', { hidden: true })
-    await userEvent.type(within(dialog).getByLabelText('Bottle name'), 'Blanton\'s')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add Bottle' }))
-
-    expect(mockAddBottle).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Blanton's", status: 'sealed' }),
-    )
+    expect(mockNavigate).toHaveBeenCalledWith('/bottles/new')
   })
 
   it('switches between grid and list view', async () => {

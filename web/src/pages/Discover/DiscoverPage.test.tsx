@@ -8,6 +8,7 @@ import type { Bottle, Pour } from '../../data/types'
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockAddBottle = vi.fn().mockResolvedValue(undefined)
+const mockNavigate = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -16,6 +17,11 @@ vi.mock('../../hooks/useAuth', () => ({
 vi.mock('../../hooks/useUserData', () => ({
   useUserData: () => mockUseUserData(),
 }))
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: () => mockNavigate }
+})
 
 function renderDiscover() {
   return render(
@@ -72,7 +78,7 @@ describe('DiscoverPage', () => {
     expect(screen.getAllByText('Not available yet.')).toHaveLength(3) // New Releases/Trending/Nearby Stores
   })
 
-  it('adds a bottle with wishlist status preselected via Add to Wishlist', async () => {
+  it('navigates to the Add Bottle page with wishlist status preselected via Add to Wishlist', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
       userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
@@ -83,11 +89,7 @@ describe('DiscoverPage', () => {
     renderDiscover()
 
     await userEvent.click(screen.getByRole('button', { name: 'Add to Wishlist' }))
-    expect(screen.getByLabelText('Status')).toHaveValue('wishlist')
 
-    await userEvent.type(screen.getByLabelText('Bottle name'), 'Four Roses Small Batch')
-    await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
-
-    expect(mockAddBottle).toHaveBeenCalledWith(expect.objectContaining({ name: 'Four Roses Small Batch', status: 'wishlist' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/bottles/new', { state: { defaultStatus: 'wishlist' } })
   })
 })

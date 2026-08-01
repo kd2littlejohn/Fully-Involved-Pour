@@ -6,6 +6,7 @@ import { BottleDetailsPage } from './pages/BottleDetails/BottleDetailsPage'
 import { JournalPage } from './pages/Journal/JournalPage'
 import { DiscoverPage } from './pages/Discover/DiscoverPage'
 import { ProfilePage } from './pages/Profile/ProfilePage'
+import { AddBottlePage } from './pages/AddBottle/AddBottlePage'
 
 // HashRouter: GitHub Pages (and the second static "Sites" deploy target) have
 // no server-side rewrite support, so hash-based routes avoid needing a
@@ -22,4 +23,7 @@ export const router = createHashRouter([
       { path: '/profile', element: <ProfilePage /> },
     ],
   },
+  // Outside AppShell — a full-screen add flow shouldn't compete with the
+  // persistent bottom nav for the sticky action bar's space.
+  { path: '/bottles/new', element: <AddBottlePage /> },
 ])

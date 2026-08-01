@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
-import { Modal } from '../../components/ui/Modal'
 import { BottleCard } from '../../components/domain/BottleCard'
 import { BottleListRow } from '../../components/domain/BottleListRow'
-import { AddBottleForm } from '../../components/domain/AddBottleForm'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -39,10 +38,10 @@ function matchesFilter(bottle: Bottle, filter: Filter): boolean {
 }
 
 export function CollectionPage() {
+  const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
-  const { userDoc, loading: dataLoading, addBottle, deleteBottles } = useUserData()
+  const { userDoc, loading: dataLoading, deleteBottles } = useUserData()
   const [filter, setFilter] = useState<Filter>('all')
-  const [showAddForm, setShowAddForm] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -109,7 +108,7 @@ export function CollectionPage() {
         <EmptyState
           title="Your whiskey journey starts here."
           message="Add a bottle to begin building your collection."
-          action={<Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>}
+          action={<Button onClick={() => navigate('/bottles/new')}>Add a Bottle</Button>}
         />
       ) : (
         <>
@@ -167,7 +166,7 @@ export function CollectionPage() {
                 </Button>
               )}
               <InfinityBottleButton />
-              <Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>
+              <Button onClick={() => navigate('/bottles/new')}>Add a Bottle</Button>
             </div>
           </div>
 
@@ -239,18 +238,6 @@ export function CollectionPage() {
           )}
         </>
       )}
-
-      {showAddForm ? (
-        <Modal title="Add a Bottle" onClose={() => setShowAddForm(false)}>
-          <AddBottleForm
-            onCancel={() => setShowAddForm(false)}
-            onSubmit={async (input) => {
-              await addBottle(input)
-              setShowAddForm(false)
-            }}
-          />
-        </Modal>
-      ) : null}
     </>
   )
 }

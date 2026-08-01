@@ -11,6 +11,10 @@
   font-weight: 600;
 }
 
+.required {
+  color: var(--fip-amber);
+}
+
 .control {
   background: var(--fip-card);
   border: 1px solid var(--fip-border);

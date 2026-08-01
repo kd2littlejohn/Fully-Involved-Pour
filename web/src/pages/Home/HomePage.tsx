@@ -1,14 +1,11 @@
-import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section, SectionRow } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
-import { Modal } from '../../components/ui/Modal'
 import { BottleCard } from '../../components/domain/BottleCard'
-import { AddBottleForm } from '../../components/domain/AddBottleForm'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { SignInButton } from '../../components/domain/SignInButton'
-import { QuickAddFromPhotoButton } from '../../features/addBottle/QuickAddFromPhotoButton'
 import { RollTheDiceButton } from '../../features/diceRoll/RollTheDiceButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -18,8 +15,7 @@ import styles from './HomePage.module.css'
 
 export function HomePage() {
   const { user, loading: authLoading } = useAuth()
-  const { userDoc, loading: dataLoading, addBottle } = useUserData()
-  const [showAddForm, setShowAddForm] = useState(false)
+  const { userDoc, loading: dataLoading } = useUserData()
 
   const greeting = greetingForHour(new Date().getHours())
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
@@ -60,19 +56,17 @@ export function HomePage() {
           title="Your whiskey journey starts here."
           message="Add a bottle to begin building your collection."
           action={
-            <div className={styles.actions}>
-              <Button onClick={() => setShowAddForm(true)}>Add a Bottle</Button>
-              <QuickAddFromPhotoButton />
-            </div>
+            <Link to="/bottles/new">
+              <Button>Add a Bottle</Button>
+            </Link>
           }
         />
       ) : (
         <>
           <div className={styles.actions}>
-            <Button variant="secondary" onClick={() => setShowAddForm(true)}>
-              Add a Bottle
-            </Button>
-            <QuickAddFromPhotoButton />
+            <Link to="/bottles/new">
+              <Button variant="secondary">Add a Bottle</Button>
+            </Link>
             <RollTheDiceButton />
           </div>
 
@@ -117,18 +111,6 @@ export function HomePage() {
           </Section>
         </>
       )}
-
-      {showAddForm ? (
-        <Modal title="Add a Bottle" onClose={() => setShowAddForm(false)}>
-          <AddBottleForm
-            onCancel={() => setShowAddForm(false)}
-            onSubmit={async (input) => {
-              await addBottle(input)
-              setShowAddForm(false)
-            }}
-          />
-        </Modal>
-      ) : null}
     </>
   )
 }
