@@ -11,6 +11,8 @@ export function getJournalTimeline(bottles: Bottle[], pours: Pour[]): TimelineEv
       date: pour.date,
       label: `${bottleNameById.get(pour.bottleId) ?? 'Unknown bottle'} — ${pour.rating.toFixed(1)}`,
       detail: pour.occasion,
+      pourId: pour.id,
+      bottleId: pour.bottleId,
     }))
 }
 

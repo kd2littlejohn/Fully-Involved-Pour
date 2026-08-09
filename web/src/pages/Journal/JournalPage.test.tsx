@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -138,6 +138,22 @@ describe('JournalPage', () => {
     renderJournal()
     await userEvent.click(screen.getByRole('tab', { name: 'Memories' }))
     expect(screen.getByText('No memories captured yet.')).toBeInTheDocument()
+  })
+
+  it('opens a Pour Story quick view when a Timeline event is clicked', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    renderJournal()
+    await userEvent.click(screen.getByRole('tab', { name: 'Timeline' }))
+    await userEvent.click(screen.getByRole('button', { name: /Weller 12 — 7\.0/ }))
+
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    expect(within(dialog).getByRole('heading', { name: 'Weller 12' })).toBeInTheDocument()
   })
 
   it('shows saved memories with their linked bottle name', async () => {

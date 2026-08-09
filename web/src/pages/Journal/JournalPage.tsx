@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
-import { Timeline } from '../../components/domain/Timeline'
+import { Timeline, type TimelineEvent } from '../../components/domain/Timeline'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { BottleCard } from '../../components/domain/BottleCard'
 import { MemoryCard } from '../../components/domain/MemoryCard'
@@ -12,7 +12,9 @@ import { useUserData } from '../../hooks/useUserData'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
+import { PourStoryDetail } from '../../features/pourWizard/PourStoryDetail'
 import { SommelierPanel } from '../../features/sommelier/SommelierPanel'
+import type { Pour } from '../../data/types'
 import styles from './JournalPage.module.css'
 
 const TABS = [
@@ -28,6 +30,7 @@ export function JournalPage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading } = useUserData()
   const [activeTab, setActiveTab] = useState('stories')
+  const [selectedTimelinePour, setSelectedTimelinePour] = useState<Pour | null>(null)
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Journal" title="Your Pour Stories." />
@@ -54,6 +57,13 @@ export function JournalPage() {
   const timelineEvents = getJournalTimeline(bottles, pours)
   const companions = getCompanionStats(pours)
   const journeyBottles = getBottleJourneys(bottles)
+
+  function handleTimelineEventClick(event: TimelineEvent) {
+    const pour = pours.find((p) => p.id === event.pourId)
+    if (pour) setSelectedTimelinePour(pour)
+  }
+
+  const selectedTimelineBottle = selectedTimelinePour ? bottleById.get(selectedTimelinePour.bottleId) : undefined
 
   return (
     <>
@@ -89,7 +99,7 @@ export function JournalPage() {
           )
         ) : null}
 
-        {activeTab === 'timeline' ? <Timeline events={timelineEvents} /> : null}
+        {activeTab === 'timeline' ? <Timeline events={timelineEvents} onEventClick={handleTimelineEventClick} /> : null}
 
         {activeTab === 'memories' ? (
           recentMemories.length === 0 ? (
@@ -141,6 +151,10 @@ export function JournalPage() {
 
         {activeTab === 'assistant' ? <SommelierPanel /> : null}
       </TabPanel>
+
+      {selectedTimelinePour && selectedTimelineBottle ? (
+        <PourStoryDetail pour={selectedTimelinePour} bottle={selectedTimelineBottle} onClose={() => setSelectedTimelinePour(null)} />
+      ) : null}
     </>
   )
 }

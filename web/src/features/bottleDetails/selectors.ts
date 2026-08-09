@@ -24,6 +24,8 @@ export interface JourneyEvent {
   date: string
   label: string
   detail?: string
+  pourId?: string
+  bottleId?: string
 }
 
 // Built only from real fields the user entered — never fabricated. See
@@ -46,6 +48,8 @@ export function buildJourneyEvents(bottle: Bottle, pours: Pour[]): JourneyEvent[
       date: pour.date,
       label: `Pour Story — ${pour.rating.toFixed(1)}`,
       detail: pour.occasion,
+      pourId: pour.id,
+      bottleId: bottle.id,
     })
   }
 

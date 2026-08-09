@@ -15,11 +15,30 @@
 
 .event {
   position: relative;
+  display: block;
+  width: 100%;
   padding-bottom: var(--fip-space-6);
 }
 
 .event:last-child {
   padding-bottom: 0;
+}
+
+.eventClickable {
+  background: none;
+  border: none;
+  padding-left: 0;
+  padding-right: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eventClickable .label {
+  color: var(--fip-amber);
+}
+
+.eventClickable:hover .label {
+  text-decoration: underline;
 }
 
 .dot {
