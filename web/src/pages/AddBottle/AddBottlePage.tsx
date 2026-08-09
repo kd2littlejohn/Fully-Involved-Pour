@@ -202,7 +202,11 @@ export function AddBottlePage() {
             }}
             nameError={nameError ?? undefined}
           />
-          <OwnershipFieldsCard values={ownership} onChange={(patch) => setOwnership((prev) => ({ ...prev, ...patch }))} />
+          <OwnershipFieldsCard
+            values={ownership}
+            onChange={(patch) => setOwnership((prev) => ({ ...prev, ...patch }))}
+            bottleContext={{ name: essential.name, distillery: essential.distillery, type: essential.type, proof: essential.proof }}
+          />
         </div>
       </div>
 

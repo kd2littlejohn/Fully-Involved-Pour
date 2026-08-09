@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
 import type { BottleStatus } from '../../data/types'
+import { generateTastingProfile } from '../../data/repositories/ai'
 import styles from './FieldsCard.module.css'
 
 export interface OwnershipFieldsValues {
@@ -12,9 +13,17 @@ export interface OwnershipFieldsValues {
   notes: string
 }
 
+export interface BottleContext {
+  name: string
+  distillery: string
+  type: string
+  proof: string
+}
+
 interface OwnershipFieldsCardProps {
   values: OwnershipFieldsValues
   onChange: (patch: Partial<OwnershipFieldsValues>) => void
+  bottleContext: BottleContext
 }
 
 const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
@@ -25,8 +34,32 @@ const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
   { value: 'incoming', label: 'Incoming' },
 ]
 
-export function OwnershipFieldsCard({ values, onChange }: OwnershipFieldsCardProps) {
+export function OwnershipFieldsCard({ values, onChange, bottleContext }: OwnershipFieldsCardProps) {
   const [open, setOpen] = useState(false)
+  const [generatingNotes, setGeneratingNotes] = useState(false)
+  const [notesStatus, setNotesStatus] = useState<string | null>(null)
+
+  async function handleGenerateNotes() {
+    const name = bottleContext.name.trim()
+    if (name.length < 3 || generatingNotes) return
+    setGeneratingNotes(true)
+    setNotesStatus('✨ Asking the sommelier…')
+    try {
+      const profile = await generateTastingProfile({
+        bottleName: name,
+        distillery: bottleContext.distillery.trim() || undefined,
+        type: bottleContext.type.trim() || undefined,
+        proof: bottleContext.proof ? Number(bottleContext.proof) : undefined,
+      })
+      const generated = [profile.nose, profile.palate, profile.finish].filter(Boolean).join(' ')
+      onChange({ notes: values.notes.trim() ? values.notes : generated })
+      setNotesStatus('✨ AI tasting note added below.')
+    } catch {
+      setNotesStatus("The sommelier couldn't generate a note just now. Try again in a moment.")
+    } finally {
+      setGeneratingNotes(false)
+    }
+  }
 
   return (
     <div className={styles.card}>
@@ -112,6 +145,16 @@ export function OwnershipFieldsCard({ values, onChange }: OwnershipFieldsCardPro
               placeholder="Anything worth remembering about this bottle."
             />
           </Field>
+
+          <button
+            type="button"
+            className={styles.askAiLink}
+            onClick={handleGenerateNotes}
+            disabled={generatingNotes || bottleContext.name.trim().length < 3}
+          >
+            {generatingNotes ? 'Asking AI…' : '✨ AI Tasting Note'}
+          </button>
+          {notesStatus ? <p className={styles.aiStatus}>{notesStatus}</p> : null}
         </div>
       ) : null}
     </div>
