@@ -1,9 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '../../components/ui/Button'
 import { controlClassName } from '../../components/ui/Field'
-import { useUserData } from '../../hooks/useUserData'
-import { askSommelier, type SommelierTurn } from '../../data/repositories/ai'
-import { summarizeCollectionForAi } from './collectionSummary'
+import { useSommelier } from './SommelierProvider'
 import styles from './SommelierPanel.module.css'
 
 const STARTER_PROMPTS = [
@@ -14,33 +12,14 @@ const STARTER_PROMPTS = [
 ]
 
 export function SommelierPanel() {
-  const { userDoc } = useUserData()
-  const [messages, setMessages] = useState<SommelierTurn[]>([])
+  const { messages, sending, error, send } = useSommelier()
   const [input, setInput] = useState('')
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function send(prompt: string) {
-    const trimmed = prompt.trim()
-    if (!trimmed || sending) return
-    setError(null)
-    const history = messages
-    setMessages([...history, { role: 'user', content: trimmed }])
-    setInput('')
-    setSending(true)
-    try {
-      const reply = await askSommelier(trimmed, history, summarizeCollectionForAi(userDoc.bottles))
-      setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
-    } catch {
-      setError("The sommelier couldn't respond just now. Try again in a moment.")
-    } finally {
-      setSending(false)
-    }
-  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    void send(input)
+    const prompt = input
+    setInput('')
+    void send(prompt)
   }
 
   return (

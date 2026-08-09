@@ -1,11 +1,14 @@
 import { RouterProvider } from 'react-router-dom'
 import { router } from './router'
 import { UserDataProvider } from './hooks/useUserData'
+import { SommelierProvider } from './features/sommelier/SommelierProvider'
 
 function App() {
   return (
     <UserDataProvider>
-      <RouterProvider router={router} />
+      <SommelierProvider>
+        <RouterProvider router={router} />
+      </SommelierProvider>
     </UserDataProvider>
   )
 }
