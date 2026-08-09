@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { LinkButton } from '../../components/ui/LinkButton'
 import type { BottleStatus } from '../../data/types'
 import type { LabelScanResult } from '../../data/repositories/ai'
 import { BottlePhotoHero } from './BottlePhotoHero'
@@ -23,8 +24,12 @@ interface LocationState {
 export function AddBottlePage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { bottleId } = useParams<{ bottleId: string }>()
+  const isEditing = Boolean(bottleId)
   const { user, loading: authLoading } = useAuth()
-  const { addBottle } = useUserData()
+  const { userDoc, loading: dataLoading, addBottle, updateBottle } = useUserData()
+
+  const existingBottle = isEditing ? userDoc.bottles.find((b) => b.id === bottleId) : undefined
 
   const state = location.state as LocationState | null
   const defaultStatus = state?.defaultStatus ?? 'sealed'
@@ -50,6 +55,32 @@ export function AddBottlePage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  // Hydrates the form once the bottle being edited is available — handles
+  // both the common case (data already loaded from a prior page) and a
+  // fresh/direct load of the edit URL where userDoc arrives asynchronously.
+  const hydratedRef = useRef(false)
+  useEffect(() => {
+    if (!isEditing || hydratedRef.current || !existingBottle) return
+    hydratedRef.current = true
+    setImageUrl(existingBottle.imageUrl)
+    setEssential({
+      name: existingBottle.name,
+      distillery: existingBottle.distillery ?? '',
+      type: existingBottle.type ?? '',
+      proof: existingBottle.proof != null ? String(existingBottle.proof) : '',
+      ageStatement: existingBottle.ageStatement ?? '',
+      region: existingBottle.region ?? '',
+    })
+    setOwnership({
+      status: existingBottle.status,
+      price: existingBottle.price != null ? String(existingBottle.price) : '',
+      storeLocation: existingBottle.storeLocation ?? '',
+      openedDate: existingBottle.openedDate ?? '',
+      expectedDate: existingBottle.expectedDate ?? '',
+      notes: existingBottle.notes ?? '',
+    })
+  }, [isEditing, existingBottle])
+
   function handleScanResult(info: LabelScanResult) {
     setEssential((prev) => ({
       name: prev.name.trim() || info.name || prev.name,
@@ -72,7 +103,7 @@ export function AddBottlePage() {
     setSubmitError(null)
     setSubmitting(true)
     try {
-      const id = await addBottle({
+      const payload = {
         name,
         distillery: essential.distillery.trim() || undefined,
         type: essential.type.trim() || undefined,
@@ -86,8 +117,14 @@ export function AddBottlePage() {
         openedDate: ownership.status === 'open' ? ownership.openedDate.trim() || undefined : undefined,
         expectedDate: ownership.status === 'incoming' ? ownership.expectedDate.trim() || undefined : undefined,
         notes: ownership.notes.trim() || undefined,
-      })
-      navigate(id ? `/collection/${id}` : '/collection')
+      }
+      if (isEditing && bottleId) {
+        await updateBottle(bottleId, payload)
+        navigate(`/collection/${bottleId}`)
+      } else {
+        const id = await addBottle(payload)
+        navigate(id ? `/collection/${id}` : '/collection')
+      }
     } catch (err) {
       // Form data is preserved — nothing is cleared on failure, so the user
       // can just retry without re-entering everything.
@@ -97,7 +134,9 @@ export function AddBottlePage() {
     }
   }
 
-  if (authLoading) {
+  const pageTitle = isEditing ? 'Edit Bottle' : 'Add Bottle'
+
+  if (authLoading || (isEditing && dataLoading)) {
     return <div className={styles.page} />
   }
 
@@ -108,7 +147,7 @@ export function AddBottlePage() {
           <button type="button" className={styles.backButton} onClick={() => navigate(-1)} aria-label="Back">
             ←
           </button>
-          <h1 className={styles.title}>Add Bottle</h1>
+          <h1 className={styles.title}>{pageTitle}</h1>
           <span className={styles.headerSpacer} aria-hidden="true" />
         </div>
         <EmptyState
@@ -120,13 +159,32 @@ export function AddBottlePage() {
     )
   }
 
+  if (isEditing && !existingBottle) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.header}>
+          <button type="button" className={styles.backButton} onClick={() => navigate(-1)} aria-label="Back">
+            ←
+          </button>
+          <h1 className={styles.title}>{pageTitle}</h1>
+          <span className={styles.headerSpacer} aria-hidden="true" />
+        </div>
+        <EmptyState
+          title="We couldn't find this bottle."
+          message="It may have been removed from your collection."
+          action={<LinkButton to="/collection">Back to Collection</LinkButton>}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
         <button type="button" className={styles.backButton} onClick={() => navigate(-1)} aria-label="Back" disabled={submitting}>
           ←
         </button>
-        <h1 className={styles.title}>Add Bottle</h1>
+        <h1 className={styles.title}>{pageTitle}</h1>
         <button type="button" className={styles.cancelButton} onClick={() => navigate(-1)} disabled={submitting}>
           Cancel
         </button>
@@ -155,7 +213,7 @@ export function AddBottlePage() {
           </p>
         ) : null}
         <button type="button" className={styles.primaryButton} onClick={handleSubmit} disabled={submitting}>
-          {submitting ? 'Adding…' : 'Add Bottle'}
+          {submitting ? 'Saving…' : isEditing ? 'Save Changes' : 'Add Bottle'}
         </button>
       </div>
     </div>

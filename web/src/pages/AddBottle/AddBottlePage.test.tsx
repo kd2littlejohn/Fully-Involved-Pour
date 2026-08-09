@@ -1,19 +1,27 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AddBottlePage } from './AddBottlePage'
+import type { Bottle } from '../../data/types'
 
 const mockUseAuth = vi.fn()
 const mockAddBottle = vi.fn()
+const mockUpdateBottle = vi.fn()
 const mockNavigate = vi.fn()
+let mockBottles: Bottle[] = []
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
 }))
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ addBottle: mockAddBottle }),
+  useUserData: () => ({
+    userDoc: { bottles: mockBottles },
+    loading: false,
+    addBottle: mockAddBottle,
+    updateBottle: mockUpdateBottle,
+  }),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -71,9 +79,21 @@ function renderPage(initialState?: { defaultStatus?: string; prefill?: { name?: 
   )
 }
 
+function renderEditPage(bottleId: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/bottles/${bottleId}/edit`]}>
+      <Routes>
+        <Route path="/bottles/:bottleId/edit" element={<AddBottlePage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 beforeEach(() => {
   mockAddBottle.mockReset()
+  mockUpdateBottle.mockReset()
   mockNavigate.mockReset()
+  mockBottles = []
 })
 
 describe('AddBottlePage', () => {
@@ -145,5 +165,46 @@ describe('AddBottlePage', () => {
     expect(await screen.findByText('The image uploaded, but the bottle could not be saved.')).toBeInTheDocument()
     expect(screen.getByLabelText('Bottle name')).toHaveValue("Blanton's")
     expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  describe('editing an existing bottle', () => {
+    const existingBottle: Bottle = {
+      id: 'b1',
+      name: 'Eagle Rare 10 Year',
+      distillery: 'Buffalo Trace',
+      status: 'sealed',
+      createdAt: 1,
+    }
+
+    it('shows a not-found state for an unknown bottle id', () => {
+      mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+      mockBottles = []
+      renderEditPage('does-not-exist')
+
+      expect(screen.getByText("We couldn't find this bottle.")).toBeInTheDocument()
+    })
+
+    it('hydrates the form from the existing bottle and titles the page Edit Bottle', () => {
+      mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+      mockBottles = [existingBottle]
+      renderEditPage('b1')
+
+      expect(screen.getByRole('heading', { name: 'Edit Bottle' })).toBeInTheDocument()
+      expect(screen.getByLabelText('Bottle name')).toHaveValue('Eagle Rare 10 Year')
+      expect(screen.getByTestId('fake-distillery')).toHaveTextContent('Buffalo Trace')
+      expect(screen.getByTestId('fake-status')).toHaveTextContent('sealed')
+    })
+
+    it('saves changes via updateBottle and navigates back to the bottle', async () => {
+      mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+      mockBottles = [existingBottle]
+      renderEditPage('b1')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+      expect(mockUpdateBottle).toHaveBeenCalledWith('b1', expect.objectContaining({ name: 'Eagle Rare 10 Year' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/collection/b1')
+      expect(mockAddBottle).not.toHaveBeenCalled()
+    })
   })
 })

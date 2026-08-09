@@ -55,6 +55,7 @@ const pour: Pour = {
 }
 
 const mockDeleteBottle = vi.fn().mockResolvedValue(undefined)
+const mockUpdateBottle = vi.fn().mockResolvedValue(undefined)
 
 function mockSignedInWith(bottles: Bottle[], pours: Pour[] = []) {
   mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
@@ -63,6 +64,7 @@ function mockSignedInWith(bottles: Bottle[], pours: Pour[] = []) {
     loading: false,
     signedIn: true,
     addBottle: vi.fn(),
+    updateBottle: mockUpdateBottle,
     deleteBottle: mockDeleteBottle,
   })
 }
@@ -109,6 +111,35 @@ describe('BottleDetailsPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirm Delete' }))
     expect(mockDeleteBottle).toHaveBeenCalledWith('b1')
+  })
+
+  it('links Edit Bottle to the bottle\'s edit route', () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    expect(screen.getByRole('link', { name: 'Edit Bottle' })).toHaveAttribute('href', '/bottles/b1/edit')
+  })
+
+  it('opens a photo quick view when the bottle image is clicked', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'View photo' }))
+
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    expect(within(dialog).getByText('Add Photo')).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog', { hidden: true })).not.toBeInTheDocument()
+  })
+
+  it('shows Replace Photo instead of Add Photo when the bottle already has an image', async () => {
+    mockSignedInWith([{ ...eagleRare, imageUrl: 'https://example.com/eagle-rare.jpg' }], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'View photo' }))
+
+    expect(within(screen.getByRole('dialog', { hidden: true })).getByText('Replace Photo')).toBeInTheDocument()
   })
 
   it('compares two bottles side by side once one is selected', async () => {

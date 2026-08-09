@@ -27,6 +27,12 @@
   gap: var(--fip-space-3);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
 .confirmText {
   color: var(--fip-cream-soft);
   font-size: var(--fip-text-sm);
@@ -48,8 +54,11 @@
   align-items: center;
   justify-content: center;
   background: var(--fip-oak-deep);
+  border: none;
   border-radius: var(--fip-radius-lg);
   overflow: hidden;
+  padding: 0;
+  cursor: pointer;
 }
 
 .image {

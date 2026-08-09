@@ -7,6 +7,7 @@ import { isMockAuthEnabled } from '../data/devMode'
 import type { Bottle, GalleryPhoto, InfinityBottleAddition, Memory, Pour, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
+export type BottlePatch = Partial<Omit<Bottle, 'id' | 'createdAt'>>
 export type NewPourInput = Omit<Pour, 'id'>
 export type PourPatch = Omit<Pour, 'id' | 'bottleId'>
 export type NewMemoryInput = Omit<Memory, 'id' | 'createdAt'>
@@ -17,6 +18,7 @@ interface UserDataState {
   loading: boolean
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<string | undefined>
+  updateBottle: (bottleId: string, patch: BottlePatch) => Promise<void>
   deleteBottle: (bottleId: string) => Promise<void>
   deleteBottles: (bottleIds: string[]) => Promise<void>
   addPour: (input: NewPourInput) => Promise<void>
@@ -36,6 +38,7 @@ const UserDataContext = createContext<UserDataState>({
   loading: true,
   signedIn: false,
   addBottle: async () => {},
+  updateBottle: async () => {},
   deleteBottle: async () => {},
   deleteBottles: async () => {},
   addPour: async () => {},
@@ -113,6 +116,19 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { bottles: nextBottles })
       return bottle.id
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const updateBottle = useCallback(
+    async (bottleId: string, patch: BottlePatch) => {
+      if (!user) return
+      const nextBottles = userDoc.bottles.map((b) => (b.id === bottleId ? { ...b, ...patch } : b))
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
     },
     [user, userDoc, mockMode],
   )
@@ -290,6 +306,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       loading: authLoading || dataLoading,
       signedIn: Boolean(user),
       addBottle,
+      updateBottle,
       deleteBottle,
       deleteBottles,
       addPour,
@@ -309,6 +326,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       dataLoading,
       user,
       addBottle,
+      updateBottle,
       deleteBottle,
       deleteBottles,
       addPour,

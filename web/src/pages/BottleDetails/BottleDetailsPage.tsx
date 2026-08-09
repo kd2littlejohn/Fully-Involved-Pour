@@ -20,6 +20,7 @@ import { PourStoriesTab } from './tabs/PourStoriesTab'
 import { JourneyTab } from './tabs/JourneyTab'
 import { GalleryTab } from './tabs/GalleryTab'
 import { CompareTab } from './tabs/CompareTab'
+import { BottlePhotoLightbox } from './BottlePhotoLightbox'
 import styles from './BottleDetailsPage.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -46,6 +47,7 @@ export function BottleDetailsPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Bottle" title="Bottle details" />
@@ -115,16 +117,21 @@ export function BottleDetailsPage() {
             </Button>
           </div>
         ) : (
-          <Button variant="ghost" onClick={() => setConfirmingDelete(true)}>
-            Delete Bottle
-          </Button>
+          <div className={styles.headerActions}>
+            <Link to={`/bottles/${bottle.id}/edit`}>
+              <Button variant="ghost">Edit Bottle</Button>
+            </Link>
+            <Button variant="ghost" onClick={() => setConfirmingDelete(true)}>
+              Delete Bottle
+            </Button>
+          </div>
         )}
       </div>
 
       <div className={styles.hero}>
-        <div className={styles.imageWrap}>
+        <button type="button" className={styles.imageWrap} onClick={() => setShowPhotoLightbox(true)} aria-label="View photo">
           {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
-        </div>
+        </button>
         <div className={styles.info}>
           <h1 className={styles.name}>{bottle.name}</h1>
           {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
@@ -166,6 +173,8 @@ export function BottleDetailsPage() {
         {activeTab === 'gallery' ? <GalleryTab bottle={bottle} /> : null}
         {activeTab === 'compare' ? <CompareTab bottle={bottle} otherBottles={otherBottles} pours={userDoc.pours} /> : null}
       </TabPanel>
+
+      {showPhotoLightbox ? <BottlePhotoLightbox bottle={bottle} onClose={() => setShowPhotoLightbox(false)} /> : null}
     </>
   )
 }

@@ -26,4 +26,5 @@ export const router = createHashRouter([
   // Outside AppShell — a full-screen add flow shouldn't compete with the
   // persistent bottom nav for the sticky action bar's space.
   { path: '/bottles/new', element: <AddBottlePage /> },
+  { path: '/bottles/:bottleId/edit', element: <AddBottlePage /> },
 ])
