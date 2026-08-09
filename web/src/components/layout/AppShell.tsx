@@ -1,7 +1,9 @@
+import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import { TopNav } from './TopNav'
 import { BottomNav } from './BottomNav'
 import { DevModeBadge } from './DevModeBadge'
+import { RouteFallback } from './RouteFallback'
 import styles from './AppShell.module.css'
 
 export function AppShell() {
@@ -10,7 +12,9 @@ export function AppShell() {
       <DevModeBadge />
       <TopNav />
       <main className={styles.main}>
-        <Outlet />
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
       <BottomNav />
     </div>
