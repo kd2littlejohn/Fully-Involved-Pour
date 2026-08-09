@@ -4,13 +4,18 @@ import type { Bottle, Pour } from '../../data/types'
 
 const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
 
-function pourFor(bottleId: string, noseAromas: string[], palateFlavors: string[]): Pour {
+function pourFor(
+  bottleId: string,
+  noseAromas: string[],
+  palateFlavors: string[],
+  notes: { noseNotes?: string; palateNotes?: string; finishNotes?: string; complexityNotes?: string } = {},
+): Pour {
   return {
     id: `p-${Math.random()}`,
     bottleId,
     date: '2026-01-01',
     rating: 8,
-    fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.75, value: 0.75, total: 8, noseAromas, palateFlavors },
+    fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.75, value: 0.75, total: 8, noseAromas, palateFlavors, ...notes },
   }
 }
 
@@ -43,5 +48,32 @@ describe('flavorRadarValues', () => {
     expect(values).toBeDefined()
     const fruityIndex = FLAVOR_AXES.indexOf('Fruity')
     expect(values?.[fruityIndex]).toBe(1)
+  })
+
+  it('picks up flavor words written in free-text tasting notes, not just tapped chips', () => {
+    const pours = [pourFor('b1', [], [], { noseNotes: 'hints of vanilla and oak', palateNotes: 'a little black pepper' })]
+    const values = flavorRadarValues(bottle, pours)
+    expect(values).toBeDefined()
+
+    const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
+    expect(byAxis.Sweet).toBeGreaterThan(0) // vanilla
+    expect(byAxis.Woody).toBeGreaterThan(0) // oak
+    expect(byAxis.Spicy).toBeGreaterThan(0) // black pepper
+  })
+
+  it('picks up flavor words from the bottle-level notes field', () => {
+    const bottleWithNotes: Bottle = { ...bottle, notes: 'Tastes like caramel and leather.' }
+    const values = flavorRadarValues(bottleWithNotes, [])
+    expect(values).toBeDefined()
+
+    const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
+    expect(byAxis.Sweet).toBeGreaterThan(0) // caramel
+    expect(byAxis.Smoky).toBeGreaterThan(0) // leather
+  })
+
+  it('does not false-positive match a tag word inside an unrelated word', () => {
+    // "oak" should not match inside "soak"
+    const bottleWithNotes: Bottle = { ...bottle, notes: 'Let it soak in the glass a while.' }
+    expect(flavorRadarValues(bottleWithNotes, [])).toBeUndefined()
   })
 })

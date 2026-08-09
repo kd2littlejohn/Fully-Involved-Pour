@@ -26,18 +26,46 @@ const TAG_AXIS: Record<string, FlavorAxis> = {
   Tobacco: 'Smoky',
 }
 
+const TAG_MATCHERS = Object.entries(TAG_AXIS).map(([tag, axis]) => ({
+  axis,
+  // Word-boundary match so free-text notes count too — "hints of vanilla and
+  // oak" should nudge Sweet and Woody just like tapping those chips would.
+  pattern: new RegExp(`\\b${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
+}))
+
+function countNoteMatches(text: string | undefined, counts: Record<FlavorAxis, number>): number {
+  if (!text) return 0
+  let matched = 0
+  for (const { axis, pattern } of TAG_MATCHERS) {
+    if (pattern.test(text)) {
+      counts[axis] += 1
+      matched += 1
+    }
+  }
+  return matched
+}
+
 // Every pour of this bottle plus its legacy `flavors` field, weighted by how
 // often each tag comes up — a bottle poured five times with "Oak" every time
-// leans woodier on the chart than one where it showed up once.
+// leans woodier on the chart than one where it showed up once. Free-text
+// notes (bottle notes, and each pour's nose/palate/finish/complexity notes)
+// are scanned for the same tag words, so writing "vanilla and oak" in notes
+// counts even if the matching chip was never tapped.
 export function flavorRadarValues(bottle: Bottle, pours: Pour[]): number[] | undefined {
   const tags: string[] = [...(bottle.flavors ?? [])]
+  const counts: Record<FlavorAxis, number> = { Sweet: 0, Spicy: 0, Woody: 0, Fruity: 0, Smoky: 0 }
+  let total = 0
+
   for (const pour of pours) {
     if (pour.bottleId !== bottle.id) continue
     tags.push(...pour.fip.noseAromas, ...pour.fip.palateFlavors)
+    total += countNoteMatches(pour.fip.noseNotes, counts)
+    total += countNoteMatches(pour.fip.palateNotes, counts)
+    total += countNoteMatches(pour.fip.finishNotes, counts)
+    total += countNoteMatches(pour.fip.complexityNotes, counts)
   }
+  total += countNoteMatches(bottle.notes, counts)
 
-  const counts: Record<FlavorAxis, number> = { Sweet: 0, Spicy: 0, Woody: 0, Fruity: 0, Smoky: 0 }
-  let total = 0
   for (const tag of tags) {
     const axis = TAG_AXIS[tag]
     if (!axis) continue
