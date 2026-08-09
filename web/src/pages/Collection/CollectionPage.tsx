@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
+import { controlClassName } from '../../components/ui/Field'
 import { BottleCard } from '../../components/domain/BottleCard'
 import { BottleListRow } from '../../components/domain/BottleListRow'
 import { SignInButton } from '../../components/domain/SignInButton'
@@ -38,11 +39,18 @@ function matchesFilter(bottle: Bottle, filter: Filter): boolean {
   }
 }
 
+function matchesQuery(bottle: Bottle, query: string): boolean {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return bottle.name.toLowerCase().includes(q) || (bottle.distillery?.toLowerCase().includes(q) ?? false)
+}
+
 export function CollectionPage() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading, deleteBottles } = useUserData()
   const [filter, setFilter] = useState<Filter>('all')
+  const [query, setQuery] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -52,9 +60,14 @@ export function CollectionPage() {
   const coreBarBottles = useMemo(() => getCoreBarBottles(userDoc.bottles, userDoc.pours), [userDoc.bottles, userDoc.pours])
 
   const filteredBottles = useMemo(() => {
-    if (filter === 'core-bar') return coreBarBottles
-    return userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter))
-  }, [userDoc.bottles, filter, coreBarBottles])
+    const base = filter === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter))
+    return base.filter((bottle) => matchesQuery(bottle, query))
+  }, [userDoc.bottles, filter, coreBarBottles, query])
+
+  function countForFilter(value: Filter): number {
+    const base = value === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((b) => matchesFilter(b, value))
+    return base.filter((bottle) => matchesQuery(bottle, query)).length
+  }
 
   const allFilteredSelected = filteredBottles.length > 0 && filteredBottles.every((b) => selectedIds.has(b.id))
 
@@ -113,6 +126,17 @@ export function CollectionPage() {
         />
       ) : (
         <>
+          <div className={styles.searchRow}>
+            <input
+              type="search"
+              className={controlClassName}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name or distillery…"
+              aria-label="Search your collection"
+            />
+          </div>
+
           <div className={styles.toolbar}>
             <div className={styles.chips}>
               {FILTERS.map((option) => (
@@ -123,7 +147,7 @@ export function CollectionPage() {
                   onClick={() => setFilter(option.value)}
                   aria-pressed={option.value === filter}
                 >
-                  {option.label} ({option.value === 'core-bar' ? coreBarBottles.length : userDoc.bottles.filter((b) => matchesFilter(b, option.value)).length})
+                  {option.label} ({countForFilter(option.value)})
                 </button>
               ))}
             </div>
@@ -205,11 +229,13 @@ export function CollectionPage() {
 
           {filteredBottles.length === 0 ? (
             <EmptyState
-              title={filter === 'core-bar' ? 'No Core Bar bottles yet.' : 'No bottles here yet.'}
+              title={query.trim() ? `No bottles match "${query.trim()}".` : filter === 'core-bar' ? 'No Core Bar bottles yet.' : 'No bottles here yet.'}
               message={
-                filter === 'core-bar'
-                  ? 'Log a few Pour Stories for a bottle to see it earn a permanent spot here.'
-                  : 'Try a different filter, or add a bottle to this view.'
+                query.trim()
+                  ? 'Try a different name or distillery, or clear the search.'
+                  : filter === 'core-bar'
+                    ? 'Log a few Pour Stories for a bottle to see it earn a permanent spot here.'
+                    : 'Try a different filter, or add a bottle to this view.'
               }
             />
           ) : viewMode === 'grid' ? (

@@ -33,9 +33,9 @@ function renderCollection() {
 }
 
 const bottles: Bottle[] = [
-  { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 },
-  { id: 'b2', name: 'Weller 12', status: 'sealed', createdAt: 2 },
-  { id: 'b3', name: 'Pappy 15 (wishlist)', status: 'wishlist', createdAt: 3 },
+  { id: 'b1', name: 'Eagle Rare', status: 'open', distillery: 'Buffalo Trace', createdAt: 1 },
+  { id: 'b2', name: 'Weller 12', status: 'sealed', distillery: 'Buffalo Trace', createdAt: 2 },
+  { id: 'b3', name: 'Pappy 15 (wishlist)', status: 'wishlist', distillery: 'Old Rip Van Winkle', createdAt: 3 },
   { id: 'b4', name: 'Favorite Pick', status: 'sealed', favorite: true, createdAt: 4 },
   { id: 'b5', name: 'Elmer T. Lee', status: 'incoming', createdAt: 5 },
 ]
@@ -92,6 +92,72 @@ describe('CollectionPage', () => {
 
     expect(screen.getByText('Elmer T. Lee')).toBeInTheDocument()
     expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
+  })
+
+  it('searches by bottle name', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    await userEvent.type(screen.getByLabelText('Search your collection'), 'eagle')
+
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+    expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
+  })
+
+  it('searches by distillery', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    await userEvent.type(screen.getByLabelText('Search your collection'), 'buffalo trace')
+
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+    expect(screen.queryByText(/Pappy 15/)).not.toBeInTheDocument()
+  })
+
+  it('combines search with the active status filter and updates chip counts', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    await userEvent.type(screen.getByLabelText('Search your collection'), 'buffalo trace')
+    await userEvent.click(screen.getByRole('button', { name: /Sealed \(1\)/ }))
+
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+    expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument() // open, not sealed
+    expect(screen.queryByText('Favorite Pick')).not.toBeInTheDocument() // sealed, but no distillery match
+  })
+
+  it('shows a "no matches" empty state for a search with no results', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    await userEvent.type(screen.getByLabelText('Search your collection'), 'nonexistent bottle')
+
+    expect(screen.getByText('No bottles match "nonexistent bottle".')).toBeInTheDocument()
   })
 
   it('navigates to the Add Bottle page when Add a Bottle is clicked', async () => {
