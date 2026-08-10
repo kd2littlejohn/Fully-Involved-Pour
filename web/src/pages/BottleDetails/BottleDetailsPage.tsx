@@ -97,6 +97,7 @@ export function BottleDetailsPage() {
   if (bottle.distillery) quickStats.push({ value: bottle.distillery, label: 'Distillery' })
 
   const currentBottleId = bottle.id
+  const currentOpenedDate = bottle.openedDate
   const canQuickOpen = bottle.status !== 'open' && bottle.status !== 'finished'
 
   async function handleDelete() {
@@ -108,7 +109,7 @@ export function BottleDetailsPage() {
 
   async function handleMarkOpened() {
     setMarkingOpen(true)
-    await updateBottle(currentBottleId, { status: 'open', openedDate: bottle.openedDate ?? todayIsoDate() })
+    await updateBottle(currentBottleId, { status: 'open', openedDate: currentOpenedDate ?? todayIsoDate() })
     setMarkingOpen(false)
   }
 
