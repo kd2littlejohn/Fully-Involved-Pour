@@ -1,0 +1,37 @@
+.banner {
+  position: fixed;
+  left: var(--fip-space-4);
+  right: var(--fip-space-4);
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--fip-space-3));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  flex-wrap: wrap;
+  padding: var(--fip-space-3) var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-charcoal);
+  border: 1px solid var(--fip-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+@media (min-width: 900px) {
+  .banner {
+    bottom: var(--fip-space-5);
+    left: auto;
+    right: var(--fip-space-5);
+    max-width: 360px;
+  }
+}
+
+.message {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: var(--fip-space-2);
+}

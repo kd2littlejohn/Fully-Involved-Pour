@@ -13,7 +13,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      // We register the service worker ourselves via `virtual:pwa-register`
+      // (see src/pwaUpdate.ts) so we control exactly when a waiting update
+      // activates and reloads — never injected/auto-registered.
+      injectRegister: null,
       manifest: {
         name: 'Fully Involved Pour',
         short_name: 'FI Pour',
