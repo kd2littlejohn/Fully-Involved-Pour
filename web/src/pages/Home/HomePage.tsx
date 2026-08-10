@@ -7,6 +7,7 @@ import { BottleCard } from '../../components/domain/BottleCard'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { RollTheDiceButton } from '../../features/diceRoll/RollTheDiceButton'
+import { WhatShouldIPourButton } from '../../features/whatShouldIPour/WhatShouldIPourButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import {
@@ -71,6 +72,7 @@ export function HomePage() {
       ) : (
         <>
           <div className={styles.actions}>
+            <WhatShouldIPourButton />
             <Link to="/bottles/new">
               <Button variant="secondary">Add a Bottle</Button>
             </Link>
