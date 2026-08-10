@@ -27,22 +27,71 @@ const TAG_AXIS: Record<string, FlavorAxis> = {
 }
 
 const TAG_MATCHERS = Object.entries(TAG_AXIS).map(([tag, axis]) => ({
+  tag,
   axis,
   // Word-boundary match so free-text notes count too — "hints of vanilla and
   // oak" should nudge Sweet and Woody just like tapping those chips would.
   pattern: new RegExp(`\\b${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
 }))
 
-function countNoteMatches(text: string | undefined, counts: Record<FlavorAxis, number>): number {
-  if (!text) return 0
-  let matched = 0
-  for (const { axis, pattern } of TAG_MATCHERS) {
+// Shared accumulator so per-bottle and collection-wide flavor logic run the
+// exact same matching code — no duplicated regex/tag logic between them.
+// `structured` = deliberately chip-selected tags (pour.fip.noseAromas /
+// palateFlavors, the legacy bottle.flavors[] field). `freeText` = heuristic
+// word-boundary matches inside notes fields. Kept separate (not just merged
+// into `counts`) so callers that care about a tag's provenance — like
+// ranking top traits — can prioritize structured picks over free-text
+// guesses instead of treating them as equally confident.
+interface FlavorAccumulator {
+  counts: Record<FlavorAxis, number>
+  total: number
+  structured: Map<string, number>
+  freeText: Map<string, number>
+}
+
+function newAccumulator(): FlavorAccumulator {
+  return { counts: { Sweet: 0, Spicy: 0, Woody: 0, Fruity: 0, Smoky: 0 }, total: 0, structured: new Map(), freeText: new Map() }
+}
+
+function addStructuredTag(acc: FlavorAccumulator, tag: string): void {
+  const axis = TAG_AXIS[tag]
+  if (!axis) return
+  acc.counts[axis] += 1
+  acc.total += 1
+  acc.structured.set(tag, (acc.structured.get(tag) ?? 0) + 1)
+}
+
+function addFreeText(acc: FlavorAccumulator, text: string | undefined): void {
+  if (!text) return
+  for (const { tag, axis, pattern } of TAG_MATCHERS) {
     if (pattern.test(text)) {
-      counts[axis] += 1
-      matched += 1
+      acc.counts[axis] += 1
+      acc.total += 1
+      acc.freeText.set(tag, (acc.freeText.get(tag) ?? 0) + 1)
     }
   }
-  return matched
+}
+
+function accumulate(bottles: Bottle[], pours: Pour[]): FlavorAccumulator {
+  const acc = newAccumulator()
+  for (const bottle of bottles) {
+    for (const tag of bottle.flavors ?? []) addStructuredTag(acc, tag)
+    addFreeText(acc, bottle.notes)
+  }
+  for (const pour of pours) {
+    for (const tag of [...pour.fip.noseAromas, ...pour.fip.palateFlavors]) addStructuredTag(acc, tag)
+    addFreeText(acc, pour.fip.noseNotes)
+    addFreeText(acc, pour.fip.palateNotes)
+    addFreeText(acc, pour.fip.finishNotes)
+    addFreeText(acc, pour.fip.complexityNotes)
+  }
+  return acc
+}
+
+function radarFromAccumulator(acc: FlavorAccumulator): number[] | undefined {
+  if (acc.total === 0) return undefined
+  const max = Math.max(...FLAVOR_AXES.map((axis) => acc.counts[axis]))
+  return FLAVOR_AXES.map((axis) => acc.counts[axis] / max)
 }
 
 // Every pour of this bottle plus its legacy `flavors` field, weighted by how
@@ -52,29 +101,31 @@ function countNoteMatches(text: string | undefined, counts: Record<FlavorAxis, n
 // are scanned for the same tag words, so writing "vanilla and oak" in notes
 // counts even if the matching chip was never tapped.
 export function flavorRadarValues(bottle: Bottle, pours: Pour[]): number[] | undefined {
-  const tags: string[] = [...(bottle.flavors ?? [])]
-  const counts: Record<FlavorAxis, number> = { Sweet: 0, Spicy: 0, Woody: 0, Fruity: 0, Smoky: 0 }
-  let total = 0
+  return radarFromAccumulator(accumulate([bottle], pours.filter((p) => p.bottleId === bottle.id)))
+}
 
-  for (const pour of pours) {
-    if (pour.bottleId !== bottle.id) continue
-    tags.push(...pour.fip.noseAromas, ...pour.fip.palateFlavors)
-    total += countNoteMatches(pour.fip.noseNotes, counts)
-    total += countNoteMatches(pour.fip.palateNotes, counts)
-    total += countNoteMatches(pour.fip.finishNotes, counts)
-    total += countNoteMatches(pour.fip.complexityNotes, counts)
-  }
-  total += countNoteMatches(bottle.notes, counts)
+// Same logic, widened from one bottle's pours to the user's entire pour
+// history — the basis for Your Palate's collection-wide Flavor Radar.
+export function collectionFlavorRadarValues(bottles: Bottle[], pours: Pour[]): number[] | undefined {
+  return radarFromAccumulator(accumulate(bottles, pours))
+}
 
-  for (const tag of tags) {
-    const axis = TAG_AXIS[tag]
-    if (!axis) continue
-    counts[axis] += 1
-    total += 1
-  }
+export interface FlavorTagRank {
+  tag: string
+  structuredCount: number
+  freeTextCount: number
+}
 
-  if (total === 0) return undefined
-
-  const max = Math.max(...FLAVOR_AXES.map((axis) => counts[axis]))
-  return FLAVOR_AXES.map((axis) => counts[axis] / max)
+// Ranks flavor/aroma tags by how much real evidence backs them — a tag the
+// user deliberately tapped as a chip (structured) always outranks one only
+// ever inferred from free-text notes (heuristic), regardless of how many
+// times the free-text match fired. Ties within the same tier break on raw
+// count, then alphabetically for a fully deterministic order.
+export function topFlavorTags(bottles: Bottle[], pours: Pour[], limit = 6): FlavorTagRank[] {
+  const acc = accumulate(bottles, pours)
+  const allTags = new Set<string>([...acc.structured.keys(), ...acc.freeText.keys()])
+  return [...allTags]
+    .map((tag) => ({ tag, structuredCount: acc.structured.get(tag) ?? 0, freeTextCount: acc.freeText.get(tag) ?? 0 }))
+    .sort((a, b) => b.structuredCount - a.structuredCount || b.freeTextCount - a.freeTextCount || a.tag.localeCompare(b.tag))
+    .slice(0, limit)
 }

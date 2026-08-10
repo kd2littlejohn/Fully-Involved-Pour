@@ -1,0 +1,74 @@
+.summary {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-md);
+  line-height: 1.5;
+}
+
+.footnote {
+  margin-top: var(--fip-space-1);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.radarWrap {
+  display: flex;
+  justify-content: center;
+  margin: var(--fip-space-6) 0;
+}
+
+.gravitate {
+  margin-top: var(--fip-space-5);
+}
+
+.gravitateLabel {
+  color: var(--fip-stone);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin-bottom: var(--fip-space-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}
+
+.patterns {
+  margin-top: var(--fip-space-6);
+  padding-top: var(--fip-space-5);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.patternsLabel {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  margin-bottom: var(--fip-space-3);
+}
+
+.patternsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  margin: 0;
+  padding-left: var(--fip-space-5);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: 1.5;
+}
+
+.patternsList li {
+  padding-left: var(--fip-space-1);
+}
+
+.evolution {
+  margin-top: var(--fip-space-6);
+  padding-top: var(--fip-space-5);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.evolutionText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  font-style: italic;
+}

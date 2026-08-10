@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { flavorRadarValues, FLAVOR_AXES } from './flavorCategories'
+import { flavorRadarValues, collectionFlavorRadarValues, topFlavorTags, FLAVOR_AXES } from './flavorCategories'
 import type { Bottle, Pour } from '../../data/types'
 
 const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
@@ -75,5 +75,62 @@ describe('flavorRadarValues', () => {
     // "oak" should not match inside "soak"
     const bottleWithNotes: Bottle = { ...bottle, notes: 'Let it soak in the glass a while.' }
     expect(flavorRadarValues(bottleWithNotes, [])).toBeUndefined()
+  })
+})
+
+describe('collectionFlavorRadarValues', () => {
+  it('returns undefined for a collection with no recognized tags anywhere', () => {
+    const bottleTwo: Bottle = { id: 'b2', name: 'Weller', status: 'open' }
+    expect(collectionFlavorRadarValues([bottle, bottleTwo], [])).toBeUndefined()
+  })
+
+  it('aggregates flavor signal across every bottle, not just one', () => {
+    const bottleTwo: Bottle = { id: 'b2', name: 'Weller', status: 'open', flavors: ['Oak'] }
+    const pours = [pourFor('b1', ['Vanilla'], [])]
+    const values = collectionFlavorRadarValues([bottle, bottleTwo], pours)
+    expect(values).toBeDefined()
+    const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
+    expect(byAxis.Sweet).toBeGreaterThan(0) // vanilla, from bottle b1's pour
+    expect(byAxis.Woody).toBeGreaterThan(0) // oak, from bottle b2's own flavors field
+  })
+})
+
+describe('topFlavorTags', () => {
+  it('returns an empty list when there are no structured or free-text tags', () => {
+    const bottleTwo: Bottle = { id: 'b2', name: 'Weller', status: 'open' }
+    expect(topFlavorTags([bottle, bottleTwo], [])).toEqual([])
+  })
+
+  it('ranks a structured tag above a free-text tag even with fewer raw mentions', () => {
+    // "Cherry" is tapped once as a structured chip; "Vanilla" is mentioned
+    // three times in free-text notes. Structured still wins.
+    const pours = [
+      pourFor('b1', ['Cherry'], []),
+      pourFor('b1', [], [], { noseNotes: 'vanilla' }),
+      pourFor('b1', [], [], { palateNotes: 'vanilla' }),
+      pourFor('b1', [], [], { finishNotes: 'vanilla' }),
+    ]
+    const ranked = topFlavorTags([bottle], pours)
+    const cherry = ranked.find((r) => r.tag === 'Cherry')
+    const vanilla = ranked.find((r) => r.tag === 'Vanilla')
+    expect(cherry).toBeDefined()
+    expect(vanilla).toBeDefined()
+    expect(ranked.indexOf(cherry!)).toBeLessThan(ranked.indexOf(vanilla!))
+    expect(cherry!.structuredCount).toBe(1)
+    expect(vanilla!.freeTextCount).toBe(3)
+  })
+
+  it('still surfaces free-text-only tags when nothing structured exists', () => {
+    const bottleWithNotes: Bottle = { ...bottle, notes: 'Tastes like caramel and leather.' }
+    const ranked = topFlavorTags([bottleWithNotes], [])
+    expect(ranked.map((r) => r.tag)).toEqual(expect.arrayContaining(['Caramel', 'Leather']))
+    expect(ranked.every((r) => r.structuredCount === 0)).toBe(true)
+  })
+
+  it('respects the limit and orders ties alphabetically', () => {
+    const bottleWithFlavors: Bottle = { ...bottle, flavors: ['Oak', 'Cherry', 'Honey'] }
+    const ranked = topFlavorTags([bottleWithFlavors], [], 2)
+    expect(ranked).toHaveLength(2)
+    expect(ranked.map((r) => r.tag)).toEqual(['Cherry', 'Honey']) // alphabetical among equal structuredCount=1 ties
   })
 })
