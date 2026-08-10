@@ -1,10 +1,5 @@
 import { registerSW } from 'virtual:pwa-register'
 
-// A quiet, permanent breadcrumb — lets a real build be told apart from the
-// previous one from devtools alone (no UI change), which is exactly what a
-// release-freshness check needs to confirm.
-console.info('[FIP] pwaUpdate ready')
-
 // Per the approved release-freshness policy: check conservatively, not on
 // every hash-route change (this is a HashRouter app, so real navigations
 // that would otherwise trigger the browser's own update check essentially
@@ -66,6 +61,10 @@ export function initPwaUpdate(onNeedRefresh: () => void): PwaUpdateController {
     onRegisteredSW(_swUrl, registration) {
       registrationRef = registration
       if (registration) {
+        // A quiet, permanent breadcrumb — confirms registration actually
+        // succeeded (and lets a build be told apart from the previous one)
+        // from devtools alone, with no UI change.
+        console.info('[FIP] service worker registered', registration.scope)
         intervalId = setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL_MS)
       }
     },
