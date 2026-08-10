@@ -143,6 +143,29 @@ describe('BottleDetailsPage', () => {
     expect(screen.getByRole('link', { name: 'Edit Bottle' })).toHaveAttribute('href', '/bottles/b1/edit')
   })
 
+  it('offers Mark as Opened for a sealed bottle and marks it opened in one tap', async () => {
+    mockSignedInWith([wellerSpecial], [])
+    renderPage('b2')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mark as Opened' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b2', { status: 'open', openedDate: expect.any(String) })
+  })
+
+  it('does not offer Mark as Opened for a bottle that is already open', () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    expect(screen.queryByRole('button', { name: 'Mark as Opened' })).not.toBeInTheDocument()
+  })
+
+  it('does not offer Mark as Opened for a finished bottle', () => {
+    mockSignedInWith([{ ...eagleRare, status: 'finished' }], [pour])
+    renderPage('b1')
+
+    expect(screen.queryByRole('button', { name: 'Mark as Opened' })).not.toBeInTheDocument()
+  })
+
   it('opens a photo quick view when the bottle image is clicked', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')

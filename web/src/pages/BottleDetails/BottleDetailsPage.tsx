@@ -31,6 +31,10 @@ const STATUS_LABEL: Record<BottleStatus, string> = {
   incoming: 'Incoming',
 }
 
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'pour-stories', label: 'Pour Stories' },
@@ -43,11 +47,12 @@ export function BottleDetailsPage() {
   const { bottleId } = useParams()
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
-  const { userDoc, loading: dataLoading, deleteBottle } = useUserData()
+  const { userDoc, loading: dataLoading, updateBottle, deleteBottle } = useUserData()
   const [activeTab, setActiveTab] = useState('overview')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
+  const [markingOpen, setMarkingOpen] = useState(false)
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Bottle" title="Bottle details" />
@@ -92,11 +97,19 @@ export function BottleDetailsPage() {
   if (bottle.distillery) quickStats.push({ value: bottle.distillery, label: 'Distillery' })
 
   const currentBottleId = bottle.id
+  const canQuickOpen = bottle.status !== 'open' && bottle.status !== 'finished'
+
   async function handleDelete() {
     setDeleting(true)
     await deleteBottle(currentBottleId)
     setDeleting(false)
     navigate('/collection')
+  }
+
+  async function handleMarkOpened() {
+    setMarkingOpen(true)
+    await updateBottle(currentBottleId, { status: 'open', openedDate: bottle.openedDate ?? todayIsoDate() })
+    setMarkingOpen(false)
   }
 
   return (
@@ -118,6 +131,11 @@ export function BottleDetailsPage() {
           </div>
         ) : (
           <div className={styles.headerActions}>
+            {canQuickOpen ? (
+              <Button variant="secondary" onClick={handleMarkOpened} disabled={markingOpen}>
+                {markingOpen ? 'Marking Opened…' : 'Mark as Opened'}
+              </Button>
+            ) : null}
             <Link to={`/bottles/${bottle.id}/edit`}>
               <Button variant="ghost">Edit Bottle</Button>
             </Link>
