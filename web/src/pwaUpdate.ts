@@ -1,5 +1,10 @@
 import { registerSW } from 'virtual:pwa-register'
 
+// A quiet, permanent breadcrumb — lets a real build be told apart from the
+// previous one from devtools alone (no UI change), which is exactly what a
+// release-freshness check needs to confirm.
+console.info('[FIP] pwaUpdate ready')
+
 // Per the approved release-freshness policy: check conservatively, not on
 // every hash-route change (this is a HashRouter app, so real navigations
 // that would otherwise trigger the browser's own update check essentially
