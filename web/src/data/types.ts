@@ -40,6 +40,7 @@ export interface Bottle {
   bottleSize?: number
   openedDate?: string
   expectedDate?: string
+  finishedDate?: string
   categories?: string[]
   category?: string
   pourStyle?: PourStyle

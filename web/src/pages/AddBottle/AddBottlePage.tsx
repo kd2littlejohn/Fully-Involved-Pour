@@ -49,6 +49,7 @@ export function AddBottlePage() {
     storeLocation: '',
     openedDate: '',
     expectedDate: '',
+    finishedDate: '',
     notes: '',
   })
   const [nameError, setNameError] = useState<string | null>(null)
@@ -77,6 +78,10 @@ export function AddBottlePage() {
       storeLocation: existingBottle.storeLocation ?? '',
       openedDate: existingBottle.openedDate ?? '',
       expectedDate: existingBottle.expectedDate ?? '',
+      // Legacy finished bottles with no stored date load blank rather than
+      // being backfilled with an inferred value — the user only ever gets a
+      // real, deliberately-entered date here.
+      finishedDate: existingBottle.finishedDate ?? '',
       notes: existingBottle.notes ?? '',
     })
   }, [isEditing, existingBottle])
@@ -116,6 +121,7 @@ export function AddBottlePage() {
         storeLocation: ownership.storeLocation.trim() || undefined,
         openedDate: ownership.status === 'open' ? ownership.openedDate.trim() || undefined : undefined,
         expectedDate: ownership.status === 'incoming' ? ownership.expectedDate.trim() || undefined : undefined,
+        finishedDate: ownership.status === 'finished' ? ownership.finishedDate.trim() || undefined : undefined,
         notes: ownership.notes.trim() || undefined,
       }
       if (isEditing && bottleId) {

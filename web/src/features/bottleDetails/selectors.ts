@@ -1,4 +1,4 @@
-import type { Bottle, Pour } from '../../data/types'
+import type { Bottle, Memory, Pour } from '../../data/types'
 
 export function mashBillSummary(bottle: Bottle): string | undefined {
   const parts: string[] = []
@@ -19,43 +19,144 @@ export function getCurrentScore(bottle: Bottle, pours: Pour[]): number | undefin
   return bottle.rating
 }
 
-export interface JourneyEvent {
+const PROGRESSION_FULL_LIMIT = 6
+
+// A single calm line, never a chart. Below 2 pours there's nothing to show
+// progression of. Up to 6 pours shows every real value; beyond that, only
+// the first and last real values (never interpolated) to keep it one line.
+export function buildRatingProgression(bottlePours: Pour[]): string | undefined {
+  if (bottlePours.length < 2) return undefined
+  const chronological = [...bottlePours].sort((a, b) => a.date.localeCompare(b.date))
+  const ratings = chronological.map((p) => p.rating.toFixed(1))
+  if (ratings.length <= PROGRESSION_FULL_LIMIT) return ratings.join(' → ')
+  return `${ratings[0]} → … → ${ratings[ratings.length - 1]}`
+}
+
+export interface FinishedDateInfo {
+  date: string
+  // true when this date is a best-effort derivation (last pour / opened /
+  // added), not a value the user actually entered — see the fallback chain
+  // below. Stays true until the user deliberately edits and saves a real
+  // finishedDate; never auto-written back to the bottle.
+  inferred: boolean
+}
+
+// Fallback order, display-only, never persisted: bottle.finishedDate (real,
+// user-entered) -> latest real pour date (closest real signal to "when did
+// this bottle actually run out") -> openedDate -> createdAt. Only meaningful
+// once the bottle is actually finished.
+export function getFinishedDate(bottle: Bottle, pours: Pour[]): FinishedDateInfo | undefined {
+  if (bottle.status !== 'finished') return undefined
+  if (bottle.finishedDate) return { date: bottle.finishedDate, inferred: false }
+
+  const latestPour = getPoursForBottle(pours, bottle.id)[0]
+  if (latestPour) return { date: latestPour.date, inferred: true }
+  if (bottle.openedDate) return { date: bottle.openedDate, inferred: true }
+  if (bottle.createdAt) return { date: new Date(bottle.createdAt).toISOString(), inferred: true }
+  return undefined
+}
+
+export function getMemoriesForBottle(memories: Memory[], bottleId: string): Memory[] {
+  return memories.filter((m) => m.bottleId === bottleId).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+export type BottleStoryMilestone = 'First Pour' | 'Highest Rated' | 'Most Recent' | 'Shared Pour'
+
+export interface BottleStoryEvent {
   id: string
   date: string
   label: string
   detail?: string
   pourId?: string
   bottleId?: string
+  memoryId?: string
+  photoUrl?: string
+  tags?: BottleStoryMilestone[]
+  inferredDate?: boolean
 }
 
-// Built only from real fields the user entered — never fabricated. See
-// FIP_PRODUCT_VISION_AND_DESIGN_SYSTEM.md §9 and project memory on the
-// Journey tab ("no fabricated events").
-export function buildJourneyEvents(bottle: Bottle, pours: Pour[]): JourneyEvent[] {
-  const events: JourneyEvent[] = []
+export interface BottleStory {
+  events: BottleStoryEvent[]
+  totalPourCount: number
+  // true once routine pours have been curated out of `events` — the full
+  // record is never hidden, just not repeated here (see Pour Stories tab).
+  curated: boolean
+}
 
-  if (bottle.createdAt) {
-    events.push({ id: 'added', date: new Date(bottle.createdAt).toISOString(), label: 'Added to collection' })
+// A pour keeps at most one "position in history" tag (First Pour beats
+// Highest Rated beats Most Recent) so a single pour is never labeled twice
+// for the same fact — e.g. a bottle's only pour is just "First Pour", never
+// also "Highest Rated" and "Most Recent". Ties on Highest Rated resolve to
+// the earliest occurrence. "Shared Pour" is a separate, independent fact
+// (who was there, not when) so it can still appear alongside a positional
+// tag without that being "stacking."
+const LONG_HISTORY_POUR_THRESHOLD = 6
+
+export function buildBottleStoryEvents(bottle: Bottle, pours: Pour[], memories: Memory[]): BottleStory {
+  const chronological = [...getPoursForBottle(pours, bottle.id)].sort((a, b) => a.date.localeCompare(b.date))
+
+  const firstId = chronological[0]?.id
+  const mostRecentId = chronological[chronological.length - 1]?.id
+  let highestId: string | undefined
+  let highestRating = -Infinity
+  for (const pour of chronological) {
+    if (pour.rating > highestRating) {
+      highestRating = pour.rating
+      highestId = pour.id
+    }
   }
 
+  const curated = chronological.length > LONG_HISTORY_POUR_THRESHOLD
+  const events: BottleStoryEvent[] = []
+
+  if (bottle.createdAt) {
+    events.push({ id: 'added', date: new Date(bottle.createdAt).toISOString(), label: 'Added to your bar' })
+  }
   if (bottle.openedDate) {
     events.push({ id: 'opened', date: bottle.openedDate, label: 'Opened' })
   }
 
-  for (const pour of getPoursForBottle(pours, bottle.id)) {
+  for (const pour of chronological) {
+    const tags: BottleStoryMilestone[] = []
+    if (pour.id === firstId) tags.push('First Pour')
+    else if (pour.id === highestId) tags.push('Highest Rated')
+    else if (pour.id === mostRecentId) tags.push('Most Recent')
+
+    // Curated (>6 pours) view keeps only pours that earned a positional
+    // milestone — everything else stays in the Pour Stories tab, not hidden,
+    // just not repeated here.
+    if (curated && tags.length === 0) continue
+
+    if (pour.companion?.trim()) tags.push('Shared Pour')
+
     events.push({
       id: `pour-${pour.id}`,
       date: pour.date,
-      label: `Pour Story — ${pour.rating.toFixed(1)}`,
-      detail: pour.occasion,
+      label: `Pour — ${pour.rating.toFixed(1)}`,
+      detail: pour.memory?.trim() || pour.notes?.trim() || undefined,
       pourId: pour.id,
       bottleId: bottle.id,
+      tags: tags.length > 0 ? tags : undefined,
     })
   }
 
-  if (bottle.status === 'finished') {
-    events.push({ id: 'kill', date: bottle.openedDate ?? new Date(bottle.createdAt ?? Date.now()).toISOString(), label: 'Bottle Kill' })
+  for (const memory of getMemoriesForBottle(memories, bottle.id)) {
+    events.push({
+      id: `memory-${memory.id}`,
+      date: memory.date,
+      label: memory.title,
+      detail: memory.story,
+      memoryId: memory.id,
+      photoUrl: memory.photoUrl,
+    })
   }
 
-  return events.sort((a, b) => a.date.localeCompare(b.date))
+  const finished = getFinishedDate(bottle, pours)
+  if (finished) {
+    events.push({ id: 'finished', date: finished.date, label: 'Bottle Finished', inferredDate: finished.inferred })
+  }
+
+  events.sort((a, b) => a.date.localeCompare(b.date))
+
+  return { events, totalPourCount: chronological.length, curated }
 }

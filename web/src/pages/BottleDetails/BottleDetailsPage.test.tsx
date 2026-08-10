@@ -101,27 +101,27 @@ describe('BottleDetailsPage', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Journey' }))
     const panel = screen.getByRole('tabpanel')
     const labels = within(panel)
-      .getAllByText(/Added to collection|Opened|Pour Story/)
+      .getAllByText(/Added to your bar|Opened|Pour —/)
       .map((el) => el.textContent)
-    expect(labels).toEqual(['Added to collection', 'Opened', 'Pour Story — 8.2'])
+    expect(labels).toEqual(['Added to your bar', 'Opened', 'Pour — 8.2'])
   })
 
   it('opens a Pour Story quick view when a Journey pour event is clicked', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
     await userEvent.click(screen.getByRole('tab', { name: 'Journey' }))
-    await userEvent.click(screen.getByRole('button', { name: /Pour Story — 8\.2/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Pour — 8\.2/ }))
 
     const dialog = screen.getByRole('dialog', { hidden: true })
     expect(within(dialog).getByRole('heading', { name: 'Eagle Rare' })).toBeInTheDocument()
   })
 
-  it('does not make lifecycle events like "Added to collection" clickable', async () => {
+  it('does not make lifecycle events like "Added to your bar" clickable', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
     await userEvent.click(screen.getByRole('tab', { name: 'Journey' }))
 
-    expect(screen.queryByRole('button', { name: /Added to collection/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Added to your bar/ })).not.toBeInTheDocument()
   })
 
   it('requires confirmation before deleting, then calls deleteBottle', async () => {

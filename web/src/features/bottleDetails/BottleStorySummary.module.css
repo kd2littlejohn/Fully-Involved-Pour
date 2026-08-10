@@ -1,0 +1,46 @@
+.summary {
+  margin-bottom: var(--fip-space-6);
+}
+
+.heading {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  margin-bottom: var(--fip-space-4);
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-3);
+}
+
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-4);
+  margin-top: var(--fip-space-4);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.progression {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  margin-top: var(--fip-space-5);
+  padding-top: var(--fip-space-4);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.progressionLabel {
+  color: var(--fip-stone);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.progressionValue {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-amber);
+}

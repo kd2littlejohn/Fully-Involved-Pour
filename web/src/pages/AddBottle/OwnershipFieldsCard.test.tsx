@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OwnershipFieldsCard, type OwnershipFieldsValues, type BottleContext } from './OwnershipFieldsCard'
@@ -15,6 +15,7 @@ const baseValues: OwnershipFieldsValues = {
   storeLocation: '',
   openedDate: '',
   expectedDate: '',
+  finishedDate: '',
   notes: '',
 }
 
@@ -67,6 +68,70 @@ describe('OwnershipFieldsCard', () => {
     await openCard()
 
     expect(screen.getByLabelText('Expected arrival (optional)')).toBeInTheDocument()
+  })
+
+  it('only shows Finished date when status is finished', async () => {
+    render(<OwnershipFieldsCard values={{ ...baseValues, status: 'finished' }} onChange={vi.fn()} bottleContext={emptyContext} />)
+    await openCard()
+
+    expect(screen.getByLabelText('Finished date (optional)')).toBeInTheDocument()
+  })
+
+  it('hides Finished date when status is sealed', async () => {
+    render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
+    await openCard()
+
+    expect(screen.queryByLabelText('Finished date (optional)')).not.toBeInTheDocument()
+  })
+
+  it('defaults Finished date to today when status changes to Finished', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'Finished')
+
+    const today = new Date().toISOString().slice(0, 10)
+    expect(onChange).toHaveBeenCalledWith({ status: 'finished', finishedDate: today })
+  })
+
+  it('does not overwrite an already-set Finished date when status changes again', async () => {
+    const onChange = vi.fn()
+    render(
+      <OwnershipFieldsCard
+        values={{ ...baseValues, status: 'finished', finishedDate: '2026-01-05' }}
+        onChange={onChange}
+        bottleContext={emptyContext}
+      />,
+    )
+    await openCard()
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'Sealed')
+
+    expect(onChange).toHaveBeenCalledWith({ status: 'sealed', finishedDate: '2026-01-05' })
+  })
+
+  it('leaves Finished date blank for a legacy finished bottle with no stored date', async () => {
+    render(<OwnershipFieldsCard values={{ ...baseValues, status: 'finished' }} onChange={vi.fn()} bottleContext={emptyContext} />)
+    await openCard()
+
+    expect(screen.getByLabelText('Finished date (optional)')).toHaveValue('')
+  })
+
+  it('lets the user override the Finished date before saving', async () => {
+    const onChange = vi.fn()
+    render(
+      <OwnershipFieldsCard
+        values={{ ...baseValues, status: 'finished', finishedDate: '2026-08-10' }}
+        onChange={onChange}
+        bottleContext={emptyContext}
+      />,
+    )
+    await openCard()
+
+    fireEvent.change(screen.getByLabelText('Finished date (optional)'), { target: { value: '2026-08-05' } })
+
+    expect(onChange).toHaveBeenCalledWith({ finishedDate: '2026-08-05' })
   })
 
   it('reports changes via onChange', async () => {

@@ -59,14 +59,31 @@
   text-transform: uppercase;
 }
 
+.labelRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-1);
+}
+
 .label {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
-  margin-top: var(--fip-space-1);
 }
 
 .detail {
   color: var(--fip-cream-soft);
   font-size: var(--fip-text-sm);
   margin-top: var(--fip-space-1);
+  font-style: italic;
+}
+
+.photo {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  border-radius: var(--fip-radius-md);
+  margin-top: var(--fip-space-3);
+  object-fit: cover;
 }

@@ -169,7 +169,9 @@ export function BottleDetailsPage() {
       <TabPanel>
         {activeTab === 'overview' ? <OverviewTab bottle={bottle} pours={userDoc.pours} /> : null}
         {activeTab === 'pour-stories' ? <PourStoriesTab bottle={bottle} pours={userDoc.pours} /> : null}
-        {activeTab === 'journey' ? <JourneyTab bottle={bottle} pours={userDoc.pours} /> : null}
+        {activeTab === 'journey' ? (
+          <JourneyTab bottle={bottle} pours={userDoc.pours} memories={userDoc.memories} onViewAllPours={() => setActiveTab('pour-stories')} />
+        ) : null}
         {activeTab === 'gallery' ? <GalleryTab bottle={bottle} /> : null}
         {activeTab === 'compare' ? <CompareTab bottle={bottle} otherBottles={otherBottles} pours={userDoc.pours} /> : null}
       </TabPanel>

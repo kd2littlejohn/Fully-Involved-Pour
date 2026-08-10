@@ -10,7 +10,12 @@ export interface OwnershipFieldsValues {
   storeLocation: string
   openedDate: string
   expectedDate: string
+  finishedDate: string
   notes: string
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export interface BottleContext {
@@ -77,7 +82,15 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               id="ab-status"
               className={controlClassName}
               value={values.status}
-              onChange={(e) => onChange({ status: e.target.value as BottleStatus })}
+              onChange={(e) => {
+                const status = e.target.value as BottleStatus
+                // Default to today the moment a bottle becomes Finished, but
+                // never overwrite a date already entered (e.g. flipping the
+                // status back and forth) or one carried over from a legacy
+                // finished bottle that never had one — that stays blank
+                // until the user deliberately picks a real date.
+                onChange({ status, finishedDate: status === 'finished' && !values.finishedDate ? todayIsoDate() : values.finishedDate })
+              }}
             >
               {STATUS_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -131,6 +144,18 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 type="date"
                 value={values.expectedDate}
                 onChange={(e) => onChange({ expectedDate: e.target.value })}
+              />
+            </Field>
+          ) : null}
+
+          {values.status === 'finished' ? (
+            <Field label="Finished date (optional)" htmlFor="ab-finished-date">
+              <input
+                id="ab-finished-date"
+                className={controlClassName}
+                type="date"
+                value={values.finishedDate}
+                onChange={(e) => onChange({ finishedDate: e.target.value })}
               />
             </Field>
           ) : null}
