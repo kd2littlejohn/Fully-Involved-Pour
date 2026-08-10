@@ -16,6 +16,11 @@ vi.mock('../../hooks/useUserData', () => ({
   useUserData: () => mockUseUserData(),
 }))
 
+vi.mock('../../features/faceoff/repository', () => ({
+  castFaceoffVote: vi.fn().mockResolvedValue(undefined),
+  getFaceoffTally: vi.fn().mockResolvedValue({ votesForA: 0, votesForB: 0 }),
+}))
+
 function renderPage(bottleId: string) {
   return render(
     <MemoryRouter initialEntries={[`/collection/${bottleId}`]}>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Bottle, Pour } from '../../../data/types'
 import { getCurrentScore, getPoursForBottle, mashBillSummary } from '../../../features/bottleDetails/selectors'
 import { bottleJourneyStage } from '../../../features/collection/journeyStage'
@@ -8,7 +8,7 @@ import { Button } from '../../../components/ui/Button'
 import { RadarChart } from '../../../components/ui/RadarChart'
 import { BottlePlaceholder } from '../../../components/ui/BottlePlaceholder'
 import { FIP_MAX } from '../../../features/fip/scoring'
-import { castFaceoffVote } from '../../../features/faceoff/repository'
+import { castFaceoffVote, getFaceoffTally, type FaceoffTally } from '../../../features/faceoff/repository'
 import { useAuth } from '../../../hooks/useAuth'
 import styles from './CompareTab.module.css'
 
@@ -35,13 +35,31 @@ function radarValues(bottle: Bottle, pours: Pour[]): number[] | undefined {
 export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
   const [otherId, setOtherId] = useState('')
   const [voted, setVoted] = useState<string | null>(null)
+  const [tally, setTally] = useState<FaceoffTally | null>(null)
   const { user } = useAuth()
+  const other = otherBottles.find((b) => b.id === otherId)
+
+  useEffect(() => {
+    if (!other) {
+      setTally(null)
+      return
+    }
+    let cancelled = false
+    getFaceoffTally(bottle.name, other.name).then((result) => {
+      if (!cancelled) setTally(result)
+    })
+    return () => {
+      cancelled = true
+    }
+    // `other` itself is a fresh object every render (otherBottles.find()) —
+    // depending on its .name instead avoids refetching the tally on every
+    // unrelated re-render, only when the actual selection changes.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [bottle.name, other?.name, voted])
 
   if (otherBottles.length === 0) {
     return <EmptyState title="Nothing to compare yet." message="Add another bottle to your collection to compare it with this one." />
   }
-
-  const other = otherBottles.find((b) => b.id === otherId)
 
   const rows: { label: string; a: string; b: string }[] = other
     ? [
@@ -172,10 +190,38 @@ export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
               </>
             )}
           </div>
+
+          {tally ? <FaceoffTallyBar tally={tally} bottleName={bottle.name} otherName={other.name} /> : null}
         </>
       ) : (
         <EmptyState title="Pick a bottle above." message="Compare FIP score, proof, price, and more side by side." />
       )}
     </>
+  )
+}
+
+function FaceoffTallyBar({ tally, bottleName, otherName }: { tally: FaceoffTally; bottleName: string; otherName: string }) {
+  const total = tally.votesForA + tally.votesForB
+  if (total === 0) {
+    return <p className={styles.tallyEmpty}>No votes yet — be the first.</p>
+  }
+  const pctA = Math.round((tally.votesForA / total) * 100)
+  const pctB = 100 - pctA
+
+  return (
+    <div className={styles.tally}>
+      <div className={styles.tallyBar}>
+        <span className={styles.tallyBarA} style={{ width: `${pctA}%` }} />
+        <span className={styles.tallyBarB} style={{ width: `${pctB}%` }} />
+      </div>
+      <div className={styles.tallyLabels}>
+        <span className={styles.tallyLabelA}>
+          {bottleName} — {pctA}% ({tally.votesForA})
+        </span>
+        <span className={styles.tallyLabelB}>
+          {otherName} — {pctB}% ({tally.votesForB})
+        </span>
+      </div>
+    </div>
   )
 }

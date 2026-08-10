@@ -6,6 +6,9 @@
       "ignore": ["node_modules", ".git", "*.log"]
     }
   ],
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "storage": {
     "rules": "storage.rules"
   },

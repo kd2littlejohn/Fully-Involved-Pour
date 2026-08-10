@@ -118,3 +118,49 @@
   color: var(--fip-cream-soft);
   font-size: var(--fip-text-sm);
 }
+
+.tally {
+  margin-top: var(--fip-space-4);
+}
+
+.tallyBar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  border-radius: var(--fip-radius-round);
+  overflow: hidden;
+  background: var(--fip-oak-deep);
+}
+
+.tallyBarA {
+  background: var(--fip-amber);
+  transition: width var(--fip-motion) var(--fip-ease);
+}
+
+.tallyBarB {
+  background: var(--fip-brass);
+  transition: width var(--fip-motion) var(--fip-ease);
+}
+
+.tallyLabels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-2);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+}
+
+.tallyLabelA {
+  color: var(--fip-amber);
+}
+
+.tallyLabelB {
+  color: var(--fip-brass);
+}
+
+.tallyEmpty {
+  margin-top: var(--fip-space-4);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
