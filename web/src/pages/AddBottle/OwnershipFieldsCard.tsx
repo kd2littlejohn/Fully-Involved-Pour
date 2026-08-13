@@ -8,6 +8,7 @@ export interface OwnershipFieldsValues {
   status: BottleStatus
   price: string
   storeLocation: string
+  quantity: string
   openedDate: string
   expectedDate: string
   finishedDate: string
@@ -113,16 +114,30 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               />
             </Field>
 
-            <Field label="Store (optional)" htmlFor="ab-store">
+            <Field label="Quantity (optional)" htmlFor="ab-quantity">
               <input
-                id="ab-store"
+                id="ab-quantity"
                 className={controlClassName}
-                value={values.storeLocation}
-                onChange={(e) => onChange({ storeLocation: e.target.value })}
-                placeholder="ABC Liquor"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={values.quantity}
+                onChange={(e) => onChange({ quantity: e.target.value })}
+                placeholder="1"
               />
             </Field>
           </div>
+
+          <Field label="Store (optional)" htmlFor="ab-store">
+            <input
+              id="ab-store"
+              className={controlClassName}
+              value={values.storeLocation}
+              onChange={(e) => onChange({ storeLocation: e.target.value })}
+              placeholder="ABC Liquor"
+            />
+          </Field>
 
           {/* All three shown together, regardless of current status — a
               bottle's history (when it was opened, expected, finished) is

@@ -13,6 +13,7 @@ const baseValues: OwnershipFieldsValues = {
   status: 'sealed',
   price: '',
   storeLocation: '',
+  quantity: '',
   openedDate: '',
   expectedDate: '',
   finishedDate: '',
@@ -122,6 +123,16 @@ describe('OwnershipFieldsCard', () => {
     fireEvent.change(screen.getByLabelText('Finished date (optional)'), { target: { value: '2026-08-05' } })
 
     expect(onChange).toHaveBeenCalledWith({ finishedDate: '2026-08-05' })
+  })
+
+  it('reports a Quantity change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    fireEvent.change(screen.getByLabelText('Quantity (optional)'), { target: { value: '3' } })
+
+    expect(onChange).toHaveBeenCalledWith({ quantity: '3' })
   })
 
   it('reports changes via onChange', async () => {
