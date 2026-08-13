@@ -124,8 +124,11 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
             </Field>
           </div>
 
-          {values.status === 'open' ? (
-            <Field label="Opened date" htmlFor="ab-opened-date">
+          {/* All three shown together, regardless of current status — a
+              bottle's history (when it was opened, expected, finished) is
+              worth correcting even after the status has since moved on. */}
+          <div className={styles.row}>
+            <Field label="Opened date (optional)" htmlFor="ab-opened-date">
               <input
                 id="ab-opened-date"
                 className={controlClassName}
@@ -134,21 +137,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 onChange={(e) => onChange({ openedDate: e.target.value })}
               />
             </Field>
-          ) : null}
 
-          {values.status === 'incoming' ? (
-            <Field label="Expected arrival (optional)" htmlFor="ab-expected-date">
-              <input
-                id="ab-expected-date"
-                className={controlClassName}
-                type="date"
-                value={values.expectedDate}
-                onChange={(e) => onChange({ expectedDate: e.target.value })}
-              />
-            </Field>
-          ) : null}
-
-          {values.status === 'finished' ? (
             <Field label="Finished date (optional)" htmlFor="ab-finished-date">
               <input
                 id="ab-finished-date"
@@ -158,7 +147,17 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 onChange={(e) => onChange({ finishedDate: e.target.value })}
               />
             </Field>
-          ) : null}
+          </div>
+
+          <Field label="Expected arrival (optional)" htmlFor="ab-expected-date">
+            <input
+              id="ab-expected-date"
+              className={controlClassName}
+              type="date"
+              value={values.expectedDate}
+              onChange={(e) => onChange({ expectedDate: e.target.value })}
+            />
+          </Field>
 
           <Field label="Bottle notes (optional)" htmlFor="ab-notes">
             <textarea

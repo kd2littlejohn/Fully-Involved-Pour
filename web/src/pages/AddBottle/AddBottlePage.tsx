@@ -119,9 +119,12 @@ export function AddBottlePage() {
         status: ownership.status,
         price: ownership.price ? Number(ownership.price) : undefined,
         storeLocation: ownership.storeLocation.trim() || undefined,
-        openedDate: ownership.status === 'open' ? ownership.openedDate.trim() || undefined : undefined,
-        expectedDate: ownership.status === 'incoming' ? ownership.expectedDate.trim() || undefined : undefined,
-        finishedDate: ownership.status === 'finished' ? ownership.finishedDate.trim() || undefined : undefined,
+        // Every date is saved as entered, independent of the current status —
+        // a bottle's history (opened/expected/finished) stays editable even
+        // after its status has since moved on.
+        openedDate: ownership.openedDate.trim() || undefined,
+        expectedDate: ownership.expectedDate.trim() || undefined,
+        finishedDate: ownership.finishedDate.trim() || undefined,
         notes: ownership.notes.trim() || undefined,
       }
       if (isEditing && bottleId) {

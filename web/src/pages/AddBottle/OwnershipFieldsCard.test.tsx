@@ -49,39 +49,29 @@ describe('OwnershipFieldsCard', () => {
     expect(options).toEqual(['Sealed', 'Opened', 'Finished', 'Wish List', 'Incoming'])
   })
 
-  it('only shows Opened date when status is open', async () => {
-    render(<OwnershipFieldsCard values={{ ...baseValues, status: 'open' }} onChange={vi.fn()} bottleContext={emptyContext} />)
-    await openCard()
-
-    expect(screen.getByLabelText('Opened date')).toBeInTheDocument()
-  })
-
-  it('hides Opened date when status is sealed', async () => {
+  it('shows all three date fields together, regardless of current status', async () => {
     render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
     await openCard()
 
-    expect(screen.queryByLabelText('Opened date')).not.toBeInTheDocument()
-  })
-
-  it('only shows Expected arrival when status is incoming', async () => {
-    render(<OwnershipFieldsCard values={{ ...baseValues, status: 'incoming' }} onChange={vi.fn()} bottleContext={emptyContext} />)
-    await openCard()
-
+    expect(screen.getByLabelText('Opened date (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Expected arrival (optional)')).toBeInTheDocument()
-  })
-
-  it('only shows Finished date when status is finished', async () => {
-    render(<OwnershipFieldsCard values={{ ...baseValues, status: 'finished' }} onChange={vi.fn()} bottleContext={emptyContext} />)
-    await openCard()
-
     expect(screen.getByLabelText('Finished date (optional)')).toBeInTheDocument()
   })
 
-  it('hides Finished date when status is sealed', async () => {
-    render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
+  it('lets an Opened date be edited on a bottle that is no longer open', async () => {
+    const onChange = vi.fn()
+    render(
+      <OwnershipFieldsCard
+        values={{ ...baseValues, status: 'finished', openedDate: '2026-01-05' }}
+        onChange={onChange}
+        bottleContext={emptyContext}
+      />,
+    )
     await openCard()
 
-    expect(screen.queryByLabelText('Finished date (optional)')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Opened date (optional)'), { target: { value: '2026-01-06' } })
+
+    expect(onChange).toHaveBeenCalledWith({ openedDate: '2026-01-06' })
   })
 
   it('defaults Finished date to today when status changes to Finished', async () => {
