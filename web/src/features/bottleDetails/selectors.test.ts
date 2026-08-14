@@ -3,6 +3,7 @@ import type { Bottle, Memory, Pour } from '../../data/types'
 import {
   buildBottleStoryEvents,
   buildRatingProgression,
+  buildScoreEvolution,
   getCurrentScore,
   getFinishedDate,
   getMemoriesForBottle,
@@ -193,6 +194,39 @@ describe('buildRatingProgression', () => {
     const ratings = [7.0, 7.5, 8.0, 8.2, 8.4, 8.6, 9.0]
     const pours = ratings.map((rating, i) => pour({ id: `p${i}`, bottleId: 'b1', date: `2026-0${i + 1}-01`, rating }))
     expect(buildRatingProgression(pours)).toBe('7.0 → … → 9.0')
+  })
+})
+
+describe('buildScoreEvolution', () => {
+  it('returns undefined for 0 or 1 pours — nothing to evolve yet', () => {
+    expect(buildScoreEvolution(bottle, [])).toBeUndefined()
+    expect(buildScoreEvolution(bottle, [pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6 })])).toBeUndefined()
+  })
+
+  it('labels the first real pour Neck Pour and numbers the rest for an open bottle', () => {
+    const pours = [8.2, 8.5, 8.8].map((rating, i) => pour({ id: `p${i}`, bottleId: 'b1', date: `2026-0${i + 1}-01`, rating }))
+    const evolution = buildScoreEvolution({ ...bottle, status: 'open' }, pours)
+    expect(evolution?.points.map((p) => p.label)).toEqual(['Neck Pour', 'Pour 2', 'Pour 3'])
+    expect(evolution?.points.map((p) => p.score)).toEqual([8.2, 8.5, 8.8])
+    expect(evolution?.truncated).toBe(false)
+  })
+
+  it('labels the last pour Bottle Kill only when the bottle is finished', () => {
+    const pours = [8.2, 8.5, 8.8].map((rating, i) => pour({ id: `p${i}`, bottleId: 'b1', date: `2026-0${i + 1}-01`, rating }))
+    const finished = buildScoreEvolution({ ...bottle, status: 'finished' }, pours)
+    expect(finished?.points.map((p) => p.label)).toEqual(['Neck Pour', 'Pour 2', 'Bottle Kill'])
+
+    const stillOpen = buildScoreEvolution({ ...bottle, status: 'open' }, pours)
+    expect(stillOpen?.points.map((p) => p.label)).not.toContain('Bottle Kill')
+  })
+
+  it('truncates to first and last only beyond 6 pours, same discipline as buildRatingProgression', () => {
+    const ratings = [7.0, 7.5, 8.0, 8.2, 8.4, 8.6, 9.0]
+    const pours = ratings.map((rating, i) => pour({ id: `p${i}`, bottleId: 'b1', date: `2026-0${i + 1}-01`, rating }))
+    const evolution = buildScoreEvolution({ ...bottle, status: 'finished' }, pours)
+    expect(evolution?.truncated).toBe(true)
+    expect(evolution?.points.map((p) => p.label)).toEqual(['Neck Pour', 'Bottle Kill'])
+    expect(evolution?.points.map((p) => p.score)).toEqual([7.0, 9.0])
   })
 })
 

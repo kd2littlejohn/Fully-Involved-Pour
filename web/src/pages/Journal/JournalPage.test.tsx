@@ -113,7 +113,7 @@ describe('JournalPage', () => {
     expect(screen.getByText('2 pours · 1 bottle')).toBeInTheDocument()
   })
 
-  it('shows only opened/finished bottles on the Bottle Journeys tab', async () => {
+  it('shows only opened/finished bottles on the Bottles tab', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
       userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
@@ -122,9 +122,37 @@ describe('JournalPage', () => {
       addBottle: vi.fn(),
     })
     renderJournal()
-    await userEvent.click(screen.getByRole('tab', { name: 'Bottle Journeys' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Bottles' }))
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
     expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
+  })
+
+  it('shows a real score-evolution row on the Bottles tab once a bottle has 2+ pours', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    renderJournal()
+    await userEvent.click(screen.getByRole('tab', { name: 'Bottles' }))
+    // Eagle Rare has 2 real pours (8.0, 9.0) -> Neck Pour / Bottle Kill (or
+    // Pour 2, since it's not finished) should render real scores, not a hint.
+    expect(screen.getByText('Neck Pour')).toBeInTheDocument()
+    expect(screen.queryByText(/Log another pour/)).not.toBeInTheDocument()
+  })
+
+  it('does not offer an Ask Assistant tab anymore', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    renderJournal()
+    expect(screen.queryByRole('tab', { name: 'Ask Assistant' })).not.toBeInTheDocument()
   })
 
   it('shows the verbatim empty state on the Memories tab when there are none', async () => {

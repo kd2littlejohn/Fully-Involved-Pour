@@ -32,6 +32,41 @@ export function buildRatingProgression(bottlePours: Pour[]): string | undefined 
   return `${ratings[0]} → … → ${ratings[ratings.length - 1]}`
 }
 
+export interface ScoreEvolutionPoint {
+  label: string
+  score: number
+  date: string
+}
+
+export interface ScoreEvolution {
+  points: ScoreEvolutionPoint[]
+  // true once points have been trimmed to first/last only — same "keep it
+  // one line, never fabricate the middle" discipline as buildRatingProgression.
+  truncated: boolean
+}
+
+// Same "shown when enough data exists" gate as buildRatingProgression: a
+// single pour has no evolution to show yet. The first real pour is always
+// "Neck Pour" (the freshly-opened top of the bottle); the last pour on a
+// finished bottle is "Bottle Kill" — both real whiskey-community terms, not
+// invented labels. Everything between is just numbered.
+export function buildScoreEvolution(bottle: Bottle, pours: Pour[]): ScoreEvolution | undefined {
+  const chronological = [...getPoursForBottle(pours, bottle.id)].sort((a, b) => a.date.localeCompare(b.date))
+  if (chronological.length < 2) return undefined
+
+  const points: ScoreEvolutionPoint[] = chronological.map((pour, index) => {
+    const isLast = index === chronological.length - 1
+    let label: string
+    if (index === 0) label = 'Neck Pour'
+    else if (isLast && bottle.status === 'finished') label = 'Bottle Kill'
+    else label = `Pour ${index + 1}`
+    return { label, score: pour.rating, date: pour.date }
+  })
+
+  if (points.length <= PROGRESSION_FULL_LIMIT) return { points, truncated: false }
+  return { points: [points[0]!, points[points.length - 1]!], truncated: true }
+}
+
 export interface FinishedDateInfo {
   date: string
   // true when this date is a best-effort derivation (last pour / opened /

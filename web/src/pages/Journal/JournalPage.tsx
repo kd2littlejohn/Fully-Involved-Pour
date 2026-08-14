@@ -4,27 +4,32 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { Timeline, type TimelineEvent } from '../../components/domain/Timeline'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
-import { BottleCard } from '../../components/domain/BottleCard'
 import { MemoryCard } from '../../components/domain/MemoryCard'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
+import { BottleJourneyCard } from '../../features/journal/BottleJourneyCard'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
 import { PourStoryDetail } from '../../features/pourWizard/PourStoryDetail'
-import { SommelierPanel } from '../../features/sommelier/SommelierPanel'
 import type { Pour } from '../../data/types'
 import styles from './JournalPage.module.css'
 
+// Primary sections first (Stories/Timeline/Bottles/People), Memories kept
+// after them — a real, working feature, just not one of the four primary
+// sections called out for this redesign. "Ask Assistant" is deliberately
+// removed as a permanent tab here: AI becomes contextual elsewhere later,
+// not a standing top-level destination (SommelierProvider/Panel stay in the
+// codebase for that future contextual reuse, just unreachable from this tab
+// strip for now).
 const TABS = [
   { id: 'stories', label: 'Stories' },
   { id: 'timeline', label: 'Timeline' },
-  { id: 'memories', label: 'Memories' },
+  { id: 'bottles', label: 'Bottles' },
   { id: 'people', label: 'People' },
-  { id: 'bottle-journeys', label: 'Bottle Journeys' },
-  { id: 'assistant', label: 'Ask Assistant' },
+  { id: 'memories', label: 'Memories' },
 ]
 
 export function JournalPage() {
@@ -34,13 +39,13 @@ export function JournalPage() {
   const [selectedTimelinePour, setSelectedTimelinePour] = useState<Pour | null>(null)
 
   if (authLoading || dataLoading) {
-    return <PageHeader eyebrow="Journal" title="Your Pour Stories." />
+    return <PageHeader eyebrow="Journey" title="Your Pour Stories." />
   }
 
   if (!user) {
     return (
       <>
-        <PageHeader eyebrow="Journal" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
+        <PageHeader eyebrow="Journey" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
         <EmptyState
           title="Your first Pour Story starts here."
           message="Sign in to start capturing your pours."
@@ -68,7 +73,7 @@ export function JournalPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Journal" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
+      <PageHeader eyebrow="Journey" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
 
       <div className={styles.actions}>
         <QuickPourButton />
@@ -140,19 +145,17 @@ export function JournalPage() {
           )
         ) : null}
 
-        {activeTab === 'bottle-journeys' ? (
+        {activeTab === 'bottles' ? (
           journeyBottles.length === 0 ? (
             <EmptyState title="No bottle journeys yet." message="Open a bottle to start tracking its journey over time." />
           ) : (
-            <div className={styles.grid}>
+            <div className={styles.storiesGrid}>
               {journeyBottles.map((bottle) => (
-                <BottleCard key={bottle.id} bottle={bottle} />
+                <BottleJourneyCard key={bottle.id} bottle={bottle} pours={pours} />
               ))}
             </div>
           )
         ) : null}
-
-        {activeTab === 'assistant' ? <SommelierPanel /> : null}
       </TabPanel>
 
       {selectedTimelinePour && selectedTimelineBottle ? (

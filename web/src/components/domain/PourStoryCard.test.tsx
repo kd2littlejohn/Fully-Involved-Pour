@@ -30,4 +30,29 @@ describe('PourStoryCard', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
   })
+
+  it('shows the pour photo when the pour has one', () => {
+    const { container } = render(<PourStoryCard pour={{ ...pour, photoUrl: 'https://x/pour.jpg' }} bottle={bottle} />)
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://x/pour.jpg')
+  })
+
+  it('falls back to the bottle photo when the pour has none', () => {
+    const { container } = render(<PourStoryCard pour={pour} bottle={{ ...bottle, imageUrl: 'https://x/bottle.jpg' }} />)
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://x/bottle.jpg')
+  })
+
+  it('shows a placeholder when neither pour nor bottle has a photo', () => {
+    const { container } = render(<PourStoryCard pour={{ ...pour, photoUrl: undefined }} bottle={bottle} />)
+    expect(container.querySelector('img')).not.toBeInTheDocument()
+  })
+
+  it('shows the companion when the pour has one', () => {
+    render(<PourStoryCard pour={{ ...pour, companion: 'Dad' }} bottle={bottle} />)
+    expect(screen.getByText('With Dad')).toBeInTheDocument()
+  })
+
+  it('falls back to pour.notes for the short note when memory is unset (Quick Pour case)', () => {
+    render(<PourStoryCard pour={{ ...pour, memory: undefined, notes: 'Great porch pour' }} bottle={bottle} />)
+    expect(screen.getByText('Great porch pour')).toBeInTheDocument()
+  })
 })

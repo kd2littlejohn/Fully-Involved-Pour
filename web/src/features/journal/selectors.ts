@@ -13,6 +13,7 @@ export function getJournalTimeline(bottles: Bottle[], pours: Pour[]): TimelineEv
       detail: pour.occasion,
       pourId: pour.id,
       bottleId: pour.bottleId,
+      photoUrl: pour.photoUrl,
     }))
 }
 
