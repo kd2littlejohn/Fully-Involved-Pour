@@ -7,7 +7,7 @@ import styles from './PhotoUploadField.module.css'
 
 interface PhotoUploadFieldProps {
   label: string
-  folder: 'bottle-photos' | 'memory-photos'
+  folder: 'bottle-photos' | 'memory-photos' | 'pour-photos'
   currentUrl?: string
   onUploaded: (url: string) => void
 }

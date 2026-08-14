@@ -38,6 +38,7 @@ export function QuickPourButton({ bottleId, label = '⚡ Quick Pour', variant = 
       {pickerOpen ? (
         <BottlePickerModal
           bottles={pourableBottles}
+          pours={userDoc.pours}
           onClose={() => setPickerOpen(false)}
           onPick={(id) => {
             setActiveBottleId(id)

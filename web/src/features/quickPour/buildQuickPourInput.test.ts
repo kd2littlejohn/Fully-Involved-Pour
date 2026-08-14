@@ -49,11 +49,33 @@ describe('buildQuickPourInput', () => {
     expect(buildQuickPourInput({ bottleId: 'b1', date: '2026-08-14', reactionLabel: 'x', score: -3, flavors: [] }).rating).toBe(0)
   })
 
-  it('leaves buyAgain, occasion, companion, and other session fields unset', () => {
+  it('leaves buyAgain, occasion, and unset optional fields unset', () => {
     const input = buildQuickPourInput({ bottleId: 'b1', date: '2026-08-14', reactionLabel: 'Love it', score: 9.2, flavors: [] })
 
     expect(input.buyAgain).toBeUndefined()
     expect(input.occasion).toBeUndefined()
     expect(input.companion).toBeUndefined()
+    expect(input.notes).toBeUndefined()
+    expect(input.location).toBeUndefined()
+    expect(input.photoUrl).toBeUndefined()
+  })
+
+  it('carries through notes, companion, location, and photoUrl when given', () => {
+    const input = buildQuickPourInput({
+      bottleId: 'b1',
+      date: '2026-08-14',
+      reactionLabel: 'Love it',
+      score: 9.2,
+      flavors: [],
+      notes: 'Great porch pour',
+      companion: 'Dave',
+      location: 'Back porch',
+      photoUrl: 'https://example.com/photo.jpg',
+    })
+
+    expect(input.notes).toBe('Great porch pour')
+    expect(input.companion).toBe('Dave')
+    expect(input.location).toBe('Back porch')
+    expect(input.photoUrl).toBe('https://example.com/photo.jpg')
   })
 })

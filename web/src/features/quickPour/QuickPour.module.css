@@ -90,3 +90,50 @@
   gap: var(--fip-space-3);
   margin-top: var(--fip-space-4);
 }
+
+.moreDetails {
+  margin-bottom: var(--fip-space-4);
+}
+
+.moreSummary {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--fip-space-2) 0;
+}
+
+.moreFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-3);
+}
+
+.confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--fip-space-4) 0;
+}
+
+.confirmScore {
+  font-family: var(--fip-font-display);
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.confirmTier {
+  font-size: var(--fip-text-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: var(--fip-space-2);
+}
+
+.confirmMessage {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  margin-top: var(--fip-space-3);
+}

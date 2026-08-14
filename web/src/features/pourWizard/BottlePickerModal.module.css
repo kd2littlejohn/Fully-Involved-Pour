@@ -1,0 +1,60 @@
+.noMatches {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  margin-top: var(--fip-space-4);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+  margin-top: var(--fip-space-4);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.groupLabel {
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fip-cream-soft);
+  padding: var(--fip-space-2) 0;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--fip-space-3);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-md);
+  color: var(--fip-cream);
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: var(--fip-space-2);
+}
+
+.row:hover {
+  border-color: var(--fip-amber);
+}
+
+.rowName {
+  font-weight: 600;
+  font-size: var(--fip-text-sm);
+}
+
+.rowMeta {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-cream-soft);
+  white-space: nowrap;
+}

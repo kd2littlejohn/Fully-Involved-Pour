@@ -95,6 +95,7 @@ export interface Pour {
   glass?: string
   weather?: string
   memory?: string
+  photoUrl?: string
   buyAgain?: BuyAgain
   wouldBuyAgain?: boolean
   fip: FipBreakdown

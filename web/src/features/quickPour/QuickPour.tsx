@@ -2,10 +2,15 @@ import { useState } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { TapChip } from '../../components/ui/TapChip'
+import { Field, controlClassName } from '../../components/ui/Field'
 import { useUserData } from '../../hooks/useUserData'
-import { PALATE_FLAVORS } from '../fip/scoring'
 import { QUICK_POUR_REACTIONS, type QuickPourReaction } from './reactions'
+import { QUICK_POUR_FLAVORS } from './flavors'
 import { buildQuickPourInput } from './buildQuickPourInput'
+import { PhotoUploadField } from '../photoUpload/PhotoUploadField'
+import { PourWizard } from '../pourWizard/PourWizard'
+import { fipTier } from '../fip/tiers'
+import type { Pour } from '../../data/types'
 import styles from './QuickPour.module.css'
 
 function todayIsoDate(): string {
@@ -20,16 +25,22 @@ interface QuickPourProps {
 }
 
 // The fast alternate to the full 6-step wizard: reaction -> optional flavor
-// tags -> optional score nudge -> save. A user who just wants the moment
-// captured can be done in two taps; the full wizard is still there (see
-// StartPourStoryButton) for anyone who wants the deep tasting breakdown.
+// tags -> FIP score -> optional details -> save, in well under a minute. A
+// confirmation screen then offers "Tell the Full Story" to reopen the
+// just-saved pour in the full wizard for anyone who wants to go deeper — the
+// fast path is never blocked on making that choice up front.
 export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourProps) {
   const { addPour } = useUserData()
   const [reaction, setReaction] = useState<QuickPourReaction | null>(null)
   const [flavors, setFlavors] = useState<string[]>([])
   const [score, setScore] = useState<number | null>(null)
-  const [adjusting, setAdjusting] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [companion, setCompanion] = useState('')
+  const [location, setLocation] = useState('')
+  const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined)
   const [saving, setSaving] = useState(false)
+  const [savedPour, setSavedPour] = useState<Pour | null>(null)
+  const [tellingFullStory, setTellingFullStory] = useState(false)
 
   function pickReaction(next: QuickPourReaction) {
     setReaction(next)
@@ -43,17 +54,66 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
   async function handleSave() {
     if (!reaction || score == null || saving) return
     setSaving(true)
-    await addPour(buildQuickPourInput({ bottleId, date: todayIsoDate(), reactionLabel: reaction.label, score, flavors }))
+    const pour = await addPour(
+      buildQuickPourInput({
+        bottleId,
+        date: todayIsoDate(),
+        reactionLabel: reaction.label,
+        score,
+        flavors,
+        notes: notes.trim() || undefined,
+        companion: companion.trim() || undefined,
+        location: location.trim() || undefined,
+        photoUrl,
+      }),
+    )
     setSaving(false)
     onSaved?.()
-    onClose()
+    if (pour) {
+      setSavedPour(pour)
+    } else {
+      onClose()
+    }
   }
 
   const displayedScore = score ?? reaction?.score ?? 0
 
+  if (tellingFullStory && savedPour) {
+    // Bypasses QuickPour's own Modal entirely — PourWizard renders its own,
+    // and the just-saved pour is already real data, so editing it in place
+    // (rather than creating a second pour) is what "tell the full story"
+    // about *this* pour should mean.
+    return (
+      <PourWizard bottleId={bottleId} bottleName={bottleName} existingPour={savedPour} onClose={onClose} onSaved={onClose} />
+    )
+  }
+
+  if (savedPour) {
+    const tier = fipTier(savedPour.rating)
+    return (
+      <Modal title={`Pour Saved — ${bottleName}`} onClose={onClose}>
+        <div className={styles.confirmation}>
+          <div className={styles.confirmScore} style={{ color: tier.color }}>
+            {savedPour.rating.toFixed(1)}
+          </div>
+          <div className={styles.confirmTier} style={{ color: tier.color }}>
+            {tier.label}
+          </div>
+          <p className={styles.confirmMessage}>Nice pour — saved to {bottleName}&rsquo;s story.</p>
+        </div>
+        <div className={styles.actions}>
+          <Button variant="ghost" onClick={onClose}>
+            Done
+          </Button>
+          <Button onClick={() => setTellingFullStory(true)}>Tell the Full Story</Button>
+        </div>
+      </Modal>
+    )
+  }
+
   return (
     <Modal title={`Quick Pour — ${bottleName}`} onClose={onClose}>
-      <p className={styles.prompt}>How's this pour treating you?</p>
+      <p className={styles.prompt}>How&rsquo;s it drinking tonight?</p>
       <div className={styles.reactionRow}>
         {QUICK_POUR_REACTIONS.map((r) => (
           <button
@@ -75,32 +135,62 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
         <>
           <p className={styles.prompt}>What stands out? (optional)</p>
           <div className={styles.chipRow}>
-            {PALATE_FLAVORS.map((flavor) => (
+            {QUICK_POUR_FLAVORS.map((flavor) => (
               <TapChip key={flavor} label={flavor} active={flavors.includes(flavor)} onToggle={() => toggleFlavor(flavor)} />
             ))}
           </div>
 
           <div className={styles.scoreRow}>
-            <span className={styles.scoreLabel}>Score</span>
-            {adjusting ? (
-              <input
-                type="range"
-                min={0}
-                max={10}
-                step={0.1}
-                value={displayedScore}
-                onChange={(e) => setScore(Number(e.target.value))}
-                aria-label="Adjust score"
-                className={styles.scoreSlider}
-              />
-            ) : null}
+            <span className={styles.scoreLabel}>FIP Score</span>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              step={0.1}
+              value={displayedScore}
+              onChange={(e) => setScore(Number(e.target.value))}
+              aria-label="FIP score"
+              className={styles.scoreSlider}
+            />
             <span className={styles.scoreValue}>{displayedScore.toFixed(1)}</span>
-            {!adjusting ? (
-              <button type="button" className={styles.adjustLink} onClick={() => setAdjusting(true)}>
-                Adjust
-              </button>
-            ) : null}
           </div>
+
+          <details className={styles.moreDetails}>
+            <summary className={styles.moreSummary}>Add a note, company, or photo (optional)</summary>
+            <div className={styles.moreFields}>
+              <Field label="Note" htmlFor="quick-pour-note">
+                <textarea
+                  id="quick-pour-note"
+                  className={controlClassName}
+                  rows={2}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Anything worth remembering about this pour…"
+                />
+              </Field>
+              <Field label="Who's with you" htmlFor="quick-pour-companion">
+                <input
+                  id="quick-pour-companion"
+                  type="text"
+                  className={controlClassName}
+                  value={companion}
+                  onChange={(e) => setCompanion(e.target.value)}
+                  placeholder="e.g. Dave, or solo"
+                />
+              </Field>
+              <Field label="Where" htmlFor="quick-pour-location">
+                <input
+                  id="quick-pour-location"
+                  type="text"
+                  className={controlClassName}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Back porch"
+                />
+              </Field>
+              <PhotoUploadField label="Photo" folder="pour-photos" onUploaded={setPhotoUrl} />
+            </div>
+          </details>
         </>
       ) : null}
 

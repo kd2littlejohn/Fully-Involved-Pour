@@ -268,12 +268,36 @@ describe('BottleDetailsPage', () => {
     expect(screen.getByText('Working Fire')).toBeInTheDocument()
   })
 
-  it('offers Quick Pour and Start a Pour as prominent, always-visible primary actions', () => {
+  it('offers Start a Pour as a prominent, always-visible primary action', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    expect(screen.getByRole('button', { name: '⚡ Quick Pour' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Start a Pour' })).toBeInTheDocument()
+  })
+
+  it('opens the pour-type chooser, defaulting straight to this bottle, when Start a Pour is tapped', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
+
+    expect(screen.getByText('Pouring Eagle Rare')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Quick Pour/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Pour Story/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Comparison/ })).toBeInTheDocument()
+  })
+
+  it('initializes the Compare tab from location.state.initialTab (Comparison routing target)', () => {
+    mockSignedInWith([eagleRare, wellerSpecial], [pour])
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/collection/b1', state: { initialTab: 'compare' } }]}>
+        <Routes>
+          <Route path="/collection/:bottleId" element={<BottleDetailsPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('tab', { name: 'Compare', selected: true })).toBeInTheDocument()
   })
 
   it('renders the Your Take card with the current score', () => {

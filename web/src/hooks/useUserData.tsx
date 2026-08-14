@@ -21,7 +21,7 @@ interface UserDataState {
   updateBottle: (bottleId: string, patch: BottlePatch) => Promise<void>
   deleteBottle: (bottleId: string) => Promise<void>
   deleteBottles: (bottleIds: string[]) => Promise<void>
-  addPour: (input: NewPourInput) => Promise<void>
+  addPour: (input: NewPourInput) => Promise<Pour | undefined>
   updatePour: (pourId: string, patch: PourPatch) => Promise<void>
   deletePour: (pourId: string) => Promise<void>
   addMemory: (input: NewMemoryInput) => Promise<void>
@@ -41,7 +41,7 @@ const UserDataContext = createContext<UserDataState>({
   updateBottle: async () => {},
   deleteBottle: async () => {},
   deleteBottles: async () => {},
-  addPour: async () => {},
+  addPour: async () => undefined,
   updatePour: async () => {},
   deletePour: async () => {},
   addMemory: async () => {},
@@ -157,7 +157,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
 
   const addPour = useCallback(
     async (input: NewPourInput) => {
-      if (!user) return
+      if (!user) return undefined
       const pour: Pour = { ...input, id: generateId() }
       const nextPours = [...userDoc.pours, pour]
 
@@ -170,9 +170,10 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
 
       const nextDoc: UserDoc = { ...userDoc, pours: nextPours, bottles: nextBottles }
       setUserDoc(nextDoc)
-      if (mockMode) return // dev fixture data — never touches Firestore
+      if (mockMode) return pour // dev fixture data — never touches Firestore
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { pours: nextPours, bottles: nextBottles })
+      return pour
     },
     [user, userDoc, mockMode],
   )

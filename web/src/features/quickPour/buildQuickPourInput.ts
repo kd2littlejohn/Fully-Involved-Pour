@@ -11,6 +11,10 @@ export interface QuickPourInputParams {
   reactionLabel: string
   score: number
   flavors: string[]
+  notes?: string
+  companion?: string
+  location?: string
+  photoUrl?: string
 }
 
 // Quick Pour skips the component-by-component rubric for speed, so the
@@ -18,7 +22,17 @@ export interface QuickPourInputParams {
 // components (FIP_MAX) the full wizard uses, rather than judged
 // independently — the breakdown always sums back to the total exactly, so
 // anything that displays "Nose 2.1 / 2.5" elsewhere stays consistent.
-export function buildQuickPourInput({ bottleId, date, reactionLabel, score, flavors }: QuickPourInputParams): NewPourInput {
+export function buildQuickPourInput({
+  bottleId,
+  date,
+  reactionLabel,
+  score,
+  flavors,
+  notes,
+  companion,
+  location,
+  photoUrl,
+}: QuickPourInputParams): NewPourInput {
   const total = round1(Math.max(0, Math.min(10, score)))
   const ratio = total / 10
   const nose = round1(FIP_MAX.nose * ratio)
@@ -34,6 +48,10 @@ export function buildQuickPourInput({ bottleId, date, reactionLabel, score, flav
     date,
     rating: total,
     mood: reactionLabel,
+    notes,
+    companion,
+    location,
+    photoUrl,
     fip: {
       nose,
       palate,

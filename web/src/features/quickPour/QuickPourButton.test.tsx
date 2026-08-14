@@ -34,9 +34,8 @@ describe('QuickPourButton', () => {
     await userEvent.click(screen.getByRole('button', { name: '⚡ Quick Pour' }))
 
     expect(screen.getByText('Which bottle?')).toBeInTheDocument()
-    const options = screen.getAllByRole('option').map((o) => o.textContent)
-    expect(options).toContain('Eagle Rare')
-    expect(options).not.toContain('Pappy 15')
+    expect(screen.getByRole('button', { name: /Eagle Rare/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Pappy 15/ })).not.toBeInTheDocument()
   })
 
   it('opens Quick Pour for the picked bottle', async () => {
@@ -44,8 +43,7 @@ describe('QuickPourButton', () => {
     render(<QuickPourButton />)
 
     await userEvent.click(screen.getByRole('button', { name: '⚡ Quick Pour' }))
-    await userEvent.selectOptions(screen.getByLabelText('Bottle'), 'b3')
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    await userEvent.click(screen.getByRole('button', { name: /Weller 12/ }))
 
     expect(screen.getByText('Quick Pour — Weller 12')).toBeInTheDocument()
   })

@@ -39,6 +39,7 @@ export function StartPourStoryButton({ bottleId, label = 'Start a Pour Story', v
       {pickerOpen ? (
         <BottlePickerModal
           bottles={pourableBottles}
+          pours={userDoc.pours}
           onClose={() => setPickerOpen(false)}
           onPick={(id) => {
             setWizardBottleId(id)

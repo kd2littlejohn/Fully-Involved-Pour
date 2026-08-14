@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LinkButton } from '../../components/ui/LinkButton'
@@ -19,8 +19,7 @@ import { getCurrentScore } from '../../features/bottleDetails/selectors'
 import { fipTier } from '../../features/fip/tiers'
 import { BottleKillCelebration } from '../../features/bottleKill/BottleKillCelebration'
 import { YourTakeCard } from '../../features/bottleDetails/YourTakeCard'
-import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
-import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
+import { StartAPourButton } from '../../features/startAPour/StartAPourButton'
 import { OverviewTab } from './tabs/OverviewTab'
 import { PourStoriesTab } from './tabs/PourStoriesTab'
 import { JourneyTab } from './tabs/JourneyTab'
@@ -49,12 +48,32 @@ const TABS = [
   { id: 'compare', label: 'Compare' },
 ]
 
+const TAB_IDS = new Set(TABS.map((t) => t.id))
+
+interface BottleDetailsLocationState {
+  initialTab?: string
+}
+
 export function BottleDetailsPage() {
   const { bottleId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading, updateBottle, deleteBottle } = useUserData()
   const [activeTab, setActiveTab] = useState('overview')
+
+  // A plain useState initializer only runs on first mount, so it misses the
+  // case where Comparison is chosen from *within* an already-mounted Bottle
+  // Details page — same route, same component instance, just a fresh
+  // navigate() with new state. location.key changes on every navigation
+  // (even to the same path), so syncing off that catches both cases without
+  // fighting the user's own manual tab clicks (which never touch location).
+  useEffect(() => {
+    const requestedTab = (location.state as BottleDetailsLocationState | null)?.initialTab
+    if (requestedTab && TAB_IDS.has(requestedTab)) {
+      setActiveTab(requestedTab)
+    }
+  }, [location.key])
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
@@ -229,8 +248,7 @@ export function BottleDetailsPage() {
       ) : null}
 
       <div className={styles.primaryActions}>
-        <QuickPourButton bottleId={bottle.id} />
-        <StartPourStoryButton bottleId={bottle.id} label="Start a Pour" variant="secondary" />
+        <StartAPourButton bottleId={bottle.id} label="Start a Pour" />
       </div>
 
       <YourTakeCard bottle={bottle} score={score} onUpdate={handleYourTakeUpdate} />

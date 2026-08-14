@@ -41,7 +41,7 @@ function messageForStorageError(err: unknown): string {
 export async function uploadPhoto(
   uid: string | undefined,
   file: File,
-  folder: 'bottle-photos' | 'memory-photos',
+  folder: 'bottle-photos' | 'memory-photos' | 'pour-photos',
   onProgress?: (fraction: number) => void,
 ): Promise<string> {
   if (!uid) {

@@ -1,5 +1,5 @@
 export interface QuickPourReaction {
-  value: 'love' | 'enjoying' | 'deciding' | 'not-for-me'
+  value: 'love-it' | 'enjoying-it' | 'interesting' | 'just-okay' | 'not-for-me'
   emoji: string
   label: string
   // Starting-point score for this reaction, not a claim of precision — the
@@ -8,8 +8,9 @@ export interface QuickPourReaction {
 }
 
 export const QUICK_POUR_REACTIONS: QuickPourReaction[] = [
-  { value: 'love', emoji: '😍', label: 'Love it', score: 9.2 },
-  { value: 'enjoying', emoji: '👍', label: 'Enjoying it', score: 8.0 },
-  { value: 'deciding', emoji: '🤔', label: 'Still deciding', score: 6.5 },
-  { value: 'not-for-me', emoji: '😕', label: 'Not for me', score: 4.0 },
+  { value: 'love-it', emoji: '😍', label: 'Love It', score: 9.3 },
+  { value: 'enjoying-it', emoji: '👍', label: 'Enjoying It', score: 8.3 },
+  { value: 'interesting', emoji: '🤔', label: 'Interesting', score: 7.2 },
+  { value: 'just-okay', emoji: '😐', label: 'Just Okay', score: 6.0 },
+  { value: 'not-for-me', emoji: '😕', label: 'Not For Me', score: 4.0 },
 ]
