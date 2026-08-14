@@ -18,6 +18,7 @@ import {
   greetingForHour,
 } from '../../features/home/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
+import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
 import styles from './HomePage.module.css'
 
 export function HomePage() {
@@ -110,7 +111,12 @@ export function HomePage() {
               <EmptyState
                 title="Your first Pour Story starts here."
                 message="Open a bottle, capture the pour, and begin your whiskey journey."
-                action={<StartPourStoryButton />}
+                action={
+                  <div className={styles.emptyActions}>
+                    <QuickPourButton />
+                    <StartPourStoryButton variant="secondary" />
+                  </div>
+                }
               />
             ) : (
               <SectionRow>

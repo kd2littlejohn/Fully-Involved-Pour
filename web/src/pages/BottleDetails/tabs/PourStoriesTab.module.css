@@ -2,12 +2,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--fip-space-3);
-  margin-bottom: var(--fip-space-6);
+  justify-content: center;
 }
 
-.emptyActions {
+.footerActions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--fip-space-3);
-  justify-content: center;
+  margin-top: var(--fip-space-4);
 }

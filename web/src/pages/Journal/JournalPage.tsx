@@ -11,6 +11,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
+import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
 import { PourStoryDetail } from '../../features/pourWizard/PourStoryDetail'
 import { SommelierPanel } from '../../features/sommelier/SommelierPanel'
@@ -70,7 +71,8 @@ export function JournalPage() {
       <PageHeader eyebrow="Journal" title="Your Pour Stories." subtitle="Capture and revisit your whiskey experiences." />
 
       <div className={styles.actions}>
-        <StartPourStoryButton />
+        <QuickPourButton />
+        <StartPourStoryButton variant="secondary" />
         <CreateMemoryButton />
       </div>
 
@@ -84,7 +86,8 @@ export function JournalPage() {
               message="Open a bottle, capture the pour, and begin your whiskey journey."
               action={
                 <div className={styles.actions}>
-                  <StartPourStoryButton />
+                  <QuickPourButton />
+                  <StartPourStoryButton variant="secondary" />
                   <CreateMemoryButton />
                 </div>
               }

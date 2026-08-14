@@ -4,6 +4,8 @@ import { PourStoryCard } from '../../../components/domain/PourStoryCard'
 import { EmptyState } from '../../../components/ui/EmptyState'
 import { Section, SectionRow } from '../../../components/layout/Section'
 import { StartPourStoryButton } from '../../../features/pourWizard/StartPourStoryButton'
+import { QuickPourButton } from '../../../features/quickPour/QuickPourButton'
+import styles from './PourStoriesTab.module.css'
 
 export function PourStoriesTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }) {
   const bottlePours = getPoursForBottle(pours, bottle.id)
@@ -13,7 +15,12 @@ export function PourStoriesTab({ bottle, pours }: { bottle: Bottle; pours: Pour[
       <EmptyState
         title="Your first Pour Story starts here."
         message="Open a bottle, capture the pour, and begin your whiskey journey."
-        action={<StartPourStoryButton bottleId={bottle.id} />}
+        action={
+          <div className={styles.actions}>
+            <QuickPourButton bottleId={bottle.id} />
+            <StartPourStoryButton bottleId={bottle.id} variant="secondary" />
+          </div>
+        }
       />
     )
   }
@@ -25,7 +32,10 @@ export function PourStoriesTab({ bottle, pours }: { bottle: Bottle; pours: Pour[
           <PourStoryCard key={pour.id} pour={pour} bottle={bottle} />
         ))}
       </SectionRow>
-      <StartPourStoryButton bottleId={bottle.id} label="+ Add Story" variant="secondary" />
+      <div className={styles.footerActions}>
+        <QuickPourButton bottleId={bottle.id} />
+        <StartPourStoryButton bottleId={bottle.id} label="+ Add Story" variant="secondary" />
+      </div>
     </Section>
   )
 }

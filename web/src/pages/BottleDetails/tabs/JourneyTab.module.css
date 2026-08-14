@@ -1,3 +1,10 @@
 .viewAll {
   margin-top: var(--fip-space-6);
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-3);
+  justify-content: center;
+}

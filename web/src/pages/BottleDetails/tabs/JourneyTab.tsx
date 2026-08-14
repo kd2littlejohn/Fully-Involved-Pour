@@ -8,6 +8,7 @@ import { Timeline, type TimelineEvent } from '../../../components/domain/Timelin
 import { PourStoryDetail } from '../../../features/pourWizard/PourStoryDetail'
 import { MemoryDetail } from '../../../features/memories/MemoryDetail'
 import { StartPourStoryButton } from '../../../features/pourWizard/StartPourStoryButton'
+import { QuickPourButton } from '../../../features/quickPour/QuickPourButton'
 import styles from './JourneyTab.module.css'
 
 interface JourneyTabProps {
@@ -31,7 +32,12 @@ export function JourneyTab({ bottle, pours, memories, onViewAllPours }: JourneyT
         <EmptyState
           title="Your story with this bottle hasn't started yet."
           message="Whenever you're ready, pour a taste and this page will start filling in."
-          action={<StartPourStoryButton bottleId={bottle.id} />}
+          action={
+            <div className={styles.actions}>
+              <QuickPourButton bottleId={bottle.id} />
+              <StartPourStoryButton bottleId={bottle.id} variant="secondary" />
+            </div>
+          }
         />
       )
     }
