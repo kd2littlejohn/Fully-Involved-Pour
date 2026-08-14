@@ -10,12 +10,17 @@ import { ScoreRing } from '../../components/ui/ScoreRing'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { StatTile } from '../../components/ui/StatTile'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
+import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
 import { useAuth } from '../../hooks/useAuth'
-import { useUserData } from '../../hooks/useUserData'
+import { useUserData, type BottlePatch } from '../../hooks/useUserData'
 import type { BottleStatus } from '../../data/types'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { getCurrentScore } from '../../features/bottleDetails/selectors'
+import { fipTier } from '../../features/fip/tiers'
 import { BottleKillCelebration } from '../../features/bottleKill/BottleKillCelebration'
+import { YourTakeCard } from '../../features/bottleDetails/YourTakeCard'
+import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
+import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import { OverviewTab } from './tabs/OverviewTab'
 import { PourStoriesTab } from './tabs/PourStoriesTab'
 import { JourneyTab } from './tabs/JourneyTab'
@@ -40,7 +45,7 @@ const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'pour-stories', label: 'Pour Stories' },
   { id: 'journey', label: 'Journey' },
-  { id: 'gallery', label: 'Gallery' },
+  { id: 'photos', label: 'Photos' },
   { id: 'compare', label: 'Compare' },
 ]
 
@@ -102,6 +107,10 @@ export function BottleDetailsPage() {
   const currentBottleId = bottle.id
   const currentOpenedDate = bottle.openedDate
   const currentFinishedDate = bottle.finishedDate
+  const currentFavorite = bottle.favorite
+  const currentName = bottle.name
+  const currentDistillery = bottle.distillery
+  const currentType = bottle.type
   const canQuickOpen = bottle.status !== 'open' && bottle.status !== 'finished'
   const canMarkFinished = bottle.status === 'open'
 
@@ -125,6 +134,38 @@ export function BottleDetailsPage() {
     setShowBottleKillCelebration(true)
   }
 
+  async function handleToggleFavorite() {
+    await updateBottle(currentBottleId, { favorite: !currentFavorite })
+  }
+
+  function handleReplaceBottle() {
+    navigate('/bottles/new', {
+      state: { prefill: { name: currentName, distillery: currentDistillery, type: currentType }, defaultStatus: 'sealed' },
+    })
+  }
+
+  async function handleYourTakeUpdate(patch: BottlePatch) {
+    await updateBottle(currentBottleId, patch)
+  }
+
+  const menuItems: OverflowMenuItem[] = []
+  if (canQuickOpen) {
+    menuItems.push({ label: markingOpen ? 'Marking Opened…' : 'Mark as Opened', onClick: () => void handleMarkOpened(), disabled: markingOpen })
+  }
+  if (canMarkFinished) {
+    menuItems.push({
+      label: markingFinished ? 'Marking Finished…' : 'Mark as Finished',
+      onClick: () => void handleMarkFinished(),
+      disabled: markingFinished,
+    })
+  }
+  menuItems.push(
+    { label: 'Edit Bottle', onClick: () => navigate(`/bottles/${bottle.id}/edit`) },
+    { label: bottle.favorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
+    { label: 'Replace Bottle', onClick: handleReplaceBottle },
+    { label: 'Delete Bottle', onClick: () => setConfirmingDelete(true), tone: 'danger' },
+  )
+
   return (
     <>
       <div className={styles.topRow}>
@@ -143,24 +184,7 @@ export function BottleDetailsPage() {
             </Button>
           </div>
         ) : (
-          <div className={styles.headerActions}>
-            {canQuickOpen ? (
-              <Button variant="secondary" onClick={handleMarkOpened} disabled={markingOpen}>
-                {markingOpen ? 'Marking Opened…' : 'Mark as Opened'}
-              </Button>
-            ) : null}
-            {canMarkFinished ? (
-              <Button variant="secondary" onClick={handleMarkFinished} disabled={markingFinished}>
-                {markingFinished ? 'Marking Finished…' : 'Mark as Finished'}
-              </Button>
-            ) : null}
-            <Link to={`/bottles/${bottle.id}/edit`}>
-              <Button variant="ghost">Edit Bottle</Button>
-            </Link>
-            <Button variant="ghost" onClick={() => setConfirmingDelete(true)}>
-              Delete Bottle
-            </Button>
-          </div>
+          <OverflowMenu items={menuItems} label="Bottle actions" />
         )}
       </div>
 
@@ -172,6 +196,7 @@ export function BottleDetailsPage() {
           <h1 className={styles.name}>{bottle.name}</h1>
           {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
           <div className={styles.badges}>
+            {bottle.type ? <Badge>{bottle.type}</Badge> : null}
             <Badge
               tone={bottle.status === 'open' ? 'amber' : bottle.status === 'wishlist' || bottle.status === 'incoming' ? 'brass' : 'default'}
             >
@@ -188,6 +213,9 @@ export function BottleDetailsPage() {
         {typeof score === 'number' ? (
           <div className={styles.score}>
             <ScoreRing score={score} />
+            <div className={styles.scoreTier} style={{ color: fipTier(score).color }}>
+              {fipTier(score).label}
+            </div>
           </div>
         ) : null}
       </div>
@@ -200,6 +228,13 @@ export function BottleDetailsPage() {
         </div>
       ) : null}
 
+      <div className={styles.primaryActions}>
+        <QuickPourButton bottleId={bottle.id} />
+        <StartPourStoryButton bottleId={bottle.id} label="Start a Pour" variant="secondary" />
+      </div>
+
+      <YourTakeCard bottle={bottle} score={score} onUpdate={handleYourTakeUpdate} />
+
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 
       <TabPanel>
@@ -208,7 +243,7 @@ export function BottleDetailsPage() {
         {activeTab === 'journey' ? (
           <JourneyTab bottle={bottle} pours={userDoc.pours} memories={userDoc.memories} onViewAllPours={() => setActiveTab('pour-stories')} />
         ) : null}
-        {activeTab === 'gallery' ? <GalleryTab bottle={bottle} /> : null}
+        {activeTab === 'photos' ? <GalleryTab bottle={bottle} /> : null}
         {activeTab === 'compare' ? <CompareTab bottle={bottle} otherBottles={otherBottles} pours={userDoc.pours} /> : null}
       </TabPanel>
 

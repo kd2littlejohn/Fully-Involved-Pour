@@ -11,6 +11,12 @@ export type FillLevel = 'full' | 'three-quarter' | 'half' | 'quarter' | 'empty'
 export type PourStyle = 'daily' | 'share' | 'special' | 'cocktail'
 export type PourTier = 'crowd' | 'reserve' | 'vip'
 export type BuyAgain = 'absolutely' | 'probably' | 'maybe' | 'probably-not' | 'no'
+// Bottle-level "Your Take" fields — deliberately distinct from Pour's own
+// buyAgain (a per-pour, in-the-moment reaction) since these represent the
+// user's settled verdict on the bottle as a whole, set directly on Bottle
+// Details rather than during a pour.
+export type BottleBuyAgain = 'absolutely' | 'at-msrp' | 'maybe' | 'probably-not' | 'no'
+export type WouldReplace = 'yes' | 'maybe' | 'no'
 
 export interface GalleryPhoto {
   url: string
@@ -56,6 +62,8 @@ export interface Bottle {
   gallery?: GalleryPhoto[]
   favorite?: boolean
   createdAt?: number
+  buyAgain?: BottleBuyAgain
+  wouldReplace?: WouldReplace
 }
 
 export interface FipBreakdown {

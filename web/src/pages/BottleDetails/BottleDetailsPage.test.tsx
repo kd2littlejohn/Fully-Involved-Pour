@@ -26,9 +26,15 @@ function renderPage(bottleId: string) {
     <MemoryRouter initialEntries={[`/collection/${bottleId}`]}>
       <Routes>
         <Route path="/collection/:bottleId" element={<BottleDetailsPage />} />
+        <Route path="/bottles/:bottleId/edit" element={<div>Edit Bottle Page</div>} />
+        <Route path="/bottles/new" element={<div>Add Bottle Page</div>} />
       </Routes>
     </MemoryRouter>,
   )
+}
+
+async function openBottleMenu() {
+  await userEvent.click(screen.getByRole('button', { name: 'Bottle actions' }))
 }
 
 const eagleRare: Bottle = {
@@ -128,7 +134,8 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Bottle' }))
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Bottle' }))
     expect(screen.getByText('Delete this bottle?')).toBeInTheDocument()
     expect(mockDeleteBottle).not.toHaveBeenCalled()
 
@@ -136,59 +143,98 @@ describe('BottleDetailsPage', () => {
     expect(mockDeleteBottle).toHaveBeenCalledWith('b1')
   })
 
-  it('links Edit Bottle to the bottle\'s edit route', () => {
+  it('navigates to the edit route when Edit Bottle is picked from the menu', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    expect(screen.getByRole('link', { name: 'Edit Bottle' })).toHaveAttribute('href', '/bottles/b1/edit')
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit Bottle' }))
+
+    expect(screen.getByText('Edit Bottle Page')).toBeInTheDocument()
+  })
+
+  it('navigates to Add Bottle, prefilled, when Replace Bottle is picked from the menu', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Replace Bottle' }))
+
+    expect(screen.getByText('Add Bottle Page')).toBeInTheDocument()
+  })
+
+  it('toggles favorite status from the menu', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to Favorites' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: true })
+  })
+
+  it('offers a Remove from Favorites label once a bottle is already a favorite', async () => {
+    mockSignedInWith([{ ...eagleRare, favorite: true }], [pour])
+    renderPage('b1')
+
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove from Favorites' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: false })
   })
 
   it('offers Mark as Opened for a sealed bottle and marks it opened in one tap', async () => {
     mockSignedInWith([wellerSpecial], [])
     renderPage('b2')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Mark as Opened' }))
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Mark as Opened' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b2', { status: 'open', openedDate: expect.any(String) })
   })
 
-  it('does not offer Mark as Opened for a bottle that is already open', () => {
+  it('does not offer Mark as Opened for a bottle that is already open', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    expect(screen.queryByRole('button', { name: 'Mark as Opened' })).not.toBeInTheDocument()
+    await openBottleMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Mark as Opened' })).not.toBeInTheDocument()
   })
 
-  it('does not offer Mark as Opened for a finished bottle', () => {
+  it('does not offer Mark as Opened for a finished bottle', async () => {
     mockSignedInWith([{ ...eagleRare, status: 'finished' }], [pour])
     renderPage('b1')
 
-    expect(screen.queryByRole('button', { name: 'Mark as Opened' })).not.toBeInTheDocument()
+    await openBottleMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Mark as Opened' })).not.toBeInTheDocument()
   })
 
   it('offers Mark as Finished for an open bottle, marks it finished, and celebrates', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Mark as Finished' }))
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Mark as Finished' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { status: 'finished', finishedDate: expect.any(String) })
     expect(screen.getByText('🥃 Bottle Kill')).toBeInTheDocument()
     expect(screen.getByText(/You finished Eagle Rare after 1 pour/)).toBeInTheDocument()
   })
 
-  it('does not offer Mark as Finished for a sealed bottle', () => {
+  it('does not offer Mark as Finished for a sealed bottle', async () => {
     mockSignedInWith([wellerSpecial], [])
     renderPage('b2')
 
-    expect(screen.queryByRole('button', { name: 'Mark as Finished' })).not.toBeInTheDocument()
+    await openBottleMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Mark as Finished' })).not.toBeInTheDocument()
   })
 
-  it('does not offer Mark as Finished for a bottle that is already finished', () => {
+  it('does not offer Mark as Finished for a bottle that is already finished', async () => {
     mockSignedInWith([{ ...eagleRare, status: 'finished' }], [pour])
     renderPage('b1')
 
-    expect(screen.queryByRole('button', { name: 'Mark as Finished' })).not.toBeInTheDocument()
+    await openBottleMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Mark as Finished' })).not.toBeInTheDocument()
   })
 
   it('opens a photo quick view when the bottle image is clicked', async () => {
@@ -211,6 +257,40 @@ describe('BottleDetailsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'View photo' }))
 
     expect(within(screen.getByRole('dialog', { hidden: true })).getByText('Replace Photo')).toBeInTheDocument()
+  })
+
+  it('shows a type badge and the FIP tier name next to the score', () => {
+    mockSignedInWith([{ ...eagleRare, type: 'Bourbon' }], [pour])
+    renderPage('b1')
+
+    expect(screen.getAllByText('Bourbon').length).toBeGreaterThan(0)
+    // Eagle Rare's only pour rates 8.2 -> Working Fire tier.
+    expect(screen.getByText('Working Fire')).toBeInTheDocument()
+  })
+
+  it('offers Quick Pour and Start a Pour as prominent, always-visible primary actions', () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    expect(screen.getByRole('button', { name: '⚡ Quick Pour' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start a Pour' })).toBeInTheDocument()
+  })
+
+  it('renders the Your Take card with the current score', () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    expect(screen.getByText('Your Take')).toBeInTheDocument()
+    expect(screen.getAllByText('8.2').length).toBeGreaterThan(0)
+  })
+
+  it('saves a Your Take pick directly to the bottle', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Absolutely' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { buyAgain: 'absolutely' })
   })
 
   it('compares two bottles side by side once one is selected', async () => {

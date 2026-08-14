@@ -50,7 +50,7 @@ describe('JourneyTab', () => {
     setUserDoc([eagleRare], pours)
     render(<JourneyTab bottle={eagleRare} pours={pours} memories={[]} onViewAllPours={vi.fn()} />)
 
-    expect(screen.getByText('Your Story')).toBeInTheDocument()
+    expect(screen.getByText('Bottle Journey')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument()
     expect(screen.getByText('First Pour')).toBeInTheDocument()
 

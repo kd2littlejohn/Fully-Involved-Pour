@@ -1,0 +1,73 @@
+.card {
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  box-shadow: var(--fip-shadow-card);
+  padding: var(--fip-space-5);
+  margin: 0 var(--fip-shell-x) var(--fip-space-6);
+}
+
+.heading {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  margin-bottom: var(--fip-space-4);
+}
+
+.scoreRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: var(--fip-space-4);
+  margin-bottom: var(--fip-space-4);
+  border-bottom: 1px solid var(--fip-border-subtle);
+}
+
+.scoreLabel {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.scoreValue {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-amber);
+}
+
+.section {
+  margin-bottom: var(--fip-space-4);
+}
+
+.sectionLabel {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+  margin-bottom: var(--fip-space-2);
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}
+
+.favoriteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fip-space-2);
+  width: 100%;
+  min-height: 44px;
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  background: transparent;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.favoriteActive {
+  border-color: var(--fip-amber);
+  color: var(--fip-amber);
+}

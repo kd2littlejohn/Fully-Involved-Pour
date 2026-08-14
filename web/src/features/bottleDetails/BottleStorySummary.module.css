@@ -14,6 +14,13 @@
   gap: var(--fip-space-3);
 }
 
+.statsRowTriple {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-3);
+}
+
 .dates {
   display: flex;
   flex-wrap: wrap;
@@ -43,4 +50,19 @@
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
   color: var(--fip-amber);
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-5);
+  padding-top: var(--fip-space-4);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.notesChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
 }

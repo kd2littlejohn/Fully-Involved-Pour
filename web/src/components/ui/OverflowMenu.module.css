@@ -1,0 +1,66 @@
+.root {
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  background: transparent;
+  color: var(--fip-cream-soft);
+  cursor: pointer;
+}
+
+.trigger:hover {
+  border-color: var(--fip-border-strong);
+  color: var(--fip-cream);
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + var(--fip-space-2));
+  right: 0;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  box-shadow: var(--fip-shadow-card);
+  padding: var(--fip-space-2);
+  gap: var(--fip-space-1);
+  z-index: 20;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--fip-oak-deep);
+}
+
+.item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.itemDanger {
+  color: var(--fip-error);
+}
