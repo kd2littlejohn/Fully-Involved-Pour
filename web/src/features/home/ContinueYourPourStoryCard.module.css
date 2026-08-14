@@ -1,0 +1,73 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+  overflow: hidden;
+}
+
+.media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 240px;
+  background: var(--fip-oak-deep);
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-4);
+}
+
+.name {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: inherit;
+  text-decoration: none;
+}
+
+.distillery {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-2);
+}
+
+.statText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+.hint {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin-top: var(--fip-space-2);
+}
+
+.note {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  font-style: italic;
+}
+
+.actions {
+  margin-top: var(--fip-space-2);
+}

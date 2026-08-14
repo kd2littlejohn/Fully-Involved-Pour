@@ -19,9 +19,9 @@ function pour(overrides: Partial<Pour> & Pick<Pour, 'id' | 'bottleId' | 'date' |
   }
 }
 
-// A deliberately varied 7-bottle collection: each bottle is constructed to
-// be the clear, unambiguous winner for exactly one mood, so ranking
-// assertions aren't sensitive to small weight tweaks.
+// A deliberately varied 7-bottle collection used for structural checks
+// (status filtering, sealed-bottle inclusion, Show Me Another, edge cases,
+// explanation text) that don't depend on exactly which mood wins.
 const booker: Bottle = { id: 'booker', name: 'Bookers Bourbon', status: 'open', proof: 126.9, type: 'Bourbon', flavors: ['Black Pepper', 'Baking Spice', 'Oak'] }
 const weller: Bottle = { id: 'weller', name: 'Weller Special Reserve', status: 'open', proof: 108, type: 'Bourbon', flavors: ['Vanilla', 'Caramel', 'Honey'] }
 const michters: Bottle = { id: 'michters', name: "Michter's 10 Rye", status: 'open', proof: 115, type: 'Rye', legacyShelf: true }
@@ -58,9 +58,7 @@ const pours: Pour[] = [
   pour({ id: 'p14', bottleId: 'badbottle', date: daysAgo(2), rating: 4.0 }),
 ]
 
-function idsExcept(...keep: string[]): string[] {
-  return bottles.map((b) => b.id).filter((id) => !keep.includes(id))
-}
+const DETERMINISTIC_MOODS: MoodId[] = ['something-familiar', 'something-special', 'havent-had-lately', 'sweet', 'high-proof']
 
 describe('buildCandidates', () => {
   it('excludes finished, wishlist, and incoming bottles', () => {
@@ -79,29 +77,43 @@ describe('buildCandidates', () => {
   })
 })
 
-describe('getRecommendation — all seven moods', () => {
-  it('Big & Bold favors high proof, high rating, bold flavor tags', () => {
-    expect(getRecommendation(bottles, pours, 'big-bold')?.bottle.id).toBe('booker')
-  })
+describe('getRecommendation — each mood favors its real signal', () => {
+  it('Something Familiar favors frequent revisits over a single high-rated pour', () => {
+    const familiar: Bottle = { id: 'familiar', name: 'Familiar Favorite', status: 'open', proof: 90 }
+    const rare: Bottle = { id: 'rare', name: 'Rare Treat', status: 'open', proof: 90 }
+    const soloPours = [8.0, 8.0, 8.0, 8.0, 8.0].map((rating, i) => pour({ id: `f${i}`, bottleId: 'familiar', date: daysAgo(i * 5 + 1), rating }))
+    soloPours.push(pour({ id: 'r1', bottleId: 'rare', date: daysAgo(2), rating: 9.5 }))
 
-  it('Easy Night favors moderate proof, frequent revisits, approachable flavor', () => {
-    expect(getRecommendation(bottles, pours, 'easy-night')?.bottle.id).toBe('weller')
+    expect(getRecommendation([familiar, rare], soloPours, 'something-familiar')?.bottle.id).toBe('familiar')
   })
 
   it('Something Special favors Legacy Shelf, high rating, rarely poured', () => {
     expect(getRecommendation(bottles, pours, 'something-special')?.bottle.id).toBe('michters')
   })
 
-  it('Explore My Bar favors a never-poured, sealed bottle', () => {
-    expect(getRecommendation(bottles, pours, 'explore-bar')?.bottle.id).toBe('eaglerare')
+  it("Haven't Had Lately favors a never-poured bottle over one poured recently", () => {
+    const neglected: Bottle = { id: 'neglected', name: 'Neglected Bottle', status: 'open', proof: 90 }
+    const fresh: Bottle = { id: 'fresh', name: 'Fresh Favorite', status: 'open', proof: 90 }
+    const twoBottlePours = [
+      pour({ id: 'n1', bottleId: 'neglected', date: daysAgo(60), rating: 8.0 }),
+      pour({ id: 'fr1', bottleId: 'fresh', date: daysAgo(2), rating: 8.0 }),
+    ]
+
+    expect(getRecommendation([neglected, fresh], twoBottlePours, 'havent-had-lately')?.bottle.id).toBe('neglected')
   })
 
-  it('Sharing With Friends favors companion history and buy-again score', () => {
-    expect(getRecommendation(bottles, pours, 'sharing-friends')?.bottle.id).toBe('oldforester')
+  it('Sweet favors sweet-flavor-tagged bottles over spice-forward ones', () => {
+    const sweetBottle: Bottle = { id: 'sweet-b', name: 'Sweet Sipper', status: 'open', proof: 90, flavors: ['Vanilla', 'Caramel', 'Honey'] }
+    const spicyBottle: Bottle = { id: 'spicy-b', name: 'Spicy Kick', status: 'open', proof: 90, flavors: ['Black Pepper', 'Cinnamon'] }
+
+    expect(getRecommendation([sweetBottle, spicyBottle], [], 'sweet')?.bottle.id).toBe('sweet-b')
   })
 
-  it('Nightcap favors dessert/oak/dark-fruit flavor axes', () => {
-    expect(getRecommendation(bottles, pours, 'nightcap')?.bottle.id).toBe('angelsenvy')
+  it('High Proof favors the highest-proof bottle', () => {
+    const highProof: Bottle = { id: 'high-proof-b', name: 'Cask Strength', status: 'open', proof: 130 }
+    const lowProof: Bottle = { id: 'low-proof-b', name: 'Standard Proof', status: 'open', proof: 80 }
+
+    expect(getRecommendation([highProof, lowProof], [], 'high-proof')?.bottle.id).toBe('high-proof-b')
   })
 
   it('Surprise Me excludes bottles below the rating floor and respects the injected random source', () => {
@@ -120,7 +132,7 @@ describe('getRecommendation — all seven moods', () => {
 })
 
 describe('getRecommendation — sealed-bottle preference', () => {
-  const moodsThatPenalizeSealed: MoodId[] = ['big-bold', 'easy-night', 'sharing-friends', 'nightcap']
+  const moodsThatPenalizeSealed: MoodId[] = ['something-familiar', 'sweet', 'high-proof']
 
   it.each(moodsThatPenalizeSealed)('%s never prefers the only sealed bottle over a comparable open one', (moodId) => {
     // A tiny two-bottle pool: one open, one sealed, otherwise identical.
@@ -130,15 +142,15 @@ describe('getRecommendation — sealed-bottle preference', () => {
     expect(result?.bottle.id).toBe('open-1')
   })
 
-  it('Something Special, Explore My Bar, and Surprise Me may still recommend a sealed bottle', () => {
-    const result = getRecommendation(bottles, pours, 'explore-bar')
+  it('Something Special, Haven’t Had Lately, and Surprise Me may still recommend a sealed bottle', () => {
+    const result = getRecommendation(bottles, pours, 'havent-had-lately')
     expect(result?.bottle.status).toBe('sealed')
   })
 })
 
 describe('getRecommendation — edge cases', () => {
   it('returns undefined for an empty collection', () => {
-    expect(getRecommendation([], [], 'easy-night')).toBeUndefined()
+    expect(getRecommendation([], [], 'something-familiar')).toBeUndefined()
   })
 
   it('handles a collection with only sealed bottles', () => {
@@ -146,7 +158,7 @@ describe('getRecommendation — edge cases', () => {
       { id: 's1', name: 'Sealed One', status: 'sealed', proof: 90 },
       { id: 's2', name: 'Sealed Two', status: 'sealed', proof: 100 },
     ]
-    const result = getRecommendation(onlySealed, [], 'easy-night')
+    const result = getRecommendation(onlySealed, [], 'something-familiar')
     expect(result).toBeDefined()
     expect(result?.bottle.status).toBe('sealed')
     expect(result?.reasons[0]).toBe("You've never opened this bottle — it's still sealed.")
@@ -154,12 +166,12 @@ describe('getRecommendation — edge cases', () => {
 
   it('handles a collection with exactly one eligible bottle', () => {
     const solo: Bottle[] = [{ id: 'solo', name: 'Solo Bottle', status: 'open', proof: 90 }]
-    const result = getRecommendation(solo, [], 'big-bold')
+    const result = getRecommendation(solo, [], 'high-proof')
     expect(result?.bottle.id).toBe('solo')
   })
 
   it('excludes finished, wishlist, and incoming bottles from every mood', () => {
-    for (const moodId of ['big-bold', 'easy-night', 'something-special', 'explore-bar', 'sharing-friends', 'nightcap'] as MoodId[]) {
+    for (const moodId of DETERMINISTIC_MOODS) {
       const result = getRecommendation(bottles, pours, moodId)
       expect(['finished', 'wishlist', 'incoming']).not.toContain(result?.bottle.id)
     }
@@ -181,10 +193,10 @@ describe('getRecommendation — Show Me Another', () => {
       pour({ id: 'sp6', bottleId: 'w2', date: daysAgo(10), rating: 8.6 }),
     ]
 
-    const first = getRecommendation(solo, soloPours, 'easy-night', [])
+    const first = getRecommendation(solo, soloPours, 'something-familiar', [])
     expect(first?.bottle.id).toBe('w1')
 
-    const second = getRecommendation(solo, soloPours, 'easy-night', [first!.bottle.id])
+    const second = getRecommendation(solo, soloPours, 'something-familiar', [first!.bottle.id])
     expect(second?.bottle.id).toBe('w2')
     expect(second?.bottle.id).not.toBe(first?.bottle.id)
   })
@@ -194,7 +206,7 @@ describe('getRecommendation — Show Me Another', () => {
       { id: 'w1', name: 'One', status: 'open', proof: 100 },
       { id: 'w2', name: 'Two', status: 'open', proof: 100 },
     ]
-    const result = getRecommendation(solo, [], 'easy-night', ['w1', 'w2'])
+    const result = getRecommendation(solo, [], 'something-familiar', ['w1', 'w2'])
     expect(result).toBeDefined()
     // Must not immediately repeat the bottle that was just shown (the last
     // excluded id) even though the exclude list is exhausted.
@@ -204,14 +216,14 @@ describe('getRecommendation — Show Me Another', () => {
 
   it('with exactly one eligible bottle, resetting has no choice but to show it again', () => {
     const solo: Bottle[] = [{ id: 'solo', name: 'Solo Bottle', status: 'open', proof: 90 }]
-    const result = getRecommendation(solo, [], 'easy-night', ['solo'])
+    const result = getRecommendation(solo, [], 'something-familiar', ['solo'])
     expect(result?.bottle.id).toBe('solo')
   })
 })
 
 describe('getRecommendation — explanations reference only real signals', () => {
   it('never implies a sealed, never-poured bottle has been poured before', () => {
-    const result = getRecommendation(bottles, pours, 'explore-bar')
+    const result = getRecommendation(bottles, pours, 'havent-had-lately')
     expect(result?.bottle.id).toBe('eaglerare')
     expect(result?.reasons.join(' ')).not.toMatch(/haven't poured this in|poured this once/)
     expect(result?.reasons).toContain("You've never opened this bottle — it's still sealed.")
@@ -223,18 +235,13 @@ describe('getRecommendation — explanations reference only real signals', () =>
     expect(result?.reasons).toEqual(["You've only poured this once.", 'This is a Legacy Shelf bottle.'])
   })
 
-  it('cites real companion history for Sharing With Friends', () => {
-    const result = getRecommendation(bottles, pours, 'sharing-friends')
-    expect(result?.bottle.id).toBe('oldforester')
-    expect(result?.reasons).toContain("You've shared this bottle with company before.")
-  })
-
   it('falls back to an honest, non-fabricated mood statement when no specific signal applies', () => {
-    // Force oldforester to be the sole nightcap candidate — it has no
+    // Force oldforester to be the sole candidate for a mood — it has no
     // Legacy Shelf flag, isn't the pool's top-rated or Core Bar bottle, and
     // isn't recently neglected, so no specific signal should fire.
-    const result = getRecommendation(bottles, pours, 'nightcap', idsExcept('oldforester'))
+    const exclude = bottles.map((b) => b.id).filter((id) => id !== 'oldforester')
+    const result = getRecommendation(bottles, pours, 'sweet', exclude)
     expect(result?.bottle.id).toBe('oldforester')
-    expect(result?.reasons).toEqual(['A strong fit for a Nightcap pour right now.'])
+    expect(result?.reasons).toEqual(['A strong fit for a Sweet pour right now.'])
   })
 })

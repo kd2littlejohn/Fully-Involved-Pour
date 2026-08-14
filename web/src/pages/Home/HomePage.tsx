@@ -6,13 +6,15 @@ import { Button } from '../../components/ui/Button'
 import { BottleCard } from '../../components/domain/BottleCard'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { SignInButton } from '../../components/domain/SignInButton'
-import { RollTheDiceButton } from '../../features/diceRoll/RollTheDiceButton'
+import { StartAPourButton } from '../../features/startAPour/StartAPourButton'
 import { WhatShouldIPourButton } from '../../features/whatShouldIPour/WhatShouldIPourButton'
+import { ContinueYourPourStoryCard } from '../../features/home/ContinueYourPourStoryCard'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import {
   getFeaturedOpenBottle,
   getIncomingBottles,
+  getMaybeTonightBottles,
   getRecentBottles,
   getRecentPours,
   greetingForHour,
@@ -47,6 +49,7 @@ export function HomePage() {
 
   const { bottles, pours } = userDoc
   const featuredBottle = getFeaturedOpenBottle(bottles)
+  const maybeTonightBottles = getMaybeTonightBottles(bottles, pours)
   const incomingBottles = getIncomingBottles(bottles)
   const recentBottles = getRecentBottles(bottles)
   const recentPours = getRecentPours(pours)
@@ -57,7 +60,7 @@ export function HomePage() {
       <PageHeader
         eyebrow="Home"
         title={name ? `${greeting}, ${name}.` : `${greeting}.`}
-        subtitle="What story will you add today?"
+        subtitle="What are you pouring tonight?"
       />
 
       {bottles.length === 0 ? (
@@ -72,18 +75,29 @@ export function HomePage() {
         />
       ) : (
         <>
+          <div className={styles.primaryAction}>
+            <StartAPourButton label="Start a Pour" />
+          </div>
+
           <div className={styles.actions}>
             <WhatShouldIPourButton />
             <Link to="/bottles/new">
               <Button variant="secondary">Add a Bottle</Button>
             </Link>
-            <RollTheDiceButton />
           </div>
 
           {featuredBottle ? (
             <Section title="Continue Your Pour Story">
+              <ContinueYourPourStoryCard bottle={featuredBottle} pours={pours} />
+            </Section>
+          ) : null}
+
+          {maybeTonightBottles.length > 0 ? (
+            <Section title="Maybe Tonight" viewAllHref="/collection">
               <SectionRow>
-                <BottleCard bottle={featuredBottle} />
+                {maybeTonightBottles.map((bottle) => (
+                  <BottleCard key={bottle.id} bottle={bottle} />
+                ))}
               </SectionRow>
             </Section>
           ) : null}

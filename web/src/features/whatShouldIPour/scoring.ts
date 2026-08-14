@@ -2,7 +2,6 @@ import type { Bottle, Pour } from '../../data/types'
 import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
 import { computeCoreBarScore } from '../coreBar/selectors'
 import { FLAVOR_AXES, flavorRadarValues, type FlavorAxis } from '../flavorRadar/flavorCategories'
-import { buyAgainToValueScore } from '../fip/scoring'
 import { MOODS, type MoodId } from './moods'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -11,7 +10,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // else "ordinary" recommendations should favor a bottle that's already open
 // (per product decision: opening something new is a bigger ask than pouring
 // what's already on the shelf).
-const SEALED_PENALTY_EXEMPT = new Set<MoodId>(['something-special', 'explore-bar', 'surprise-me'])
+const SEALED_PENALTY_EXEMPT = new Set<MoodId>(['something-special', 'havent-had-lately', 'surprise-me'])
 const SEALED_PENALTY = 0.55
 
 // Surprise Me excludes known-poor bottles (below the FIP "Routine Call"
@@ -28,9 +27,6 @@ export interface Candidate {
   coreBarScore: number
   legacyShelf: boolean
   flavors: Record<FlavorAxis, number> | undefined
-  companionPourCount: number
-  /** undefined = no pour of this bottle has a buyAgain value logged */
-  buyAgainAvg: number | undefined
   /** 1 = a type/category the user rarely logs pours from, 0 = their most-poured category */
   categoryRarity: number
   isOpen: boolean
@@ -47,7 +43,6 @@ interface MoodContext {
   proofRange: { min: number; max: number }
   pourCountMax: number
   coreBarMax: number
-  companionMax: number
 }
 
 function normalize(value: number, min: number, max: number): number {
@@ -83,7 +78,6 @@ export function buildCandidates(bottles: Bottle[], pours: Pour[]): Candidate[] {
     const flavors = flavorVals
       ? (Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, flavorVals[i] ?? 0])) as Record<FlavorAxis, number>)
       : undefined
-    const buyAgainValues = bottlePours.filter((p) => p.buyAgain).map((p) => buyAgainToValueScore(p.buyAgain))
     const type = bottle.type?.trim()
     const categoryCount = type ? (categoryPourCounts.get(type) ?? 0) : 0
 
@@ -96,8 +90,6 @@ export function buildCandidates(bottles: Bottle[], pours: Pour[]): Candidate[] {
       coreBarScore: computeCoreBarScore(bottle, pours),
       legacyShelf: !!bottle.legacyShelf,
       flavors,
-      companionPourCount: bottlePours.filter((p) => p.companion?.trim()).length,
-      buyAgainAvg: buyAgainValues.length > 0 ? buyAgainValues.reduce((a, b) => a + b, 0) / buyAgainValues.length : undefined,
       categoryRarity: 1 - normalize(categoryCount, 0, maxCategoryPours),
       isOpen: bottle.status === 'open',
     }
@@ -110,7 +102,6 @@ function buildContext(candidates: Candidate[]): MoodContext {
     proofRange: poolRange(candidates, (c) => c.proof),
     pourCountMax: Math.max(0, ...candidates.map((c) => c.pourCount)),
     coreBarMax: Math.max(0, ...candidates.map((c) => c.coreBarScore)),
-    companionMax: Math.max(0, ...candidates.map((c) => c.companionPourCount)),
   }
 }
 
@@ -136,36 +127,25 @@ function coreBarNorm(c: Candidate, ctx: MoodContext): number {
   return normalize(c.coreBarScore, 0, ctx.coreBarMax)
 }
 
-function companionNorm(c: Candidate, ctx: MoodContext): number {
-  return normalize(c.companionPourCount, 0, ctx.companionMax)
-}
-
 // How neglected this bottle is: never-poured counts as maximally neglected.
 function neglectNorm(c: Candidate, daysMax: number): number {
   if (c.daysSinceLastPour === undefined) return 1
   return normalize(c.daysSinceLastPour, 0, daysMax)
 }
 
-// Peaks at the pool's proof midpoint, falls off toward either extreme.
-function moderateProofCloseness(c: Candidate, ctx: MoodContext): number {
-  return 1 - Math.abs(proofNorm(c, ctx) - 0.5) * 2
-}
-
-function approachability(c: Candidate): number {
-  return flavor(c, 'Sweet') * 0.7 + (1 - flavor(c, 'Smoky')) * 0.3
-}
-
 type DeterministicMoodId = Exclude<MoodId, 'surprise-me'>
 
 const MOOD_SCORERS: Record<DeterministicMoodId, (c: Candidate, ctx: MoodContext, daysMax: number) => number> = {
-  'big-bold': (c, ctx) => 0.35 * proofNorm(c, ctx) + 0.3 * ratingNorm(c, ctx) + 0.2 * flavor(c, 'Spicy') + 0.15 * flavor(c, 'Woody'),
-  'easy-night': (c, ctx) =>
-    0.3 * moderateProofCloseness(c, ctx) + 0.25 * ratingNorm(c, ctx) + 0.25 * pourCountNorm(c, ctx) + 0.2 * approachability(c),
+  // The bottle you know and love — frequently revisited, reliably good.
+  'something-familiar': (c, ctx) => 0.6 * pourCountNorm(c, ctx) + 0.4 * ratingNorm(c, ctx),
   'something-special': (c, ctx) =>
     0.3 * (c.legacyShelf ? 1 : 0) + 0.25 * coreBarNorm(c, ctx) + 0.3 * ratingNorm(c, ctx) + 0.15 * (1 - pourCountNorm(c, ctx)),
-  'explore-bar': (c, _ctx, daysMax) => 0.4 * (c.pourCount === 0 ? 1 : 0) + 0.3 * neglectNorm(c, daysMax) + 0.3 * c.categoryRarity,
-  'sharing-friends': (c, ctx) => 0.35 * companionNorm(c, ctx) + 0.3 * (c.buyAgainAvg ?? 0.4) + 0.35 * ratingNorm(c, ctx),
-  nightcap: (c, ctx) => 0.3 * flavor(c, 'Sweet') + 0.25 * flavor(c, 'Woody') + 0.2 * flavor(c, 'Fruity') + 0.25 * ratingNorm(c, ctx),
+  // Never-poured (including a still-sealed bottle) is the most literal
+  // reading of "haven't had lately" — it beats a merely-stale one.
+  'havent-had-lately': (c, ctx, daysMax) =>
+    0.5 * neglectNorm(c, daysMax) + 0.25 * (c.pourCount === 0 ? 1 : 0) + 0.15 * c.categoryRarity + 0.1 * ratingNorm(c, ctx),
+  sweet: (c, ctx) => 0.7 * flavor(c, 'Sweet') + 0.3 * ratingNorm(c, ctx),
+  'high-proof': (c, ctx) => 0.75 * proofNorm(c, ctx) + 0.25 * ratingNorm(c, ctx),
 }
 
 export function scoreCandidate(candidate: Candidate, moodId: DeterministicMoodId, ctx: MoodContext, daysMax: number): number {
@@ -223,9 +203,6 @@ function explainRecommendation(candidate: Candidate, moodId: MoodId, ctx: MoodCo
 
   const secondary: string[] = []
   if (candidate.legacyShelf) secondary.push('This is a Legacy Shelf bottle.')
-  if (moodId === 'sharing-friends' && candidate.companionPourCount > 0) {
-    secondary.push("You've shared this bottle with company before.")
-  }
   if (ctx.coreBarMax > 0 && candidate.coreBarScore === ctx.coreBarMax) {
     secondary.push('This is one of your Core Bar bottles — one you keep coming back to.')
   }

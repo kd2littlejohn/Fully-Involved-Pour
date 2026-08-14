@@ -86,7 +86,7 @@ describe('HomePage', () => {
     renderHome()
 
     expect(screen.getAllByText('Eagle Rare').length).toBeGreaterThan(0)
-    expect(screen.getByText('Working Fire')).toBeInTheDocument()
+    expect(screen.getAllByText('Working Fire').length).toBeGreaterThan(0)
     expect(screen.queryByText('Coming Soon')).not.toBeInTheDocument()
   })
 
@@ -109,5 +109,78 @@ describe('HomePage', () => {
 
     expect(screen.getByText('Coming Soon')).toBeInTheDocument()
     expect(screen.getAllByText('Elmer T. Lee').length).toBeGreaterThan(0)
+  })
+
+  it('leads with a Start a Pour primary action and "What are you pouring tonight?" subtext', () => {
+    const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: [bottle], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+    })
+
+    renderHome()
+
+    expect(screen.getByText('What are you pouring tonight?')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start a Pour' })).toBeInTheDocument()
+  })
+
+  it('does not offer a standalone Roll the Dice action anymore', () => {
+    const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: [bottle], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+    })
+
+    renderHome()
+
+    expect(screen.queryByRole('button', { name: /Roll the Dice/ })).not.toBeInTheDocument()
+  })
+
+  it('shows a Maybe Tonight section for a sealed, owned bottle', () => {
+    const sealed: Bottle = { id: 'b1', name: 'Blanton\'s', status: 'sealed', createdAt: 1 }
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: [sealed], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+    })
+
+    renderHome()
+
+    expect(screen.getByText('Maybe Tonight')).toBeInTheDocument()
+    expect(screen.getAllByText("Blanton's").length).toBeGreaterThan(0)
+  })
+
+  it('shows a real pour count and Pour Again action on the Continue Your Pour Story card', () => {
+    const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1, openedDate: '2026-06-01' }
+    const pour: Pour = {
+      id: 'p1',
+      bottleId: 'b1',
+      date: '2026-07-01',
+      rating: 8.6,
+      memory: 'Great catch-up.',
+      fip: { nose: 2, palate: 3, finish: 1.6, complexity: 1, value: 1, total: 8.6, noseAromas: [], palateFlavors: [] },
+    }
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: [bottle], pours: [pour], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+    })
+
+    renderHome()
+
+    expect(screen.getByText('Continue Your Pour Story')).toBeInTheDocument()
+    expect(screen.getByText('1 pour')).toBeInTheDocument()
+    expect(screen.getAllByText('Great catch-up.').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: 'Pour Again' })).toBeInTheDocument()
   })
 })

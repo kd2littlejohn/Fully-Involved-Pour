@@ -1,11 +1,4 @@
-export type MoodId =
-  | 'big-bold'
-  | 'easy-night'
-  | 'something-special'
-  | 'explore-bar'
-  | 'sharing-friends'
-  | 'nightcap'
-  | 'surprise-me'
+export type MoodId = 'something-familiar' | 'something-special' | 'havent-had-lately' | 'sweet' | 'high-proof' | 'surprise-me'
 
 export interface Mood {
   id: MoodId
@@ -14,11 +7,10 @@ export interface Mood {
 
 // Order shown in the mood picker.
 export const MOODS: Mood[] = [
-  { id: 'big-bold', label: 'Big & Bold' },
-  { id: 'easy-night', label: 'Easy Night' },
+  { id: 'something-familiar', label: 'Something Familiar' },
   { id: 'something-special', label: 'Something Special' },
-  { id: 'explore-bar', label: 'Explore My Bar' },
-  { id: 'sharing-friends', label: 'Sharing With Friends' },
-  { id: 'nightcap', label: 'Nightcap' },
+  { id: 'havent-had-lately', label: "Haven't Had Lately" },
+  { id: 'sweet', label: 'Sweet' },
+  { id: 'high-proof', label: 'High Proof' },
   { id: 'surprise-me', label: 'Surprise Me' },
 ]

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -10,10 +10,14 @@ import { useUserData } from '../../hooks/useUserData'
 import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
 import { getRecommendation, type RecommendationResult } from './scoring'
 import { MOODS, type MoodId } from './moods'
+import { DiceFace } from '../diceRoll/DiceFace'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './WhatShouldIPourButton.module.css'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const ROLL_DURATION_MS = 900
+const ROLL_TICK_MS = 90
+const DIE_FACES = [1, 2, 3, 4, 5, 6]
 
 // Never claims a prior pour that didn't happen — a sealed or never-poured
 // bottle gets an honest "not yet" statement instead of a fabricated stat.
@@ -34,21 +38,55 @@ export function WhatShouldIPourButton() {
   const [moodId, setMoodId] = useState<MoodId | null>(null)
   const [result, setResult] = useState<RecommendationResult | null>(null)
   const [shown, setShown] = useState<string[]>([])
+  const [rolling, setRolling] = useState(false)
+  const [dieValue, setDieValue] = useState(1)
+  const rollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const hasEligibleBottles = userDoc.bottles.some((b) => b.status === 'open' || b.status === 'sealed')
 
+  useEffect(() => {
+    return () => {
+      if (rollTimer.current) clearInterval(rollTimer.current)
+    }
+  }, [])
+
   function handleOpen() {
+    if (rollTimer.current) clearInterval(rollTimer.current)
     setMoodId(null)
     setResult(null)
     setShown([])
+    setRolling(false)
     setOpen(true)
   }
 
-  function pickMood(id: MoodId) {
+  function revealMood(id: MoodId) {
     const rec = getRecommendation(userDoc.bottles, userDoc.pours, id)
     setMoodId(id)
     setResult(rec ?? null)
     setShown(rec ? [rec.bottle.id] : [])
+  }
+
+  // Surprise Me keeps the fun of Roll the Dice — a quick tumble before the
+  // pick lands — instead of resolving instantly like the other moods. Every
+  // other mood reveals immediately; only this one animates.
+  function pickMood(id: MoodId) {
+    if (id !== 'surprise-me') {
+      revealMood(id)
+      return
+    }
+
+    setMoodId('surprise-me')
+    setResult(null)
+    setRolling(true)
+    const startedAt = Date.now()
+    rollTimer.current = setInterval(() => {
+      setDieValue(DIE_FACES[Math.floor(Math.random() * DIE_FACES.length)] ?? 1)
+      if (Date.now() - startedAt >= ROLL_DURATION_MS) {
+        if (rollTimer.current) clearInterval(rollTimer.current)
+        setRolling(false)
+        revealMood('surprise-me')
+      }
+    }, ROLL_TICK_MS)
   }
 
   function showAnother() {
@@ -59,6 +97,8 @@ export function WhatShouldIPourButton() {
   }
 
   function chooseDifferentMood() {
+    if (rollTimer.current) clearInterval(rollTimer.current)
+    setRolling(false)
     setMoodId(null)
     setResult(null)
     setShown([])
@@ -74,6 +114,11 @@ export function WhatShouldIPourButton() {
         <Modal title="What Should I Pour?" onClose={() => setOpen(false)}>
           {!hasEligibleBottles ? (
             <EmptyState title="Nothing to recommend yet." message="Add a sealed or opened bottle to your bar first." />
+          ) : rolling ? (
+            <div className={styles.rollingStep}>
+              <DiceFace value={dieValue} size={96} rolling />
+              <p className={styles.prompt}>Rolling for tonight&rsquo;s pour…</p>
+            </div>
           ) : !moodId || !result ? (
             <div className={styles.moodStep}>
               <p className={styles.prompt}>What are you in the mood for?</p>

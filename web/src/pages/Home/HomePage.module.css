@@ -1,3 +1,11 @@
+.primaryAction {
+  margin-bottom: var(--fip-space-3);
+}
+
+.primaryAction > * {
+  width: 100%;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
