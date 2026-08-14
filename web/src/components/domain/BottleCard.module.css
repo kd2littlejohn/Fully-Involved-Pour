@@ -1,16 +1,10 @@
 .card {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--fip-space-3);
   width: min(220px, 100%);
-  padding: var(--fip-space-4);
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
   box-shadow: var(--fip-shadow-card);
-  text-decoration: none;
-  color: inherit;
   transition:
     border-color var(--fip-motion) var(--fip-ease),
     transform var(--fip-motion-fast) var(--fip-ease);
@@ -27,6 +21,25 @@
 .cardSelected {
   border-color: var(--fip-amber);
   cursor: pointer;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-4);
+}
+
+.bodyLink {
+  text-decoration: none;
+  color: inherit;
+}
+
+.menuOverlay {
+  position: absolute;
+  top: var(--fip-space-3);
+  right: var(--fip-space-3);
+  z-index: 1;
 }
 
 .checkbox {
@@ -53,7 +66,7 @@
 }
 
 .imageWrap {
-  height: 160px;
+  height: 190px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -67,10 +80,22 @@
   object-fit: contain;
 }
 
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .name {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
   line-height: var(--fip-leading-tight);
+}
+
+.subtitle {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-xs);
+  font-style: italic;
 }
 
 .distillery {
