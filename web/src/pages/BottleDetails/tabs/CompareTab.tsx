@@ -58,7 +58,7 @@ export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
   }, [bottle.name, other?.name, voted])
 
   if (otherBottles.length === 0) {
-    return <EmptyState title="Nothing to compare yet." message="Add another bottle to your collection to compare it with this one." />
+    return <EmptyState title="Nothing to compare yet." message="Add another bottle to your bar to compare it with this one." />
   }
 
   const rows: { label: string; a: string; b: string }[] = other

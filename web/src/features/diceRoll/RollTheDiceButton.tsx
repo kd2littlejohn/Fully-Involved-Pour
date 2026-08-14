@@ -84,7 +84,7 @@ export function RollTheDiceButton() {
           }}
         >
           {pourable.length === 0 ? (
-            <EmptyState title="Nothing to roll yet." message="Add a sealed or opened bottle to your collection first." />
+            <EmptyState title="Nothing to roll yet." message="Add a sealed or opened bottle to your bar first." />
           ) : (
             <div className={styles.wrap}>
               <DiceFace value={dieValue} size={96} rolling={rolling} />

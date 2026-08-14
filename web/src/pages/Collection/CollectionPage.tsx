@@ -98,16 +98,16 @@ export function CollectionPage() {
   }
 
   if (authLoading || dataLoading) {
-    return <PageHeader eyebrow="Collection" title="Your bottles." />
+    return <PageHeader eyebrow="My Bar" title="Your bottles." />
   }
 
   if (!user) {
     return (
       <>
-        <PageHeader eyebrow="Collection" title="Your bottles." subtitle="Manage and explore the bottles you own." />
+        <PageHeader eyebrow="My Bar" title="Your bottles." subtitle="Manage and explore the bottles you own." />
         <EmptyState
           title="Your whiskey journey starts here."
-          message="Sign in to start building your collection."
+          message="Sign in to start building your bar."
           action={<SignInButton />}
         />
       </>
@@ -116,12 +116,12 @@ export function CollectionPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Collection" title="Your bottles." subtitle="Manage and explore the bottles you own." />
+      <PageHeader eyebrow="My Bar" title="Your bottles." subtitle="Manage and explore the bottles you own." />
 
       {userDoc.bottles.length === 0 ? (
         <EmptyState
           title="Your whiskey journey starts here."
-          message="Add a bottle to begin building your collection."
+          message="Add a bottle to begin building your bar."
           action={<Button onClick={() => navigate('/bottles/new')}>Add a Bottle</Button>}
         />
       ) : (
@@ -133,7 +133,7 @@ export function CollectionPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name or distillery…"
-              aria-label="Search your collection"
+              aria-label="Search your bar"
             />
           </div>
 

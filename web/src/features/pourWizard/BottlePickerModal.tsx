@@ -20,7 +20,7 @@ export function BottlePickerModal({ bottles, onPick, onClose }: BottlePickerModa
   return (
     <Modal title="Which bottle?" onClose={onClose}>
       {bottles.length === 0 ? (
-        <EmptyState title="No bottles to pour yet." message="Add a bottle to your collection first." />
+        <EmptyState title="No bottles to pour yet." message="Add a bottle to your bar first." />
       ) : (
         <>
           <Field label="Bottle" htmlFor="bottle-picker-bottle">

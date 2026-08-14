@@ -48,7 +48,7 @@ describe('HomePage', () => {
 
     renderHome()
 
-    expect(screen.getByText('Add a bottle to begin building your collection.')).toBeInTheDocument()
+    expect(screen.getByText('Add a bottle to begin building your bar.')).toBeInTheDocument()
   })
 
   it('renders bottles and pour stories when data is present', () => {

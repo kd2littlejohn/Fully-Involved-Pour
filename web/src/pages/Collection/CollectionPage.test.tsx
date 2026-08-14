@@ -104,7 +104,7 @@ describe('CollectionPage', () => {
     })
     renderCollection()
 
-    await userEvent.type(screen.getByLabelText('Search your collection'), 'eagle')
+    await userEvent.type(screen.getByLabelText('Search your bar'), 'eagle')
 
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
     expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
@@ -120,7 +120,7 @@ describe('CollectionPage', () => {
     })
     renderCollection()
 
-    await userEvent.type(screen.getByLabelText('Search your collection'), 'buffalo trace')
+    await userEvent.type(screen.getByLabelText('Search your bar'), 'buffalo trace')
 
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
     expect(screen.getByText('Weller 12')).toBeInTheDocument()
@@ -137,7 +137,7 @@ describe('CollectionPage', () => {
     })
     renderCollection()
 
-    await userEvent.type(screen.getByLabelText('Search your collection'), 'buffalo trace')
+    await userEvent.type(screen.getByLabelText('Search your bar'), 'buffalo trace')
     await userEvent.click(screen.getByRole('button', { name: /Sealed \(1\)/ }))
 
     expect(screen.getByText('Weller 12')).toBeInTheDocument()
@@ -155,7 +155,7 @@ describe('CollectionPage', () => {
     })
     renderCollection()
 
-    await userEvent.type(screen.getByLabelText('Search your collection'), 'nonexistent bottle')
+    await userEvent.type(screen.getByLabelText('Search your bar'), 'nonexistent bottle')
 
     expect(screen.getByText('No bottles match "nonexistent bottle".')).toBeInTheDocument()
   })

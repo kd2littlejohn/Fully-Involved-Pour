@@ -4,9 +4,11 @@ export interface NavItem {
 }
 
 // Canonical 5-tab nav per FIP_PRODUCT_VISION_AND_DESIGN_SYSTEM.md §7/§24.
+// "My Bar" (was "Collection") per the user's 2026-08-14 refinement — warmer,
+// more personal terminology; the route path is unchanged, this is copy only.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Home', path: '/' },
-  { label: 'Collection', path: '/collection' },
+  { label: 'My Bar', path: '/collection' },
   { label: 'Journal', path: '/journal' },
   { label: 'Discover', path: '/discover' },
   { label: 'Profile', path: '/profile' },

@@ -38,7 +38,7 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
           message="Log a few Pour Stories and we'll start showing you what you gravitate toward."
         />
         {typeof averageProof === 'number' ? (
-          <p className={styles.footnote}>Your collection averages {averageProof.toFixed(1)} proof.</p>
+          <p className={styles.footnote}>Your bar averages {averageProof.toFixed(1)} proof.</p>
         ) : null}
       </Section>
     )
@@ -108,7 +108,7 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
   return (
     <Section title="Your Palate">
       <p className={styles.summary}>{summaryText}</p>
-      {typeof averageProof === 'number' ? <p className={styles.footnote}>{`Your collection averages ${averageProof.toFixed(1)} proof.`}</p> : null}
+      {typeof averageProof === 'number' ? <p className={styles.footnote}>{`Your bar averages ${averageProof.toFixed(1)} proof.`}</p> : null}
       {!hasBaseline ? <p className={styles.footnote}>A few more pours and we&rsquo;ll start showing patterns.</p> : null}
 
       {radarValues ? (

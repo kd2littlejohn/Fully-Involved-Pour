@@ -67,7 +67,7 @@ export function BottleDetailsPage() {
         <PageHeader eyebrow="Bottle" title="Bottle details" />
         <EmptyState
           title="Sign in to continue."
-          message="Fully Involved Pour uses Google sign-in to sync your collection."
+          message="Fully Involved Pour uses Google sign-in to sync your bar."
           action={<SignInButton />}
         />
       </>
@@ -82,8 +82,8 @@ export function BottleDetailsPage() {
         <PageHeader eyebrow="Bottle" title="Bottle not found" />
         <EmptyState
           title="We couldn't find this bottle."
-          message="It may have been removed from your collection."
-          action={<LinkButton to="/collection">Back to Collection</LinkButton>}
+          message="It may have been removed from your bar."
+          action={<LinkButton to="/collection">Back to My Bar</LinkButton>}
         />
       </>
     )
@@ -129,7 +129,7 @@ export function BottleDetailsPage() {
     <>
       <div className={styles.topRow}>
         <Link to="/collection" className={styles.back}>
-          ← Back to Collection
+          ← Back to My Bar
         </Link>
 
         {confirmingDelete ? (

@@ -164,7 +164,7 @@ export function AddBottlePage() {
         </div>
         <EmptyState
           title="Sign in to continue."
-          message="Fully Involved Pour uses Google sign-in to sync your collection."
+          message="Fully Involved Pour uses Google sign-in to sync your bar."
           action={<SignInButton />}
         />
       </div>
@@ -183,8 +183,8 @@ export function AddBottlePage() {
         </div>
         <EmptyState
           title="We couldn't find this bottle."
-          message="It may have been removed from your collection."
-          action={<LinkButton to="/collection">Back to Collection</LinkButton>}
+          message="It may have been removed from your bar."
+          action={<LinkButton to="/collection">Back to My Bar</LinkButton>}
         />
       </div>
     )

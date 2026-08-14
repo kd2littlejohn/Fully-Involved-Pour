@@ -38,7 +38,7 @@ export function HomePage() {
         <PageHeader eyebrow="Home" title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
         <EmptyState
           title="Your whiskey journey starts here."
-          message="Sign in to start building your collection and capturing every pour."
+          message="Sign in to start building your bar and capturing every pour."
           action={<SignInButton />}
         />
       </>
@@ -63,7 +63,7 @@ export function HomePage() {
       {bottles.length === 0 ? (
         <EmptyState
           title="Your whiskey journey starts here."
-          message="Add a bottle to begin building your collection."
+          message="Add a bottle to begin building your bar."
           action={
             <Link to="/bottles/new">
               <Button>Add a Bottle</Button>
@@ -130,7 +130,7 @@ export function HomePage() {
 
           <Section title="Discover What's Next" viewAllHref="/discover">
             <EmptyState
-              title="Recommendations start with your collection."
+              title="Recommendations start with your bar."
               message="Head to Discover to see trending bottles and personalized picks."
             />
           </Section>

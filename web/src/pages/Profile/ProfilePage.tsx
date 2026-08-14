@@ -29,7 +29,7 @@ export function ProfilePage() {
         <PageHeader eyebrow="Profile" title="My Journey" subtitle="Sign in to see your whiskey journey." />
         <EmptyState
           title="Sign in to continue."
-          message="Fully Involved Pour uses Google sign-in to sync your collection."
+          message="Fully Involved Pour uses Google sign-in to sync your bar."
           action={<SignInButton />}
         />
       </>
@@ -50,7 +50,7 @@ export function ProfilePage() {
 
       <UsernameClaim current={userDoc.username} />
 
-      <Section title="Collection at a Glance">
+      <Section title="Your Bar at a Glance">
         <div className={styles.statsGrid}>
           <StatTile value={stats.totalBottles} label="Bottles" />
           <StatTile value={stats.openBottles} label="Opened" />

@@ -23,7 +23,7 @@ export function DiscoverPage() {
       <>
         <PageHeader eyebrow="Discover" title="What to try next." subtitle="Recommendations, new releases, and trending bottles." />
         <EmptyState
-          title="Recommendations start with your collection."
+          title="Recommendations start with your bar."
           message="Sign in to see what to try next."
           action={<SignInButton />}
         />
@@ -38,7 +38,7 @@ export function DiscoverPage() {
       <>
         <PageHeader eyebrow="Discover" title="What to try next." subtitle="Recommendations, new releases, and trending bottles." />
         <EmptyState
-          title="Recommendations start with your collection."
+          title="Recommendations start with your bar."
           message="Add a few bottles and we'll start suggesting what to try next."
         />
       </>

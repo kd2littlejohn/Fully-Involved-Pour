@@ -6,7 +6,7 @@ import styles from './SommelierPanel.module.css'
 
 const STARTER_PROMPTS = [
   "What's the vibe tonight?",
-  'What should I try next based on my collection?',
+  'What should I try next based on my bar?',
   'What bottle should I buy next?',
   "Help me write tasting notes for what I'm sipping.",
 ]

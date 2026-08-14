@@ -73,7 +73,7 @@ export function WhatShouldIPourButton() {
       {open ? (
         <Modal title="What Should I Pour?" onClose={() => setOpen(false)}>
           {!hasEligibleBottles ? (
-            <EmptyState title="Nothing to recommend yet." message="Add a sealed or opened bottle to your collection first." />
+            <EmptyState title="Nothing to recommend yet." message="Add a sealed or opened bottle to your bar first." />
           ) : !moodId || !result ? (
             <div className={styles.moodStep}>
               <p className={styles.prompt}>What are you in the mood for?</p>
