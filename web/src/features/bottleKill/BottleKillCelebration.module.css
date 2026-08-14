@@ -1,0 +1,16 @@
+.sentence {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+  margin-bottom: var(--fip-space-4);
+}
+
+.statsRow {
+  display: flex;
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-5);
+}
+
+.dismiss {
+  width: 100%;
+}

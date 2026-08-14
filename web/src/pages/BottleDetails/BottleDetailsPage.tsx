@@ -15,6 +15,7 @@ import { useUserData } from '../../hooks/useUserData'
 import type { BottleStatus } from '../../data/types'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { getCurrentScore } from '../../features/bottleDetails/selectors'
+import { BottleKillCelebration } from '../../features/bottleKill/BottleKillCelebration'
 import { OverviewTab } from './tabs/OverviewTab'
 import { PourStoriesTab } from './tabs/PourStoriesTab'
 import { JourneyTab } from './tabs/JourneyTab'
@@ -53,6 +54,8 @@ export function BottleDetailsPage() {
   const [deleting, setDeleting] = useState(false)
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
   const [markingOpen, setMarkingOpen] = useState(false)
+  const [markingFinished, setMarkingFinished] = useState(false)
+  const [showBottleKillCelebration, setShowBottleKillCelebration] = useState(false)
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Bottle" title="Bottle details" />
@@ -98,7 +101,9 @@ export function BottleDetailsPage() {
 
   const currentBottleId = bottle.id
   const currentOpenedDate = bottle.openedDate
+  const currentFinishedDate = bottle.finishedDate
   const canQuickOpen = bottle.status !== 'open' && bottle.status !== 'finished'
+  const canMarkFinished = bottle.status === 'open'
 
   async function handleDelete() {
     setDeleting(true)
@@ -111,6 +116,13 @@ export function BottleDetailsPage() {
     setMarkingOpen(true)
     await updateBottle(currentBottleId, { status: 'open', openedDate: currentOpenedDate ?? todayIsoDate() })
     setMarkingOpen(false)
+  }
+
+  async function handleMarkFinished() {
+    setMarkingFinished(true)
+    await updateBottle(currentBottleId, { status: 'finished', finishedDate: currentFinishedDate ?? todayIsoDate() })
+    setMarkingFinished(false)
+    setShowBottleKillCelebration(true)
   }
 
   return (
@@ -135,6 +147,11 @@ export function BottleDetailsPage() {
             {canQuickOpen ? (
               <Button variant="secondary" onClick={handleMarkOpened} disabled={markingOpen}>
                 {markingOpen ? 'Marking Opened…' : 'Mark as Opened'}
+              </Button>
+            ) : null}
+            {canMarkFinished ? (
+              <Button variant="secondary" onClick={handleMarkFinished} disabled={markingFinished}>
+                {markingFinished ? 'Marking Finished…' : 'Mark as Finished'}
               </Button>
             ) : null}
             <Link to={`/bottles/${bottle.id}/edit`}>
@@ -196,6 +213,10 @@ export function BottleDetailsPage() {
       </TabPanel>
 
       {showPhotoLightbox ? <BottlePhotoLightbox bottle={bottle} onClose={() => setShowPhotoLightbox(false)} /> : null}
+
+      {showBottleKillCelebration ? (
+        <BottleKillCelebration bottle={bottle} pours={userDoc.pours} onClose={() => setShowBottleKillCelebration(false)} />
+      ) : null}
     </>
   )
 }

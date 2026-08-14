@@ -166,6 +166,31 @@ describe('BottleDetailsPage', () => {
     expect(screen.queryByRole('button', { name: 'Mark as Opened' })).not.toBeInTheDocument()
   })
 
+  it('offers Mark as Finished for an open bottle, marks it finished, and celebrates', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mark as Finished' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { status: 'finished', finishedDate: expect.any(String) })
+    expect(screen.getByText('🥃 Bottle Kill')).toBeInTheDocument()
+    expect(screen.getByText(/You finished Eagle Rare after 1 pour/)).toBeInTheDocument()
+  })
+
+  it('does not offer Mark as Finished for a sealed bottle', () => {
+    mockSignedInWith([wellerSpecial], [])
+    renderPage('b2')
+
+    expect(screen.queryByRole('button', { name: 'Mark as Finished' })).not.toBeInTheDocument()
+  })
+
+  it('does not offer Mark as Finished for a bottle that is already finished', () => {
+    mockSignedInWith([{ ...eagleRare, status: 'finished' }], [pour])
+    renderPage('b1')
+
+    expect(screen.queryByRole('button', { name: 'Mark as Finished' })).not.toBeInTheDocument()
+  })
+
   it('opens a photo quick view when the bottle image is clicked', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
