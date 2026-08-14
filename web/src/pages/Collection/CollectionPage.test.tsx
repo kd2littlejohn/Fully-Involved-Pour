@@ -219,6 +219,25 @@ describe('CollectionPage', () => {
     expect(mockDeleteBottles).toHaveBeenCalledWith(['b1', 'b2', 'b3', 'b4', 'b5'])
   })
 
+  it('sorts bottles by name when a sort option is chosen', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    await userEvent.selectOptions(screen.getByLabelText('Sort bottles'), 'name-asc')
+
+    const hrefs = screen.getAllByRole('link').map((el) => el.getAttribute('href') ?? '')
+    const eagleIndex = hrefs.indexOf('/collection/b1') // Eagle Rare
+    const wellerIndex = hrefs.indexOf('/collection/b2') // Weller 12
+    expect(eagleIndex).toBeGreaterThanOrEqual(0)
+    expect(eagleIndex).toBeLessThan(wellerIndex)
+  })
+
   it('selects individual bottles by clicking their card', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({

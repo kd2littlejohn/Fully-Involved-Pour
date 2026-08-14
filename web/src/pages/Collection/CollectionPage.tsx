@@ -11,6 +11,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { getCoreBarBottles } from '../../features/coreBar/selectors'
 import { InfinityBottleButton } from '../../features/infinityBottle/InfinityBottleButton'
+import { sortBottles, SORT_OPTIONS, type SortOption } from '../../features/collection/sortBottles'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
 
@@ -51,6 +52,7 @@ export function CollectionPage() {
   const { userDoc, loading: dataLoading, deleteBottles } = useUserData()
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<SortOption>('recent')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -63,6 +65,8 @@ export function CollectionPage() {
     const base = filter === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter))
     return base.filter((bottle) => matchesQuery(bottle, query))
   }, [userDoc.bottles, filter, coreBarBottles, query])
+
+  const sortedBottles = useMemo(() => sortBottles(filteredBottles, sort), [filteredBottles, sort])
 
   function countForFilter(value: Filter): number {
     const base = value === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((b) => matchesFilter(b, value))
@@ -152,6 +156,18 @@ export function CollectionPage() {
               ))}
             </div>
             <div className={styles.toolbarActions}>
+              <select
+                className={styles.sortSelect}
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                aria-label="Sort bottles"
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
               <div className={styles.viewToggle} role="group" aria-label="View as">
                 <button
                   type="button"
@@ -227,7 +243,7 @@ export function CollectionPage() {
             </div>
           ) : null}
 
-          {filteredBottles.length === 0 ? (
+          {sortedBottles.length === 0 ? (
             <EmptyState
               title={query.trim() ? `No bottles match "${query.trim()}".` : filter === 'core-bar' ? 'No Core Bar bottles yet.' : 'No bottles here yet.'}
               message={
@@ -240,7 +256,7 @@ export function CollectionPage() {
             />
           ) : viewMode === 'grid' ? (
             <div className={styles.grid}>
-              {filteredBottles.map((bottle) => (
+              {sortedBottles.map((bottle) => (
                 <BottleCard
                   key={bottle.id}
                   bottle={bottle}
@@ -252,7 +268,7 @@ export function CollectionPage() {
             </div>
           ) : (
             <div className={styles.list}>
-              {filteredBottles.map((bottle) => (
+              {sortedBottles.map((bottle) => (
                 <BottleListRow
                   key={bottle.id}
                   bottle={bottle}

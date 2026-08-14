@@ -63,6 +63,21 @@
   padding: 0 var(--fip-shell-x) var(--fip-space-8);
 }
 
+.sortSelect {
+  min-height: 40px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-sm);
+  border: 1px solid var(--fip-border);
+  background: var(--fip-card);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  cursor: pointer;
+}
+
+.sortSelect:hover {
+  border-color: var(--fip-border-strong);
+}
+
 .viewToggle {
   display: flex;
   gap: var(--fip-space-1);
