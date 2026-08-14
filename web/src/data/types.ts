@@ -38,6 +38,7 @@ export interface Bottle {
   quantity?: number
   fillLevel?: FillLevel
   bottleSize?: number
+  purchaseDate?: string
   openedDate?: string
   expectedDate?: string
   finishedDate?: string

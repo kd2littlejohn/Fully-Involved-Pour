@@ -63,7 +63,18 @@ export async function uploadPhoto(
   // Shrink large camera photos before upload — but leave PNGs alone, since
   // the only PNGs in this flow are already-downscaled background-cutout
   // images and re-encoding as JPEG would destroy their transparency.
-  const fileToUpload = file.type === 'image/png' ? file : await resizeImageFile(file)
+  // Resizing can fail independently of Storage (e.g. a HEIC variant some
+  // mobile browsers can't decode into a canvas) — that's not a reason to
+  // abort the whole upload, so fall back to the original file rather than
+  // letting an unclassified decode error bubble up as "the upload failed."
+  let fileToUpload = file
+  if (file.type !== 'image/png') {
+    try {
+      fileToUpload = await resizeImageFile(file)
+    } catch {
+      fileToUpload = file
+    }
+  }
 
   const path = `${folder}/${uid}/${Date.now()}-${file.name}`
   const storageRef = ref(storage, path)

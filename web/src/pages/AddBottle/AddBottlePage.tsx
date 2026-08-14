@@ -48,6 +48,7 @@ export function AddBottlePage() {
     price: '',
     storeLocation: '',
     quantity: '',
+    purchaseDate: '',
     openedDate: '',
     expectedDate: '',
     finishedDate: '',
@@ -78,6 +79,7 @@ export function AddBottlePage() {
       price: existingBottle.price != null ? String(existingBottle.price) : '',
       storeLocation: existingBottle.storeLocation ?? '',
       quantity: existingBottle.quantity != null ? String(existingBottle.quantity) : '',
+      purchaseDate: existingBottle.purchaseDate ?? '',
       openedDate: existingBottle.openedDate ?? '',
       expectedDate: existingBottle.expectedDate ?? '',
       // Legacy finished bottles with no stored date load blank rather than
@@ -123,8 +125,9 @@ export function AddBottlePage() {
         storeLocation: ownership.storeLocation.trim() || undefined,
         quantity: ownership.quantity ? Number(ownership.quantity) : undefined,
         // Every date is saved as entered, independent of the current status —
-        // a bottle's history (opened/expected/finished) stays editable even
-        // after its status has since moved on.
+        // a bottle's history (purchased/opened/expected/finished) stays
+        // editable even after its status has since moved on.
+        purchaseDate: ownership.purchaseDate.trim() || undefined,
         openedDate: ownership.openedDate.trim() || undefined,
         expectedDate: ownership.expectedDate.trim() || undefined,
         finishedDate: ownership.finishedDate.trim() || undefined,

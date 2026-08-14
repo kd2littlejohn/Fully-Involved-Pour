@@ -20,16 +20,20 @@ vi.mock('../../data/firebase', () => ({
 
 // Real image decoding (FileReader/Image/canvas) isn't reliable against
 // synthetic binary data in jsdom — covered separately by imageToBase64's
-// own tests. Here it's a pass-through so uploadPhoto's own logic (auth,
-// validation, Storage call, error mapping) can be tested in isolation.
+// own tests. Here it's a mockable pass-through by default so uploadPhoto's
+// own logic (auth, validation, Storage call, error mapping, resize
+// fallback) can be tested in isolation.
+const mockResizeImageFile = vi.fn()
+
 vi.mock('../ai/imageToBase64', () => ({
-  resizeImageFile: (file: File) => Promise.resolve(file),
+  resizeImageFile: (file: File) => mockResizeImageFile(file),
 }))
 
 beforeEach(() => {
   mockIsMockAuthEnabled.mockReset()
   mockUploadBytesResumable.mockReset()
   mockGetDownloadURL.mockReset()
+  mockResizeImageFile.mockReset().mockImplementation((file: File) => Promise.resolve(file))
   // jsdom doesn't implement createObjectURL — stub it for the mock-mode path.
   URL.createObjectURL = vi.fn(() => 'blob:mock-url')
 })
@@ -96,6 +100,31 @@ describe('uploadPhoto', () => {
 
     await expect(promise).resolves.toBe('https://example.com/photo.jpg')
     expect(progressUpdates).toEqual([0.5])
+  })
+
+  it('falls back to the original file and still uploads when resizing fails (e.g. an undecodable HEIC variant)', async () => {
+    mockIsMockAuthEnabled.mockReturnValue(false)
+    mockResizeImageFile.mockRejectedValue(new Error('Could not read image'))
+    mockGetDownloadURL.mockResolvedValue('https://example.com/photo.heic')
+    let onComplete: (() => void) | undefined
+    mockUploadBytesResumable.mockReturnValue({
+      snapshot: { ref: {} },
+      on: (_event: string, _changeCb: unknown, _errorCb: unknown, completeCb: typeof onComplete) => {
+        onComplete = completeCb
+      },
+    })
+
+    const { uploadPhoto } = await import('./uploadPhoto')
+    const file = new File(['data'], 'photo.heic', { type: 'image/heic' })
+    const promise = uploadPhoto('u1', file, 'bottle-photos')
+
+    await Promise.resolve()
+    await Promise.resolve()
+    onComplete?.()
+
+    await expect(promise).resolves.toBe('https://example.com/photo.heic')
+    // The original (unresized) file is what actually got uploaded.
+    expect(mockUploadBytesResumable).toHaveBeenCalledWith(expect.anything(), file, expect.objectContaining({ contentType: 'image/heic' }))
   })
 
   it('maps a storage/unauthorized failure to a clear message', async () => {

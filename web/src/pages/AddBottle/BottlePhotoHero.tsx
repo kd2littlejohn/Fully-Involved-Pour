@@ -24,6 +24,7 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
   const [error, setError] = useState<string | null>(null)
   const objectUrlRef = useRef<string | null>(null)
   const lastFileRef = useRef<File | null>(null)
+  const lastModeRef = useRef<Mode>('library')
   const scanInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
@@ -37,6 +38,7 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
 
   async function handleFile(file: File, mode: Mode) {
     lastFileRef.current = file
+    lastModeRef.current = mode
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     const localUrl = URL.createObjectURL(file)
     objectUrlRef.current = localUrl
@@ -98,6 +100,12 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
     }
   }
 
+  function handleRetry() {
+    const file = lastFileRef.current
+    if (!file || busy) return
+    void handleFile(file, lastModeRef.current)
+  }
+
   function handleChange(mode: Mode) {
     return (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0]
@@ -129,9 +137,16 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
       </div>
 
       {error ? (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
+        <div className={styles.errorRow}>
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+          {lastFileRef.current ? (
+            <button type="button" className={styles.secondaryAction} onClick={handleRetry} disabled={busy}>
+              Retry
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       <div className={styles.actions}>

@@ -14,6 +14,7 @@ const baseValues: OwnershipFieldsValues = {
   price: '',
   storeLocation: '',
   quantity: '',
+  purchaseDate: '',
   openedDate: '',
   expectedDate: '',
   finishedDate: '',
@@ -50,13 +51,24 @@ describe('OwnershipFieldsCard', () => {
     expect(options).toEqual(['Sealed', 'Opened', 'Finished', 'Wish List', 'Incoming'])
   })
 
-  it('shows all three date fields together, regardless of current status', async () => {
+  it('shows all four date fields together, regardless of current status', async () => {
     render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
     await openCard()
 
+    expect(screen.getByLabelText('Purchase date (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Opened date (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Expected arrival (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Finished date (optional)')).toBeInTheDocument()
+  })
+
+  it('reports a Purchase date change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    fireEvent.change(screen.getByLabelText('Purchase date (optional)'), { target: { value: '2026-06-01' } })
+
+    expect(onChange).toHaveBeenCalledWith({ purchaseDate: '2026-06-01' })
   })
 
   it('lets an Opened date be edited on a bottle that is no longer open', async () => {

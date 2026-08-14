@@ -93,6 +93,29 @@ describe('BottlePhotoHero', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have permission to upload this image.')
   })
 
+  it('offers Retry after a failed upload and re-attempts the same file without re-picking it', async () => {
+    mockUpload.mockRejectedValueOnce(new Error('The upload was interrupted. Tap Retry.'))
+    mockUpload.mockResolvedValueOnce('https://example.com/bottle.jpg')
+    const onImageChange = vi.fn()
+    render(<BottlePhotoHero onImageChange={onImageChange} onScanResult={vi.fn()} />)
+
+    const file = new File(['data'], 'bottle.jpg', { type: 'image/jpeg' })
+    await userEvent.upload(screen.getByLabelText('Choose Photo'), file)
+    await screen.findByRole('alert')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(mockUpload).toHaveBeenCalledTimes(2)
+    expect(mockUpload).toHaveBeenNthCalledWith(2, 'u1', file, 'bottle-photos', expect.any(Function))
+    await vi.waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(onImageChange).toHaveBeenLastCalledWith('https://example.com/bottle.jpg')
+  })
+
+  it('does not show a Retry button when there is no error', () => {
+    render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
+  })
+
   it('lets you scan an already-chosen photo instead of picking it again', async () => {
     mockUpload.mockResolvedValue('https://example.com/bottle.jpg')
     mockScan.mockResolvedValue({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' })
