@@ -13,6 +13,8 @@ import {
   getProofAffinity,
   getTopOccasion,
   getPalateEvolution,
+  getProofEvolution,
+  getTopRatedFlavorTags,
 } from './selectors'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './YourPalateSection.module.css'
@@ -54,6 +56,8 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
   const buyAgain = hasBaseline ? getBuyAgainRate(pours) : undefined
   const occasion = hasBaseline ? getTopOccasion(pours) : undefined
   const evolution = getPalateEvolution(pours)
+  const proofEvolution = getProofEvolution(bottles, pours)
+  const topRatedFlavors = hasBaseline ? getTopRatedFlavorTags(bottles, pours) : []
 
   const tastePatterns: string[] = []
   if (proofAffinity) {
@@ -79,6 +83,10 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
   if (occasion) {
     tastePatterns.push(`Most of your logged pours have been for "${occasion.occasion}."`)
   }
+  if (topRatedFlavors.length > 0) {
+    const tagList = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(topRatedFlavors.map((t) => t.tag))
+    tastePatterns.push(`Your highest-rated pours tend to have ${tagList} notes.`)
+  }
 
   const evolutionText = !evolution
     ? undefined
@@ -87,6 +95,13 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
       : evolution.kind === 'improved'
         ? `Your recent pours are averaging ${evolution.newAverage.toFixed(1)}, up from ${evolution.oldAverage.toFixed(1)} earlier on.`
         : `Your recent pours are averaging ${evolution.newAverage.toFixed(1)}, down from ${evolution.oldAverage.toFixed(1)} earlier on.`
+
+  // Only shown once the shift is real (see PROOF_NOISE_THRESHOLD) — "steady"
+  // isn't worth a second sentence next to evolutionText's own steady case.
+  const proofEvolutionText =
+    proofEvolution && proofEvolution.kind !== 'steady'
+      ? `You used to average around ${proofEvolution.oldAverage.toFixed(0)} proof. Lately, you've been averaging closer to ${proofEvolution.newAverage.toFixed(0)} proof.`
+      : undefined
 
   const summaryText = `You've logged ${pourCount} ${pourCount === 1 ? 'pour' : 'pours'} so far, averaging ${stats.averageScore.toFixed(1)} — ${tier.label}.`
 
@@ -126,10 +141,11 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
         </div>
       ) : null}
 
-      {evolutionText ? (
+      {evolutionText || proofEvolutionText ? (
         <div className={styles.evolution}>
           <div className={styles.patternsLabel}>Palate Evolution</div>
-          <p className={styles.evolutionText}>{evolutionText}</p>
+          {evolutionText ? <p className={styles.evolutionText}>{evolutionText}</p> : null}
+          {proofEvolutionText ? <p className={styles.evolutionText}>{proofEvolutionText}</p> : null}
         </div>
       ) : null}
     </Section>

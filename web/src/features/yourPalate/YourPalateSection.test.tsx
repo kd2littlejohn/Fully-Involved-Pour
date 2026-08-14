@@ -15,6 +15,7 @@ function pour(overrides: Partial<Pour> & Pick<Pour, 'id' | 'bottleId' | 'date' |
 }
 
 const bourbon: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', type: 'Bourbon', proof: 90, flavors: ['Vanilla', 'Caramel'] }
+const highProof: Bottle = { id: 'b2', name: 'Whistlepig 15', status: 'open', type: 'Rye', proof: 120 }
 
 describe('YourPalateSection', () => {
   it('shows an honest teaser and no claims at 0 pours', () => {
@@ -62,6 +63,49 @@ describe('YourPalateSection', () => {
     render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
     expect(screen.getByText('Palate Evolution')).toBeInTheDocument()
     expect(screen.getByText(/up from/)).toBeInTheDocument()
+  })
+
+  it('adds a proof-trend line to Palate Evolution once a real shift shows in 6+ pours', () => {
+    const pours = [
+      pour({ id: 'p0', bottleId: 'b1', date: daysAgo(10), rating: 8 }),
+      pour({ id: 'p1', bottleId: 'b1', date: daysAgo(9), rating: 8 }),
+      pour({ id: 'p2', bottleId: 'b1', date: daysAgo(8), rating: 8 }),
+      pour({ id: 'p3', bottleId: 'b2', date: daysAgo(3), rating: 8 }),
+      pour({ id: 'p4', bottleId: 'b2', date: daysAgo(2), rating: 8 }),
+      pour({ id: 'p5', bottleId: 'b2', date: daysAgo(1), rating: 8 }),
+    ]
+    render(<YourPalateSection bottles={[bourbon, highProof]} pours={pours} />)
+    expect(screen.getByText(/You used to average around 90 proof\. Lately, you've been averaging closer to 120 proof\./)).toBeInTheDocument()
+  })
+
+  it('surfaces the flavor notes behind the highest-rated pours as a Taste Pattern', () => {
+    // bourbon (b1) carries static flavors ['Vanilla', 'Caramel'] — since all
+    // three qualifying pours are for b1, both legitimately count alongside
+    // the tapped 'Vanilla' chip, same as topFlavorTags does everywhere else.
+    const highRated = (id: string, rating: number, tags: string[]): Pour => ({
+      id,
+      bottleId: 'b1',
+      date: daysAgo(1),
+      rating,
+      fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.75, value: 0.75, total: rating, noseAromas: [], palateFlavors: tags },
+    })
+    const pours = [highRated('p1', 9.0, ['Vanilla']), highRated('p2', 8.5, ['Vanilla']), highRated('p3', 8.2, ['Vanilla'])]
+    render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
+    expect(screen.getByText(/Your highest-rated pours tend to have Vanilla and Caramel notes\./)).toBeInTheDocument()
+  })
+
+  it('excludes an unrelated bottle\'s static flavors from the highest-rated tag list', () => {
+    const untouched: Bottle = { id: 'b3', name: 'Untouched Bottle', status: 'sealed', flavors: ['Smoke'] }
+    const highRated = (id: string, rating: number): Pour => ({
+      id,
+      bottleId: 'b1',
+      date: daysAgo(1),
+      rating,
+      fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.75, value: 0.75, total: rating, noseAromas: [], palateFlavors: [] },
+    })
+    const pours = [highRated('p1', 9.0), highRated('p2', 8.5), highRated('p3', 8.2)]
+    render(<YourPalateSection bottles={[bourbon, untouched]} pours={pours} />)
+    expect(screen.queryByText(/Smoke/)).not.toBeInTheDocument()
   })
 
   it('labels a single-category collection honestly as "most poured" rather than a favorite', () => {

@@ -1,5 +1,6 @@
 import type { Bottle, Pour } from '../../data/types'
 import { buyAgainToValueScore } from '../fip/scoring'
+import { topFlavorTags, type FlavorTagRank } from '../flavorRadar/flavorCategories'
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10
@@ -219,4 +220,53 @@ export function getPalateEvolution(pours: Pour[]): EvolutionInsight | undefined 
   const delta = round1(newAverage - oldAverage)
   const kind = Math.abs(delta) < EVOLUTION_NOISE_THRESHOLD ? 'steady' : delta > 0 ? 'improved' : 'declined'
   return { kind, oldAverage, newAverage, delta }
+}
+
+// ---------------------------------------------------------------------------
+// Proof evolution — same oldest-N vs newest-N shape as score evolution, but
+// tracking the proof of the bottles behind those pours instead of the score.
+// ---------------------------------------------------------------------------
+
+const PROOF_NOISE_THRESHOLD = 3 // proof points
+
+export interface ProofEvolutionInsight {
+  kind: 'higher' | 'lower' | 'steady'
+  oldAverage: number
+  newAverage: number
+  delta: number
+}
+
+export function getProofEvolution(bottles: Bottle[], pours: Pour[]): ProofEvolutionInsight | undefined {
+  const withProof = pours
+    .map((p) => ({ date: p.date, proof: bottles.find((b) => b.id === p.bottleId)?.proof }))
+    .filter((x): x is { date: string; proof: number } => typeof x.proof === 'number')
+  if (withProof.length < EVOLUTION_MIN_TOTAL_POURS) return undefined
+
+  const sorted = [...withProof].sort((a, b) => a.date.localeCompare(b.date))
+  const oldest = sorted.slice(0, EVOLUTION_SAMPLE_SIZE)
+  const newest = sorted.slice(-EVOLUTION_SAMPLE_SIZE)
+  const oldAverage = round1(oldest.reduce((s, x) => s + x.proof, 0) / oldest.length)
+  const newAverage = round1(newest.reduce((s, x) => s + x.proof, 0) / newest.length)
+  const delta = round1(newAverage - oldAverage)
+  const kind = Math.abs(delta) < PROOF_NOISE_THRESHOLD ? 'steady' : delta > 0 ? 'higher' : 'lower'
+  return { kind, oldAverage, newAverage, delta }
+}
+
+// ---------------------------------------------------------------------------
+// Flavor notes behind the highest-rated pours — a distinct, smaller sample
+// than the overall "gravitate toward" tags (which cover every pour).
+// ---------------------------------------------------------------------------
+
+const TOP_RATED_THRESHOLD = 8.0 // Working Fire and above, see features/fip/tiers.ts
+const TOP_RATED_MIN_POURS = 3
+
+export function getTopRatedFlavorTags(bottles: Bottle[], pours: Pour[], limit = 4): FlavorTagRank[] {
+  const highRated = pours.filter((p) => p.rating >= TOP_RATED_THRESHOLD)
+  if (highRated.length < TOP_RATED_MIN_POURS) return []
+  // topFlavorTags also pulls each bottle's static `flavors` field regardless
+  // of which pours were passed in — restrict to only the bottles actually
+  // behind a high-rated pour, or an unrelated bottle's tags would leak in.
+  const relevantBottleIds = new Set(highRated.map((p) => p.bottleId))
+  const relevantBottles = bottles.filter((b) => relevantBottleIds.has(b.id))
+  return topFlavorTags(relevantBottles, highRated, limit)
 }

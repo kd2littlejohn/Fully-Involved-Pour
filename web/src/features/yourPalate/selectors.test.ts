@@ -8,6 +8,8 @@ import {
   getProofAffinity,
   getTopOccasion,
   getPalateEvolution,
+  getProofEvolution,
+  getTopRatedFlavorTags,
 } from './selectors'
 
 function daysAgo(n: number): string {
@@ -256,5 +258,76 @@ describe('getPalateEvolution', () => {
     const pours = ratings.map((rating, i) => pour({ id: `p${i}`, bottleId: 'b1', date: daysAgo(10 - i), rating }))
     const shuffled = [...pours].reverse()
     expect(getPalateEvolution(shuffled)).toEqual(getPalateEvolution(pours))
+  })
+})
+
+describe('getProofEvolution', () => {
+  it('returns undefined below the 6-pour minimum', () => {
+    const pours = Array.from({ length: 5 }, (_, i) => pour({ id: `p${i}`, bottleId: 'b1', date: daysAgo(10 - i), rating: 7 }))
+    expect(getProofEvolution([bourbon], pours)).toBeUndefined()
+  })
+
+  it('only counts pours whose bottle has a known proof', () => {
+    const noProofBottle: Bottle = { id: 'b9', name: 'Mystery Bottle', status: 'open' }
+    const pours = Array.from({ length: 6 }, (_, i) => pour({ id: `p${i}`, bottleId: 'b9', date: daysAgo(10 - i), rating: 7 }))
+    expect(getProofEvolution([noProofBottle], pours)).toBeUndefined()
+  })
+
+  it('reports steady when the change is below the noise threshold', () => {
+    // oldest 3 pours are bourbon (90 proof), newest 3 are bourbon2 (95 proof) -> delta 5... use a smaller gap instead
+    const pours = [
+      pour({ id: 'p0', bottleId: 'b1', date: daysAgo(10), rating: 8 }), // 90
+      pour({ id: 'p1', bottleId: 'b1', date: daysAgo(9), rating: 8 }), // 90
+      pour({ id: 'p2', bottleId: 'b1', date: daysAgo(8), rating: 8 }), // 90
+      pour({ id: 'p3', bottleId: 'b1', date: daysAgo(3), rating: 8 }), // 90
+      pour({ id: 'p4', bottleId: 'b1', date: daysAgo(2), rating: 8 }), // 90
+      pour({ id: 'p5', bottleId: 'b1', date: daysAgo(1), rating: 8 }), // 90
+    ]
+    expect(getProofEvolution([bourbon], pours)?.kind).toBe('steady')
+  })
+
+  it('reports a real upward proof shift once 6+ pours show it', () => {
+    const pours = [
+      pour({ id: 'p0', bottleId: 'b1', date: daysAgo(10), rating: 8 }), // 90
+      pour({ id: 'p1', bottleId: 'b1', date: daysAgo(9), rating: 8 }), // 90
+      pour({ id: 'p2', bottleId: 'b1', date: daysAgo(8), rating: 8 }), // 90
+      pour({ id: 'p3', bottleId: 'b4', date: daysAgo(3), rating: 8 }), // 120 (whistlepig rye)
+      pour({ id: 'p4', bottleId: 'b4', date: daysAgo(2), rating: 8 }), // 120
+      pour({ id: 'p5', bottleId: 'b4', date: daysAgo(1), rating: 8 }), // 120
+    ]
+    const evolution = getProofEvolution([bourbon, rye2], pours)
+    expect(evolution?.kind).toBe('higher')
+    expect(evolution?.oldAverage).toBe(90)
+    expect(evolution?.newAverage).toBe(120)
+  })
+})
+
+describe('getTopRatedFlavorTags', () => {
+  function pourWithTags(id: string, rating: number, tags: string[]): Pour {
+    return {
+      id,
+      bottleId: 'b1',
+      date: daysAgo(1),
+      rating,
+      fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.75, value: 0.75, total: rating, noseAromas: [], palateFlavors: tags },
+    }
+  }
+
+  it('returns nothing below the minimum sample of highest-rated pours', () => {
+    const pours = [pourWithTags('p1', 9.0, ['Vanilla']), pourWithTags('p2', 8.5, ['Oak'])]
+    expect(getTopRatedFlavorTags([bourbon], pours)).toEqual([])
+  })
+
+  it('ranks tags only from pours at or above the high-rated threshold', () => {
+    const pours = [
+      pourWithTags('p1', 9.0, ['Vanilla', 'Oak']),
+      pourWithTags('p2', 8.5, ['Vanilla', 'Oak']),
+      pourWithTags('p3', 8.2, ['Vanilla']),
+      pourWithTags('p4', 5.0, ['Tobacco']), // below threshold — excluded
+    ]
+    const tags = getTopRatedFlavorTags([bourbon], pours).map((t) => t.tag)
+    expect(tags).toContain('Vanilla')
+    expect(tags).toContain('Oak')
+    expect(tags).not.toContain('Tobacco')
   })
 })
