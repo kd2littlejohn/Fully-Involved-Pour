@@ -94,7 +94,8 @@ export function JoinBlindPage() {
             <div className={styles.previewName}>{room.name}</div>
             <div className={styles.previewMeta}>Hosted by {room.hostUsername}</div>
             <div className={styles.previewMeta}>
-              {room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} · {room.pourCount} pours ·{' '}
+              {room.sessionType === 'solo' ? 'Solo Blind' : room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} ·{' '}
+              {room.pourCount} pours ·{' '}
               {room.knowledgeMode === 'single' ? 'Single Blind' : 'Double Blind'}
             </div>
             {room.deadline ? <div className={styles.previewMeta}>Deadline {new Date(room.deadline).toLocaleString()}</div> : null}

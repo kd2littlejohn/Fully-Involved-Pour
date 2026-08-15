@@ -174,6 +174,25 @@ describe('CreateBlindPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/lobby')
   })
 
+  it('creates a Solo Blind room and navigates straight to tasting, skipping the lobby', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    mockCreateBlindRoom.mockResolvedValue({ id: 'room-1', code: 'OAK742' })
+    renderPage()
+
+    await userEvent.click(screen.getByText('Solo Blind'))
+    await goToBottlesStep()
+    await userEvent.click(screen.getByText('Stagg Jr.'))
+    await userEvent.click(screen.getByText('Eagle Rare'))
+    await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> review
+
+    expect(screen.getByRole('heading', { name: 'Review' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Create Blind Room' }))
+
+    expect(mockCreateBlindRoom).toHaveBeenCalledWith(expect.objectContaining({ sessionType: 'solo' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/taste')
+  })
+
   it('Back on the first step returns to the Blind Room landing page', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
     renderPage()

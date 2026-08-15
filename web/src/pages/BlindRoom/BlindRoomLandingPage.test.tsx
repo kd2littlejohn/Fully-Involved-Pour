@@ -50,7 +50,7 @@ describe('BlindRoomLandingPage', () => {
   it('prompts sign-in when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     renderPage()
-    expect(screen.getByText('Taste blind, together.')).toBeInTheDocument()
+    expect(screen.getByText('Taste blind. Decide for yourself.')).toBeInTheDocument()
   })
 
   it('shows Create Blind and Join Blind actions', async () => {

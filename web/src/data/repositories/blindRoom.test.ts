@@ -66,6 +66,16 @@ describe('createBlindRoom', () => {
     expect(secrets?.pours[0]).toMatchObject({ label: 'A', bottleName: 'Stagg Jr.' })
   })
 
+  it('starts a solo room already active, with no one else to wait for', async () => {
+    const room = await createBlindRoom(baseInput({ sessionType: 'solo', hostUid: 'solo-host', hostUsername: 'solo' }))
+
+    expect(room.state).toBe('active')
+    expect(room.startedAt).toBeDefined()
+
+    const participant = await getParticipant(room.id, 'solo-host')
+    expect(participant).toMatchObject({ uid: 'solo-host', isHost: true, status: 'ready' })
+  })
+
   it('shuffles the known lineup for Single Blind so array position never matches the hidden A/B/C order', async () => {
     // Not a strong statistical claim — just confirms the room stores the
     // same set of names (shuffling is best-effort, not testable for order).

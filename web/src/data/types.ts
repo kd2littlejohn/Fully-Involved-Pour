@@ -195,7 +195,10 @@ export interface SharedBottlePhoto {
 // BlindSecretPour in particular must never be readable by a non-host
 // participant before reveal (Milestone 3+); Milestone 1 only creates and
 // stores it, it doesn't yet unlock participant reads.
-export type BlindSessionType = 'live' | 'challenge'
+// 'solo' is a single-taster session — same hide/taste/score/rank/reveal
+// pipeline, just skipping the lobby/invite/ready-up steps that only make
+// sense with other participants (see createBlindRoom in blindRoom.ts).
+export type BlindSessionType = 'solo' | 'live' | 'challenge'
 export type BlindKnowledgeMode = 'single' | 'double'
 export type BlindRoomState =
   | 'draft'

@@ -411,7 +411,7 @@ export function BlindTastingPage() {
             </div>
 
             <details className={styles.guesses}>
-              <summary className={styles.guessesSummary}>Guess the bottle (optional)</summary>
+              <summary className={styles.guessesSummary}>Extra Challenge — guess the bottle (optional)</summary>
               <div className={styles.guessFields}>
                 <Field label="Proof" htmlFor="taste-proof">
                   <input

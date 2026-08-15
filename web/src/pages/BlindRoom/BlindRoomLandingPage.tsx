@@ -42,7 +42,8 @@ function RoomCard({ room }: { room: BlindRoom }) {
         <Badge tone={room.state === 'lobby' ? 'amber' : 'default'}>{stateLabel(room.state)}</Badge>
       </div>
       <div className={styles.cardMeta}>
-        {room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} · {room.pourCount} pours ·{' '}
+        {room.sessionType === 'solo' ? 'Solo Blind' : room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} ·{' '}
+        {room.pourCount} pours ·{' '}
         {room.knowledgeMode === 'single' ? 'Single Blind' : 'Double Blind'}
       </div>
       <div className={styles.cardMeta}>
@@ -78,10 +79,10 @@ export function BlindRoomLandingPage() {
   if (!user) {
     return (
       <>
-        <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Taste together. Guess independently. Reveal together." />
+        <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
         <EmptyState
-          title="Taste blind, together."
-          message="Sign in to create or join a Blind Room."
+          title="Taste blind. Decide for yourself."
+          message="Sign in to start a Blind Room, solo or with friends."
           action={<SignInButton />}
         />
       </>
@@ -95,7 +96,7 @@ export function BlindRoomLandingPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Taste together. Guess independently. Reveal together." />
+      <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
 
       <div className={styles.actions}>
         <Link to="/blind/new">
@@ -108,7 +109,7 @@ export function BlindRoomLandingPage() {
 
       <Section title="Active Blinds">
         {active.length === 0 ? (
-          <EmptyState title="No active Blind Rooms." message="Create one, or join with a room code from a friend." />
+          <EmptyState title="No active Blind Rooms." message="Create one — solo, or with a room code from a friend." />
         ) : (
           <div className={styles.grid}>
             {active.map(({ room }) => (

@@ -94,10 +94,70 @@ describe('BlindRevealPage', () => {
     mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
     renderPage()
 
-    const heading = await screen.findByText('Final Rankings')
+    const heading = await screen.findByText('Everyone’s Rankings')
     const section = heading.closest('div')!
     const kevinCard = within(section).getByText('kevin').closest('div')!
     expect(kevinCard.textContent).toContain('Stagg Jr.')
+  })
+
+  it('shows Your Ranking with the signed-in viewer’s own score per item', async () => {
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    const heading = await screen.findByText('Your Ranking')
+    const section = heading.closest('div')!
+    expect(section.textContent).toContain('Stagg Jr. — 9.3')
+  })
+
+  it('shows The Numbers with group ranking, average scores, and a biggest surprise when the score leader and rank leader differ', async () => {
+    mockGetAllParticipantResponses.mockResolvedValue({
+      'host-1': [
+        { pourLabel: 'A', fipScore: 9.5, status: 'locked', updatedAt: Date.now() },
+        { pourLabel: 'B', fipScore: 8.0, status: 'locked', updatedAt: Date.now() },
+      ],
+      'guest-1': [
+        { pourLabel: 'A', fipScore: 9.5, status: 'locked', updatedAt: Date.now() },
+        { pourLabel: 'B', fipScore: 5.0, status: 'locked', updatedAt: Date.now() },
+      ],
+    })
+    mockGetAllFinalRankings.mockResolvedValue({
+      'host-1': { order: ['B', 'A'], status: 'locked', updatedAt: Date.now() },
+      'guest-1': { order: ['B', 'A'], status: 'locked', updatedAt: Date.now() },
+    })
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(await screen.findByText('The Numbers')).toBeInTheDocument()
+    expect(screen.getByText('Group Ranking')).toBeInTheDocument()
+    expect(screen.getByText('Group Average Scores')).toBeInTheDocument()
+    expect(screen.getByText(/Most divisive:/)).toBeInTheDocument()
+    expect(screen.getByText(/Biggest surprise:/)).toBeInTheDocument()
+  })
+
+  it('hides group-only sections for a solo reveal, but still shows Your Ranking and Closest Matchup', async () => {
+    mockGetAllParticipantResponses.mockResolvedValue({
+      'host-1': [
+        { pourLabel: 'A', fipScore: 9.2, status: 'locked', updatedAt: Date.now() },
+        { pourLabel: 'B', fipScore: 8.8, status: 'locked', updatedAt: Date.now() },
+      ],
+    })
+    mockGetAllFinalRankings.mockResolvedValue({
+      'host-1': { order: ['A', 'B'], status: 'locked', updatedAt: Date.now() },
+    })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, sessionType: 'solo' },
+      participants: [host],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    expect(await screen.findByText('Your Ranking')).toBeInTheDocument()
+    expect(screen.queryByText('Everyone’s Rankings')).not.toBeInTheDocument()
+    expect(screen.queryByText('Group Ranking')).not.toBeInTheDocument()
+    expect(screen.queryByText('Group Average Scores')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Most divisive:/)).not.toBeInTheDocument()
+    expect(screen.getByText(/Closest matchup:/)).toBeInTheDocument()
   })
 
   it('does not fetch or show results before the room has been revealed', () => {

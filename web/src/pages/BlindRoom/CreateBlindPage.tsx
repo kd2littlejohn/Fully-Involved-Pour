@@ -120,7 +120,9 @@ export function CreateBlindPage() {
         deadline: sessionType === 'challenge' ? new Date(deadlineValue).getTime() : undefined,
         pours,
       })
-      navigate(`/blind/${room.id}/lobby`)
+      // Solo has no one else to wait for — skip the lobby and go straight
+      // to tasting. Group modes still land in the lobby (invite/ready-up).
+      navigate(sessionType === 'solo' ? `/blind/${room.id}/taste` : `/blind/${room.id}/lobby`)
     } catch {
       setError('Could not create the Blind Room. Please try again.')
     } finally {
@@ -139,6 +141,14 @@ export function CreateBlindPage() {
       <div className={styles.body}>
         {stepKey === 'session' ? (
           <div className={styles.cardGroup}>
+            <button
+              type="button"
+              className={sessionType === 'solo' ? `${styles.optionCard} ${styles.optionCardActive}` : styles.optionCard}
+              onClick={() => setSessionType('solo')}
+            >
+              <span className={styles.optionTitle}>Solo Blind</span>
+              <span className={styles.optionDescription}>Taste by yourself — no label bias, just what you actually prefer.</span>
+            </button>
             <button
               type="button"
               className={sessionType === 'live' ? `${styles.optionCard} ${styles.optionCardActive}` : styles.optionCard}
@@ -293,7 +303,9 @@ export function CreateBlindPage() {
             </div>
             <div className={styles.reviewRow}>
               <span className={styles.reviewLabel}>Session type</span>
-              <span className={styles.reviewValue}>{sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'}</span>
+              <span className={styles.reviewValue}>
+                {sessionType === 'solo' ? 'Solo Blind' : sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'}
+              </span>
             </div>
             <div className={styles.reviewRow}>
               <span className={styles.reviewLabel}>Knowledge mode</span>

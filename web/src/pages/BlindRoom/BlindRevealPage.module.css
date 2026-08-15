@@ -161,3 +161,48 @@
 .rankingOrderList li {
   margin-bottom: var(--fip-space-1);
 }
+
+.numbersSection {
+  margin-top: var(--fip-space-6);
+}
+
+.numbersBlock {
+  padding: var(--fip-space-4);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  margin-bottom: var(--fip-space-3);
+}
+
+.numbersBlockTitle {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  margin-bottom: var(--fip-space-2);
+}
+
+.numbersRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--fip-space-1) 0;
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+}
+
+.numbersCallout {
+  padding: var(--fip-space-4);
+  background: var(--fip-amber-soft);
+  border: 1px solid var(--fip-border);
+  border-radius: var(--fip-radius-lg);
+  margin-bottom: var(--fip-space-3);
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+}
+
+.numbersCallout strong {
+  color: var(--fip-cream);
+}
+
+.rankingOrderList li {
+  margin-bottom: var(--fip-space-1);
+}

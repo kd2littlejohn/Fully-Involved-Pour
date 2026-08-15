@@ -9,6 +9,7 @@ import {
   getAllParticipantResponses,
   getBlindRoomSecrets,
 } from '../../data/repositories/blindRoom'
+import { computeRevealHighlights } from '../../features/blindReveal/highlights'
 import type { BlindFinalRanking, BlindRoomSecrets, BlindTastingResponse } from '../../data/types'
 import styles from './BlindRevealPage.module.css'
 
@@ -19,7 +20,7 @@ import styles from './BlindRevealPage.module.css'
 export function BlindRevealPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
-  const { loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const { room, participants, loading } = useBlindRoom(roomId)
 
   const [secrets, setSecrets] = useState<BlindRoomSecrets | undefined>(undefined)
@@ -71,6 +72,23 @@ export function BlindRevealPage() {
   }
 
   const pours = [...(secrets?.pours ?? [])].sort((a, b) => a.label.localeCompare(b.label))
+  const highlights = computeRevealHighlights(pours, responsesByUid, rankingsByUid)
+  const myRanking = user ? rankingsByUid[user.uid] : undefined
+  const isGroup = participants.length > 1
+  const hasNumbers =
+    (isGroup && highlights.groupRanking.length > 0) ||
+    (isGroup && highlights.groupAverageScores.length > 0) ||
+    !!highlights.closestMatchup ||
+    (isGroup && !!highlights.mostDivisive) ||
+    !!highlights.surprise
+
+  function bottleNameFor(label: string): string {
+    return pours.find((p) => p.label === label)?.bottleName ?? `Pour ${label}`
+  }
+
+  function scoreFor(uid: string, label: string): number | undefined {
+    return responsesByUid[uid]?.find((r) => r.pourLabel === label)?.fipScore
+  }
 
   return (
     <div className={styles.page}>
@@ -137,24 +155,101 @@ export function BlindRevealPage() {
           </div>
         )}
 
-        <div className={styles.rankingsSection}>
-          <h2 className={styles.sectionTitle}>Final Rankings</h2>
-          {participants.map((p) => {
-            const ranking = rankingsByUid[p.uid]
-            if (!ranking) return null
-            return (
-              <div className={styles.rankingCard} key={p.uid}>
-                <span className={styles.participantName}>{p.username}</span>
+        {myRanking ? (
+          <div className={styles.rankingsSection}>
+            <h2 className={styles.sectionTitle}>Your Ranking</h2>
+            <div className={styles.rankingCard}>
+              <ol className={styles.rankingOrderList}>
+                {myRanking.order.map((label) => {
+                  const score = user ? scoreFor(user.uid, label) : undefined
+                  return (
+                    <li key={label}>
+                      {bottleNameFor(label)}
+                      {score != null ? ` — ${score.toFixed(1)}` : ''}
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          </div>
+        ) : null}
+
+        {isGroup ? (
+          <div className={styles.rankingsSection}>
+            <h2 className={styles.sectionTitle}>Everyone&rsquo;s Rankings</h2>
+            {participants.map((p) => {
+              const ranking = rankingsByUid[p.uid]
+              if (!ranking) return null
+              return (
+                <div className={styles.rankingCard} key={p.uid}>
+                  <span className={styles.participantName}>{p.username}</span>
+                  <ol className={styles.rankingOrderList}>
+                    {ranking.order.map((label) => {
+                      const score = scoreFor(p.uid, label)
+                      return (
+                        <li key={label}>
+                          {bottleNameFor(label)}
+                          {score != null ? ` — ${score.toFixed(1)}` : ''}
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
+
+        {hasNumbers ? (
+          <div className={styles.numbersSection}>
+            <h2 className={styles.sectionTitle}>The Numbers</h2>
+
+            {isGroup && highlights.groupRanking.length > 0 ? (
+              <div className={styles.numbersBlock}>
+                <h3 className={styles.numbersBlockTitle}>Group Ranking</h3>
                 <ol className={styles.rankingOrderList}>
-                  {ranking.order.map((label) => {
-                    const pour = pours.find((sp) => sp.label === label)
-                    return <li key={label}>{pour?.bottleName ?? `Pour ${label}`}</li>
-                  })}
+                  {highlights.groupRanking.map((p) => (
+                    <li key={p.label}>{p.bottleName}</li>
+                  ))}
                 </ol>
               </div>
-            )
-          })}
-        </div>
+            ) : null}
+
+            {isGroup && highlights.groupAverageScores.length > 0 ? (
+              <div className={styles.numbersBlock}>
+                <h3 className={styles.numbersBlockTitle}>Group Average Scores</h3>
+                {highlights.groupAverageScores.map((p) => (
+                  <div className={styles.numbersRow} key={p.label}>
+                    <span>{p.bottleName}</span>
+                    <span>{p.avgScore!.toFixed(1)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {highlights.closestMatchup ? (
+              <p className={styles.numbersCallout}>
+                <strong>Closest matchup:</strong> {highlights.closestMatchup.a.bottleName} and{' '}
+                {highlights.closestMatchup.b.bottleName} were nearly tied ({highlights.closestMatchup.a.avgScore!.toFixed(1)}{' '}
+                vs {highlights.closestMatchup.b.avgScore!.toFixed(1)}).
+              </p>
+            ) : null}
+
+            {isGroup && highlights.mostDivisive ? (
+              <p className={styles.numbersCallout}>
+                <strong>Most divisive:</strong> {highlights.mostDivisive.pour.bottleName} split the room — scores were{' '}
+                {highlights.mostDivisive.spread.toFixed(1)} points apart.
+              </p>
+            ) : null}
+
+            {highlights.surprise ? (
+              <p className={styles.numbersCallout}>
+                <strong>Biggest surprise:</strong> {highlights.surprise.scoreLeader.bottleName} scored highest on average,
+                but {highlights.surprise.rankLeader.bottleName} came out on top overall.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   )

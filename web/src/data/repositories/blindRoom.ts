@@ -211,6 +211,11 @@ export async function createBlindRoom(input: CreateBlindRoomInput): Promise<Blin
   const roomId = isMockAuthEnabled() ? mockGenerateId() : doc(collection(db, 'blindRooms')).id
   const code = await findAvailableRoomCode()
 
+  // A solo room has no one else to wait for — it skips the lobby/ready-up
+  // steps entirely and starts already 'active', same end state a group room
+  // reaches once its host taps Start Blind.
+  const isSolo = input.sessionType === 'solo'
+
   const room: BlindRoom = {
     id: roomId,
     code,
@@ -222,8 +227,9 @@ export async function createBlindRoom(input: CreateBlindRoomInput): Promise<Blin
     pourCount: input.pourCount,
     ...(input.knowledgeMode === 'single' && input.knownLineup ? { knownLineup: shuffled(input.knownLineup) } : {}),
     ...(input.sessionType === 'challenge' && input.deadline ? { deadline: input.deadline } : {}),
-    state: 'lobby',
+    state: isSolo ? 'active' : 'lobby',
     createdAt: now,
+    ...(isSolo ? { startedAt: now } : {}),
     participantCount: 1,
   }
 
