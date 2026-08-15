@@ -49,15 +49,30 @@ describe('StartAPourButton', () => {
     expect(screen.queryByText('Which bottle?')).not.toBeInTheDocument()
   })
 
-  it('shows the bottle picker first when no bottleId is given, then the pour-type chooser', async () => {
+  it('shows the pour-type chooser first when no bottleId is given, then the bottle picker', async () => {
     mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
     renderWithRoute(<StartAPourButton label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
+    expect(screen.getByRole('heading', { name: 'Start a Pour' })).toBeInTheDocument()
+    expect(screen.queryByText('Which bottle?')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Quick Pour/ }))
     expect(screen.getByText('Which bottle?')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /Weller 12/ }))
-    expect(screen.getByText('Pouring Weller 12')).toBeInTheDocument()
+    expect(screen.getByText('Quick Pour view — Weller 12')).toBeInTheDocument()
+  })
+
+  it('skips the bottle picker entirely and goes straight to Blind Room when no bottleId is given', async () => {
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    renderWithRoute(<StartAPourButton label="Start a Pour" />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
+    await userEvent.click(screen.getByRole('button', { name: /Blind Room/ }))
+
+    expect(screen.getByText('Create Blind Page')).toBeInTheDocument()
+    expect(screen.queryByText('Which bottle?')).not.toBeInTheDocument()
   })
 
   it('opens Quick Pour when that pour type is chosen', async () => {

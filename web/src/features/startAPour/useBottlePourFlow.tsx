@@ -8,7 +8,9 @@ import { PourTypeModal, type PourType } from './PourTypeModal'
 interface BottlePourFlow {
   /** Opens the pour-type chooser (Quick Pour / Pour Story / Comparison) for the current bottleId. */
   open: () => void
-  /** Render this wherever the caller's tree can host a modal — renders nothing until `open()` is called. */
+  /** Opens Quick Pour or Pour Story directly for the current bottleId, skipping the type chooser — for callers that already know the type (e.g. it was picked before the bottle). */
+  openFlow: (type: 'quick' | 'story') => void
+  /** Render this wherever the caller's tree can host a modal — renders nothing until `open()`/`openFlow()` is called. */
   modals: ReactNode
 }
 
@@ -30,6 +32,10 @@ export function useBottlePourFlow(bottleId: string | null): BottlePourFlow {
 
   function open() {
     setPourTypeOpen(true)
+  }
+
+  function openFlow(type: 'quick' | 'story') {
+    setActiveFlow(type)
   }
 
   function handlePourTypeClose() {
@@ -65,5 +71,5 @@ export function useBottlePourFlow(bottleId: string | null): BottlePourFlow {
     </>
   ) : null
 
-  return { open, modals }
+  return { open, openFlow, modals }
 }

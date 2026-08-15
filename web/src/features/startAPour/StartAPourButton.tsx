@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { useUserData } from '../../hooks/useUserData'
 import { BottlePickerModal } from '../pourWizard/BottlePickerModal'
+import { PourTypeModal, type PourType } from './PourTypeModal'
 import { useBottlePourFlow } from './useBottlePourFlow'
 
 interface StartAPourButtonProps {
@@ -10,30 +12,50 @@ interface StartAPourButtonProps {
   variant?: 'primary' | 'secondary' | 'ghost'
 }
 
-// Unified "Start a Pour" entry point: Step 1 picks a bottle (skipped when
-// bottleId is already known, e.g. from Bottle Details), Step 2 picks a pour
-// type, then routes into the matching flow (see useBottlePourFlow).
+// Unified "Start a Pour" entry point. When bottleId is already known (e.g.
+// from Bottle Details), it's a one-step pour-type chooser. Otherwise pour
+// type comes first: Blind Room builds its own flight and skips bottle
+// picking entirely, while Quick Pour/Pour Story/Comparison then ask "which
+// bottle?" before routing into the matching flow (see useBottlePourFlow).
 export function StartAPourButton({ bottleId, label = 'Start a Pour', variant = 'primary' }: StartAPourButtonProps) {
+  const navigate = useNavigate()
   const { userDoc } = useUserData()
+  const [pourTypeOpen, setPourTypeOpen] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pendingType, setPendingType] = useState<'quick' | 'story' | 'compare' | null>(null)
   const [chosenBottleId, setChosenBottleId] = useState<string | null>(null)
 
   const pourableBottles = userDoc.bottles.filter((b) => b.status !== 'wishlist')
   const activeBottleId = bottleId ?? chosenBottleId
-  const { open: openPourFlow, modals } = useBottlePourFlow(activeBottleId)
+  const { open: openPourFlow, openFlow, modals } = useBottlePourFlow(activeBottleId)
 
   function handleClick() {
     if (bottleId) {
       openPourFlow()
     } else {
-      setPickerOpen(true)
+      setPourTypeOpen(true)
     }
+  }
+
+  function handlePourType(type: PourType) {
+    setPourTypeOpen(false)
+    if (type === 'blind') {
+      navigate('/blind/new')
+      return
+    }
+    setPendingType(type)
+    setPickerOpen(true)
   }
 
   function handleBottlePicked(id: string) {
     setChosenBottleId(id)
     setPickerOpen(false)
-    openPourFlow()
+    if (pendingType === 'compare') {
+      navigate(`/collection/${id}`, { state: { initialTab: 'compare' } })
+    } else if (pendingType === 'quick' || pendingType === 'story') {
+      openFlow(pendingType)
+    }
+    setPendingType(null)
   }
 
   return (
@@ -41,6 +63,10 @@ export function StartAPourButton({ bottleId, label = 'Start a Pour', variant = '
       <Button variant={variant} onClick={handleClick}>
         {label}
       </Button>
+
+      {pourTypeOpen ? (
+        <PourTypeModal onPick={handlePourType} onClose={() => setPourTypeOpen(false)} />
+      ) : null}
 
       {pickerOpen ? (
         <BottlePickerModal
