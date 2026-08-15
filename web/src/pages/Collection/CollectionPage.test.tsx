@@ -55,6 +55,21 @@ describe('CollectionPage', () => {
     expect(screen.getByText('Your whiskey journey starts here.')).toBeInTheDocument()
   })
 
+  it('offers an Explore Whiskey link into Discover from the toolbar', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+
+    renderCollection()
+
+    const discoverLink = screen.getByRole('link', { name: 'Explore Whiskey' })
+    expect(discoverLink).toHaveAttribute('href', expect.stringContaining('/discover'))
+  })
+
   it('filters the grid by status when a chip is clicked', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({

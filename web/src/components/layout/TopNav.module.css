@@ -35,6 +35,7 @@
 
 .links {
   display: flex;
+  align-items: center;
   gap: var(--fip-space-6);
   list-style: none;
   margin: 0;

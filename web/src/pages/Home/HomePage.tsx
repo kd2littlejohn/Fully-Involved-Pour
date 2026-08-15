@@ -145,7 +145,12 @@ export function HomePage() {
           <Section title="Discover What's Next" viewAllHref="/discover">
             <EmptyState
               title="Recommendations start with your bar."
-              message="Head to Discover to see trending bottles and personalized picks."
+              message="Trending bottles and personalized picks, based on what you already own."
+              action={
+                <Link to="/discover">
+                  <Button variant="secondary">Discover Something New</Button>
+                </Link>
+              }
             />
           </Section>
         </>

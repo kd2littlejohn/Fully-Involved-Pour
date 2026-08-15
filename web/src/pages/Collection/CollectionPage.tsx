@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
@@ -156,6 +156,9 @@ export function CollectionPage() {
               ))}
             </div>
             <div className={styles.toolbarActions}>
+              <Link to="/discover">
+                <Button variant="ghost">Explore Whiskey</Button>
+              </Link>
               <select
                 className={styles.sortSelect}
                 value={sort}

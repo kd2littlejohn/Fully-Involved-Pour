@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createHashRouter } from 'react-router-dom'
+import { createHashRouter, Navigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { RouteFallback } from './components/layout/RouteFallback'
 
@@ -33,7 +33,10 @@ const BlindRevealPage = lazy(() =>
 // Outlet in a Suspense boundary (see AppShell.tsx) so only the code for the
 // tab you're actually viewing is downloaded, instead of one bundle with
 // every page in it.
-export const router = createHashRouter([
+// Exported separately (not just passed inline to createHashRouter) so tests
+// can check path resolution with react-router's matchRoutes() without
+// mounting the whole app.
+export const routes: Parameters<typeof createHashRouter>[0] = [
   {
     element: <AppShell />,
     children: [
@@ -41,6 +44,11 @@ export const router = createHashRouter([
       { path: '/collection', element: <CollectionPage /> },
       { path: '/collection/:bottleId', element: <BottleDetailsPage /> },
       { path: '/journal', element: <JournalPage /> },
+      // "Journey" is the current label for this page (see navItems.ts), but
+      // /journal stays the canonical URL — it's what's linked throughout the
+      // app and what old bookmarks/deep links use. /journey is an alias in
+      // case anything external picks up the new name.
+      { path: '/journey', element: <Navigate to="/journal" replace /> },
       { path: '/discover', element: <DiscoverPage /> },
       { path: '/profile', element: <ProfilePage /> },
       // Browsable like Collection/Discover — bottom nav stays visible while
@@ -112,4 +120,6 @@ export const router = createHashRouter([
       </Suspense>
     ),
   },
-])
+]
+
+export const router = createHashRouter(routes)

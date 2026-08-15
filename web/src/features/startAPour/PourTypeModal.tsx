@@ -10,10 +10,10 @@ interface PourTypeOption {
 }
 
 const OPTIONS: PourTypeOption[] = [
-  { type: 'quick', title: 'Quick Pour', description: 'Capture the moment in seconds — reaction, score, done.' },
-  { type: 'story', title: 'Pour Story', description: 'The full tasting breakdown — nose, palate, finish, and more.' },
-  { type: 'blind', title: 'Blind Room', description: 'Hide the label — solo or with friends — and find out what you actually prefer.' },
-  { type: 'compare', title: 'Comparison', description: 'Pour two bottles side-by-side.' },
+  { type: 'quick', title: 'Quick Pour', description: 'Capture what you’re drinking in seconds.' },
+  { type: 'story', title: 'Pour Story', description: 'Take your time and capture the full experience.' },
+  { type: 'blind', title: 'Blind Room', description: 'Remove the label and discover what you actually prefer.' },
+  { type: 'compare', title: 'Compare', description: 'Taste bottles side by side.' },
 ]
 
 interface PourTypeModalProps {

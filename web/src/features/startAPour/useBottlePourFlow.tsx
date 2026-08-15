@@ -6,7 +6,7 @@ import { QuickPour } from '../quickPour/QuickPour'
 import { PourTypeModal, type PourType } from './PourTypeModal'
 
 interface BottlePourFlow {
-  /** Opens the pour-type chooser (Quick Pour / Pour Story / Comparison) for the current bottleId. */
+  /** Opens the pour-type chooser (Quick Pour / Pour Story / Compare) for the current bottleId. */
   open: () => void
   /** Opens Quick Pour or Pour Story directly for the current bottleId, skipping the type chooser — for callers that already know the type (e.g. it was picked before the bottle). */
   openFlow: (type: 'quick' | 'story') => void
@@ -14,14 +14,13 @@ interface BottlePourFlow {
   modals: ReactNode
 }
 
-// The "Step 2 onward" half of StartAPourButton (pour-type chooser -> Quick
+// The "Step 2 onward" half of the Pour hub (pour-type chooser -> Quick
 // Pour / Pour Wizard / Compare tab), factored out so any bottleId-scoped
-// trigger — the button's own click, or a contextual menu item elsewhere
-// (e.g. a My Bar card) — can launch the exact same flow without duplicating
-// it. `bottleId` may be null while a caller hasn't resolved one yet (e.g.
-// StartAPourButton's own bottle-picker step); `open()` is safe to call
-// regardless, since it's the caller's job to only call it once a real
-// bottleId is in play.
+// trigger — StartAPourButton's own click, usePourHub's bottle-picker step,
+// or a contextual menu item elsewhere (e.g. a My Bar card) — can launch the
+// exact same flow without duplicating it. `bottleId` may be null while a
+// caller hasn't resolved one yet; `open()` is safe to call regardless, since
+// it's the caller's job to only call it once a real bottleId is in play.
 export function useBottlePourFlow(bottleId: string | null): BottlePourFlow {
   const navigate = useNavigate()
   const { userDoc } = useUserData()
