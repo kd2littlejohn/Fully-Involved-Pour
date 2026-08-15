@@ -268,10 +268,27 @@ export interface BlindTastingResponse {
   lockedAt?: number
 }
 
+// A participant's private, ranked preference across every pour in the
+// room — stored under blindRooms/{roomId}/participants/{uid}/ranking/final,
+// same self-only-until-locked, hidden-until-reveal access pattern as
+// BlindTastingResponse (see firestore.rules). `order` lists pour labels
+// from most- to least-favorite; only ever meaningful once its length
+// matches the room's pourCount, i.e. once it's locked.
+export type BlindRankingStatus = 'in-progress' | 'locked'
+
+export interface BlindFinalRanking {
+  order: string[]
+  status: BlindRankingStatus
+  updatedAt: number
+  lockedAt?: number
+}
+
 // The actual hidden bottle identity behind each pour label. Stored under
-// blindRoomSecrets/{roomId} — a document the host alone can read/write in
-// Milestone 1 (see firestore.rules). `label` is a free string (not a hardcoded
-// A-F union) so future flight formats aren't blocked by this type.
+// blindRoomSecrets/{roomId} — readable/writable by the host at any time,
+// and readable (never writable) by any participant once the host reveals
+// (room.state === 'revealed'; see firestore.rules). `label` is a free
+// string (not a hardcoded A-F union) so future flight formats aren't
+// blocked by this type.
 export interface BlindSecretPour {
   label: string
   bottleId: string

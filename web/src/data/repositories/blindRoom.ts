@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, collectionGroup, query, setDoc, updat
 import { db } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
 import type {
+  BlindFinalRanking,
   BlindKnowledgeMode,
   BlindParticipant,
   BlindRoom,
@@ -55,6 +56,8 @@ const mockSecrets = new Map<string, BlindRoomSecrets>()
 // Keyed by `${roomId}:${uid}` -> pourLabel -> response, mirroring the real
 // per-participant subcollection shape closely enough for dev-mode UI work.
 const mockResponses = new Map<string, Map<string, BlindTastingResponse>>()
+// Keyed by `${roomId}:${uid}` -> the participant's one final ranking doc.
+const mockRankings = new Map<string, BlindFinalRanking>()
 
 function responseKey(roomId: string, uid: string): string {
   return `${roomId}:${uid}`
@@ -138,6 +141,32 @@ export async function getTastingResponses(roomId: string, uid: string): Promise<
   if (isMockAuthEnabled()) return [...(mockResponses.get(responseKey(roomId, uid))?.values() ?? [])]
   const snap = await getDocs(collection(db, 'blindRooms', roomId, 'participants', uid, 'responses'))
   return snap.docs.map((d) => d.data() as BlindTastingResponse)
+}
+
+export async function getFinalRanking(roomId: string, uid: string): Promise<BlindFinalRanking | undefined> {
+  if (isMockAuthEnabled()) return mockRankings.get(responseKey(roomId, uid))
+  const snap = await getDoc(doc(db, 'blindRooms', roomId, 'participants', uid, 'ranking', 'final'))
+  return snap.exists() ? (snap.data() as BlindFinalRanking) : undefined
+}
+
+// Fetches every named participant's tasting responses in one call — only
+// ever resolves real data once the room is revealed (firestore.rules blocks
+// each individual read otherwise), which is the only time this is called;
+// powers the reveal/compare-results screen.
+export async function getAllParticipantResponses(
+  roomId: string,
+  uids: string[],
+): Promise<Record<string, BlindTastingResponse[]>> {
+  const entries = await Promise.all(uids.map(async (uid) => [uid, await getTastingResponses(roomId, uid)] as const))
+  return Object.fromEntries(entries)
+}
+
+export async function getAllFinalRankings(
+  roomId: string,
+  uids: string[],
+): Promise<Record<string, BlindFinalRanking | undefined>> {
+  const entries = await Promise.all(uids.map(async (uid) => [uid, await getFinalRanking(roomId, uid)] as const))
+  return Object.fromEntries(entries)
 }
 
 // --- Writes ----------------------------------------------------------------
@@ -361,4 +390,56 @@ export async function lockTastingResponse(roomId: string, uid: string, pourLabel
     { pourLabel, status: 'locked', updatedAt: now, lockedAt: now },
     { merge: true },
   )
+}
+
+// Autosave for the final-ranking step — same "silently no-op past lock"
+// contract as saveTastingResponse above.
+export async function saveFinalRanking(roomId: string, uid: string, order: string[]): Promise<void> {
+  if (isMockAuthEnabled()) {
+    const key = responseKey(roomId, uid)
+    const current = mockRankings.get(key)
+    if (current?.status === 'locked') return
+    mockRankings.set(key, { order, status: 'in-progress', updatedAt: Date.now() })
+    return
+  }
+
+  try {
+    await setDoc(
+      doc(db, 'blindRooms', roomId, 'participants', uid, 'ranking', 'final'),
+      { order, status: 'in-progress', updatedAt: Date.now() },
+      { merge: true },
+    )
+  } catch {
+    // A locked ranking rejects this write via firestore.rules — see the
+    // matching comment on saveTastingResponse above.
+  }
+}
+
+export async function lockFinalRanking(roomId: string, uid: string, order: string[]): Promise<void> {
+  const now = Date.now()
+  if (isMockAuthEnabled()) {
+    mockRankings.set(responseKey(roomId, uid), { order, status: 'locked', updatedAt: now, lockedAt: now })
+    return
+  }
+  await setDoc(
+    doc(db, 'blindRooms', roomId, 'participants', uid, 'ranking', 'final'),
+    { order, status: 'locked', updatedAt: now, lockedAt: now },
+    { merge: true },
+  )
+}
+
+// Host-only (enforced by firestore.rules, same rule as any other room-doc
+// update) — flips the one field every hidden-data read rule in this file
+// gates on. A single atomic write to a single document, so there's no
+// intermediate state where secrets are readable but the room doesn't yet
+// say 'revealed', or vice versa; see the isBlindRevealed comment in
+// firestore.rules for why this doesn't need a Cloud Function.
+export async function revealBlind(roomId: string): Promise<void> {
+  const patch = { state: 'revealed' as const, revealedAt: Date.now() }
+  if (isMockAuthEnabled()) {
+    const room = mockRooms.get(roomId)
+    if (room) mockRooms.set(roomId, { ...room, ...patch })
+    return
+  }
+  await updateDoc(doc(db, 'blindRooms', roomId), patch)
 }

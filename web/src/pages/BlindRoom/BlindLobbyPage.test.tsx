@@ -11,6 +11,7 @@ const mockUseBlindRoom = vi.fn()
 const mockSetParticipantReady = vi.fn().mockResolvedValue(undefined)
 const mockStartBlind = vi.fn().mockResolvedValue(undefined)
 const mockJoinBlindRoomByCode = vi.fn().mockResolvedValue(undefined)
+const mockRevealBlind = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -33,6 +34,7 @@ vi.mock('../../data/repositories/blindRoom', () => ({
   setParticipantReady: (...args: unknown[]) => mockSetParticipantReady(...args),
   startBlind: (...args: unknown[]) => mockStartBlind(...args),
   joinBlindRoomByCode: (...args: unknown[]) => mockJoinBlindRoomByCode(...args),
+  revealBlind: (...args: unknown[]) => mockRevealBlind(...args),
 }))
 
 const room: BlindRoom = {
@@ -170,6 +172,80 @@ describe('BlindLobbyPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Start Tasting' }))
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/taste')
+  })
+
+  it('shows the host a Reveal button once every participant has completed tasting', () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    const doneGuest: BlindParticipant = { ...guest, status: 'completed' }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'active' },
+      participants: [doneHost, doneGuest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeInTheDocument()
+  })
+
+  it('does not show a Reveal button to a non-host, even once everyone has completed tasting', () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    const doneGuest: BlindParticipant = { ...guest, status: 'completed' }
+    mockUseAuth.mockReturnValue({ user: { uid: 'guest-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'active' },
+      participants: [doneHost, doneGuest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument()
+  })
+
+  it('does not show a Reveal button while someone is still tasting, even to the host', () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'active' },
+      participants: [doneHost, guest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument()
+  })
+
+  it('tapping Reveal calls revealBlind', async () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    const doneGuest: BlindParticipant = { ...guest, status: 'completed' }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'active' },
+      participants: [doneHost, doneGuest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }))
+    expect(mockRevealBlind).toHaveBeenCalledWith('room-1')
+  })
+
+  it('shows a See Results control once the room has been revealed, and it navigates to the reveal page', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'revealed' },
+      participants: [host, guest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'See Results' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/reveal')
   })
 
   it('shows an empty state when the room cannot be found', () => {

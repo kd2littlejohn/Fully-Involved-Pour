@@ -7,7 +7,7 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
-import { joinBlindRoomByCode, setParticipantReady, startBlind } from '../../data/repositories/blindRoom'
+import { joinBlindRoomByCode, revealBlind, setParticipantReady, startBlind } from '../../data/repositories/blindRoom'
 import styles from './BlindLobbyPage.module.css'
 
 function inviteMessage(roomName: string, pourCount: number, knowledgeMode: string, code: string): string {
@@ -28,6 +28,7 @@ export function BlindLobbyPage() {
   const isHost = !!user && room?.hostUid === user.uid
   const allReady = participants.length > 0 && participants.every((p) => p.status === 'ready')
   const canStart = isHost && participants.length >= 2 && allReady
+  const allCompleted = participants.length > 0 && participants.every((p) => p.status === 'completed')
 
   async function handleJoinAsViewer() {
     if (!user || !room) return
@@ -50,6 +51,16 @@ export function BlindLobbyPage() {
     if (!room) return
     setBusy(true)
     await startBlind(room.id)
+    refresh()
+    setBusy(false)
+  }
+
+  // Host-only, enforced by firestore.rules — see revealBlind's own comment
+  // for why this single-field write is safe without a Cloud Function.
+  async function handleReveal() {
+    if (!room) return
+    setBusy(true)
+    await revealBlind(room.id)
     refresh()
     setBusy(false)
   }
@@ -163,6 +174,23 @@ export function BlindLobbyPage() {
               ) : null}
             </div>
           </>
+        ) : room.state === 'revealed' ? (
+          <>
+            <div className={styles.roster}>
+              {participants.map((p) => (
+                <div className={styles.participantRow} key={p.uid}>
+                  <span className={styles.participantName}>{p.username}</span>
+                  <span className={styles.participantStatus}>
+                    {p.isHost ? <Badge tone="brass">Host</Badge> : null}
+                    <Badge tone="amber">Revealed</Badge>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className={styles.actions}>
+              <Button onClick={() => navigate(`/blind/${room.id}/reveal`)}>See Results</Button>
+            </div>
+          </>
         ) : (
           <>
             <div className={styles.roster}>
@@ -183,10 +211,23 @@ export function BlindLobbyPage() {
             </p>
 
             {me.status === 'completed' ? (
-              <EmptyState
-                title="You’re all locked in."
-                message="Waiting on everyone else to finish tasting. Reveal is coming in the next Blind Room milestone."
-              />
+              <>
+                <EmptyState
+                  title="You’re all locked in."
+                  message={
+                    isHost && allCompleted
+                      ? 'Everyone has finished tasting — ready to reveal?'
+                      : 'Waiting on everyone else to finish tasting.'
+                  }
+                />
+                {isHost && allCompleted ? (
+                  <div className={styles.actions}>
+                    <Button onClick={() => void handleReveal()} disabled={busy}>
+                      {busy ? 'Revealing…' : 'Reveal'}
+                    </Button>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className={styles.actions}>
                 <Button onClick={() => navigate(`/blind/${room.id}/taste`)}>

@@ -4,17 +4,23 @@ vi.mock('../devMode', () => ({ isMockAuthEnabled: () => true }))
 
 import {
   createBlindRoom,
+  getAllFinalRankings,
+  getAllParticipantResponses,
   getBlindRoom,
   getBlindRoomByCode,
   getBlindRoomSecrets,
+  getFinalRanking,
   getMyBlindRooms,
   getParticipant,
   getParticipants,
   getTastingResponses,
   joinBlindRoomByCode,
+  lockFinalRanking,
   lockTastingResponse,
   markTastingCompleted,
   markTastingStarted,
+  revealBlind,
+  saveFinalRanking,
   saveTastingResponse,
   setParticipantReady,
   startBlind,
@@ -208,6 +214,73 @@ describe('markTastingStarted / markTastingCompleted', () => {
     const participant = await getParticipant(room.id, 'host-1')
     expect(participant?.status).toBe('completed')
     expect(participant?.completedAt).toBeDefined()
+  })
+})
+
+describe('final ranking', () => {
+  it('autosaves a ranking as in-progress and can be read back', async () => {
+    const room = await createBlindRoom(baseInput())
+    await saveFinalRanking(room.id, 'host-1', ['B', 'A', 'C'])
+
+    const ranking = await getFinalRanking(room.id, 'host-1')
+    expect(ranking).toMatchObject({ order: ['B', 'A', 'C'], status: 'in-progress' })
+  })
+
+  it('locking a ranking marks it locked with a lockedAt timestamp', async () => {
+    const room = await createBlindRoom(baseInput())
+    await saveFinalRanking(room.id, 'host-1', ['B', 'A', 'C'])
+    await lockFinalRanking(room.id, 'host-1', ['B', 'A', 'C'])
+
+    const ranking = await getFinalRanking(room.id, 'host-1')
+    expect(ranking).toMatchObject({ order: ['B', 'A', 'C'], status: 'locked' })
+    expect(ranking?.lockedAt).toBeDefined()
+  })
+
+  it('ignores further autosaves once a ranking is locked', async () => {
+    const room = await createBlindRoom(baseInput())
+    await lockFinalRanking(room.id, 'host-1', ['B', 'A', 'C'])
+    await saveFinalRanking(room.id, 'host-1', ['A', 'B', 'C'])
+
+    const ranking = await getFinalRanking(room.id, 'host-1')
+    expect(ranking?.order).toEqual(['B', 'A', 'C'])
+  })
+
+  it('keeps different participants’ rankings in the same room separate', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+    await lockFinalRanking(room.id, 'host-1', ['A', 'B', 'C'])
+    await lockFinalRanking(room.id, 'guest-1', ['C', 'B', 'A'])
+
+    expect((await getFinalRanking(room.id, 'host-1'))?.order).toEqual(['A', 'B', 'C'])
+    expect((await getFinalRanking(room.id, 'guest-1'))?.order).toEqual(['C', 'B', 'A'])
+  })
+})
+
+describe('revealBlind', () => {
+  it('transitions the room to revealed and records revealedAt', async () => {
+    const room = await createBlindRoom(baseInput())
+    await revealBlind(room.id)
+    const updated = await getBlindRoom(room.id)
+    expect(updated?.state).toBe('revealed')
+    expect(updated?.revealedAt).toBeDefined()
+  })
+})
+
+describe('getAllParticipantResponses / getAllFinalRankings', () => {
+  it('fetches every named participant’s responses and rankings, keyed by uid', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+    await saveTastingResponse(room.id, 'host-1', 'A', { reaction: 'Love It' })
+    await saveTastingResponse(room.id, 'guest-1', 'A', { reaction: 'Just Okay' })
+    await lockFinalRanking(room.id, 'host-1', ['A', 'B', 'C'])
+
+    const responses = await getAllParticipantResponses(room.id, ['host-1', 'guest-1'])
+    expect(responses['host-1']?.[0]?.reaction).toBe('Love It')
+    expect(responses['guest-1']?.[0]?.reaction).toBe('Just Okay')
+
+    const rankings = await getAllFinalRankings(room.id, ['host-1', 'guest-1'])
+    expect(rankings['host-1']?.order).toEqual(['A', 'B', 'C'])
+    expect(rankings['guest-1']).toBeUndefined()
   })
 })
 

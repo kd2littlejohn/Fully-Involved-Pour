@@ -8,14 +8,17 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
 import {
+  getFinalRanking,
   getTastingResponses,
+  lockFinalRanking,
   lockTastingResponse,
   markTastingCompleted,
   markTastingStarted,
+  saveFinalRanking,
   saveTastingResponse,
 } from '../../data/repositories/blindRoom'
 import { QUICK_POUR_REACTIONS, type QuickPourReaction } from '../../features/quickPour/reactions'
-import type { BlindTastingResponse } from '../../data/types'
+import type { BlindFinalRanking, BlindTastingResponse } from '../../data/types'
 import styles from './BlindTastingPage.module.css'
 
 // Pour labels are generated client-side from pourCount alone — never fetched
@@ -92,36 +95,55 @@ export function BlindTastingPage() {
   const { room, participants, loading } = useBlindRoom(roomId)
 
   const [responses, setResponses] = useState<Record<string, BlindTastingResponse>>({})
-  const [responsesLoaded, setResponsesLoaded] = useState(false)
+  const [ranking, setRanking] = useState<BlindFinalRanking | undefined>(undefined)
+  const [rankingOrder, setRankingOrder] = useState<string[]>([])
+  const [phase, setPhase] = useState<'tasting' | 'ranking'>('tasting')
+  const [dataLoaded, setDataLoaded] = useState(false)
   const [pourIndex, setPourIndex] = useState(0)
   const [draft, setDraft] = useState<DraftState>(blankDraft)
   const [locking, setLocking] = useState(false)
   const startedRef = useRef(false)
+  const initialPhaseRef = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rankingSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const me = user ? participants.find((p) => p.uid === user.uid) : undefined
   const pourLabels = useMemo(() => POUR_LABELS.slice(0, room?.pourCount ?? 0), [room?.pourCount])
   const currentLabel = pourLabels[pourIndex]
   const currentResponse = currentLabel ? responses[currentLabel] : undefined
   const isLocked = currentResponse?.status === 'locked'
+  const rankingLocked = ranking?.status === 'locked'
 
-  // Load this participant's own responses once — never another
-  // participant's, since getTastingResponses only ever resolves what
-  // firestore.rules allows this uid to read (see blindRoom.ts).
+  // Load this participant's own responses and final ranking once — never
+  // another participant's, since these repository calls only ever resolve
+  // what firestore.rules allows this uid to read (see blindRoom.ts).
   useEffect(() => {
     if (!roomId || !user) return
     let cancelled = false
-    getTastingResponses(roomId, user.uid).then((list) => {
-      if (cancelled) return
-      const byLabel: Record<string, BlindTastingResponse> = {}
-      for (const r of list) byLabel[r.pourLabel] = r
-      setResponses(byLabel)
-      setResponsesLoaded(true)
-    })
+    Promise.all([getTastingResponses(roomId, user.uid), getFinalRanking(roomId, user.uid)]).then(
+      ([list, existingRanking]) => {
+        if (cancelled) return
+        const byLabel: Record<string, BlindTastingResponse> = {}
+        for (const r of list) byLabel[r.pourLabel] = r
+        setResponses(byLabel)
+        setRanking(existingRanking)
+        setRankingOrder(existingRanking?.order ?? [])
+        setDataLoaded(true)
+      },
+    )
     return () => {
       cancelled = true
     }
   }, [roomId, user])
+
+  // Once loaded, jump straight into the ranking phase if every pour was
+  // already locked in an earlier visit — runs once (guarded by the ref),
+  // never forces the phase back to 'tasting' afterward.
+  useEffect(() => {
+    if (initialPhaseRef.current || !dataLoaded || pourLabels.length === 0) return
+    initialPhaseRef.current = true
+    if (pourLabels.every((label) => responses[label]?.status === 'locked')) setPhase('ranking')
+  }, [dataLoaded, pourLabels, responses])
 
   // First entry into tasting for this participant.
   useEffect(() => {
@@ -141,7 +163,7 @@ export function BlindTastingPage() {
   // Debounced autosave — never fires once the current pour is locked, and
   // is cancelled cleanly whenever the pour changes or lock happens.
   useEffect(() => {
-    if (!roomId || !user || !currentLabel || isLocked || !responsesLoaded) return
+    if (!roomId || !user || !currentLabel || isLocked || !dataLoaded) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
       void saveTastingResponse(roomId, user.uid, currentLabel, draftToPatch(draft))
@@ -149,7 +171,20 @@ export function BlindTastingPage() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current)
     }
-  }, [draft, roomId, user, currentLabel, isLocked, responsesLoaded])
+  }, [draft, roomId, user, currentLabel, isLocked, dataLoaded])
+
+  // Same debounced-autosave contract as the pour draft above, for the
+  // ranking step.
+  useEffect(() => {
+    if (!roomId || !user || phase !== 'ranking' || rankingLocked || !dataLoaded) return
+    if (rankingSaveTimer.current) clearTimeout(rankingSaveTimer.current)
+    rankingSaveTimer.current = setTimeout(() => {
+      void saveFinalRanking(roomId, user.uid, rankingOrder)
+    }, AUTOSAVE_DELAY_MS)
+    return () => {
+      if (rankingSaveTimer.current) clearTimeout(rankingSaveTimer.current)
+    }
+  }, [rankingOrder, roomId, user, phase, rankingLocked, dataLoaded])
 
   function updateDraft(patch: Partial<DraftState>) {
     setDraft((prev) => ({ ...prev, ...patch }))
@@ -157,6 +192,11 @@ export function BlindTastingPage() {
 
   function pickReaction(reaction: QuickPourReaction) {
     updateDraft({ reaction: reaction.label, fipScore: reaction.score })
+  }
+
+  function toggleRank(label: string) {
+    if (rankingLocked) return
+    setRankingOrder((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]))
   }
 
   async function handleLock() {
@@ -175,18 +215,33 @@ export function BlindTastingPage() {
     setResponses(updatedResponses)
 
     const allLocked = pourLabels.every((label) => updatedResponses[label]?.status === 'locked')
+    setLocking(false)
     if (allLocked) {
-      await markTastingCompleted(roomId, user.uid)
-      setLocking(false)
-      navigate(`/blind/${roomId}/lobby`)
+      setPhase('ranking')
       return
     }
-
-    setLocking(false)
     setPourIndex((i) => Math.min(i + 1, pourLabels.length - 1))
   }
 
+  async function handleLockRanking() {
+    if (!roomId || !user || locking || rankingOrder.length !== pourLabels.length) return
+    setLocking(true)
+    if (rankingSaveTimer.current) clearTimeout(rankingSaveTimer.current)
+    await saveFinalRanking(roomId, user.uid, rankingOrder)
+    await lockFinalRanking(roomId, user.uid, rankingOrder)
+    const now = Date.now()
+    setRanking({ order: rankingOrder, status: 'locked', updatedAt: now, lockedAt: now })
+    await markTastingCompleted(roomId, user.uid)
+    setLocking(false)
+    navigate(`/blind/${roomId}/lobby`)
+  }
+
   function handleBack() {
+    if (phase === 'ranking') {
+      setPhase('tasting')
+      setPourIndex(pourLabels.length - 1)
+      return
+    }
     if (pourIndex === 0) {
       navigate(`/blind/${roomId}/lobby`)
       return
@@ -194,7 +249,7 @@ export function BlindTastingPage() {
     setPourIndex((i) => i - 1)
   }
 
-  if (authLoading || loading || (user && !responsesLoaded)) {
+  if (authLoading || loading || (user && !dataLoaded)) {
     return <div className={styles.page} />
   }
 
@@ -248,165 +303,200 @@ export function BlindTastingPage() {
         <button type="button" className={styles.backButton} onClick={handleBack} aria-label="Back">
           ←
         </button>
-        <h1 className={styles.title}>Pour {currentLabel}</h1>
+        <h1 className={styles.title}>{phase === 'ranking' ? 'Rank Your Pours' : `Pour ${currentLabel}`}</h1>
         <div className={styles.headerSpacer} />
       </div>
 
       <div className={styles.content}>
-        <ProgressStepper labels={pourLabels} activeIndex={pourIndex} />
+        {phase === 'ranking' ? (
+          <>
+            <p className={styles.prompt}>Tap in order — favorite first.</p>
+            {rankingLocked ? <p className={styles.lockedNote}>Locked in — your ranking can’t be changed.</p> : null}
+            <div className={styles.rankingList}>
+              {pourLabels.map((label) => {
+                const rank = rankingOrder.indexOf(label)
+                const picked = rank !== -1
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    className={picked ? `${styles.rankingRow} ${styles.rankingRowActive}` : styles.rankingRow}
+                    onClick={() => toggleRank(label)}
+                    disabled={rankingLocked}
+                  >
+                    <span className={styles.rankingLabel}>Pour {label}</span>
+                    {picked ? <span className={styles.rankingBadge}>{rank + 1}</span> : null}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        ) : (
+          <>
+            <ProgressStepper labels={pourLabels} activeIndex={pourIndex} />
 
-        {room.knowledgeMode === 'single' && room.knownLineup ? (
-          <p className={styles.lineupHint}>In this lineup: {room.knownLineup.join(', ')}</p>
-        ) : null}
+            {room.knowledgeMode === 'single' && room.knownLineup ? (
+              <p className={styles.lineupHint}>In this lineup: {room.knownLineup.join(', ')}</p>
+            ) : null}
 
-        {isLocked ? <p className={styles.lockedNote}>Locked in — this pour can’t be changed.</p> : null}
+            {isLocked ? <p className={styles.lockedNote}>Locked in — this pour can’t be changed.</p> : null}
 
-        <p className={styles.prompt}>First impression?</p>
-        <div className={styles.reactionRow}>
-          {QUICK_POUR_REACTIONS.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              className={draft.reaction === r.label ? `${styles.reaction} ${styles.reactionActive}` : styles.reaction}
-              aria-pressed={draft.reaction === r.label}
-              onClick={() => pickReaction(r)}
-              disabled={isLocked}
-            >
-              <span className={styles.reactionEmoji} aria-hidden="true">
-                {r.emoji}
-              </span>
-              {r.label}
-            </button>
-          ))}
-        </div>
+            <p className={styles.prompt}>First impression?</p>
+            <div className={styles.reactionRow}>
+              {QUICK_POUR_REACTIONS.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  className={draft.reaction === r.label ? `${styles.reaction} ${styles.reactionActive}` : styles.reaction}
+                  aria-pressed={draft.reaction === r.label}
+                  onClick={() => pickReaction(r)}
+                  disabled={isLocked}
+                >
+                  <span className={styles.reactionEmoji} aria-hidden="true">
+                    {r.emoji}
+                  </span>
+                  {r.label}
+                </button>
+              ))}
+            </div>
 
-        <Field label="Nose" htmlFor="taste-nose">
-          <textarea
-            id="taste-nose"
-            className={controlClassName}
-            rows={2}
-            value={draft.noseNotes}
-            onChange={(e) => updateDraft({ noseNotes: e.target.value })}
-            disabled={isLocked}
-            placeholder="What do you smell?"
-          />
-        </Field>
-        <Field label="Palate" htmlFor="taste-palate">
-          <textarea
-            id="taste-palate"
-            className={controlClassName}
-            rows={2}
-            value={draft.palateNotes}
-            onChange={(e) => updateDraft({ palateNotes: e.target.value })}
-            disabled={isLocked}
-            placeholder="What do you taste?"
-          />
-        </Field>
-        <Field label="Finish" htmlFor="taste-finish">
-          <textarea
-            id="taste-finish"
-            className={controlClassName}
-            rows={2}
-            value={draft.finishNotes}
-            onChange={(e) => updateDraft({ finishNotes: e.target.value })}
-            disabled={isLocked}
-            placeholder="How does it finish?"
-          />
-        </Field>
-
-        <div className={styles.scoreRow}>
-          <span className={styles.scoreLabel}>FIP Score</span>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            step={0.1}
-            value={draft.fipScore}
-            onChange={(e) => updateDraft({ fipScore: Number(e.target.value) })}
-            aria-label="FIP score"
-            className={styles.scoreSlider}
-            disabled={isLocked}
-          />
-          <span className={styles.scoreValue}>{draft.fipScore.toFixed(1)}</span>
-        </div>
-
-        <details className={styles.guesses}>
-          <summary className={styles.guessesSummary}>Guess the bottle (optional)</summary>
-          <div className={styles.guessFields}>
-            <Field label="Proof" htmlFor="taste-proof">
-              <input
-                id="taste-proof"
-                type="number"
-                inputMode="decimal"
+            <Field label="Nose" htmlFor="taste-nose">
+              <textarea
+                id="taste-nose"
                 className={controlClassName}
-                value={draft.proofGuess}
-                onChange={(e) => updateDraft({ proofGuess: e.target.value })}
+                rows={2}
+                value={draft.noseNotes}
+                onChange={(e) => updateDraft({ noseNotes: e.target.value })}
                 disabled={isLocked}
-                placeholder="e.g. 100"
+                placeholder="What do you smell?"
               />
             </Field>
-            <Field label="Age" htmlFor="taste-age">
-              <input
-                id="taste-age"
-                type="text"
+            <Field label="Palate" htmlFor="taste-palate">
+              <textarea
+                id="taste-palate"
                 className={controlClassName}
-                value={draft.ageGuess}
-                onChange={(e) => updateDraft({ ageGuess: e.target.value })}
+                rows={2}
+                value={draft.palateNotes}
+                onChange={(e) => updateDraft({ palateNotes: e.target.value })}
                 disabled={isLocked}
-                placeholder="e.g. 8 years"
+                placeholder="What do you taste?"
               />
             </Field>
-            <Field label="Type" htmlFor="taste-type">
-              <input
-                id="taste-type"
-                type="text"
+            <Field label="Finish" htmlFor="taste-finish">
+              <textarea
+                id="taste-finish"
                 className={controlClassName}
-                value={draft.typeGuess}
-                onChange={(e) => updateDraft({ typeGuess: e.target.value })}
+                rows={2}
+                value={draft.finishNotes}
+                onChange={(e) => updateDraft({ finishNotes: e.target.value })}
                 disabled={isLocked}
-                placeholder="e.g. Bourbon"
+                placeholder="How does it finish?"
               />
             </Field>
-            <Field label="Distillery" htmlFor="taste-distillery">
-              <input
-                id="taste-distillery"
-                type="text"
-                className={controlClassName}
-                value={draft.distilleryGuess}
-                onChange={(e) => updateDraft({ distilleryGuess: e.target.value })}
-                disabled={isLocked}
-                placeholder="e.g. Buffalo Trace"
-              />
-            </Field>
-          </div>
-        </details>
 
-        <Field label="Notes" htmlFor="taste-notes">
-          <textarea
-            id="taste-notes"
-            className={controlClassName}
-            rows={2}
-            value={draft.notes}
-            onChange={(e) => updateDraft({ notes: e.target.value })}
-            disabled={isLocked}
-            placeholder="Anything else worth remembering…"
-          />
-        </Field>
+            <div className={styles.scoreRow}>
+              <span className={styles.scoreLabel}>FIP Score</span>
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={0.1}
+                value={draft.fipScore}
+                onChange={(e) => updateDraft({ fipScore: Number(e.target.value) })}
+                aria-label="FIP score"
+                className={styles.scoreSlider}
+                disabled={isLocked}
+              />
+              <span className={styles.scoreValue}>{draft.fipScore.toFixed(1)}</span>
+            </div>
+
+            <details className={styles.guesses}>
+              <summary className={styles.guessesSummary}>Guess the bottle (optional)</summary>
+              <div className={styles.guessFields}>
+                <Field label="Proof" htmlFor="taste-proof">
+                  <input
+                    id="taste-proof"
+                    type="number"
+                    inputMode="decimal"
+                    className={controlClassName}
+                    value={draft.proofGuess}
+                    onChange={(e) => updateDraft({ proofGuess: e.target.value })}
+                    disabled={isLocked}
+                    placeholder="e.g. 100"
+                  />
+                </Field>
+                <Field label="Age" htmlFor="taste-age">
+                  <input
+                    id="taste-age"
+                    type="text"
+                    className={controlClassName}
+                    value={draft.ageGuess}
+                    onChange={(e) => updateDraft({ ageGuess: e.target.value })}
+                    disabled={isLocked}
+                    placeholder="e.g. 8 years"
+                  />
+                </Field>
+                <Field label="Type" htmlFor="taste-type">
+                  <input
+                    id="taste-type"
+                    type="text"
+                    className={controlClassName}
+                    value={draft.typeGuess}
+                    onChange={(e) => updateDraft({ typeGuess: e.target.value })}
+                    disabled={isLocked}
+                    placeholder="e.g. Bourbon"
+                  />
+                </Field>
+                <Field label="Distillery" htmlFor="taste-distillery">
+                  <input
+                    id="taste-distillery"
+                    type="text"
+                    className={controlClassName}
+                    value={draft.distilleryGuess}
+                    onChange={(e) => updateDraft({ distilleryGuess: e.target.value })}
+                    disabled={isLocked}
+                    placeholder="e.g. Buffalo Trace"
+                  />
+                </Field>
+              </div>
+            </details>
+
+            <Field label="Notes" htmlFor="taste-notes">
+              <textarea
+                id="taste-notes"
+                className={controlClassName}
+                rows={2}
+                value={draft.notes}
+                onChange={(e) => updateDraft({ notes: e.target.value })}
+                disabled={isLocked}
+                placeholder="Anything else worth remembering…"
+              />
+            </Field>
+          </>
+        )}
       </div>
 
       <div className={styles.actions}>
         <Button variant="ghost" onClick={handleBack} disabled={locking}>
           Back
         </Button>
-        {isLocked ? (
-          isLastPour ? (
+        {phase === 'ranking' ? (
+          rankingLocked ? (
             <Button onClick={() => navigate(`/blind/${roomId}/lobby`)}>Back to Lobby</Button>
+          ) : (
+            <Button onClick={() => void handleLockRanking()} disabled={rankingOrder.length !== pourLabels.length || locking}>
+              {locking ? 'Locking…' : 'Lock Ranking & Finish'}
+            </Button>
+          )
+        ) : isLocked ? (
+          isLastPour ? (
+            <Button onClick={() => setPhase('ranking')}>Rank Your Pours</Button>
           ) : (
             <Button onClick={() => setPourIndex((i) => i + 1)}>Next Pour</Button>
           )
         ) : (
           <Button onClick={() => void handleLock()} disabled={!draft.reaction || locking}>
-            {locking ? 'Locking…' : isLastPour ? 'Lock & Finish' : 'Lock & Next'}
+            {locking ? 'Locking…' : isLastPour ? 'Lock & Rank' : 'Lock & Next'}
           </Button>
         )}
       </div>

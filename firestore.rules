@@ -3,6 +3,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Shared by the Blind Room rules below. A room is "revealed" once its
+    // host has flipped this one field on this one document — a single
+    // atomic write with no multi-document race window, which is what makes
+    // gating reads on it safe without a Cloud Function (see blindRoomSecrets
+    // and the responses/ranking subcollections further down).
+    function isBlindRevealed(roomId) {
+      return get(/databases/$(database)/documents/blindRooms/$(roomId)).data.state == 'revealed';
+    }
+
+    function isBlindParticipant(roomId, uid) {
+      return exists(/databases/$(database)/documents/blindRooms/$(roomId)/participants/$(uid));
+    }
+
     // Each user's whole collection (bottles/pours/memories/etc.) lives in
     // one document here (see web/src/data/repositories/userDoc.ts) —
     // private to the signed-in owner only.
@@ -68,14 +81,30 @@ service cloud.firestore {
         allow delete: if false;
 
         // A participant's private per-pour tasting notes (reaction, nose/
-        // palate/finish, guesses, FIP score). Self-only in every direction —
-        // not even the host can read another participant's responses before
-        // reveal, which is the literal "other participants' answers remain
-        // hidden" requirement. Once locked, immutable: the participant
-        // themselves can no longer edit it either, enforced here rather
-        // than only in the UI, so a locked answer is a real commitment.
+        // palate/finish, guesses, FIP score). Self-only before reveal — not
+        // even the host can read another participant's responses, which is
+        // the literal "other participants' answers remain hidden"
+        // requirement. Once locked, immutable: the participant themselves
+        // can no longer edit it either, enforced here rather than only in
+        // the UI, so a locked answer is a real commitment. Readable by any
+        // participant (not just the author) once the host reveals — that's
+        // what powers the compare-results screen.
         match /responses/{pourLabel} {
-          allow read: if request.auth != null && request.auth.uid == uid;
+          allow read: if request.auth != null
+                       && (request.auth.uid == uid
+                           || (isBlindRevealed(roomId) && isBlindParticipant(roomId, request.auth.uid)));
+          allow create: if request.auth != null && request.auth.uid == uid;
+          allow update: if request.auth != null && request.auth.uid == uid && resource.data.status != 'locked';
+          allow delete: if false;
+        }
+
+        // A participant's private final ranking of the pours — same access
+        // shape as responses above (self-only + immutable-once-locked
+        // before reveal, readable by any participant after).
+        match /ranking/{rankingId} {
+          allow read: if request.auth != null
+                       && (request.auth.uid == uid
+                           || (isBlindRevealed(roomId) && isBlindParticipant(roomId, request.auth.uid)));
           allow create: if request.auth != null && request.auth.uid == uid;
           allow update: if request.auth != null && request.auth.uid == uid && resource.data.status != 'locked';
           allow delete: if false;
@@ -97,14 +126,19 @@ service cloud.firestore {
     }
 
     // The hidden bottle mapping — the actual security boundary for Blind
-    // Room. Host-only in Milestone 1: no reveal mechanism exists yet, so
-    // nothing unlocks participant reads. Bottle identities are simply never
-    // present in any document a participant's client is permitted to read,
-    // not merely hidden in the UI (blurred/CSS-hidden/omitted from
-    // rendering) while still being present in the network response.
+    // Room. Always host-readable/writable; readable by a participant only
+    // once the host has revealed (see isBlindRevealed above) — never
+    // writable by a participant, at any point. Until reveal, bottle
+    // identities are simply never present in any document a participant's
+    // client is permitted to read, not merely hidden in the UI (blurred/
+    // CSS-hidden/omitted from rendering) while still present in the
+    // network response.
     match /blindRoomSecrets/{roomId} {
-      allow read, write: if request.auth != null
-                          && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
+      allow read: if request.auth != null
+                   && (get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid
+                       || (isBlindRevealed(roomId) && isBlindParticipant(roomId, request.auth.uid)));
+      allow write: if request.auth != null
+                    && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
     }
 
     // Deny everything else by default.

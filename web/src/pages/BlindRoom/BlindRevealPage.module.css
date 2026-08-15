@@ -1,0 +1,163 @@
+.page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fip-black);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: calc(var(--fip-space-3) + env(safe-area-inset-top, 0)) var(--fip-shell-x) var(--fip-space-3);
+  background: var(--fip-black);
+  border-bottom: 1px solid var(--fip-border-subtle);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--fip-cream);
+  font-size: var(--fip-text-lg);
+  cursor: pointer;
+}
+
+.title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+.headerSpacer {
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--fip-space-6) var(--fip-shell-x) calc(var(--fip-space-6) + env(safe-area-inset-bottom, 0));
+}
+
+.pourList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+}
+
+.pourCard {
+  padding: var(--fip-space-4);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+}
+
+.pourHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--fip-space-2);
+  flex-wrap: wrap;
+}
+
+.pourLabel {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-sm);
+  color: var(--fip-amber);
+}
+
+.pourBottleName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+}
+
+.pourMeta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  margin-top: var(--fip-space-1);
+}
+
+.participantResults {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}
+
+.participantResult {
+  padding-top: var(--fip-space-3);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.participantResultHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.participantName {
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  color: var(--fip-cream);
+}
+
+.participantScore {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-amber);
+}
+
+.participantReaction {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  margin-top: var(--fip-space-1);
+}
+
+.participantNotes,
+.participantGuess {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+  margin-top: var(--fip-space-1);
+}
+
+.rankingsSection {
+  margin-top: var(--fip-space-6);
+}
+
+.sectionTitle {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  margin-bottom: var(--fip-space-3);
+}
+
+.rankingCard {
+  padding: var(--fip-space-4);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  margin-bottom: var(--fip-space-3);
+}
+
+.rankingOrderList {
+  margin: var(--fip-space-2) 0 0;
+  padding-left: var(--fip-space-5);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+.rankingOrderList li {
+  margin-bottom: var(--fip-space-1);
+}

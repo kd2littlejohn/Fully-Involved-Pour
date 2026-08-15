@@ -13,6 +13,9 @@ const mockSaveTastingResponse = vi.fn()
 const mockLockTastingResponse = vi.fn()
 const mockMarkTastingStarted = vi.fn()
 const mockMarkTastingCompleted = vi.fn()
+const mockGetFinalRanking = vi.fn()
+const mockSaveFinalRanking = vi.fn()
+const mockLockFinalRanking = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -33,6 +36,9 @@ vi.mock('../../data/repositories/blindRoom', () => ({
   lockTastingResponse: (...args: unknown[]) => mockLockTastingResponse(...args),
   markTastingStarted: (...args: unknown[]) => mockMarkTastingStarted(...args),
   markTastingCompleted: (...args: unknown[]) => mockMarkTastingCompleted(...args),
+  getFinalRanking: (...args: unknown[]) => mockGetFinalRanking(...args),
+  saveFinalRanking: (...args: unknown[]) => mockSaveFinalRanking(...args),
+  lockFinalRanking: (...args: unknown[]) => mockLockFinalRanking(...args),
 }))
 
 const room: BlindRoom = {
@@ -68,7 +74,10 @@ describe('BlindTastingPage', () => {
     mockLockTastingResponse.mockResolvedValue(undefined)
     mockMarkTastingStarted.mockResolvedValue(undefined)
     mockMarkTastingCompleted.mockResolvedValue(undefined)
+    mockSaveFinalRanking.mockResolvedValue(undefined)
+    mockLockFinalRanking.mockResolvedValue(undefined)
     mockGetTastingResponses.mockResolvedValue([])
+    mockGetFinalRanking.mockResolvedValue(undefined)
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockUseBlindRoom.mockReturnValue({ room, participants: [me], loading: false, refresh: vi.fn() })
   })
@@ -101,7 +110,7 @@ describe('BlindTastingPage', () => {
     expect(await screen.findByRole('heading', { name: 'Pour B' })).toBeInTheDocument()
   })
 
-  it('locking the final pour marks tasting completed and returns to the lobby', async () => {
+  it('locking the final pour moves into the ranking step instead of finishing immediately', async () => {
     renderPage()
     await screen.findByRole('heading', { name: 'Pour A' })
     await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
@@ -109,10 +118,60 @@ describe('BlindTastingPage', () => {
     await screen.findByRole('heading', { name: 'Pour B' })
 
     await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
-    await userEvent.click(screen.getByRole('button', { name: 'Lock & Finish' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Lock & Rank' }))
 
-    await waitFor(() => expect(mockMarkTastingCompleted).toHaveBeenCalledWith('room-1', 'host-1'))
+    expect(await screen.findByRole('heading', { name: 'Rank Your Pours' })).toBeInTheDocument()
+    expect(mockMarkTastingCompleted).not.toHaveBeenCalled()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('requires every pour ranked before Lock Ranking & Finish is enabled, then locks and completes tasting', async () => {
+    renderPage()
+    await screen.findByRole('heading', { name: 'Pour A' })
+    await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Lock & Next' }))
+    await screen.findByRole('heading', { name: 'Pour B' })
+    await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Lock & Rank' }))
+    await screen.findByRole('heading', { name: 'Rank Your Pours' })
+
+    const lockRankingButton = screen.getByRole('button', { name: 'Lock Ranking & Finish' })
+    expect(lockRankingButton).toBeDisabled()
+
+    await userEvent.click(screen.getByText('Pour B'))
+    expect(lockRankingButton).toBeDisabled()
+    await userEvent.click(screen.getByText('Pour A'))
+    expect(lockRankingButton).toBeEnabled()
+
+    await userEvent.click(lockRankingButton)
+
+    await waitFor(() => expect(mockLockFinalRanking).toHaveBeenCalledWith('room-1', 'host-1', ['B', 'A']))
+    expect(mockMarkTastingCompleted).toHaveBeenCalledWith('room-1', 'host-1')
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/lobby')
+  })
+
+  it('jumps straight into the ranking step if every pour was already locked in an earlier visit', async () => {
+    const now = Date.now()
+    mockGetTastingResponses.mockResolvedValue([
+      { pourLabel: 'A', reaction: 'Love It', status: 'locked', updatedAt: now, lockedAt: now },
+      { pourLabel: 'B', reaction: 'Enjoying It', status: 'locked', updatedAt: now, lockedAt: now },
+    ])
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'Rank Your Pours' })).toBeInTheDocument()
+  })
+
+  it('shows a locked ranking as read-only when returning after finishing', async () => {
+    const now = Date.now()
+    mockGetTastingResponses.mockResolvedValue([
+      { pourLabel: 'A', reaction: 'Love It', status: 'locked', updatedAt: now, lockedAt: now },
+      { pourLabel: 'B', reaction: 'Enjoying It', status: 'locked', updatedAt: now, lockedAt: now },
+    ])
+    mockGetFinalRanking.mockResolvedValue({ order: ['B', 'A'], status: 'locked', updatedAt: now, lockedAt: now })
+    renderPage()
+
+    expect(await screen.findByText('Locked in — your ranking can’t be changed.')).toBeInTheDocument()
+    expect(screen.getByText('Pour B').closest('button')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Back to Lobby' })).toBeInTheDocument()
   })
 
   it('shows an already-locked pour as read-only when returning to it', async () => {
