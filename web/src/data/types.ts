@@ -245,21 +245,40 @@ export interface BlindParticipant {
 
 export type BlindResponseStatus = 'in-progress' | 'locked'
 
+// How much hand-holding the Sommelier gives during a tasting — chosen once
+// at the start of each session (see features/blindSommelier), remembered
+// locally as the default for next time. Not synced to Firestore: it's a UX
+// preference, not journal data.
+export type BlindGuidanceLevel = 'guide' | 'casual' | 'minimal'
+
+// Internal mapping of the "after you swallow" answer to something
+// comparable across pours — the user's own words (finishImpression) are
+// always preserved alongside it; this is never shown back to them verbatim.
+export type BlindFinishLength = 'short' | 'medium' | 'long' | 'building'
+
 // One participant's private tasting notes for a single pour — stored under
 // blindRooms/{roomId}/participants/{uid}/responses/{pourLabel}, readable
 // and writable only by the owning participant (see firestore.rules). Not
 // even the host can read another participant's responses before reveal —
 // this is the "other participants' answers remain hidden" requirement.
-// Kept intentionally light (reaction + free-text nose/palate/finish + a
-// single overall FIP score, matching Quick Pour's pace) rather than the
-// full 6-step wizard breakdown — blind tasting with friends should stay
+// Kept intentionally light (reaction + a few tapped, structured answers +
+// an optional overall FIP score, matching Quick Pour's pace) rather than
+// the full 6-step wizard breakdown — blind tasting with friends should stay
 // fast, per the app's "enhance the pour, never interrupt it" north star.
+// noseNotes/palateNotes/finishNotes are legacy free-text fields from before
+// the guided Sommelier flow (see BlindTastingPage) — kept for old locked
+// responses that still have them, no longer written by new tastings.
 export interface BlindTastingResponse {
   pourLabel: string
   reaction?: string
   noseNotes?: string
   palateNotes?: string
   finishNotes?: string
+  noseBroad?: string
+  noseDetail?: string
+  likedCharacteristic?: string
+  finishImpression?: string
+  finishLength?: BlindFinishLength
   proofGuess?: number
   ageGuess?: string
   typeGuess?: string
@@ -269,6 +288,31 @@ export interface BlindTastingResponse {
   status: BlindResponseStatus
   updatedAt: number
   lockedAt?: number
+}
+
+// One head-to-head preference call made mid-tasting — "which would you
+// rather pour another glass of?" — stored under
+// blindRooms/{roomId}/participants/{uid}/comparisons/{comparisonId}, same
+// self-only-until-reveal access pattern as responses/ranking (see
+// firestore.rules). For a flight of N pours, tastings record a running
+// N-1 comparison chain (each new pour compared against the current
+// favorite) rather than every possible pair, so this never turns into an
+// interrogation.
+export type BlindComparisonReason =
+  | 'better-smell'
+  | 'better-flavor'
+  | 'better-finish'
+  | 'less-heat'
+  | 'more-flavor'
+  | 'better-balance'
+  | 'simply-enjoyed-more'
+
+export interface BlindComparison {
+  id: string
+  pairLabels: [string, string]
+  winnerLabel: string
+  reason?: BlindComparisonReason
+  updatedAt: number
 }
 
 // A participant's private, ranked preference across every pour in the

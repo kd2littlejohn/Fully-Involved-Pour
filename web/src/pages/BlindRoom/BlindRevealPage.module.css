@@ -143,6 +143,13 @@
   margin-bottom: var(--fip-space-3);
 }
 
+.sommelierSummary {
+  font-style: italic;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  margin-bottom: var(--fip-space-3);
+}
+
 .rankingCard {
   padding: var(--fip-space-4);
   background: var(--fip-card);

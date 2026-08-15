@@ -5,11 +5,13 @@ vi.mock('../devMode', () => ({ isMockAuthEnabled: () => true }))
 import {
   createBlindRoom,
   getAllFinalRankings,
+  getAllParticipantComparisons,
   getAllParticipantResponses,
   getBlindRoom,
   getBlindRoomByCode,
   getBlindRoomSecrets,
   getBottleBlindHistory,
+  getComparisons,
   getFinalRanking,
   getMyBlindRooms,
   getParticipant,
@@ -21,6 +23,7 @@ import {
   markTastingCompleted,
   markTastingStarted,
   revealBlind,
+  saveComparison,
   saveFinalRanking,
   saveTastingResponse,
   setParticipantReady,
@@ -264,6 +267,43 @@ describe('final ranking', () => {
 
     expect((await getFinalRanking(room.id, 'host-1'))?.order).toEqual(['A', 'B', 'C'])
     expect((await getFinalRanking(room.id, 'guest-1'))?.order).toEqual(['C', 'B', 'A'])
+  })
+})
+
+describe('comparisons', () => {
+  it('saves and reads back a comparison', async () => {
+    const room = await createBlindRoom(baseInput())
+    await saveComparison(room.id, 'host-1', {
+      id: 'A-B',
+      pairLabels: ['A', 'B'],
+      winnerLabel: 'B',
+      reason: 'better-flavor',
+      updatedAt: Date.now(),
+    })
+
+    const comparisons = await getComparisons(room.id, 'host-1')
+    expect(comparisons).toHaveLength(1)
+    expect(comparisons[0]).toMatchObject({ id: 'A-B', winnerLabel: 'B', reason: 'better-flavor' })
+  })
+
+  it('keeps different participants’ comparisons in the same room separate', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+    await saveComparison(room.id, 'host-1', { id: 'A-B', pairLabels: ['A', 'B'], winnerLabel: 'B', updatedAt: Date.now() })
+    await saveComparison(room.id, 'guest-1', { id: 'A-B', pairLabels: ['A', 'B'], winnerLabel: 'A', updatedAt: Date.now() })
+
+    expect((await getComparisons(room.id, 'host-1'))[0]?.winnerLabel).toBe('B')
+    expect((await getComparisons(room.id, 'guest-1'))[0]?.winnerLabel).toBe('A')
+  })
+
+  it('fetches every named participant’s comparisons, keyed by uid', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+    await saveComparison(room.id, 'host-1', { id: 'A-B', pairLabels: ['A', 'B'], winnerLabel: 'B', updatedAt: Date.now() })
+
+    const all = await getAllParticipantComparisons(room.id, ['host-1', 'guest-1'])
+    expect(all['host-1']?.[0]?.winnerLabel).toBe('B')
+    expect(all['guest-1']).toEqual([])
   })
 })
 

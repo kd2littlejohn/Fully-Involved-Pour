@@ -2,6 +2,7 @@ import { collection, doc, getDoc, getDocs, collectionGroup, query, setDoc, updat
 import { db } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
 import type {
+  BlindComparison,
   BlindFinalRanking,
   BlindKnowledgeMode,
   BlindParticipant,
@@ -58,6 +59,8 @@ const mockSecrets = new Map<string, BlindRoomSecrets>()
 const mockResponses = new Map<string, Map<string, BlindTastingResponse>>()
 // Keyed by `${roomId}:${uid}` -> the participant's one final ranking doc.
 const mockRankings = new Map<string, BlindFinalRanking>()
+// Keyed by `${roomId}:${uid}` -> comparisonId -> comparison.
+const mockComparisons = new Map<string, Map<string, BlindComparison>>()
 
 function responseKey(roomId: string, uid: string): string {
   return `${roomId}:${uid}`
@@ -149,6 +152,15 @@ export async function getFinalRanking(roomId: string, uid: string): Promise<Blin
   return snap.exists() ? (snap.data() as BlindFinalRanking) : undefined
 }
 
+// A participant's own mid-tasting head-to-head calls — never another
+// participant's before reveal (see firestore.rules, same shape as
+// getTastingResponses above).
+export async function getComparisons(roomId: string, uid: string): Promise<BlindComparison[]> {
+  if (isMockAuthEnabled()) return [...(mockComparisons.get(responseKey(roomId, uid))?.values() ?? [])]
+  const snap = await getDocs(collection(db, 'blindRooms', roomId, 'participants', uid, 'comparisons'))
+  return snap.docs.map((d) => d.data() as BlindComparison)
+}
+
 // Fetches every named participant's tasting responses in one call — only
 // ever resolves real data once the room is revealed (firestore.rules blocks
 // each individual read otherwise), which is the only time this is called;
@@ -166,6 +178,18 @@ export async function getAllFinalRankings(
   uids: string[],
 ): Promise<Record<string, BlindFinalRanking | undefined>> {
   const entries = await Promise.all(uids.map(async (uid) => [uid, await getFinalRanking(roomId, uid)] as const))
+  return Object.fromEntries(entries)
+}
+
+// Same "only ever resolves real data once revealed" contract as
+// getAllParticipantResponses above — powers the reveal page's Sommelier
+// summary, which draws on which pours a participant's favorite actually won
+// head-to-head during tasting.
+export async function getAllParticipantComparisons(
+  roomId: string,
+  uids: string[],
+): Promise<Record<string, BlindComparison[]>> {
+  const entries = await Promise.all(uids.map(async (uid) => [uid, await getComparisons(roomId, uid)] as const))
   return Object.fromEntries(entries)
 }
 
@@ -446,6 +470,20 @@ export async function saveFinalRanking(roomId: string, uid: string, order: strin
     // A locked ranking rejects this write via firestore.rules — see the
     // matching comment on saveTastingResponse above.
   }
+}
+
+// Comparisons are single-shot — written once, right after the taster picks
+// a winner (and, if given, a reason) — so there's no separate draft/lock
+// step like responses or the final ranking have.
+export async function saveComparison(roomId: string, uid: string, comparison: BlindComparison): Promise<void> {
+  if (isMockAuthEnabled()) {
+    const key = responseKey(roomId, uid)
+    const comparisons = mockComparisons.get(key) ?? new Map<string, BlindComparison>()
+    comparisons.set(comparison.id, comparison)
+    mockComparisons.set(key, comparisons)
+    return
+  }
+  await setDoc(doc(db, 'blindRooms', roomId, 'participants', uid, 'comparisons', comparison.id), comparison)
 }
 
 export async function lockFinalRanking(roomId: string, uid: string, order: string[]): Promise<void> {

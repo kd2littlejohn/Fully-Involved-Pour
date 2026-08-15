@@ -109,6 +109,20 @@ service cloud.firestore {
           allow update: if request.auth != null && request.auth.uid == uid && resource.data.status != 'locked';
           allow delete: if false;
         }
+
+        // A participant's private mid-tasting head-to-head calls ("which
+        // would you rather pour another glass of?"). Same self-only-until-
+        // reveal access shape as responses/ranking above; no lock concept —
+        // each comparison is a single quick call made once and never
+        // revisited by the UI, so there's no draft state worth protecting.
+        match /comparisons/{comparisonId} {
+          allow read: if request.auth != null
+                       && (request.auth.uid == uid
+                           || (isBlindRevealed(roomId) && isBlindParticipant(roomId, request.auth.uid)));
+          allow create: if request.auth != null && request.auth.uid == uid;
+          allow update: if request.auth != null && request.auth.uid == uid;
+          allow delete: if false;
+        }
       }
     }
 

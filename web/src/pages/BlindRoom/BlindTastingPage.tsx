@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Field, controlClassName } from '../../components/ui/Field'
@@ -8,17 +8,23 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
 import {
+  getComparisons,
   getFinalRanking,
   getTastingResponses,
   lockFinalRanking,
   lockTastingResponse,
   markTastingCompleted,
   markTastingStarted,
+  saveComparison,
   saveFinalRanking,
   saveTastingResponse,
 } from '../../data/repositories/blindRoom'
-import { QUICK_POUR_REACTIONS, type QuickPourReaction } from '../../features/quickPour/reactions'
-import type { BlindFinalRanking, BlindTastingResponse } from '../../data/types'
+import { readBlindGuidanceLevel, writeBlindGuidanceLevel } from '../../data/blindGuidance'
+import { QUICK_POUR_REACTIONS } from '../../features/quickPour/reactions'
+import { GUIDANCE_OPTIONS, LIKED_CHARACTERISTICS, NOSE_BROAD_FLAVORS, NOSE_DETAILS, FINISH_IMPRESSIONS, finishLengthFor } from '../../features/blindSommelier/vocabulary'
+import { COMPARISON_REASONS } from '../../features/blindSommelier/comparisonReasons'
+import { activeSubStepsFor, isSubStepAnswered, promptFor } from '../../features/blindSommelier/flow'
+import type { BlindComparison, BlindComparisonReason, BlindFinalRanking, BlindGuidanceLevel, BlindTastingResponse } from '../../data/types'
 import styles from './BlindTastingPage.module.css'
 
 // Pour labels are generated client-side from pourCount alone — never fetched
@@ -27,64 +33,35 @@ import styles from './BlindTastingPage.module.css'
 const POUR_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
 const AUTOSAVE_DELAY_MS = 800
 
-type ResponsePatch = Partial<Omit<BlindTastingResponse, 'pourLabel' | 'status' | 'lockedAt'>>
+type Phase = 'guidance' | 'pour' | 'comparison-pick' | 'comparison-reason' | 'ranking'
 
-interface DraftState {
-  reaction: string
-  noseNotes: string
-  palateNotes: string
-  finishNotes: string
+interface GuessDraft {
   proofGuess: string
   ageGuess: string
   typeGuess: string
   distilleryGuess: string
-  fipScore: number
-  notes: string
 }
 
-function blankDraft(): DraftState {
-  return {
-    reaction: '',
-    noseNotes: '',
-    palateNotes: '',
-    finishNotes: '',
-    proofGuess: '',
-    ageGuess: '',
-    typeGuess: '',
-    distilleryGuess: '',
-    fipScore: 5,
-    notes: '',
-  }
+function blankGuessDraft(): GuessDraft {
+  return { proofGuess: '', ageGuess: '', typeGuess: '', distilleryGuess: '' }
 }
 
-function draftFromResponse(response: BlindTastingResponse | undefined): DraftState {
-  if (!response) return blankDraft()
+function guessDraftFromResponse(response: BlindTastingResponse | undefined): GuessDraft {
+  if (!response) return blankGuessDraft()
   return {
-    reaction: response.reaction ?? '',
-    noseNotes: response.noseNotes ?? '',
-    palateNotes: response.palateNotes ?? '',
-    finishNotes: response.finishNotes ?? '',
     proofGuess: response.proofGuess != null ? String(response.proofGuess) : '',
     ageGuess: response.ageGuess ?? '',
     typeGuess: response.typeGuess ?? '',
     distilleryGuess: response.distilleryGuess ?? '',
-    fipScore: response.fipScore ?? 5,
-    notes: response.notes ?? '',
   }
 }
 
-function draftToPatch(draft: DraftState): ResponsePatch {
+function guessDraftToPatch(draft: GuessDraft) {
   return {
-    reaction: draft.reaction || undefined,
-    noseNotes: draft.noseNotes.trim() || undefined,
-    palateNotes: draft.palateNotes.trim() || undefined,
-    finishNotes: draft.finishNotes.trim() || undefined,
     proofGuess: draft.proofGuess.trim() ? Number(draft.proofGuess) : undefined,
     ageGuess: draft.ageGuess.trim() || undefined,
     typeGuess: draft.typeGuess.trim() || undefined,
     distilleryGuess: draft.distilleryGuess.trim() || undefined,
-    fipScore: draft.fipScore,
-    notes: draft.notes.trim() || undefined,
   }
 }
 
@@ -94,38 +71,50 @@ export function BlindTastingPage() {
   const { user, loading: authLoading } = useAuth()
   const { room, participants, loading } = useBlindRoom(roomId)
 
+  const [guidanceLevel, setGuidanceLevel] = useState<BlindGuidanceLevel>('guide')
   const [responses, setResponses] = useState<Record<string, BlindTastingResponse>>({})
+  const [comparisons, setComparisons] = useState<BlindComparison[]>([])
   const [ranking, setRanking] = useState<BlindFinalRanking | undefined>(undefined)
   const [rankingOrder, setRankingOrder] = useState<string[]>([])
-  const [phase, setPhase] = useState<'tasting' | 'ranking'>('tasting')
+  const [scores, setScores] = useState<Record<string, number | undefined>>({})
   const [dataLoaded, setDataLoaded] = useState(false)
+
+  const [phase, setPhase] = useState<Phase>('guidance')
   const [pourIndex, setPourIndex] = useState(0)
-  const [draft, setDraft] = useState<DraftState>(blankDraft)
+  const [subStepIndex, setSubStepIndex] = useState(0)
+  const [pendingPair, setPendingPair] = useState<[string, string] | undefined>(undefined)
+  const [comparisonWinner, setComparisonWinner] = useState<string | undefined>(undefined)
+  const [guessDraft, setGuessDraft] = useState<GuessDraft>(blankGuessDraft)
   const [locking, setLocking] = useState(false)
+
   const startedRef = useRef(false)
-  const initialPhaseRef = useRef(false)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const rankingSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const initialPositionRef = useRef(false)
+  const guessSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const me = user ? participants.find((p) => p.uid === user.uid) : undefined
-  const pourLabels = useMemo(() => POUR_LABELS.slice(0, room?.pourCount ?? 0), [room?.pourCount])
+  const pourLabels = POUR_LABELS.slice(0, room?.pourCount ?? 0)
   const currentLabel = pourLabels[pourIndex]
   const currentResponse = currentLabel ? responses[currentLabel] : undefined
-  const isLocked = currentResponse?.status === 'locked'
   const rankingLocked = ranking?.status === 'locked'
+  const activeSubSteps = activeSubStepsFor(guidanceLevel, currentResponse?.noseBroad)
+  const currentSubStep = activeSubSteps[subStepIndex]
 
-  // Load this participant's own responses and final ranking once — never
-  // another participant's, since these repository calls only ever resolve
-  // what firestore.rules allows this uid to read (see blindRoom.ts).
+  useEffect(() => {
+    if (user) setGuidanceLevel(readBlindGuidanceLevel(user.uid))
+  }, [user])
+
+  // Load this participant's own responses, comparisons, and final ranking
+  // once — never another participant's (see blindRoom.ts).
   useEffect(() => {
     if (!roomId || !user) return
     let cancelled = false
-    Promise.all([getTastingResponses(roomId, user.uid), getFinalRanking(roomId, user.uid)]).then(
-      ([list, existingRanking]) => {
+    Promise.all([getTastingResponses(roomId, user.uid), getComparisons(roomId, user.uid), getFinalRanking(roomId, user.uid)]).then(
+      ([list, comparisonList, existingRanking]) => {
         if (cancelled) return
         const byLabel: Record<string, BlindTastingResponse> = {}
         for (const r of list) byLabel[r.pourLabel] = r
         setResponses(byLabel)
+        setComparisons(comparisonList)
         setRanking(existingRanking)
         setRankingOrder(existingRanking?.order ?? [])
         setDataLoaded(true)
@@ -136,14 +125,43 @@ export function BlindTastingPage() {
     }
   }, [roomId, user])
 
-  // Once loaded, jump straight into the ranking phase if every pour was
-  // already locked in an earlier visit — runs once (guarded by the ref),
-  // never forces the phase back to 'tasting' afterward.
+  // Jump straight to wherever this participant left off — but only once
+  // there's actual prior progress. A completely fresh visit stays on the
+  // 'guidance' question (the natural start of the experience); a returning
+  // visit skips straight past it into the next unanswered question.
   useEffect(() => {
-    if (initialPhaseRef.current || !dataLoaded || pourLabels.length === 0) return
-    initialPhaseRef.current = true
-    if (pourLabels.every((label) => responses[label]?.status === 'locked')) setPhase('ranking')
-  }, [dataLoaded, pourLabels, responses])
+    if (initialPositionRef.current || !dataLoaded || pourLabels.length === 0) return
+    initialPositionRef.current = true
+
+    const hasProgress = Object.keys(responses).length > 0 || comparisons.length > 0 || rankingOrder.length > 0
+    if (!hasProgress) return
+
+    if (rankingOrder.length === pourLabels.length && ranking?.status === 'locked') {
+      setPhase('ranking')
+      return
+    }
+
+    for (let i = 0; i < pourLabels.length; i++) {
+      const label = pourLabels[i]!
+      const response = responses[label]
+      const steps = activeSubStepsFor(guidanceLevel, response?.noseBroad)
+      const firstUnanswered = steps.findIndex((step) => !isSubStepAnswered(step, response))
+      if (firstUnanswered !== -1) {
+        setPourIndex(i)
+        setSubStepIndex(firstUnanswered)
+        setPhase('pour')
+        return
+      }
+      if (i > 0 && comparisons.length < i) {
+        const opponent = comparisons.length > 0 ? comparisons[comparisons.length - 1]!.winnerLabel : pourLabels[i - 1]!
+        setPourIndex(i)
+        setPendingPair([opponent, label])
+        setPhase('comparison-pick')
+        return
+      }
+    }
+    setPhase('ranking')
+  }, [dataLoaded, pourLabels, responses, comparisons, rankingOrder, ranking, guidanceLevel])
 
   // First entry into tasting for this participant.
   useEffect(() => {
@@ -154,44 +172,89 @@ export function BlindTastingPage() {
     }
   }, [roomId, user, me])
 
-  // Load the saved draft for whichever pour is currently on screen.
+  // Extra Challenge guesses only show on a pour's first question, but stay
+  // loaded/saved against whichever pour is current regardless.
   useEffect(() => {
     if (!currentLabel) return
-    setDraft(draftFromResponse(responses[currentLabel]))
-  }, [currentLabel, responses])
+    setGuessDraft(guessDraftFromResponse(responses[currentLabel]))
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLabel])
 
-  // Debounced autosave — never fires once the current pour is locked, and
-  // is cancelled cleanly whenever the pour changes or lock happens.
   useEffect(() => {
-    if (!roomId || !user || !currentLabel || isLocked || !dataLoaded) return
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => {
-      void saveTastingResponse(roomId, user.uid, currentLabel, draftToPatch(draft))
+    if (!roomId || !user || !currentLabel || phase !== 'pour' || !dataLoaded) return
+    if (guessSaveTimer.current) clearTimeout(guessSaveTimer.current)
+    guessSaveTimer.current = setTimeout(() => {
+      void saveTastingResponse(roomId, user.uid, currentLabel, guessDraftToPatch(guessDraft))
     }, AUTOSAVE_DELAY_MS)
     return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current)
+      if (guessSaveTimer.current) clearTimeout(guessSaveTimer.current)
     }
-  }, [draft, roomId, user, currentLabel, isLocked, dataLoaded])
+  }, [guessDraft, roomId, user, currentLabel, phase, dataLoaded])
 
-  // Same debounced-autosave contract as the pour draft above, for the
-  // ranking step.
-  useEffect(() => {
-    if (!roomId || !user || phase !== 'ranking' || rankingLocked || !dataLoaded) return
-    if (rankingSaveTimer.current) clearTimeout(rankingSaveTimer.current)
-    rankingSaveTimer.current = setTimeout(() => {
-      void saveFinalRanking(roomId, user.uid, rankingOrder)
-    }, AUTOSAVE_DELAY_MS)
-    return () => {
-      if (rankingSaveTimer.current) clearTimeout(rankingSaveTimer.current)
-    }
-  }, [rankingOrder, roomId, user, phase, rankingLocked, dataLoaded])
-
-  function updateDraft(patch: Partial<DraftState>) {
-    setDraft((prev) => ({ ...prev, ...patch }))
+  function pickGuidanceLevel(level: BlindGuidanceLevel) {
+    setGuidanceLevel(level)
+    if (user) writeBlindGuidanceLevel(user.uid, level)
+    setPourIndex(0)
+    setSubStepIndex(0)
+    setPhase('pour')
   }
 
-  function pickReaction(reaction: QuickPourReaction) {
-    updateDraft({ reaction: reaction.label, fipScore: reaction.score })
+  function answerCurrentPour(patch: Partial<Omit<BlindTastingResponse, 'pourLabel' | 'status' | 'lockedAt'>>) {
+    if (!roomId || !user || !currentLabel) return
+    const now = Date.now()
+    const updated: BlindTastingResponse = { ...currentResponse, ...patch, pourLabel: currentLabel, status: 'in-progress', updatedAt: now }
+    setResponses((prev) => ({ ...prev, [currentLabel]: updated }))
+    void saveTastingResponse(roomId, user.uid, currentLabel, patch)
+
+    const steps = activeSubStepsFor(guidanceLevel, updated.noseBroad)
+    const nextIndex = subStepIndex + 1
+    if (nextIndex < steps.length) {
+      setSubStepIndex(nextIndex)
+      return
+    }
+    finishCurrentPour()
+  }
+
+  function finishCurrentPour() {
+    if (pourIndex === 0) {
+      goToNextPourOrRanking()
+      return
+    }
+    const opponent = comparisons.length > 0 ? comparisons[comparisons.length - 1]!.winnerLabel : pourLabels[pourIndex - 1]!
+    setPendingPair([opponent, currentLabel!])
+    setComparisonWinner(undefined)
+    setPhase('comparison-pick')
+  }
+
+  function goToNextPourOrRanking() {
+    if (pourIndex + 1 < pourLabels.length) {
+      setPourIndex((i) => i + 1)
+      setSubStepIndex(0)
+      setPhase('pour')
+    } else {
+      setPhase('ranking')
+    }
+  }
+
+  function pickComparisonWinner(winner: string) {
+    setComparisonWinner(winner)
+    setPhase('comparison-reason')
+  }
+
+  function pickComparisonReason(reason: BlindComparisonReason) {
+    if (!roomId || !user || !pendingPair || !comparisonWinner) return
+    const comparison: BlindComparison = {
+      id: `${pendingPair[0]}-${pendingPair[1]}`,
+      pairLabels: pendingPair,
+      winnerLabel: comparisonWinner,
+      reason,
+      updatedAt: Date.now(),
+    }
+    setComparisons((prev) => [...prev, comparison])
+    void saveComparison(roomId, user.uid, comparison)
+    setPendingPair(undefined)
+    setComparisonWinner(undefined)
+    goToNextPourOrRanking()
   }
 
   function toggleRank(label: string) {
@@ -199,35 +262,15 @@ export function BlindTastingPage() {
     setRankingOrder((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]))
   }
 
-  async function handleLock() {
-    if (!roomId || !user || !currentLabel || locking) return
-    setLocking(true)
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    const patch = draftToPatch(draft)
-    await saveTastingResponse(roomId, user.uid, currentLabel, patch)
-    await lockTastingResponse(roomId, user.uid, currentLabel)
-
-    const now = Date.now()
-    const updatedResponses: Record<string, BlindTastingResponse> = {
-      ...responses,
-      [currentLabel]: { ...patch, pourLabel: currentLabel, status: 'locked', updatedAt: now, lockedAt: now },
-    }
-    setResponses(updatedResponses)
-
-    const allLocked = pourLabels.every((label) => updatedResponses[label]?.status === 'locked')
-    setLocking(false)
-    if (allLocked) {
-      setPhase('ranking')
-      return
-    }
-    setPourIndex((i) => Math.min(i + 1, pourLabels.length - 1))
-  }
-
   async function handleLockRanking() {
     if (!roomId || !user || locking || rankingOrder.length !== pourLabels.length) return
     setLocking(true)
-    if (rankingSaveTimer.current) clearTimeout(rankingSaveTimer.current)
     await saveFinalRanking(roomId, user.uid, rankingOrder)
+    for (const label of pourLabels) {
+      const score = scores[label]
+      if (score != null) await saveTastingResponse(roomId, user.uid, label, { fipScore: score })
+      await lockTastingResponse(roomId, user.uid, label)
+    }
     await lockFinalRanking(roomId, user.uid, rankingOrder)
     const now = Date.now()
     setRanking({ order: rankingOrder, status: 'locked', updatedAt: now, lockedAt: now })
@@ -237,17 +280,31 @@ export function BlindTastingPage() {
   }
 
   function handleBack() {
-    if (phase === 'ranking') {
-      setPhase('tasting')
-      setPourIndex(pourLabels.length - 1)
-      return
-    }
-    if (pourIndex === 0) {
+    if (phase === 'guidance') {
       navigate(`/blind/${roomId}/lobby`)
       return
     }
-    setPourIndex((i) => i - 1)
+    if (phase === 'pour') {
+      if (subStepIndex > 0) {
+        setSubStepIndex((i) => i - 1)
+        return
+      }
+      if (pourIndex === 0) {
+        setPhase('guidance')
+        return
+      }
+      return
+    }
+    if (phase === 'comparison-reason') {
+      setPhase('comparison-pick')
+      return
+    }
   }
+
+  const canGoBack =
+    phase === 'guidance' ||
+    (phase === 'pour' && (subStepIndex > 0 || pourIndex === 0)) ||
+    phase === 'comparison-reason'
 
   if (authLoading || loading || (user && !dataLoaded)) {
     return <div className={styles.page} />
@@ -295,19 +352,215 @@ export function BlindTastingPage() {
     )
   }
 
-  const isLastPour = pourIndex === pourLabels.length - 1
+  const title =
+    phase === 'guidance'
+      ? 'Let’s Taste'
+      : phase === 'ranking'
+        ? 'Rank Your Pours'
+        : phase === 'comparison-pick' || phase === 'comparison-reason'
+          ? 'Which One?'
+          : `Pour ${currentLabel}`
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <button type="button" className={styles.backButton} onClick={handleBack} aria-label="Back">
+        <button
+          type="button"
+          className={styles.backButton}
+          onClick={handleBack}
+          aria-label="Back"
+          disabled={!canGoBack}
+        >
           ←
         </button>
-        <h1 className={styles.title}>{phase === 'ranking' ? 'Rank Your Pours' : `Pour ${currentLabel}`}</h1>
+        <h1 className={styles.title}>{title}</h1>
         <div className={styles.headerSpacer} />
       </div>
 
       <div className={styles.content}>
+        {phase === 'guidance' ? (
+          <>
+            <p className={styles.prompt}>How would you like me to guide tonight’s tasting?</p>
+            <div className={styles.choiceList}>
+              {GUIDANCE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={
+                    guidanceLevel === option.value ? `${styles.choiceCard} ${styles.choiceCardActive}` : styles.choiceCard
+                  }
+                  onClick={() => pickGuidanceLevel(option.value)}
+                >
+                  <span className={styles.choiceCardTitle}>{option.title}</span>
+                  <span className={styles.choiceCardDescription}>{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {phase === 'pour' && currentLabel && currentSubStep ? (
+          <>
+            <ProgressStepper labels={pourLabels} activeIndex={pourIndex} />
+
+            {room.knowledgeMode === 'single' && room.knownLineup ? (
+              <p className={styles.lineupHint}>In this lineup: {room.knownLineup.join(', ')}</p>
+            ) : null}
+
+            <p className={styles.prompt}>{promptFor(currentSubStep, currentLabel, currentResponse?.noseBroad)}</p>
+
+            {currentSubStep === 'nose-broad' ? (
+              <div className={styles.choiceGrid}>
+                {NOSE_BROAD_FLAVORS.map((flavor) => (
+                  <button key={flavor} type="button" className={styles.choiceButton} onClick={() => answerCurrentPour({ noseBroad: flavor })}>
+                    {flavor}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {currentSubStep === 'nose-detail' && currentResponse?.noseBroad ? (
+              <div className={styles.choiceGrid}>
+                {(NOSE_DETAILS[currentResponse.noseBroad as keyof typeof NOSE_DETAILS] ?? []).map((detail) => (
+                  <button key={detail} type="button" className={styles.choiceButton} onClick={() => answerCurrentPour({ noseDetail: detail })}>
+                    {detail}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {currentSubStep === 'reaction' ? (
+              <div className={styles.reactionRow}>
+                {QUICK_POUR_REACTIONS.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    className={styles.reaction}
+                    onClick={() => answerCurrentPour({ reaction: r.label, fipScore: r.score })}
+                  >
+                    <span className={styles.reactionEmoji} aria-hidden="true">
+                      {r.emoji}
+                    </span>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {currentSubStep === 'liked' ? (
+              <div className={styles.choiceGrid}>
+                {LIKED_CHARACTERISTICS.map((characteristic) => (
+                  <button
+                    key={characteristic}
+                    type="button"
+                    className={styles.choiceButton}
+                    onClick={() => answerCurrentPour({ likedCharacteristic: characteristic })}
+                  >
+                    {characteristic}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {currentSubStep === 'finish' ? (
+              <div className={styles.choiceGrid}>
+                {FINISH_IMPRESSIONS.map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    className={styles.choiceButton}
+                    onClick={() =>
+                      answerCurrentPour({ finishImpression: option.label, finishLength: finishLengthFor(option.label) })
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {subStepIndex === 0 ? (
+              <details className={styles.guesses}>
+                <summary className={styles.guessesSummary}>Extra Challenge — guess the bottle (optional)</summary>
+                <div className={styles.guessFields}>
+                  <Field label="Proof" htmlFor="taste-proof">
+                    <input
+                      id="taste-proof"
+                      type="number"
+                      inputMode="decimal"
+                      className={controlClassName}
+                      value={guessDraft.proofGuess}
+                      onChange={(e) => setGuessDraft((prev) => ({ ...prev, proofGuess: e.target.value }))}
+                      placeholder="e.g. 100"
+                    />
+                  </Field>
+                  <Field label="Age" htmlFor="taste-age">
+                    <input
+                      id="taste-age"
+                      type="text"
+                      className={controlClassName}
+                      value={guessDraft.ageGuess}
+                      onChange={(e) => setGuessDraft((prev) => ({ ...prev, ageGuess: e.target.value }))}
+                      placeholder="e.g. 8 years"
+                    />
+                  </Field>
+                  <Field label="Type" htmlFor="taste-type">
+                    <input
+                      id="taste-type"
+                      type="text"
+                      className={controlClassName}
+                      value={guessDraft.typeGuess}
+                      onChange={(e) => setGuessDraft((prev) => ({ ...prev, typeGuess: e.target.value }))}
+                      placeholder="e.g. Bourbon"
+                    />
+                  </Field>
+                  <Field label="Distillery" htmlFor="taste-distillery">
+                    <input
+                      id="taste-distillery"
+                      type="text"
+                      className={controlClassName}
+                      value={guessDraft.distilleryGuess}
+                      onChange={(e) => setGuessDraft((prev) => ({ ...prev, distilleryGuess: e.target.value }))}
+                      placeholder="e.g. Buffalo Trace"
+                    />
+                  </Field>
+                </div>
+              </details>
+            ) : null}
+          </>
+        ) : null}
+
+        {(phase === 'comparison-pick' || phase === 'comparison-reason') && pendingPair ? (
+          phase === 'comparison-pick' ? (
+            <>
+              <p className={styles.prompt}>Which one would you rather pour another glass of?</p>
+              <div className={styles.comparisonRow}>
+                {pendingPair.map((label) => (
+                  <button key={label} type="button" className={styles.comparisonButton} onClick={() => pickComparisonWinner(label)}>
+                    Pour {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <p className={styles.prompt}>What gave it the edge?</p>
+              <div className={styles.choiceGrid}>
+                {COMPARISON_REASONS.map((reason) => (
+                  <button
+                    key={reason.value}
+                    type="button"
+                    className={styles.choiceButton}
+                    onClick={() => pickComparisonReason(reason.value)}
+                  >
+                    {reason.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )
+        ) : null}
+
         {phase === 'ranking' ? (
           <>
             <p className={styles.prompt}>Tap in order — favorite first.</p>
@@ -330,154 +583,39 @@ export function BlindTastingPage() {
                 )
               })}
             </div>
-          </>
-        ) : (
-          <>
-            <ProgressStepper labels={pourLabels} activeIndex={pourIndex} />
 
-            {room.knowledgeMode === 'single' && room.knownLineup ? (
-              <p className={styles.lineupHint}>In this lineup: {room.knownLineup.join(', ')}</p>
+            {!rankingLocked ? (
+              <details className={styles.guesses}>
+                <summary className={styles.guessesSummary}>Add FIP scores (optional)</summary>
+                <div className={styles.guessFields}>
+                  {pourLabels.map((label) => {
+                    const value = scores[label] ?? responses[label]?.fipScore ?? 5
+                    return (
+                      <div className={styles.scoreRow} key={label}>
+                        <span className={styles.scoreLabel}>Pour {label}</span>
+                        <input
+                          type="range"
+                          min={0}
+                          max={10}
+                          step={0.1}
+                          value={value}
+                          onChange={(e) => setScores((prev) => ({ ...prev, [label]: Number(e.target.value) }))}
+                          aria-label={`FIP score for Pour ${label}`}
+                          className={styles.scoreSlider}
+                        />
+                        <span className={styles.scoreValue}>{value.toFixed(1)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </details>
             ) : null}
-
-            {isLocked ? <p className={styles.lockedNote}>Locked in — this pour can’t be changed.</p> : null}
-
-            <p className={styles.prompt}>First impression?</p>
-            <div className={styles.reactionRow}>
-              {QUICK_POUR_REACTIONS.map((r) => (
-                <button
-                  key={r.value}
-                  type="button"
-                  className={draft.reaction === r.label ? `${styles.reaction} ${styles.reactionActive}` : styles.reaction}
-                  aria-pressed={draft.reaction === r.label}
-                  onClick={() => pickReaction(r)}
-                  disabled={isLocked}
-                >
-                  <span className={styles.reactionEmoji} aria-hidden="true">
-                    {r.emoji}
-                  </span>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-
-            <Field label="Nose" htmlFor="taste-nose">
-              <textarea
-                id="taste-nose"
-                className={controlClassName}
-                rows={2}
-                value={draft.noseNotes}
-                onChange={(e) => updateDraft({ noseNotes: e.target.value })}
-                disabled={isLocked}
-                placeholder="What do you smell?"
-              />
-            </Field>
-            <Field label="Palate" htmlFor="taste-palate">
-              <textarea
-                id="taste-palate"
-                className={controlClassName}
-                rows={2}
-                value={draft.palateNotes}
-                onChange={(e) => updateDraft({ palateNotes: e.target.value })}
-                disabled={isLocked}
-                placeholder="What do you taste?"
-              />
-            </Field>
-            <Field label="Finish" htmlFor="taste-finish">
-              <textarea
-                id="taste-finish"
-                className={controlClassName}
-                rows={2}
-                value={draft.finishNotes}
-                onChange={(e) => updateDraft({ finishNotes: e.target.value })}
-                disabled={isLocked}
-                placeholder="How does it finish?"
-              />
-            </Field>
-
-            <div className={styles.scoreRow}>
-              <span className={styles.scoreLabel}>FIP Score</span>
-              <input
-                type="range"
-                min={0}
-                max={10}
-                step={0.1}
-                value={draft.fipScore}
-                onChange={(e) => updateDraft({ fipScore: Number(e.target.value) })}
-                aria-label="FIP score"
-                className={styles.scoreSlider}
-                disabled={isLocked}
-              />
-              <span className={styles.scoreValue}>{draft.fipScore.toFixed(1)}</span>
-            </div>
-
-            <details className={styles.guesses}>
-              <summary className={styles.guessesSummary}>Extra Challenge — guess the bottle (optional)</summary>
-              <div className={styles.guessFields}>
-                <Field label="Proof" htmlFor="taste-proof">
-                  <input
-                    id="taste-proof"
-                    type="number"
-                    inputMode="decimal"
-                    className={controlClassName}
-                    value={draft.proofGuess}
-                    onChange={(e) => updateDraft({ proofGuess: e.target.value })}
-                    disabled={isLocked}
-                    placeholder="e.g. 100"
-                  />
-                </Field>
-                <Field label="Age" htmlFor="taste-age">
-                  <input
-                    id="taste-age"
-                    type="text"
-                    className={controlClassName}
-                    value={draft.ageGuess}
-                    onChange={(e) => updateDraft({ ageGuess: e.target.value })}
-                    disabled={isLocked}
-                    placeholder="e.g. 8 years"
-                  />
-                </Field>
-                <Field label="Type" htmlFor="taste-type">
-                  <input
-                    id="taste-type"
-                    type="text"
-                    className={controlClassName}
-                    value={draft.typeGuess}
-                    onChange={(e) => updateDraft({ typeGuess: e.target.value })}
-                    disabled={isLocked}
-                    placeholder="e.g. Bourbon"
-                  />
-                </Field>
-                <Field label="Distillery" htmlFor="taste-distillery">
-                  <input
-                    id="taste-distillery"
-                    type="text"
-                    className={controlClassName}
-                    value={draft.distilleryGuess}
-                    onChange={(e) => updateDraft({ distilleryGuess: e.target.value })}
-                    disabled={isLocked}
-                    placeholder="e.g. Buffalo Trace"
-                  />
-                </Field>
-              </div>
-            </details>
-
-            <Field label="Notes" htmlFor="taste-notes">
-              <textarea
-                id="taste-notes"
-                className={controlClassName}
-                rows={2}
-                value={draft.notes}
-                onChange={(e) => updateDraft({ notes: e.target.value })}
-                disabled={isLocked}
-                placeholder="Anything else worth remembering…"
-              />
-            </Field>
           </>
-        )}
+        ) : null}
       </div>
 
       <div className={styles.actions}>
-        <Button variant="ghost" onClick={handleBack} disabled={locking}>
+        <Button variant="ghost" onClick={handleBack} disabled={!canGoBack || locking}>
           Back
         </Button>
         {phase === 'ranking' ? (
@@ -488,17 +626,7 @@ export function BlindTastingPage() {
               {locking ? 'Locking…' : 'Lock Ranking & Finish'}
             </Button>
           )
-        ) : isLocked ? (
-          isLastPour ? (
-            <Button onClick={() => setPhase('ranking')}>Rank Your Pours</Button>
-          ) : (
-            <Button onClick={() => setPourIndex((i) => i + 1)}>Next Pour</Button>
-          )
-        ) : (
-          <Button onClick={() => void handleLock()} disabled={!draft.reaction || locking}>
-            {locking ? 'Locking…' : isLastPour ? 'Lock & Rank' : 'Lock & Next'}
-          </Button>
-        )}
+        ) : null}
       </div>
     </div>
   )

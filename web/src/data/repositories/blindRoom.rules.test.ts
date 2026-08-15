@@ -478,6 +478,69 @@ describe('blindRooms/{roomId}/participants/{uid}/ranking/{rankingId}', () => {
   })
 })
 
+describe('blindRooms/{roomId}/participants/{uid}/comparisons/{comparisonId}', () => {
+  async function seedParticipant(uid: string, username: string) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', uid), {
+        uid,
+        username,
+        isHost: uid === HOST_UID,
+        status: 'tasting',
+        joinedAt: Date.now(),
+      })
+    })
+  }
+
+  function comparison(overrides: Record<string, unknown> = {}) {
+    return { id: 'A-B', pairLabels: ['A', 'B'], winnerLabel: 'A', reason: 'better-flavor', updatedAt: Date.now(), ...overrides }
+  }
+
+  it('a participant can write and read their own comparison', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertSucceeds(
+      setDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'comparisons', 'A-B'), comparison()),
+    )
+    await assertSucceeds(
+      getDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'comparisons', 'A-B')),
+    )
+  })
+
+  it('cannot write a comparison under someone else’s participant path', async () => {
+    await seedRoom()
+    await seedParticipant(OTHER_UID, 'james')
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(
+      setDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', OTHER_UID, 'comparisons', 'A-B'), comparison()),
+    )
+  })
+
+  it('another participant cannot read this comparison before reveal, and neither can the host', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    await seedParticipant(OTHER_UID, 'james')
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'comparisons', 'A-B'), comparison())
+    })
+    const other = testEnv.authenticatedContext(OTHER_UID)
+    await assertFails(getDoc(doc(other.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'comparisons', 'A-B')))
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertFails(getDoc(doc(host.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'comparisons', 'A-B')))
+  })
+
+  it('a fellow participant CAN read another participant’s comparison once the room is revealed', async () => {
+    await seedRoom({ state: 'revealed' })
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    await seedParticipant(OTHER_UID, 'james')
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'comparisons', 'A-B'), comparison())
+    })
+    const other = testEnv.authenticatedContext(OTHER_UID)
+    await assertSucceeds(getDoc(doc(other.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'comparisons', 'A-B')))
+  })
+})
+
 describe('blindRoomCodes/{code}', () => {
   it('the host of the referenced room can register its code', async () => {
     await seedRoom()

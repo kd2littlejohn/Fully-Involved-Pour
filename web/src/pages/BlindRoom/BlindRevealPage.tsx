@@ -6,11 +6,13 @@ import { useAuth } from '../../hooks/useAuth'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
 import {
   getAllFinalRankings,
+  getAllParticipantComparisons,
   getAllParticipantResponses,
   getBlindRoomSecrets,
 } from '../../data/repositories/blindRoom'
 import { computeRevealHighlights } from '../../features/blindReveal/highlights'
-import type { BlindFinalRanking, BlindRoomSecrets, BlindTastingResponse } from '../../data/types'
+import { generateTastingSummary } from '../../features/blindSommelier/summary'
+import type { BlindComparison, BlindFinalRanking, BlindRoomSecrets, BlindTastingResponse } from '../../data/types'
 import styles from './BlindRevealPage.module.css'
 
 // Everything on this page only ever resolves once room.state === 'revealed'
@@ -26,6 +28,7 @@ export function BlindRevealPage() {
   const [secrets, setSecrets] = useState<BlindRoomSecrets | undefined>(undefined)
   const [responsesByUid, setResponsesByUid] = useState<Record<string, BlindTastingResponse[]>>({})
   const [rankingsByUid, setRankingsByUid] = useState<Record<string, BlindFinalRanking | undefined>>({})
+  const [comparisonsByUid, setComparisonsByUid] = useState<Record<string, BlindComparison[]>>({})
   const [dataLoaded, setDataLoaded] = useState(false)
   const fetchedRef = useRef(false)
 
@@ -37,10 +40,12 @@ export function BlindRevealPage() {
       getBlindRoomSecrets(roomId),
       getAllParticipantResponses(roomId, uids),
       getAllFinalRankings(roomId, uids),
-    ]).then(([secretsResult, responsesResult, rankingsResult]) => {
+      getAllParticipantComparisons(roomId, uids),
+    ]).then(([secretsResult, responsesResult, rankingsResult, comparisonsResult]) => {
       setSecrets(secretsResult)
       setResponsesByUid(responsesResult)
       setRankingsByUid(rankingsResult)
+      setComparisonsByUid(comparisonsResult)
       setDataLoaded(true)
     })
   }, [roomId, room?.state, participants])
@@ -89,6 +94,18 @@ export function BlindRevealPage() {
   function scoreFor(uid: string, label: string): number | undefined {
     return responsesByUid[uid]?.find((r) => r.pourLabel === label)?.fipScore
   }
+
+  // Only reads what this viewer themselves recorded — never fabricated, and
+  // never drawing on another participant's hidden-until-reveal answers.
+  const favoriteLabel = myRanking?.order[0]
+  const tastingSummary =
+    user && favoriteLabel
+      ? generateTastingSummary({
+          bottleName: bottleNameFor(favoriteLabel),
+          response: responsesByUid[user.uid]?.find((r) => r.pourLabel === favoriteLabel),
+          wins: (comparisonsByUid[user.uid] ?? []).filter((c) => c.winnerLabel === favoriteLabel),
+        })
+      : undefined
 
   return (
     <div className={styles.page}>
@@ -158,6 +175,7 @@ export function BlindRevealPage() {
         {myRanking ? (
           <div className={styles.rankingsSection}>
             <h2 className={styles.sectionTitle}>Your Ranking</h2>
+            {tastingSummary ? <p className={styles.sommelierSummary}>{tastingSummary}</p> : null}
             <div className={styles.rankingCard}>
               <ol className={styles.rankingOrderList}>
                 {myRanking.order.map((label) => {

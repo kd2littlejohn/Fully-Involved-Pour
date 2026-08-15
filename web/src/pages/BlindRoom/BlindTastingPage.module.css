@@ -72,6 +72,81 @@
   margin: var(--fip-space-5) 0 var(--fip-space-2);
 }
 
+.choiceList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.choiceCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  padding: var(--fip-space-4);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  color: var(--fip-cream);
+  text-align: left;
+  cursor: pointer;
+}
+
+.choiceCardActive {
+  border-color: var(--fip-amber);
+  box-shadow: 0 0 0 1px var(--fip-amber);
+}
+
+.choiceCardTitle {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+.choiceCardDescription {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-4);
+}
+
+.choiceButton {
+  min-height: 56px;
+  padding: var(--fip-space-3);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.comparisonRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-4);
+  margin: var(--fip-space-6) 0;
+}
+
+.comparisonButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: var(--fip-space-4);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  color: var(--fip-cream);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  cursor: pointer;
+}
+
 .reactionRow {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

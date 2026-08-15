@@ -10,6 +10,7 @@ const mockUseBlindRoom = vi.fn()
 const mockGetBlindRoomSecrets = vi.fn()
 const mockGetAllParticipantResponses = vi.fn()
 const mockGetAllFinalRankings = vi.fn()
+const mockGetAllParticipantComparisons = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -28,6 +29,7 @@ vi.mock('../../data/repositories/blindRoom', () => ({
   getBlindRoomSecrets: (...args: unknown[]) => mockGetBlindRoomSecrets(...args),
   getAllParticipantResponses: (...args: unknown[]) => mockGetAllParticipantResponses(...args),
   getAllFinalRankings: (...args: unknown[]) => mockGetAllFinalRankings(...args),
+  getAllParticipantComparisons: (...args: unknown[]) => mockGetAllParticipantComparisons(...args),
 }))
 
 const room: BlindRoom = {
@@ -76,6 +78,7 @@ describe('BlindRevealPage', () => {
       'host-1': { order: ['A', 'B'], status: 'locked', updatedAt: Date.now() },
       'guest-1': { order: ['B', 'A'], status: 'locked', updatedAt: Date.now() },
     })
+    mockGetAllParticipantComparisons.mockResolvedValue({ 'host-1': [], 'guest-1': [] })
   })
 
   it('shows each pour’s real bottle identity and every participant’s reaction/score once revealed', async () => {
@@ -107,6 +110,20 @@ describe('BlindRevealPage', () => {
     const heading = await screen.findByText('Your Ranking')
     const section = heading.closest('div')!
     expect(section.textContent).toContain('Stagg Jr. — 9.3')
+  })
+
+  it('shows a Sommelier summary sentence built only from what the viewer actually recorded', async () => {
+    mockGetAllParticipantComparisons.mockResolvedValue({
+      'host-1': [{ id: 'A-B', pairLabels: ['A', 'B'], winnerLabel: 'A', reason: 'less-heat', updatedAt: Date.now() }],
+      'guest-1': [],
+    })
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    const heading = await screen.findByText('Your Ranking')
+    const section = heading.closest('div')!
+    expect(section.textContent).toContain('You chose Stagg Jr. before seeing the label.')
+    expect(section.textContent).toContain('its lower perceived heat')
   })
 
   it('shows The Numbers with group ranking, average scores, and a biggest surprise when the score leader and rank leader differ', async () => {
