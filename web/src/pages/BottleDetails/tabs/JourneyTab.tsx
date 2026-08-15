@@ -64,9 +64,11 @@ export function JourneyTab({ bottle, pours, memories, onViewAllPours }: JourneyT
       return
     }
     let cancelled = false
-    getBottleBlindHistory(user.uid, bottle.id).then((entries) => {
-      if (!cancelled) setBlindHistory(entries)
-    })
+    getBottleBlindHistory(user.uid, bottle.id)
+      .then((entries) => {
+        if (!cancelled) setBlindHistory(entries)
+      })
+      .catch((err) => console.error('getBottleBlindHistory failed', err))
     return () => {
       cancelled = true
     }

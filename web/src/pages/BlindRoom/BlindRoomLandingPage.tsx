@@ -64,9 +64,11 @@ export function BlindRoomLandingPage() {
       return
     }
     let cancelled = false
-    getMyBlindRooms(user.uid).then((result) => {
-      if (!cancelled) setRooms(result)
-    })
+    getMyBlindRooms(user.uid)
+      .then((result) => {
+        if (!cancelled) setRooms(result)
+      })
+      .catch((err) => console.error('getMyBlindRooms failed', err))
     return () => {
       cancelled = true
     }

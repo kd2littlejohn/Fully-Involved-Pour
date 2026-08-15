@@ -53,9 +53,11 @@ export function JournalPage() {
       return
     }
     let cancelled = false
-    getMyBlindRooms(user.uid).then((result) => {
-      if (!cancelled) setBlindRooms(result.map(({ room }) => room))
-    })
+    getMyBlindRooms(user.uid)
+      .then((result) => {
+        if (!cancelled) setBlindRooms(result.map(({ room }) => room))
+      })
+      .catch((err) => console.error('getMyBlindRooms failed', err))
     return () => {
       cancelled = true
     }
