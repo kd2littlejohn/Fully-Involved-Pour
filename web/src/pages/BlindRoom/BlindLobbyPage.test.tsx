@@ -125,13 +125,51 @@ describe('BlindLobbyPage', () => {
     expect(screen.getByText('You haven’t joined this Blind Room yet.')).toBeInTheDocument()
   })
 
-  it('shows an honest placeholder once tasting has started, not a fabricated tasting UI', () => {
+  it('shows a Start Tasting control once tasting has started, for a participant who hasn’t started yet', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockUseBlindRoom.mockReturnValue({ room: { ...room, state: 'active' }, participants: [host, guest], loading: false, refresh: vi.fn() })
     renderPage()
 
-    expect(screen.getByText('Tasting is underway.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Start Tasting' })).toBeInTheDocument()
     expect(screen.queryByText('Start Blind')).not.toBeInTheDocument()
+  })
+
+  it('shows Continue Tasting for a participant already mid-tasting', () => {
+    const tastingHost: BlindParticipant = { ...host, status: 'tasting' }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'active' },
+      participants: [tastingHost, guest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    expect(screen.getByRole('button', { name: 'Continue Tasting' })).toBeInTheDocument()
+  })
+
+  it('shows a waiting message once this participant has completed tasting, not a tasting button', () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'active' },
+      participants: [doneHost, guest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    expect(screen.getByText('You’re all locked in.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Start Tasting' })).not.toBeInTheDocument()
+  })
+
+  it('navigates to the tasting page when Start Tasting is tapped', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: { ...room, state: 'active' }, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Start Tasting' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/taste')
   })
 
   it('shows an empty state when the room cannot be found', () => {

@@ -164,10 +164,37 @@ export function BlindLobbyPage() {
             </div>
           </>
         ) : (
-          <EmptyState
-            title="Tasting is underway."
-            message="Pour-by-pour tasting, scoring, and reveal are coming in the next Blind Room milestone."
-          />
+          <>
+            <div className={styles.roster}>
+              {participants.map((p) => (
+                <div className={styles.participantRow} key={p.uid}>
+                  <span className={styles.participantName}>{p.username}</span>
+                  <span className={styles.participantStatus}>
+                    {p.isHost ? <Badge tone="brass">Host</Badge> : null}
+                    <Badge tone={p.status === 'completed' ? 'amber' : 'default'}>
+                      {p.status === 'completed' ? 'Finished' : p.status === 'tasting' ? 'Tasting' : 'Not started'}
+                    </Badge>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className={styles.readyCount}>
+              {participants.filter((p) => p.status === 'completed').length} of {participants.length} finished tasting
+            </p>
+
+            {me.status === 'completed' ? (
+              <EmptyState
+                title="You’re all locked in."
+                message="Waiting on everyone else to finish tasting. Reveal is coming in the next Blind Room milestone."
+              />
+            ) : (
+              <div className={styles.actions}>
+                <Button onClick={() => navigate(`/blind/${room.id}/taste`)}>
+                  {me.status === 'tasting' ? 'Continue Tasting' : 'Start Tasting'}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

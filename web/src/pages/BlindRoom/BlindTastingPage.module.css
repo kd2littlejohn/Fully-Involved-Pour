@@ -1,0 +1,169 @@
+.page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fip-black);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: calc(var(--fip-space-3) + env(safe-area-inset-top, 0)) var(--fip-shell-x) var(--fip-space-3);
+  background: var(--fip-black);
+  border-bottom: 1px solid var(--fip-border-subtle);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--fip-cream);
+  font-size: var(--fip-text-lg);
+  cursor: pointer;
+}
+
+.title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+.headerSpacer {
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: var(--fip-space-6) var(--fip-shell-x) calc(var(--fip-space-6) + env(safe-area-inset-bottom, 0));
+}
+
+.lineupHint {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: var(--fip-space-4) 0 0;
+}
+
+.lockedNote {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  margin: var(--fip-space-4) 0 0;
+}
+
+.prompt {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+  margin: var(--fip-space-5) 0 var(--fip-space-2);
+}
+
+.reactionRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-4);
+}
+
+.reaction {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fip-space-1);
+  min-height: 72px;
+  padding: var(--fip-space-3);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reaction:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reactionActive {
+  border-color: var(--fip-amber);
+  box-shadow: 0 0 0 1px var(--fip-amber);
+}
+
+.reactionEmoji {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  margin: var(--fip-space-4) 0;
+}
+
+.scoreLabel {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+}
+
+.scoreSlider {
+  flex: 1;
+  height: 40px;
+  accent-color: var(--fip-amber);
+  background: transparent;
+}
+
+.scoreValue {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-amber);
+  min-width: 2.5ch;
+  text-align: right;
+}
+
+.guesses {
+  margin: var(--fip-space-4) 0;
+}
+
+.guessesSummary {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+  cursor: pointer;
+  padding: var(--fip-space-2) 0;
+}
+
+.guessFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-3);
+}
+
+.actions {
+  display: flex;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-4) var(--fip-shell-x) calc(var(--fip-space-4) + env(safe-area-inset-bottom, 0));
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.actions > * {
+  flex: 1;
+}

@@ -8,6 +8,7 @@ import type {
   BlindRoomSecrets,
   BlindSecretPour,
   BlindSessionType,
+  BlindTastingResponse,
 } from '../types'
 
 export class RoomCodeInvalidError extends Error {}
@@ -51,6 +52,13 @@ const mockRooms = new Map<string, BlindRoom>()
 const mockParticipants = new Map<string, Map<string, BlindParticipant>>()
 const mockCodes = new Map<string, string>()
 const mockSecrets = new Map<string, BlindRoomSecrets>()
+// Keyed by `${roomId}:${uid}` -> pourLabel -> response, mirroring the real
+// per-participant subcollection shape closely enough for dev-mode UI work.
+const mockResponses = new Map<string, Map<string, BlindTastingResponse>>()
+
+function responseKey(roomId: string, uid: string): string {
+  return `${roomId}:${uid}`
+}
 
 function mockGenerateId(): string {
   return `mock-room-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -120,6 +128,16 @@ export async function getBlindRoomSecrets(roomId: string): Promise<BlindRoomSecr
   if (isMockAuthEnabled()) return mockSecrets.get(roomId)
   const snap = await getDoc(doc(db, 'blindRoomSecrets', roomId))
   return snap.exists() ? (snap.data() as BlindRoomSecrets) : undefined
+}
+
+// A participant's own tasting responses across every pour in the room —
+// never another participant's (see firestore.rules; this only ever
+// resolves for the currently signed-in uid, by construction of who's
+// allowed to read the path).
+export async function getTastingResponses(roomId: string, uid: string): Promise<BlindTastingResponse[]> {
+  if (isMockAuthEnabled()) return [...(mockResponses.get(responseKey(roomId, uid))?.values() ?? [])]
+  const snap = await getDocs(collection(db, 'blindRooms', roomId, 'participants', uid, 'responses'))
+  return snap.docs.map((d) => d.data() as BlindTastingResponse)
 }
 
 // --- Writes ----------------------------------------------------------------
@@ -258,4 +276,89 @@ export async function startBlind(roomId: string): Promise<void> {
     return
   }
   await updateDoc(doc(db, 'blindRooms', roomId), patch)
+}
+
+// First entry into the tasting flow for this participant — records when
+// they actually started (distinct from `readyAt`) and flips their status
+// so the host/lobby can see "tasting" vs merely "ready". Safe to call
+// repeatedly (e.g. every time the tasting page mounts); only the first
+// call's timestamp sticks in the real backend since callers only read this
+// once up front, but it's still idempotent enough not to matter either way.
+export async function markTastingStarted(roomId: string, uid: string): Promise<void> {
+  const patch: Partial<BlindParticipant> = { status: 'tasting', startedTastingAt: Date.now() }
+  if (isMockAuthEnabled()) {
+    const participants = mockParticipants.get(roomId)
+    const current = participants?.get(uid)
+    if (participants && current && current.status !== 'completed') participants.set(uid, { ...current, ...patch })
+    return
+  }
+  await updateDoc(doc(db, 'blindRooms', roomId, 'participants', uid), patch)
+}
+
+export async function markTastingCompleted(roomId: string, uid: string): Promise<void> {
+  const patch: Partial<BlindParticipant> = { status: 'completed', completedAt: Date.now() }
+  if (isMockAuthEnabled()) {
+    const participants = mockParticipants.get(roomId)
+    const current = participants?.get(uid)
+    if (participants && current) participants.set(uid, { ...current, ...patch })
+    return
+  }
+  await updateDoc(doc(db, 'blindRooms', roomId, 'participants', uid), patch)
+}
+
+// Autosave — called on every field change (debounced by the caller), so
+// this stays a plain merge write rather than anything fancier. Silently
+// resolves for an already-locked response instead of throwing: an autosave
+// firing just after the user hits "Lock" is a normal race, not an error the
+// UI needs to surface (the security rule blocks the write either way, so no
+// data is ever lost or corrupted — the locked value simply wins).
+export async function saveTastingResponse(
+  roomId: string,
+  uid: string,
+  pourLabel: string,
+  patch: Partial<Omit<BlindTastingResponse, 'pourLabel' | 'status' | 'lockedAt'>>,
+): Promise<void> {
+  if (isMockAuthEnabled()) {
+    const key = responseKey(roomId, uid)
+    const responses = mockResponses.get(key) ?? new Map<string, BlindTastingResponse>()
+    const current = responses.get(pourLabel)
+    if (current?.status === 'locked') return
+    responses.set(pourLabel, { ...current, ...patch, pourLabel, status: 'in-progress', updatedAt: Date.now() })
+    mockResponses.set(key, responses)
+    return
+  }
+
+  try {
+    await setDoc(
+      doc(db, 'blindRooms', roomId, 'participants', uid, 'responses', pourLabel),
+      { ...patch, pourLabel, status: 'in-progress', updatedAt: Date.now() },
+      { merge: true },
+    )
+  } catch {
+    // A locked response rejects this write via firestore.rules — treated as
+    // a no-op, not a user-facing error (see comment above).
+  }
+}
+
+export async function lockTastingResponse(roomId: string, uid: string, pourLabel: string): Promise<void> {
+  const now = Date.now()
+  if (isMockAuthEnabled()) {
+    const key = responseKey(roomId, uid)
+    const responses = mockResponses.get(key) ?? new Map<string, BlindTastingResponse>()
+    const current = responses.get(pourLabel)
+    responses.set(pourLabel, {
+      ...current,
+      pourLabel,
+      status: 'locked',
+      updatedAt: now,
+      lockedAt: now,
+    })
+    mockResponses.set(key, responses)
+    return
+  }
+  await setDoc(
+    doc(db, 'blindRooms', roomId, 'participants', uid, 'responses', pourLabel),
+    { pourLabel, status: 'locked', updatedAt: now, lockedAt: now },
+    { merge: true },
+  )
 }

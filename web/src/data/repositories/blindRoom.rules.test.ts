@@ -275,6 +275,108 @@ describe('blindRooms/{roomId}/participants/{uid}', () => {
   })
 })
 
+describe('blindRooms/{roomId}/participants/{uid}/responses/{pourLabel}', () => {
+  async function seedParticipant(uid: string, username: string) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', uid), {
+        uid,
+        username,
+        isHost: uid === HOST_UID,
+        status: 'tasting',
+        joinedAt: Date.now(),
+      })
+    })
+  }
+
+  function response(overrides: Record<string, unknown> = {}) {
+    return { pourLabel: 'A', reaction: 'Love It', fipScore: 9.1, status: 'in-progress', updatedAt: Date.now(), ...overrides }
+  }
+
+  it('a participant can write their own tasting response', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertSucceeds(
+      setDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'), response()),
+    )
+  })
+
+  it('a participant can read their own tasting response', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'), response())
+    })
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertSucceeds(getDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A')))
+  })
+
+  it('cannot write a tasting response under someone else’s participant path', async () => {
+    await seedRoom()
+    await seedParticipant(OTHER_UID, 'james')
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(
+      setDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', OTHER_UID, 'responses', 'A'), response()),
+    )
+  })
+
+  it('another participant cannot read this participant’s tasting response', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    await seedParticipant(OTHER_UID, 'james')
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'), response())
+    })
+    const other = testEnv.authenticatedContext(OTHER_UID)
+    await assertFails(getDoc(doc(other.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A')))
+  })
+
+  it('the host cannot read a participant’s tasting response before reveal either', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'), response())
+    })
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertFails(getDoc(doc(host.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A')))
+  })
+
+  it('a participant can update their own in-progress response', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'), response())
+    })
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertSucceeds(
+      setDoc(
+        doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'),
+        response({ reaction: 'Interesting' }),
+        { merge: true },
+      ),
+    )
+  })
+
+  it('once locked, even the owning participant cannot edit their response', async () => {
+    await seedRoom()
+    await seedParticipant(PARTICIPANT_UID, 'marcus')
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'),
+        response({ status: 'locked', lockedAt: Date.now() }),
+      )
+    })
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(
+      setDoc(
+        doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID, 'responses', 'A'),
+        response({ reaction: 'Not For Me' }),
+        { merge: true },
+      ),
+    )
+  })
+})
+
 describe('blindRoomCodes/{code}', () => {
   it('the host of the referenced room can register its code', async () => {
     await seedRoom()

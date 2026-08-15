@@ -66,6 +66,20 @@ service cloud.firestore {
                        && request.resource.data.uid == request.auth.uid;
         allow update: if request.auth != null && request.auth.uid == uid;
         allow delete: if false;
+
+        // A participant's private per-pour tasting notes (reaction, nose/
+        // palate/finish, guesses, FIP score). Self-only in every direction —
+        // not even the host can read another participant's responses before
+        // reveal, which is the literal "other participants' answers remain
+        // hidden" requirement. Once locked, immutable: the participant
+        // themselves can no longer edit it either, enforced here rather
+        // than only in the UI, so a locked answer is a real commitment.
+        match /responses/{pourLabel} {
+          allow read: if request.auth != null && request.auth.uid == uid;
+          allow create: if request.auth != null && request.auth.uid == uid;
+          allow update: if request.auth != null && request.auth.uid == uid && resource.data.status != 'locked';
+          allow delete: if false;
+        }
       }
     }
 

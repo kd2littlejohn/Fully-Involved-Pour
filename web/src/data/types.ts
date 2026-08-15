@@ -236,7 +236,36 @@ export interface BlindParticipant {
   status: BlindParticipantStatus
   joinedAt: number
   readyAt?: number
+  startedTastingAt?: number
   completedAt?: number
+}
+
+export type BlindResponseStatus = 'in-progress' | 'locked'
+
+// One participant's private tasting notes for a single pour — stored under
+// blindRooms/{roomId}/participants/{uid}/responses/{pourLabel}, readable
+// and writable only by the owning participant (see firestore.rules). Not
+// even the host can read another participant's responses before reveal —
+// this is the "other participants' answers remain hidden" requirement.
+// Kept intentionally light (reaction + free-text nose/palate/finish + a
+// single overall FIP score, matching Quick Pour's pace) rather than the
+// full 6-step wizard breakdown — blind tasting with friends should stay
+// fast, per the app's "enhance the pour, never interrupt it" north star.
+export interface BlindTastingResponse {
+  pourLabel: string
+  reaction?: string
+  noseNotes?: string
+  palateNotes?: string
+  finishNotes?: string
+  proofGuess?: number
+  ageGuess?: string
+  typeGuess?: string
+  distilleryGuess?: string
+  fipScore?: number
+  notes?: string
+  status: BlindResponseStatus
+  updatedAt: number
+  lockedAt?: number
 }
 
 // The actual hidden bottle identity behind each pour label. Stored under

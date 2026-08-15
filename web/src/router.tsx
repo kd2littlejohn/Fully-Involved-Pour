@@ -18,6 +18,9 @@ const BlindRoomLandingPage = lazy(() =>
 const CreateBlindPage = lazy(() => import('./pages/BlindRoom/CreateBlindPage').then((m) => ({ default: m.CreateBlindPage })))
 const JoinBlindPage = lazy(() => import('./pages/BlindRoom/JoinBlindPage').then((m) => ({ default: m.JoinBlindPage })))
 const BlindLobbyPage = lazy(() => import('./pages/BlindRoom/BlindLobbyPage').then((m) => ({ default: m.BlindLobbyPage })))
+const BlindTastingPage = lazy(() =>
+  import('./pages/BlindRoom/BlindTastingPage').then((m) => ({ default: m.BlindTastingPage })),
+)
 
 // HashRouter: GitHub Pages (and the second static "Sites" deploy target) have
 // no server-side rewrite support, so hash-based routes avoid needing a
@@ -87,6 +90,14 @@ export const router = createHashRouter([
     element: (
       <Suspense fallback={<RouteFallback />}>
         <BlindLobbyPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/blind/:roomId/taste',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <BlindTastingPage />
       </Suspense>
     ),
   },

@@ -10,7 +10,12 @@ import {
   getMyBlindRooms,
   getParticipant,
   getParticipants,
+  getTastingResponses,
   joinBlindRoomByCode,
+  lockTastingResponse,
+  markTastingCompleted,
+  markTastingStarted,
+  saveTastingResponse,
   setParticipantReady,
   startBlind,
   type CreateBlindRoomInput,
@@ -139,6 +144,70 @@ describe('setParticipantReady / startBlind', () => {
     const updated = await getBlindRoom(room.id)
     expect(updated?.state).toBe('active')
     expect(updated?.startedAt).toBeDefined()
+  })
+})
+
+describe('tasting responses', () => {
+  it('autosaves a response as in-progress and can be read back', async () => {
+    const room = await createBlindRoom(baseInput())
+    await saveTastingResponse(room.id, 'host-1', 'A', { reaction: 'Love It', fipScore: 9.1 })
+
+    const responses = await getTastingResponses(room.id, 'host-1')
+    expect(responses).toHaveLength(1)
+    expect(responses[0]).toMatchObject({ pourLabel: 'A', reaction: 'Love It', fipScore: 9.1, status: 'in-progress' })
+  })
+
+  it('locking a response marks it locked with a lockedAt timestamp', async () => {
+    const room = await createBlindRoom(baseInput())
+    await saveTastingResponse(room.id, 'host-1', 'A', { reaction: 'Love It', fipScore: 9.1 })
+    await lockTastingResponse(room.id, 'host-1', 'A')
+
+    const [response] = await getTastingResponses(room.id, 'host-1')
+    expect(response).toMatchObject({ status: 'locked', reaction: 'Love It' })
+    expect(response?.lockedAt).toBeDefined()
+  })
+
+  it('ignores further autosaves once a response is locked', async () => {
+    const room = await createBlindRoom(baseInput())
+    await saveTastingResponse(room.id, 'host-1', 'A', { reaction: 'Love It' })
+    await lockTastingResponse(room.id, 'host-1', 'A')
+    await saveTastingResponse(room.id, 'host-1', 'A', { reaction: 'Not For Me' })
+
+    const [response] = await getTastingResponses(room.id, 'host-1')
+    expect(response?.reaction).toBe('Love It')
+  })
+
+  it('keeps different participants’ responses in the same room separate', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+    await saveTastingResponse(room.id, 'host-1', 'A', { reaction: 'Love It' })
+    await saveTastingResponse(room.id, 'guest-1', 'A', { reaction: 'Just Okay' })
+
+    expect((await getTastingResponses(room.id, 'host-1'))[0]?.reaction).toBe('Love It')
+    expect((await getTastingResponses(room.id, 'guest-1'))[0]?.reaction).toBe('Just Okay')
+  })
+})
+
+describe('markTastingStarted / markTastingCompleted', () => {
+  it('moves a participant from ready to tasting', async () => {
+    const room = await createBlindRoom(baseInput())
+    await markTastingStarted(room.id, 'host-1')
+    expect((await getParticipant(room.id, 'host-1'))?.status).toBe('tasting')
+  })
+
+  it('does not downgrade a participant who has already completed tasting', async () => {
+    const room = await createBlindRoom(baseInput())
+    await markTastingCompleted(room.id, 'host-1')
+    await markTastingStarted(room.id, 'host-1')
+    expect((await getParticipant(room.id, 'host-1'))?.status).toBe('completed')
+  })
+
+  it('marks a participant completed with a timestamp', async () => {
+    const room = await createBlindRoom(baseInput())
+    await markTastingCompleted(room.id, 'host-1')
+    const participant = await getParticipant(room.id, 'host-1')
+    expect(participant?.status).toBe('completed')
+    expect(participant?.completedAt).toBeDefined()
   })
 })
 
