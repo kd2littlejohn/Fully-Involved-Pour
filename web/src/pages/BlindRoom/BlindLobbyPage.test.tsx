@@ -67,6 +67,10 @@ function renderPage() {
 describe('BlindLobbyPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    })
   })
 
   it('shows the roster with host and readiness badges', () => {
@@ -246,6 +250,105 @@ describe('BlindLobbyPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'See Results' }))
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/reveal')
+  })
+
+  it('shows the deadline for an active Blind Challenge room whose deadline hasn’t passed', () => {
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() + 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.getByText(/^Deadline /)).toBeInTheDocument()
+    expect(screen.queryByText('Deadline passed')).not.toBeInTheDocument()
+  })
+
+  it('shows Deadline passed once a Blind Challenge’s deadline has elapsed', () => {
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() - 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.getByText('Deadline passed')).toBeInTheDocument()
+  })
+
+  it('does not show a deadline note for a Live Blind room', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: { ...room, state: 'active' }, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.queryByText(/Deadline/)).not.toBeInTheDocument()
+  })
+
+  it('lets the host reveal a Blind Challenge once the deadline has passed, even if not everyone finished', () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() - 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [doneHost, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.getByRole('button', { name: 'Reveal' })).toBeInTheDocument()
+    expect(screen.getByText('The deadline has passed — ready to reveal?')).toBeInTheDocument()
+  })
+
+  it('tells a waiting non-host participant the deadline has passed, without offering Reveal', () => {
+    const doneGuest: BlindParticipant = { ...guest, status: 'completed' }
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() - 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'guest-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [host, doneGuest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.getByText('The deadline has passed. Waiting for the host to reveal.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument()
+  })
+
+  it('does not unlock Reveal early for a Blind Challenge whose deadline hasn’t passed', () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() + 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [doneHost, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument()
+  })
+
+  it('shows the host a Send Reminder action for a Blind Challenge with unfinished participants', () => {
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() + 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.getByRole('button', { name: 'Send Reminder' })).toBeInTheDocument()
+  })
+
+  it('does not show Send Reminder for a Live Blind room', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: { ...room, state: 'active' }, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: 'Send Reminder' })).not.toBeInTheDocument()
+  })
+
+  it('does not show Send Reminder once everyone has finished tasting', () => {
+    const doneHost: BlindParticipant = { ...host, status: 'completed' }
+    const doneGuest: BlindParticipant = { ...guest, status: 'completed' }
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() + 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [doneHost, doneGuest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(screen.queryByRole('button', { name: 'Send Reminder' })).not.toBeInTheDocument()
+  })
+
+  it('copies a reminder message naming who hasn’t finished when Send Reminder is tapped', async () => {
+    const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() + 60_000 }
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room: challengeRoom, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Send Reminder' }))
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('marcus'))
+    expect(await screen.findByRole('button', { name: 'Reminder Copied' })).toBeInTheDocument()
   })
 
   it('shows an empty state when the room cannot be found', () => {

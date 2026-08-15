@@ -15,6 +15,16 @@ function inviteMessage(roomName: string, pourCount: number, knowledgeMode: strin
   return `Join my Fully Involved Pour Blind Room.\n${roomName}\n${pourCount} pours · ${mode}\nRoom code: ${code}`
 }
 
+// No push/email infrastructure exists in this app — the host nudges
+// stragglers through their own channels (text, DM), same as invites. This
+// just composes the message; sharing it is a manual, host-triggered action.
+function reminderMessage(roomName: string, names: string[], deadline: number | undefined): string {
+  const who = names.join(', ')
+  const verb = names.length === 1 ? 'still needs' : 'still need'
+  const by = deadline ? ` before ${new Date(deadline).toLocaleString()}` : ''
+  return `Reminder: ${who} ${verb} to taste "${roomName}" on Fully Involved Pour${by}.`
+}
+
 export function BlindLobbyPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
@@ -23,12 +33,23 @@ export function BlindLobbyPage() {
   const { room, participants, loading, refresh } = useBlindRoom(roomId)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [reminderCopied, setReminderCopied] = useState(false)
 
   const me = user ? participants.find((p) => p.uid === user.uid) : undefined
   const isHost = !!user && room?.hostUid === user.uid
   const allReady = participants.length > 0 && participants.every((p) => p.status === 'ready')
   const canStart = isHost && participants.length >= 2 && allReady
   const allCompleted = participants.length > 0 && participants.every((p) => p.status === 'completed')
+  // Blind Challenges run asynchronously over days — the host shouldn't be
+  // stuck waiting forever on one straggler. Once the deadline passes, reveal
+  // unlocks regardless of who's finished (see the M1 spec's own "Blind
+  // Challenges may remain active until their deadline or all participants
+  // finish").
+  const deadlinePassed = room?.sessionType === 'challenge' && !!room.deadline && Date.now() >= room.deadline
+  const readyToReveal = allCompleted || deadlinePassed
+  const showDeadline = room?.sessionType === 'challenge' && !!room.deadline && room.state !== 'revealed'
+  const notDoneNames = participants.filter((p) => p.status !== 'completed').map((p) => p.username)
+  const canRemind = isHost && room?.sessionType === 'challenge' && room.state === 'active' && notDoneNames.length > 0
 
   async function handleJoinAsViewer() {
     if (!user || !room) return
@@ -63,6 +84,22 @@ export function BlindLobbyPage() {
     await revealBlind(room.id)
     refresh()
     setBusy(false)
+  }
+
+  async function handleSendReminder() {
+    if (!room || notDoneNames.length === 0) return
+    const text = reminderMessage(room.name, notDoneNames, room.deadline)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: room.name, text })
+        return
+      } catch {
+        // user cancelled or share failed — fall through to clipboard
+      }
+    }
+    await navigator.clipboard.writeText(text)
+    setReminderCopied(true)
+    setTimeout(() => setReminderCopied(false), 2000)
   }
 
   async function handleShare() {
@@ -137,6 +174,12 @@ export function BlindLobbyPage() {
           {room.knowledgeMode === 'single' ? 'Single Blind' : 'Double Blind'} · {room.pourCount} Pours
         </p>
 
+        {showDeadline ? (
+          <p className={deadlinePassed ? `${styles.deadlineNote} ${styles.deadlinePassed}` : styles.deadlineNote}>
+            {deadlinePassed ? 'Deadline passed' : `Deadline ${new Date(room.deadline!).toLocaleString()}`}
+          </p>
+        ) : null}
+
         {room.state === 'lobby' ? (
           <>
             <div className={styles.inviteRow}>
@@ -210,17 +253,29 @@ export function BlindLobbyPage() {
               {participants.filter((p) => p.status === 'completed').length} of {participants.length} finished tasting
             </p>
 
+            {canRemind ? (
+              <div className={styles.actions}>
+                <Button variant="secondary" onClick={() => void handleSendReminder()}>
+                  {reminderCopied ? 'Reminder Copied' : 'Send Reminder'}
+                </Button>
+              </div>
+            ) : null}
+
             {me.status === 'completed' ? (
               <>
                 <EmptyState
                   title="You’re all locked in."
                   message={
-                    isHost && allCompleted
-                      ? 'Everyone has finished tasting — ready to reveal?'
-                      : 'Waiting on everyone else to finish tasting.'
+                    isHost && readyToReveal
+                      ? allCompleted
+                        ? 'Everyone has finished tasting — ready to reveal?'
+                        : 'The deadline has passed — ready to reveal?'
+                      : deadlinePassed
+                        ? 'The deadline has passed. Waiting for the host to reveal.'
+                        : 'Waiting on everyone else to finish tasting.'
                   }
                 />
-                {isHost && allCompleted ? (
+                {isHost && readyToReveal ? (
                   <div className={styles.actions}>
                     <Button onClick={() => void handleReveal()} disabled={busy}>
                       {busy ? 'Revealing…' : 'Reveal'}

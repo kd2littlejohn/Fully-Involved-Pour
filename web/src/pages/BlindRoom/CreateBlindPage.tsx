@@ -69,6 +69,7 @@ export function CreateBlindPage() {
 
   function canAdvance(): boolean {
     if (stepKey === 'bottles') return selectedBottleIds.length === flightSize
+    if (stepKey === 'deadline') return new Date(deadlineValue).getTime() > Date.now()
     return true
   }
 
@@ -266,15 +267,22 @@ export function CreateBlindPage() {
         ) : null}
 
         {stepKey === 'deadline' ? (
-          <Field label="Challenge deadline" htmlFor="blind-deadline">
-            <input
-              id="blind-deadline"
-              type="datetime-local"
-              className={controlClassName}
-              value={deadlineValue}
-              onChange={(e) => setDeadlineValue(e.target.value)}
-            />
-          </Field>
+          <>
+            <Field label="Challenge deadline" htmlFor="blind-deadline">
+              <input
+                id="blind-deadline"
+                type="datetime-local"
+                className={controlClassName}
+                value={deadlineValue}
+                onChange={(e) => setDeadlineValue(e.target.value)}
+              />
+            </Field>
+            {new Date(deadlineValue).getTime() <= Date.now() ? (
+              <p className={styles.error} role="alert">
+                Pick a deadline in the future.
+              </p>
+            ) : null}
+          </>
         ) : null}
 
         {stepKey === 'review' ? (

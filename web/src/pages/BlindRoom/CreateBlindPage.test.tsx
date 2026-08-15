@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -50,6 +50,15 @@ async function goToBottlesStep() {
   await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // name -> bottles
 }
 
+async function goToDeadlineStep() {
+  await userEvent.click(screen.getByText('Blind Challenge'))
+  await goToBottlesStep()
+  await userEvent.click(screen.getByText('Stagg Jr.'))
+  await userEvent.click(screen.getByText('Eagle Rare'))
+  await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+  await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // bottles -> deadline
+}
+
 describe('CreateBlindPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -79,6 +88,29 @@ describe('CreateBlindPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> deadline
 
     expect(screen.getByRole('heading', { name: 'Deadline' })).toBeInTheDocument()
+  })
+
+  it('disables Continue and shows an error for a deadline in the past', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    renderPage()
+    await goToDeadlineStep()
+
+    fireEvent.change(screen.getByLabelText('Challenge deadline'), { target: { value: '2020-01-01T10:00' } })
+
+    expect(screen.getByText('Pick a deadline in the future.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
+  })
+
+  it('enables Continue once a future deadline is picked', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    renderPage()
+    await goToDeadlineStep()
+
+    const future = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
+    fireEvent.change(screen.getByLabelText('Challenge deadline'), { target: { value: future } })
+
+    expect(screen.queryByText('Pick a deadline in the future.')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
   })
 
   it('excludes wishlist bottles from the Add Bottles step and requires exactly the flight size', async () => {

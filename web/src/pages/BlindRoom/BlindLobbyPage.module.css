@@ -58,6 +58,17 @@
   margin-bottom: var(--fip-space-5);
 }
 
+.deadlineNote {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  margin-bottom: var(--fip-space-4);
+}
+
+.deadlinePassed {
+  color: var(--fip-error);
+}
+
 .inviteRow {
   display: flex;
   align-items: center;
