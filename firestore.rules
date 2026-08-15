@@ -40,6 +40,59 @@ service cloud.firestore {
                    && voteId == request.resource.data.pairKey + '_' + request.auth.uid;
     }
 
+    // Blind Room — remote blind tastings (web/src/data/repositories/blindRoom.ts).
+    // Room config is public-read (the join-preview screen needs to show
+    // room info before a visitor has joined, or even signed in); only the
+    // host may write it. Bottle identities never live on this document —
+    // see blindRoomSecrets below, the actual security boundary.
+    match /blindRooms/{roomId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.hostUid == request.auth.uid;
+      allow update: if request.auth != null && resource.data.hostUid == request.auth.uid;
+      allow delete: if false;
+
+      // Each participant's own doc. Readable by the host and by any other
+      // participant already in the room (the lobby roster needs to show
+      // everyone's status), never by a non-member. Writable only by the
+      // participant themselves — not even the host may edit someone else's
+      // participant record.
+      match /participants/{uid} {
+        allow read: if request.auth != null
+                     && (request.auth.uid == uid
+                         || get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid
+                         || exists(/databases/$(database)/documents/blindRooms/$(roomId)/participants/$(request.auth.uid)));
+        allow create: if request.auth != null
+                       && request.auth.uid == uid
+                       && request.resource.data.uid == request.auth.uid;
+        allow update: if request.auth != null && request.auth.uid == uid;
+        allow delete: if false;
+      }
+    }
+
+    // Short human-friendly room code -> roomId index, used by the Join
+    // flow. Public read (code lookup happens before joining, possibly
+    // before signing in); only the actual host of the referenced room may
+    // create the mapping (checked by reading the room doc's hostUid), and
+    // it's immutable once created — a code collision just means the client
+    // picks a different random code, never overwrites an existing one.
+    match /blindRoomCodes/{code} {
+      allow read: if true;
+      allow create: if request.auth != null
+                     && get(/databases/$(database)/documents/blindRooms/$(request.resource.data.roomId)).data.hostUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // The hidden bottle mapping — the actual security boundary for Blind
+    // Room. Host-only in Milestone 1: no reveal mechanism exists yet, so
+    // nothing unlocks participant reads. Bottle identities are simply never
+    // present in any document a participant's client is permitted to read,
+    // not merely hidden in the UI (blurred/CSS-hidden/omitted from
+    // rendering) while still being present in the network response.
+    match /blindRoomSecrets/{roomId} {
+      allow read, write: if request.auth != null
+                          && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

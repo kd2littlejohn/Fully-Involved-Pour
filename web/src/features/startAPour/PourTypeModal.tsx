@@ -1,7 +1,7 @@
 import { Modal } from '../../components/ui/Modal'
 import styles from './PourTypeModal.module.css'
 
-export type PourType = 'quick' | 'story' | 'compare'
+export type PourType = 'quick' | 'story' | 'blind' | 'compare'
 
 interface PourTypeOption {
   type: PourType
@@ -12,6 +12,7 @@ interface PourTypeOption {
 const OPTIONS: PourTypeOption[] = [
   { type: 'quick', title: 'Quick Pour', description: 'Capture the moment in seconds — reaction, score, done.' },
   { type: 'story', title: 'Pour Story', description: 'The full tasting breakdown — nose, palate, finish, and more.' },
+  { type: 'blind', title: 'Blind Room', description: 'Taste this blind with friends, together or on your own time.' },
   { type: 'compare', title: 'Comparison', description: 'Pour this bottle side-by-side against another.' },
 ]
 

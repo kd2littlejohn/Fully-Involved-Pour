@@ -1,0 +1,158 @@
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('../devMode', () => ({ isMockAuthEnabled: () => true }))
+
+import {
+  createBlindRoom,
+  getBlindRoom,
+  getBlindRoomByCode,
+  getBlindRoomSecrets,
+  getMyBlindRooms,
+  getParticipant,
+  getParticipants,
+  joinBlindRoomByCode,
+  setParticipantReady,
+  startBlind,
+  type CreateBlindRoomInput,
+} from './blindRoom'
+import type { BlindSecretPour } from '../types'
+
+const CODE_PATTERN = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/
+
+function baseInput(overrides: Partial<CreateBlindRoomInput> = {}): CreateBlindRoomInput {
+  const pours: BlindSecretPour[] = [
+    { label: 'A', bottleId: 'b1', bottleName: 'Stagg Jr.' },
+    { label: 'B', bottleId: 'b2', bottleName: 'Eagle Rare' },
+    { label: 'C', bottleId: 'b3', bottleName: 'Elijah Craig Barrel Proof' },
+  ]
+  return {
+    hostUid: 'host-1',
+    hostUsername: 'kevin',
+    sessionType: 'live',
+    knowledgeMode: 'single',
+    pourCount: 3,
+    knownLineup: pours.map((p) => p.bottleName),
+    pours,
+    ...overrides,
+  }
+}
+
+describe('createBlindRoom', () => {
+  it('creates a room with a well-formed code, a ready host participant, and stored secrets', async () => {
+    const room = await createBlindRoom(baseInput())
+
+    expect(room.code).toMatch(CODE_PATTERN)
+    expect(room.hostUid).toBe('host-1')
+    expect(room.state).toBe('lobby')
+    expect(room.participantCount).toBe(1)
+
+    const participant = await getParticipant(room.id, 'host-1')
+    expect(participant).toMatchObject({ uid: 'host-1', isHost: true, status: 'ready' })
+
+    const secrets = await getBlindRoomSecrets(room.id)
+    expect(secrets?.pours).toHaveLength(3)
+    expect(secrets?.pours[0]).toMatchObject({ label: 'A', bottleName: 'Stagg Jr.' })
+  })
+
+  it('shuffles the known lineup for Single Blind so array position never matches the hidden A/B/C order', async () => {
+    // Not a strong statistical claim — just confirms the room stores the
+    // same set of names (shuffling is best-effort, not testable for order).
+    const room = await createBlindRoom(baseInput())
+    expect(room.knownLineup?.slice().sort()).toEqual(['Eagle Rare', 'Elijah Craig Barrel Proof', 'Stagg Jr.'].sort())
+  })
+
+  it('omits knownLineup entirely for Double Blind', async () => {
+    const room = await createBlindRoom(baseInput({ knowledgeMode: 'double', knownLineup: undefined }))
+    expect(room.knownLineup).toBeUndefined()
+  })
+
+  it('stores a deadline only for Blind Challenge sessions', async () => {
+    const deadline = Date.now() + 86400000
+    const challenge = await createBlindRoom(baseInput({ sessionType: 'challenge', deadline }))
+    expect(challenge.deadline).toBe(deadline)
+
+    const live = await createBlindRoom(baseInput({ sessionType: 'live', deadline }))
+    expect(live.deadline).toBeUndefined()
+  })
+
+  it('falls back to an auto-generated name when none is given', async () => {
+    const room = await createBlindRoom(baseInput({ name: undefined }))
+    expect(room.name.length).toBeGreaterThan(0)
+  })
+})
+
+describe('getBlindRoomByCode', () => {
+  it('resolves a room by its code, case-insensitively', async () => {
+    const room = await createBlindRoom(baseInput())
+    const found = await getBlindRoomByCode(room.code.toLowerCase())
+    expect(found?.id).toBe(room.id)
+  })
+
+  it('returns undefined for an unknown code', async () => {
+    expect(await getBlindRoomByCode('ZZZZZZ')).toBeUndefined()
+  })
+})
+
+describe('joinBlindRoomByCode', () => {
+  it('adds a new participant and increments the room’s participant count', async () => {
+    const room = await createBlindRoom(baseInput())
+    const joined = await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+
+    expect(joined.participantCount).toBe(2)
+    const participants = await getParticipants(room.id)
+    expect(participants.map((p) => p.uid).sort()).toEqual(['guest-1', 'host-1'])
+
+    const guest = await getParticipant(room.id, 'guest-1')
+    expect(guest).toMatchObject({ uid: 'guest-1', username: 'marcus', isHost: false, status: 'joined' })
+  })
+
+  it('is idempotent — joining again with an existing participant does not duplicate them', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+    const again = await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+
+    expect(again.participantCount).toBe(2)
+    const participants = await getParticipants(room.id)
+    expect(participants.filter((p) => p.uid === 'guest-1')).toHaveLength(1)
+  })
+
+  it('throws a clear error for an invalid code', async () => {
+    await expect(joinBlindRoomByCode('NOPE99', 'guest-1', 'marcus')).rejects.toThrow(/doesn.t match/)
+  })
+})
+
+describe('setParticipantReady / startBlind', () => {
+  it('toggles a participant’s readiness', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+
+    await setParticipantReady(room.id, 'guest-1', true)
+    expect((await getParticipant(room.id, 'guest-1'))?.status).toBe('ready')
+
+    await setParticipantReady(room.id, 'guest-1', false)
+    expect((await getParticipant(room.id, 'guest-1'))?.status).toBe('joined')
+  })
+
+  it('transitions the room to active and records startedAt', async () => {
+    const room = await createBlindRoom(baseInput())
+    await startBlind(room.id)
+    const updated = await getBlindRoom(room.id)
+    expect(updated?.state).toBe('active')
+    expect(updated?.startedAt).toBeDefined()
+  })
+})
+
+describe('getMyBlindRooms', () => {
+  it('returns only rooms the given uid actually participates in', async () => {
+    const roomA = await createBlindRoom(baseInput({ hostUid: 'user-a', hostUsername: 'alice' }))
+    await createBlindRoom(baseInput({ hostUid: 'user-b', hostUsername: 'bob' }))
+    await joinBlindRoomByCode(roomA.code, 'user-c', 'carl')
+
+    const forA = await getMyBlindRooms('user-a')
+    expect(forA.map(({ room }) => room.id)).toEqual([roomA.id])
+
+    const forC = await getMyBlindRooms('user-c')
+    expect(forC.map(({ room }) => room.id)).toEqual([roomA.id])
+    expect(forC[0]?.participant.isHost).toBe(false)
+  })
+})

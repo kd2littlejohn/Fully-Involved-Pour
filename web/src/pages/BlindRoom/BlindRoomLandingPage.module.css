@@ -1,0 +1,48 @@
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-3);
+  padding: 0 var(--fip-shell-x) var(--fip-space-6);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--fip-space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--fip-motion) var(--fip-ease);
+}
+
+.card:hover {
+  border-color: var(--fip-border);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+}
+
+.cardName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  line-height: var(--fip-leading-tight);
+}
+
+.cardMeta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}

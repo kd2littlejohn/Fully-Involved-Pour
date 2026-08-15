@@ -187,3 +187,77 @@ export interface SharedBottlePhoto {
   submittedBy: string
   submittedAt: number
 }
+
+// Blind Room — remote blind whiskey tastings. Lives in its own top-level
+// Firestore collections (blindRooms/blindRoomCodes/blindRoomSecrets), never
+// inside the per-user users/{uid} doc, since a room is shared across
+// multiple users' accounts. See firestore.rules for the access boundary —
+// BlindSecretPour in particular must never be readable by a non-host
+// participant before reveal (Milestone 3+); Milestone 1 only creates and
+// stores it, it doesn't yet unlock participant reads.
+export type BlindSessionType = 'live' | 'challenge'
+export type BlindKnowledgeMode = 'single' | 'double'
+export type BlindRoomState =
+  | 'draft'
+  | 'lobby'
+  | 'active'
+  | 'awaiting_final_rank'
+  | 'awaiting_reveal'
+  | 'revealed'
+  | 'completed'
+  | 'cancelled'
+export type BlindParticipantStatus = 'invited' | 'joined' | 'ready' | 'tasting' | 'completed' | 'revealed'
+
+export interface BlindRoom {
+  id: string
+  code: string
+  name: string
+  hostUid: string
+  hostUsername: string
+  sessionType: BlindSessionType
+  knowledgeMode: BlindKnowledgeMode
+  pourCount: number
+  // Bottle NAMES only (Single Blind mode only), stored in a shuffled order
+  // that carries no relationship to the hidden A/B/C/... mapping — knowing
+  // the lineup is not knowing which pour is which.
+  knownLineup?: string[]
+  state: BlindRoomState
+  deadline?: number
+  createdAt: number
+  startedAt?: number
+  revealedAt?: number
+  participantCount: number
+}
+
+export interface BlindParticipant {
+  uid: string
+  username: string
+  isHost: boolean
+  status: BlindParticipantStatus
+  joinedAt: number
+  readyAt?: number
+  completedAt?: number
+}
+
+// The actual hidden bottle identity behind each pour label. Stored under
+// blindRoomSecrets/{roomId} — a document the host alone can read/write in
+// Milestone 1 (see firestore.rules). `label` is a free string (not a hardcoded
+// A-F union) so future flight formats aren't blocked by this type.
+export interface BlindSecretPour {
+  label: string
+  bottleId: string
+  bottleName: string
+  distillery?: string
+  imageUrl?: string
+  proof?: number
+}
+
+export interface BlindRoomSecrets {
+  roomId: string
+  pours: BlindSecretPour[]
+}
+
+export interface BlindRoomCode {
+  roomId: string
+  createdAt: number
+}

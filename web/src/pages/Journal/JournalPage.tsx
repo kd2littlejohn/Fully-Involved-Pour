@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
@@ -80,6 +81,10 @@ export function JournalPage() {
         <StartPourStoryButton variant="secondary" />
         <CreateMemoryButton />
       </div>
+
+      <Link to="/blind" className={styles.blindHistoryLink}>
+        Blind History →
+      </Link>
 
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 

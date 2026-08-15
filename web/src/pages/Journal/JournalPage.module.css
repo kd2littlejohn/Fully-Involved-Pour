@@ -5,6 +5,19 @@
   padding: 0 var(--fip-shell-x) var(--fip-space-4);
 }
 
+.blindHistoryLink {
+  display: inline-block;
+  color: var(--fip-copper);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  margin: 0 var(--fip-shell-x) var(--fip-space-4);
+}
+
+.blindHistoryLink:hover {
+  text-decoration: underline;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

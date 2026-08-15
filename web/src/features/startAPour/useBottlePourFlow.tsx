@@ -42,6 +42,14 @@ export function useBottlePourFlow(bottleId: string | null): BottlePourFlow {
       if (bottleId) navigate(`/collection/${bottleId}`, { state: { initialTab: 'compare' } })
       return
     }
+    if (type === 'blind') {
+      // Blind Room's Create flow lets the host build a whole flight, not
+      // just this one bottle — it doesn't fit the single-bottle Quick
+      // Pour/Pour Story modal pattern, so this hands off to its own
+      // full-screen flow instead of opening one here.
+      navigate('/blind/new')
+      return
+    }
     setActiveFlow(type)
   }
 

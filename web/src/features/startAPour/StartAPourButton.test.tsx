@@ -32,6 +32,7 @@ function renderWithRoute(ui: ReactElement) {
       <Routes>
         <Route path="/" element={ui} />
         <Route path="/collection/:bottleId" element={<div>Bottle Details Page</div>} />
+        <Route path="/blind/new" element={<div>Create Blind Page</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -77,6 +78,16 @@ describe('StartAPourButton', () => {
     await userEvent.click(screen.getByRole('button', { name: /Pour Story/ }))
 
     expect(screen.getByText('Pour Wizard view — Eagle Rare')).toBeInTheDocument()
+  })
+
+  it('navigates to the Create Blind flow when Blind Room is chosen', async () => {
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    renderWithRoute(<StartAPourButton bottleId="b1" label="Start a Pour" />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
+    await userEvent.click(screen.getByRole('button', { name: /Blind Room/ }))
+
+    expect(screen.getByText('Create Blind Page')).toBeInTheDocument()
   })
 
   it('routes to the Compare tab on the bottle details route when Comparison is chosen', async () => {

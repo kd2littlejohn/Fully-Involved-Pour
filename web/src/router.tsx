@@ -12,6 +12,12 @@ const JournalPage = lazy(() => import('./pages/Journal/JournalPage').then((m) =>
 const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage').then((m) => ({ default: m.DiscoverPage })))
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const AddBottlePage = lazy(() => import('./pages/AddBottle/AddBottlePage').then((m) => ({ default: m.AddBottlePage })))
+const BlindRoomLandingPage = lazy(() =>
+  import('./pages/BlindRoom/BlindRoomLandingPage').then((m) => ({ default: m.BlindRoomLandingPage })),
+)
+const CreateBlindPage = lazy(() => import('./pages/BlindRoom/CreateBlindPage').then((m) => ({ default: m.CreateBlindPage })))
+const JoinBlindPage = lazy(() => import('./pages/BlindRoom/JoinBlindPage').then((m) => ({ default: m.JoinBlindPage })))
+const BlindLobbyPage = lazy(() => import('./pages/BlindRoom/BlindLobbyPage').then((m) => ({ default: m.BlindLobbyPage })))
 
 // HashRouter: GitHub Pages (and the second static "Sites" deploy target) have
 // no server-side rewrite support, so hash-based routes avoid needing a
@@ -31,6 +37,11 @@ export const router = createHashRouter([
       { path: '/journal', element: <JournalPage /> },
       { path: '/discover', element: <DiscoverPage /> },
       { path: '/profile', element: <ProfilePage /> },
+      // Browsable like Collection/Discover — bottom nav stays visible while
+      // deciding which Blind Room to open. Not itself a bottom-nav item; see
+      // the "Blind Room" option in Start a Pour and the Journey "Blind
+      // History" link for how users actually get here.
+      { path: '/blind', element: <BlindRoomLandingPage /> },
     ],
   },
   // Outside AppShell — a full-screen add flow shouldn't compete with the
@@ -49,6 +60,33 @@ export const router = createHashRouter([
     element: (
       <Suspense fallback={<RouteFallback />}>
         <AddBottlePage />
+      </Suspense>
+    ),
+  },
+  // The Blind Room create/join/lobby flow is a focused, synchronous
+  // experience (same reasoning as Add Bottle above) — full-screen, no
+  // bottom nav competing for space.
+  {
+    path: '/blind/new',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <CreateBlindPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/blind/join',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <JoinBlindPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/blind/:roomId/lobby',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <BlindLobbyPage />
       </Suspense>
     ),
   },

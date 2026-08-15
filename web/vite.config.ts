@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -9,6 +10,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: './src/setupTests.ts',
+    // *.rules.test.ts files run against the Firestore emulator via a
+    // separate config (vitest.rules.config.ts, `npm run test:rules` at the
+    // repo root) — excluded here so a plain `vitest run` never tries to hit
+    // an emulator that isn't running.
+    exclude: [...configDefaults.exclude, '**/*.rules.test.ts'],
   },
   plugins: [
     react(),

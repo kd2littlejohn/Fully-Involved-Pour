@@ -1,0 +1,123 @@
+.page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fip-black);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: calc(var(--fip-space-3) + env(safe-area-inset-top, 0)) var(--fip-shell-x) var(--fip-space-3);
+  background: var(--fip-black);
+  border-bottom: 1px solid var(--fip-border-subtle);
+}
+
+.backButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--fip-cream);
+  font-size: var(--fip-text-lg);
+  cursor: pointer;
+}
+
+.title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+.headerSpacer {
+  width: 44px;
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: var(--fip-space-6) var(--fip-shell-x) calc(var(--fip-space-6) + env(safe-area-inset-bottom, 0));
+}
+
+.meta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin-bottom: var(--fip-space-5);
+}
+
+.inviteRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-4);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  margin-bottom: var(--fip-space-5);
+}
+
+.code {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  letter-spacing: 0.1em;
+  color: var(--fip-amber);
+}
+
+.roster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.participantRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: var(--fip-space-3);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-md);
+}
+
+.participantName {
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.participantStatus {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
+.readyCount {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  margin-top: var(--fip-space-3);
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-6);
+}
+
+.actions > * {
+  flex: 1;
+}
