@@ -212,6 +212,31 @@ describe('BlindTastingPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/lobby')
   })
 
+  it('shows an error and re-enables Lock Ranking & Finish if saving fails, instead of leaving the button stuck', async () => {
+    mockLockFinalRanking.mockRejectedValueOnce(new Error('permission-denied'))
+    renderPage()
+    await screen.findByText('How would you like me to guide tonight’s tasting?')
+    await userEvent.click(screen.getByRole('button', { name: /I.ve Got This/ }))
+    await screen.findByRole('heading', { name: 'Pour A' })
+    await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await screen.findByRole('heading', { name: 'Pour B' })
+    await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
+    await screen.findByText('Which one would you rather pour another glass of?')
+    await userEvent.click(screen.getByRole('button', { name: 'Pour B' }))
+    await screen.findByText('What gave it the edge?')
+    await userEvent.click(screen.getByRole('button', { name: 'Better Flavor' }))
+    await screen.findByRole('heading', { name: 'Rank Your Pours' })
+    await userEvent.click(screen.getByRole('button', { name: 'Pour B' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Pour A' }))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Lock Ranking & Finish' }))
+
+    expect(await screen.findByText('Could not save your ranking. Check your connection and try again.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Lock Ranking & Finish' })).toBeEnabled()
+    expect(mockNavigate).not.toHaveBeenCalledWith('/blind/room-1/lobby')
+    expect(mockMarkTastingCompleted).not.toHaveBeenCalled()
+  })
+
   it('resumes mid-pour where a returning participant left off, skipping the guidance question', async () => {
     localStorage.setItem('fip:blindGuidance:host-1', 'minimal')
     const now = Date.now()

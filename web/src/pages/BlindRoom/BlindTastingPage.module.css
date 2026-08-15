@@ -65,6 +65,12 @@
   margin: var(--fip-space-4) 0 0;
 }
 
+.error {
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+  margin: var(--fip-space-4) 0 0;
+}
+
 .prompt {
   font-size: var(--fip-text-sm);
   color: var(--fip-cream-soft);

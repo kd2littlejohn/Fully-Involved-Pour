@@ -397,7 +397,10 @@ export async function markTastingCompleted(roomId: string, uid: string): Promise
 // resolves for an already-locked response instead of throwing: an autosave
 // firing just after the user hits "Lock" is a normal race, not an error the
 // UI needs to surface (the security rule blocks the write either way, so no
-// data is ever lost or corrupted — the locked value simply wins).
+// data is ever lost or corrupted — the locked value simply wins). Any OTHER
+// failure (network, quota, a genuine rules bug) is logged rather than
+// swallowed — this function is called fire-and-forget from the UI, so a
+// console log is the only trace a real failure would otherwise leave.
 export async function saveTastingResponse(
   roomId: string,
   uid: string,
@@ -420,10 +423,13 @@ export async function saveTastingResponse(
       { ...patch, pourLabel, status: 'in-progress', updatedAt: Date.now() },
       { merge: true },
     )
-  } catch {
-    // A locked response rejects this write via firestore.rules — treated as
-    // a no-op, not a user-facing error (see comment above).
+  } catch (err) {
+    if (!isPermissionDenied(err)) console.error('saveTastingResponse failed', { roomId, uid, pourLabel, err })
   }
+}
+
+function isPermissionDenied(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && (err as { code?: string }).code === 'permission-denied'
 }
 
 export async function lockTastingResponse(roomId: string, uid: string, pourLabel: string): Promise<void> {
@@ -466,9 +472,8 @@ export async function saveFinalRanking(roomId: string, uid: string, order: strin
       { order, status: 'in-progress', updatedAt: Date.now() },
       { merge: true },
     )
-  } catch {
-    // A locked ranking rejects this write via firestore.rules — see the
-    // matching comment on saveTastingResponse above.
+  } catch (err) {
+    if (!isPermissionDenied(err)) console.error('saveFinalRanking failed', { roomId, uid, err })
   }
 }
 

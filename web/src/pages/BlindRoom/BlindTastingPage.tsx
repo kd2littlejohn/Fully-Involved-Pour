@@ -86,6 +86,7 @@ export function BlindTastingPage() {
   const [comparisonWinner, setComparisonWinner] = useState<string | undefined>(undefined)
   const [guessDraft, setGuessDraft] = useState<GuessDraft>(blankGuessDraft)
   const [locking, setLocking] = useState(false)
+  const [lockError, setLockError] = useState<string | null>(null)
 
   const startedRef = useRef(false)
   const initialPositionRef = useRef(false)
@@ -251,7 +252,7 @@ export function BlindTastingPage() {
       updatedAt: Date.now(),
     }
     setComparisons((prev) => [...prev, comparison])
-    void saveComparison(roomId, user.uid, comparison)
+    saveComparison(roomId, user.uid, comparison).catch((err) => console.error('saveComparison failed', err))
     setPendingPair(undefined)
     setComparisonWinner(undefined)
     goToNextPourOrRanking()
@@ -265,18 +266,25 @@ export function BlindTastingPage() {
   async function handleLockRanking() {
     if (!roomId || !user || locking || rankingOrder.length !== pourLabels.length) return
     setLocking(true)
-    await saveFinalRanking(roomId, user.uid, rankingOrder)
-    for (const label of pourLabels) {
-      const score = scores[label]
-      if (score != null) await saveTastingResponse(roomId, user.uid, label, { fipScore: score })
-      await lockTastingResponse(roomId, user.uid, label)
+    setLockError(null)
+    try {
+      await saveFinalRanking(roomId, user.uid, rankingOrder)
+      for (const label of pourLabels) {
+        const score = scores[label]
+        if (score != null) await saveTastingResponse(roomId, user.uid, label, { fipScore: score })
+        await lockTastingResponse(roomId, user.uid, label)
+      }
+      await lockFinalRanking(roomId, user.uid, rankingOrder)
+      const now = Date.now()
+      setRanking({ order: rankingOrder, status: 'locked', updatedAt: now, lockedAt: now })
+      await markTastingCompleted(roomId, user.uid)
+      navigate(`/blind/${roomId}/lobby`)
+    } catch (err) {
+      console.error('handleLockRanking failed', err)
+      setLockError('Could not save your ranking. Check your connection and try again.')
+    } finally {
+      setLocking(false)
     }
-    await lockFinalRanking(roomId, user.uid, rankingOrder)
-    const now = Date.now()
-    setRanking({ order: rankingOrder, status: 'locked', updatedAt: now, lockedAt: now })
-    await markTastingCompleted(roomId, user.uid)
-    setLocking(false)
-    navigate(`/blind/${roomId}/lobby`)
   }
 
   function handleBack() {
@@ -609,6 +617,12 @@ export function BlindTastingPage() {
                   })}
                 </div>
               </details>
+            ) : null}
+
+            {lockError ? (
+              <p className={styles.error} role="alert">
+                {lockError}
+              </p>
             ) : null}
           </>
         ) : null}
