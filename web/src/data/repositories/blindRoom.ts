@@ -169,6 +169,33 @@ export async function getAllFinalRankings(
   return Object.fromEntries(entries)
 }
 
+export interface BottleBlindHistoryEntry {
+  room: BlindRoom
+  pour: BlindSecretPour
+  myResponse?: BlindTastingResponse
+}
+
+// Every revealed Blind this bottle appeared in for this user, newest
+// first — powers Bottle Details' Blind History. Only ever looks at
+// revealed rooms: blindRoomSecrets is unreadable pre-reveal for a
+// participant anyway (see firestore.rules), and a host peeking at their
+// own unrevealed room here would spoil their own upcoming reveal.
+export async function getBottleBlindHistory(uid: string, bottleId: string): Promise<BottleBlindHistoryEntry[]> {
+  const myRooms = await getMyBlindRooms(uid)
+  const revealed = myRooms.filter(({ room }) => room.state === 'revealed')
+
+  const entries: BottleBlindHistoryEntry[] = []
+  for (const { room } of revealed) {
+    const secrets = await getBlindRoomSecrets(room.id)
+    const pour = secrets?.pours.find((p) => p.bottleId === bottleId)
+    if (!pour) continue
+    const responses = await getTastingResponses(room.id, uid)
+    entries.push({ room, pour, myResponse: responses.find((r) => r.pourLabel === pour.label) })
+  }
+
+  return entries.sort((a, b) => (b.room.revealedAt ?? 0) - (a.room.revealedAt ?? 0))
+}
+
 // --- Writes ----------------------------------------------------------------
 
 // Deliberately sequential, not a single Firestore transaction: the

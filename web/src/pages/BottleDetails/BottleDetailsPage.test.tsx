@@ -21,6 +21,10 @@ vi.mock('../../features/faceoff/repository', () => ({
   getFaceoffTally: vi.fn().mockResolvedValue({ votesForA: 0, votesForB: 0 }),
 }))
 
+vi.mock('../../data/repositories/blindRoom', () => ({
+  getBottleBlindHistory: vi.fn().mockResolvedValue([]),
+}))
+
 function renderPage(bottleId: string) {
   return render(
     <MemoryRouter initialEntries={[`/collection/${bottleId}`]}>

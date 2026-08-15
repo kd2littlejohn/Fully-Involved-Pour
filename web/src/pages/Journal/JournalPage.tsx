@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
+import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { StatTile } from '../../components/ui/StatTile'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { Timeline, type TimelineEvent } from '../../components/domain/Timeline'
 import { PourStoryCard } from '../../components/domain/PourStoryCard'
 import { MemoryCard } from '../../components/domain/MemoryCard'
+import { BlindResultCard } from '../../components/domain/BlindResultCard'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -15,7 +18,8 @@ import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryBu
 import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
 import { PourStoryDetail } from '../../features/pourWizard/PourStoryDetail'
-import type { Pour } from '../../data/types'
+import { getMyBlindRooms } from '../../data/repositories/blindRoom'
+import type { BlindRoom, Pour } from '../../data/types'
 import styles from './JournalPage.module.css'
 
 // Primary sections first (Stories/Timeline/Bottles/People), Memories kept
@@ -38,6 +42,24 @@ export function JournalPage() {
   const { userDoc, loading: dataLoading } = useUserData()
   const [activeTab, setActiveTab] = useState('stories')
   const [selectedTimelinePour, setSelectedTimelinePour] = useState<Pour | null>(null)
+  const [blindRooms, setBlindRooms] = useState<BlindRoom[]>([])
+
+  // Blind Rooms live outside the local userDoc (shared across accounts), so
+  // they need their own fetch — same pattern as BlindRoomLandingPage's own
+  // "my rooms" list.
+  useEffect(() => {
+    if (!user) {
+      setBlindRooms([])
+      return
+    }
+    let cancelled = false
+    getMyBlindRooms(user.uid).then((result) => {
+      if (!cancelled) setBlindRooms(result.map(({ room }) => room))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Journey" title="Your Pour Stories." />
@@ -64,6 +86,8 @@ export function JournalPage() {
   const timelineEvents = getJournalTimeline(bottles, pours)
   const companions = getCompanionStats(pours)
   const journeyBottles = getBottleJourneys(bottles)
+  const revealedBlinds = blindRooms.filter((r) => r.state === 'revealed').sort((a, b) => (b.revealedAt ?? 0) - (a.revealedAt ?? 0))
+  const poursTastedBlind = revealedBlinds.reduce((sum, r) => sum + r.pourCount, 0)
 
   function handleTimelineEventClick(event: TimelineEvent) {
     const pour = pours.find((p) => p.id === event.pourId)
@@ -82,9 +106,23 @@ export function JournalPage() {
         <CreateMemoryButton />
       </div>
 
-      <Link to="/blind" className={styles.blindHistoryLink}>
-        Blind History →
-      </Link>
+      {revealedBlinds.length > 0 ? (
+        <Section title="Blind Stories" viewAllHref="/blind">
+          <div className={styles.blindStatsRow}>
+            <StatTile value={revealedBlinds.length} label={revealedBlinds.length === 1 ? 'Blind Tasted' : 'Blinds Tasted'} />
+            <StatTile value={poursTastedBlind} label={poursTastedBlind === 1 ? 'Pour Tasted Blind' : 'Pours Tasted Blind'} />
+          </div>
+          <div className={styles.storiesGrid}>
+            {revealedBlinds.slice(0, 4).map((room) => (
+              <BlindResultCard key={room.id} room={room} />
+            ))}
+          </div>
+        </Section>
+      ) : (
+        <Link to="/blind" className={styles.blindHistoryLink}>
+          Blind History →
+        </Link>
+      )}
 
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 

@@ -1,12 +1,13 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { JournalPage } from './JournalPage'
-import type { Bottle, Memory, Pour } from '../../data/types'
+import type { Bottle, BlindRoom, Memory, Pour } from '../../data/types'
 
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
+const mockGetMyBlindRooms = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -14,6 +15,10 @@ vi.mock('../../hooks/useAuth', () => ({
 
 vi.mock('../../hooks/useUserData', () => ({
   useUserData: () => mockUseUserData(),
+}))
+
+vi.mock('../../data/repositories/blindRoom', () => ({
+  getMyBlindRooms: (...args: unknown[]) => mockGetMyBlindRooms(...args),
 }))
 
 function renderJournal() {
@@ -61,6 +66,11 @@ const memories: Memory[] = [
 ]
 
 describe('JournalPage', () => {
+  beforeEach(() => {
+    mockGetMyBlindRooms.mockReset()
+    mockGetMyBlindRooms.mockResolvedValue([])
+  })
+
   it('shows a sign-in prompt when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     mockUseUserData.mockReturnValue({
@@ -196,5 +206,79 @@ describe('JournalPage', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Memories' }))
     expect(screen.getByText("Dad's retirement toast")).toBeInTheDocument()
     expect(screen.getByText(/Eagle Rare/)).toBeInTheDocument()
+  })
+
+  it('shows the plain Blind History link when there are no revealed Blinds', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    renderJournal()
+    expect(await screen.findByText('Blind History →')).toBeInTheDocument()
+    expect(screen.queryByText('Blind Stories')).not.toBeInTheDocument()
+  })
+
+  it('shows a Blind Stories section with stats and result cards once there are revealed Blinds', async () => {
+    const revealedRoom: BlindRoom = {
+      id: 'room-1',
+      code: 'OAK742',
+      name: 'Friday Night Blind',
+      hostUid: 'u1',
+      hostUsername: 'kevin',
+      sessionType: 'live',
+      knowledgeMode: 'single',
+      pourCount: 3,
+      state: 'revealed',
+      createdAt: Date.now(),
+      revealedAt: Date.now(),
+      participantCount: 2,
+    }
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: revealedRoom, participant: { uid: 'u1', username: 'kevin', isHost: true, status: 'completed', joinedAt: Date.now() } }])
+
+    renderJournal()
+
+    expect(await screen.findByText('Blind Stories')).toBeInTheDocument()
+    expect(screen.getByText('Friday Night Blind')).toBeInTheDocument()
+    expect(screen.getByText('Blind Tasted').parentElement?.textContent).toBe('1Blind Tasted')
+    expect(screen.getByText('Pours Tasted Blind').parentElement?.textContent).toBe('3Pours Tasted Blind')
+  })
+
+  it('excludes Blind Rooms that have not been revealed yet from the Blind Stories section', async () => {
+    const lobbyRoom: BlindRoom = {
+      id: 'room-2',
+      code: 'RYE221',
+      name: 'Still Tasting',
+      hostUid: 'u1',
+      hostUsername: 'kevin',
+      sessionType: 'live',
+      knowledgeMode: 'double',
+      pourCount: 2,
+      state: 'active',
+      createdAt: Date.now(),
+      participantCount: 2,
+    }
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: lobbyRoom, participant: { uid: 'u1', username: 'kevin', isHost: true, status: 'tasting', joinedAt: Date.now() } }])
+
+    renderJournal()
+
+    expect(await screen.findByText('Blind History →')).toBeInTheDocument()
+    expect(screen.queryByText('Still Tasting')).not.toBeInTheDocument()
   })
 })

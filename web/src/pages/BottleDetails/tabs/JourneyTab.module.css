@@ -8,3 +8,55 @@
   gap: var(--fip-space-3);
   justify-content: center;
 }
+
+.blindHistory {
+  margin-top: var(--fip-space-6);
+}
+
+.blindHistoryTitle {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  margin-bottom: var(--fip-space-3);
+}
+
+.blindHistoryRow {
+  display: block;
+  padding: var(--fip-space-3) var(--fip-space-4);
+  margin-bottom: var(--fip-space-2);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-md);
+  text-decoration: none;
+  color: inherit;
+}
+
+.blindHistoryRowHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+}
+
+.blindHistoryRoomName {
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  color: var(--fip-cream);
+}
+
+.blindHistoryScore {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-amber);
+}
+
+.blindHistoryMeta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  margin-top: var(--fip-space-1);
+}
+
+.blindHistoryReaction {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  margin-top: var(--fip-space-1);
+}

@@ -24,6 +24,13 @@
   gap: var(--fip-space-4);
 }
 
+.blindStatsRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-4);
+}
+
 .storiesGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

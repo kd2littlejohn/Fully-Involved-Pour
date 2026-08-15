@@ -9,6 +9,7 @@ import {
   getBlindRoom,
   getBlindRoomByCode,
   getBlindRoomSecrets,
+  getBottleBlindHistory,
   getFinalRanking,
   getMyBlindRooms,
   getParticipant,
@@ -281,6 +282,44 @@ describe('getAllParticipantResponses / getAllFinalRankings', () => {
     const rankings = await getAllFinalRankings(room.id, ['host-1', 'guest-1'])
     expect(rankings['host-1']?.order).toEqual(['A', 'B', 'C'])
     expect(rankings['guest-1']).toBeUndefined()
+  })
+})
+
+describe('getBottleBlindHistory', () => {
+  it('finds a revealed room whose flight included this bottle, with the matching pour and this user’s own response', async () => {
+    const room = await createBlindRoom(baseInput({ hostUid: 'blind-history-1', hostUsername: 'h1' }))
+    await saveTastingResponse(room.id, 'blind-history-1', 'B', { reaction: 'Love It', fipScore: 9.2 })
+    await revealBlind(room.id)
+
+    const history = await getBottleBlindHistory('blind-history-1', 'b2')
+    expect(history).toHaveLength(1)
+    expect(history[0]?.room.id).toBe(room.id)
+    expect(history[0]?.pour).toMatchObject({ label: 'B', bottleId: 'b2', bottleName: 'Eagle Rare' })
+    expect(history[0]?.myResponse).toMatchObject({ reaction: 'Love It', fipScore: 9.2 })
+  })
+
+  it('excludes rooms that have not been revealed yet, even if the bottle is in the flight', async () => {
+    await createBlindRoom(baseInput({ hostUid: 'blind-history-2', hostUsername: 'h2' }))
+    const history = await getBottleBlindHistory('blind-history-2', 'b1')
+    expect(history).toEqual([])
+  })
+
+  it('excludes rooms whose flight never included this bottle', async () => {
+    const room = await createBlindRoom(baseInput({ hostUid: 'blind-history-3', hostUsername: 'h3' }))
+    await revealBlind(room.id)
+    const history = await getBottleBlindHistory('blind-history-3', 'not-in-this-flight')
+    expect(history).toEqual([])
+  })
+
+  it('sorts multiple revealed entries newest-revealed first', async () => {
+    const roomA = await createBlindRoom(baseInput({ hostUid: 'blind-history-4', hostUsername: 'h4' }))
+    await revealBlind(roomA.id)
+    await new Promise((resolve) => setTimeout(resolve, 2))
+    const roomB = await createBlindRoom(baseInput({ hostUid: 'blind-history-4', hostUsername: 'h4' }))
+    await revealBlind(roomB.id)
+
+    const history = await getBottleBlindHistory('blind-history-4', 'b1')
+    expect(history.map((h) => h.room.id)).toEqual([roomB.id, roomA.id])
   })
 })
 
