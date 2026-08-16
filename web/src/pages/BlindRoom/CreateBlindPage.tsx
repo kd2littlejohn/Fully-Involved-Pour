@@ -4,7 +4,6 @@ import { Button } from '../../components/ui/Button'
 import { ProgressStepper } from '../../components/ui/ProgressStepper'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { createBlindRoom } from '../../data/repositories/blindRoom'
@@ -58,17 +57,35 @@ export function CreateBlindPage() {
 
   const pourableBottles = userDoc.bottles.filter((b) => b.status !== 'wishlist')
   const bottleById = new Map(userDoc.bottles.map((b) => [b.id, b]))
+  // Slot array, index = pour (A, B, C…), value = bottleId or '' while unset.
+  const filledSlotCount = selectedBottleIds.filter(Boolean).length
 
-  function toggleBottle(id: string) {
+  // Every place flightSize can change (the Head-to-Head/Flight cards, the
+  // Number of Pours dropdown) routes through here so shrinking always warns
+  // before silently dropping an already-picked bottle.
+  function updateFlightSize(next: number) {
+    const dropped = selectedBottleIds.slice(next).filter(Boolean).length
+    if (next < flightSize && dropped > 0) {
+      const ok = window.confirm(
+        `Reducing to ${next} pour${next === 1 ? '' : 's'} will remove ${dropped} already-selected bottle${dropped === 1 ? '' : 's'}. Continue?`,
+      )
+      if (!ok) return
+    }
+    setFlightSize(next)
+    setSelectedBottleIds((prev) => prev.slice(0, next))
+  }
+
+  function setBottleForSlot(index: number, bottleId: string) {
     setSelectedBottleIds((prev) => {
-      if (prev.includes(id)) return prev.filter((b) => b !== id)
-      if (prev.length >= flightSize) return prev
-      return [...prev, id]
+      const next = [...prev]
+      while (next.length <= index) next.push('')
+      next[index] = bottleId
+      return next
     })
   }
 
   function canAdvance(): boolean {
-    if (stepKey === 'bottles') return selectedBottleIds.length === flightSize
+    if (stepKey === 'bottles') return filledSlotCount === flightSize
     if (stepKey === 'deadline') return new Date(deadlineValue).getTime() > Date.now()
     return true
   }
@@ -83,12 +100,6 @@ export function CreateBlindPage() {
 
   function handleNext() {
     if (!canAdvance()) return
-    // Selecting a smaller flight size than what's already picked trims the
-    // extra picks so a stale over-selection can't silently outlive the
-    // step where the size was chosen.
-    if (stepKey === 'flight' && selectedBottleIds.length > flightSize) {
-      setSelectedBottleIds((prev) => prev.slice(0, flightSize))
-    }
     setStepIndex((i) => i + 1)
   }
 
@@ -98,7 +109,8 @@ export function CreateBlindPage() {
     setError(null)
     try {
       const hostUsername = userDoc.username || user.displayName || 'Host'
-      const pours: BlindSecretPour[] = selectedBottleIds.map((id, i) => {
+      const bottleIds = selectedBottleIds.slice(0, flightSize)
+      const pours: BlindSecretPour[] = bottleIds.map((id, i) => {
         const bottle = bottleById.get(id)!
         return {
           label: POUR_LABELS[i]!,
@@ -116,7 +128,7 @@ export function CreateBlindPage() {
         sessionType,
         knowledgeMode,
         pourCount: flightSize,
-        knownLineup: knowledgeMode === 'single' ? selectedBottleIds.map((id) => bottleById.get(id)!.name) : undefined,
+        knownLineup: knowledgeMode === 'single' ? bottleIds.map((id) => bottleById.get(id)!.name) : undefined,
         deadline: sessionType === 'challenge' ? new Date(deadlineValue).getTime() : undefined,
         pours,
       })
@@ -173,7 +185,7 @@ export function CreateBlindPage() {
             <button
               type="button"
               className={flightSize === 2 ? `${styles.optionCard} ${styles.optionCardActive}` : styles.optionCard}
-              onClick={() => setFlightSize(2)}
+              onClick={() => updateFlightSize(2)}
             >
               <span className={styles.optionTitle}>Head-to-Head</span>
               <span className={styles.optionDescription}>2 pours, side by side.</span>
@@ -181,28 +193,25 @@ export function CreateBlindPage() {
             <button
               type="button"
               className={flightSize >= 3 ? `${styles.optionCard} ${styles.optionCardActive}` : styles.optionCard}
-              onClick={() => setFlightSize((prev) => (prev >= 3 ? prev : 3))}
+              onClick={() => updateFlightSize(flightSize >= 3 ? flightSize : 3)}
             >
               <span className={styles.optionTitle}>Flight</span>
               <span className={styles.optionDescription}>3–6 pours.</span>
             </button>
-            {flightSize >= 3 ? (
-              <div className={styles.flightSizeRow}>
-                <span className={styles.flightSizeLabel}>Number of pours</span>
-                <div className={styles.flightSizeButtons}>
-                  {[3, 4, 5, 6].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      className={flightSize === n ? `${styles.sizeButton} ${styles.sizeButtonActive}` : styles.sizeButton}
-                      onClick={() => setFlightSize(n)}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+            <Field label="Number of Pours" htmlFor="blind-pour-count">
+              <select
+                id="blind-pour-count"
+                className={controlClassName}
+                value={flightSize}
+                onChange={(e) => updateFlightSize(Number(e.target.value))}
+              >
+                {[2, 3, 4, 5, 6].map((n) => (
+                  <option key={n} value={n}>
+                    {n} Pours
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
         ) : null}
 
@@ -246,32 +255,28 @@ export function CreateBlindPage() {
             <EmptyState title="No bottles to pour yet." message="Add a sealed or opened bottle to your bar first." />
           ) : (
             <div className={styles.bottleList}>
-              <p className={styles.prompt}>
-                Choose {flightSize} bottle{flightSize === 1 ? '' : 's'} ({selectedBottleIds.length}/{flightSize} selected)
-              </p>
-              {pourableBottles.map((bottle) => {
-                const pickedIndex = selectedBottleIds.indexOf(bottle.id)
-                const picked = pickedIndex !== -1
-                return (
-                  <button
-                    key={bottle.id}
-                    type="button"
-                    className={picked ? `${styles.bottleRow} ${styles.bottleRowActive}` : styles.bottleRow}
-                    onClick={() => toggleBottle(bottle.id)}
-                    disabled={!picked && selectedBottleIds.length >= flightSize}
+              <p className={styles.prompt}>Choose a bottle for each pour.</p>
+              {POUR_LABELS.slice(0, flightSize).map((label, index) => (
+                <Field key={label} label={`Pour ${label}`} htmlFor={`blind-bottle-${label}`}>
+                  <select
+                    id={`blind-bottle-${label}`}
+                    className={controlClassName}
+                    value={selectedBottleIds[index] ?? ''}
+                    onChange={(e) => setBottleForSlot(index, e.target.value)}
                   >
-                    <span className={styles.bottleImageWrap}>
-                      {bottle.imageUrl ? (
-                        <img className={styles.bottleImage} src={bottle.imageUrl} alt="" />
-                      ) : (
-                        <BottlePlaceholder name={bottle.name} />
-                      )}
-                    </span>
-                    <span className={styles.bottleName}>{bottle.name}</span>
-                    {picked ? <span className={styles.bottleLetter}>{POUR_LABELS[pickedIndex]}</span> : null}
-                  </button>
-                )
-              })}
+                    <option value="">Select Bottle</option>
+                    {pourableBottles.map((bottle) => (
+                      <option
+                        key={bottle.id}
+                        value={bottle.id}
+                        disabled={selectedBottleIds.includes(bottle.id) && selectedBottleIds[index] !== bottle.id}
+                      >
+                        {bottle.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ))}
             </div>
           )
         ) : null}

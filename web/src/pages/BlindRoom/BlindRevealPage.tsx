@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuth } from '../../hooks/useAuth'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
 import {
+  completeBlind,
   getAllFinalRankings,
   getAllParticipantComparisons,
   getAllParticipantResponses,
@@ -30,6 +31,8 @@ export function BlindRevealPage() {
   const [rankingsByUid, setRankingsByUid] = useState<Record<string, BlindFinalRanking | undefined>>({})
   const [comparisonsByUid, setComparisonsByUid] = useState<Record<string, BlindComparison[]>>({})
   const [dataLoaded, setDataLoaded] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+  const [finishError, setFinishError] = useState<string | null>(null)
   const fetchedRef = useRef(false)
 
   useEffect(() => {
@@ -106,6 +109,28 @@ export function BlindRevealPage() {
           wins: (comparisonsByUid[user.uid] ?? []).filter((c) => c.winnerLabel === favoriteLabel),
         })
       : undefined
+
+  // Only the host can write the room doc (see firestore.rules), so this is
+  // the one real save this action performs — everyone else's own data was
+  // already fully committed back when they locked their ranking, so for
+  // them "finishing" is just navigating home. Either way it's the host's
+  // tap that moves the room out of "Active Blinds" and into "Recent
+  // Blinds" on the landing page (see completeBlind).
+  async function handleFinish() {
+    if (finishing) return
+    setFinishing(true)
+    setFinishError(null)
+    try {
+      if (user && room!.hostUid === user.uid && roomId) {
+        await completeBlind(roomId)
+      }
+      navigate('/blind')
+    } catch {
+      setFinishError('We couldn’t finish saving this blind. Try again.')
+    } finally {
+      setFinishing(false)
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -268,6 +293,18 @@ export function BlindRevealPage() {
             ) : null}
           </div>
         ) : null}
+
+        {finishError ? (
+          <p className={styles.error} role="alert">
+            {finishError}
+          </p>
+        ) : null}
+      </div>
+
+      <div className={styles.actions}>
+        <Button onClick={() => void handleFinish()} disabled={finishing}>
+          {finishing ? 'Saving Blind…' : finishError ? 'Retry Save' : 'Finish Blind'}
+        </Button>
       </div>
     </div>
   )

@@ -52,6 +52,17 @@
   padding: var(--fip-space-6) var(--fip-shell-x) calc(var(--fip-space-6) + env(safe-area-inset-bottom, 0));
 }
 
+.error {
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+  margin-top: var(--fip-space-4);
+}
+
+.actions {
+  padding: var(--fip-space-4) var(--fip-shell-x) calc(var(--fip-space-4) + env(safe-area-inset-bottom, 0));
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
 .pourList {
   display: flex;
   flex-direction: column;

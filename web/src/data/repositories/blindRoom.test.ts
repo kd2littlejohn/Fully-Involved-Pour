@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('../devMode', () => ({ isMockAuthEnabled: () => true }))
 
 import {
+  completeBlind,
   createBlindRoom,
   getAllFinalRankings,
   getAllParticipantComparisons,
@@ -314,6 +315,25 @@ describe('revealBlind', () => {
     const updated = await getBlindRoom(room.id)
     expect(updated?.state).toBe('revealed')
     expect(updated?.revealedAt).toBeDefined()
+  })
+})
+
+describe('completeBlind', () => {
+  it('transitions the room to completed and records completedAt', async () => {
+    const room = await createBlindRoom(baseInput())
+    await revealBlind(room.id)
+    await completeBlind(room.id)
+    const updated = await getBlindRoom(room.id)
+    expect(updated?.state).toBe('completed')
+    expect(updated?.completedAt).toBeDefined()
+  })
+
+  it('is safe to call more than once — same field, no duplicate record', async () => {
+    const room = await createBlindRoom(baseInput())
+    await completeBlind(room.id)
+    await completeBlind(room.id)
+    const updated = await getBlindRoom(room.id)
+    expect(updated?.state).toBe('completed')
   })
 })
 

@@ -229,6 +229,7 @@ export interface BlindRoom {
   createdAt: number
   startedAt?: number
   revealedAt?: number
+  completedAt?: number
   participantCount: number
 }
 

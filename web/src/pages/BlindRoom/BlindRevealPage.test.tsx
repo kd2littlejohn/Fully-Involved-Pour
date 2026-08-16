@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlindRevealPage } from './BlindRevealPage'
@@ -11,6 +12,7 @@ const mockGetBlindRoomSecrets = vi.fn()
 const mockGetAllParticipantResponses = vi.fn()
 const mockGetAllFinalRankings = vi.fn()
 const mockGetAllParticipantComparisons = vi.fn()
+const mockCompleteBlind = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -30,6 +32,7 @@ vi.mock('../../data/repositories/blindRoom', () => ({
   getAllParticipantResponses: (...args: unknown[]) => mockGetAllParticipantResponses(...args),
   getAllFinalRankings: (...args: unknown[]) => mockGetAllFinalRankings(...args),
   getAllParticipantComparisons: (...args: unknown[]) => mockGetAllParticipantComparisons(...args),
+  completeBlind: (...args: unknown[]) => mockCompleteBlind(...args),
 }))
 
 const room: BlindRoom = {
@@ -79,6 +82,7 @@ describe('BlindRevealPage', () => {
       'guest-1': { order: ['B', 'A'], status: 'locked', updatedAt: Date.now() },
     })
     mockGetAllParticipantComparisons.mockResolvedValue({ 'host-1': [], 'guest-1': [] })
+    mockCompleteBlind.mockResolvedValue(undefined)
   })
 
   it('shows each pour’s real bottle identity and every participant’s reaction/score once revealed', async () => {
@@ -190,5 +194,41 @@ describe('BlindRevealPage', () => {
     renderPage()
 
     expect(screen.getByText('We couldn’t find this Blind Room.')).toBeInTheDocument()
+  })
+
+  it('lets the host finish the blind: marks it completed and returns to Blind Room', async () => {
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+    await screen.findByText('Your Ranking')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Finish Blind' }))
+
+    await waitFor(() => expect(mockCompleteBlind).toHaveBeenCalledWith('room-1'))
+    expect(mockNavigate).toHaveBeenCalledWith('/blind')
+  })
+
+  it('lets a non-host participant finish and return to Blind Room without writing the room doc', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'guest-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+    await screen.findByText('Your Ranking')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Finish Blind' }))
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/blind'))
+    expect(mockCompleteBlind).not.toHaveBeenCalled()
+  })
+
+  it('keeps the user on the reveal screen with an error and a Retry Save button if saving fails', async () => {
+    mockCompleteBlind.mockRejectedValue(new Error('offline'))
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+    await screen.findByText('Your Ranking')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Finish Blind' }))
+
+    expect(await screen.findByText('We couldn’t finish saving this blind. Try again.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry Save' })).toBeInTheDocument()
+    expect(mockNavigate).not.toHaveBeenCalledWith('/blind')
   })
 })

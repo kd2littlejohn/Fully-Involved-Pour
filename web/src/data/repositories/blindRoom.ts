@@ -519,3 +519,20 @@ export async function revealBlind(roomId: string): Promise<void> {
   }
   await updateDoc(doc(db, 'blindRooms', roomId), patch)
 }
+
+// The explicit "I'm done with this blind" step, tapped from the reveal
+// screen — moves the room out of the landing page's "Active Blinds" list
+// (which otherwise treats 'revealed' as still-active forever) and into
+// "Recent Blinds". Host-only, same rule as revealBlind above. A plain field
+// update on the existing room doc, so tapping it twice or refreshing after
+// it succeeds is always safe — there's no separate history record that
+// could be duplicated.
+export async function completeBlind(roomId: string): Promise<void> {
+  const patch = { state: 'completed' as const, completedAt: Date.now() }
+  if (isMockAuthEnabled()) {
+    const room = mockRooms.get(roomId)
+    if (room) mockRooms.set(roomId, { ...room, ...patch })
+    return
+  }
+  await updateDoc(doc(db, 'blindRooms', roomId), patch)
+}

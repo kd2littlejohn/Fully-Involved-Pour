@@ -50,12 +50,16 @@ async function goToBottlesStep() {
   await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // name -> bottles
 }
 
+function pickBottle(label: string, bottleName: string) {
+  fireEvent.change(screen.getByLabelText(label), { target: { value: bottles.find((b) => b.name === bottleName)!.id } })
+}
+
 async function goToDeadlineStep() {
   await userEvent.click(screen.getByText('Blind Challenge'))
   await goToBottlesStep()
-  await userEvent.click(screen.getByText('Stagg Jr.'))
-  await userEvent.click(screen.getByText('Eagle Rare'))
-  await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+  pickBottle('Pour A', 'Stagg Jr.')
+  pickBottle('Pour B', 'Eagle Rare')
+  pickBottle('Pour C', 'Elijah Craig Barrel Proof')
   await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // bottles -> deadline
 }
 
@@ -82,9 +86,9 @@ describe('CreateBlindPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> knowledge
     await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> name
     await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> bottles
-    await userEvent.click(screen.getByText('Stagg Jr.'))
-    await userEvent.click(screen.getByText('Eagle Rare'))
-    await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+    pickBottle('Pour A', 'Stagg Jr.')
+    pickBottle('Pour B', 'Eagle Rare')
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
     await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> deadline
 
     expect(screen.getByRole('heading', { name: 'Deadline' })).toBeInTheDocument()
@@ -113,35 +117,110 @@ describe('CreateBlindPage', () => {
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
   })
 
-  it('excludes wishlist bottles from the Add Bottles step and requires exactly the flight size', async () => {
+  it('defaults to a 3-pour flight, showing one Select Bottle slot per pour', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
     renderPage()
     await goToBottlesStep()
 
     expect(screen.queryByText('Pappy 15')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Pour A')).toBeInTheDocument()
+    expect(screen.getByLabelText('Pour B')).toBeInTheDocument()
+    expect(screen.getByLabelText('Pour C')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Pour D')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
 
-    await userEvent.click(screen.getByText('Stagg Jr.'))
-    await userEvent.click(screen.getByText('Eagle Rare'))
+    pickBottle('Pour A', 'Stagg Jr.')
+    pickBottle('Pour B', 'Eagle Rare')
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled()
 
-    await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
   })
 
-  it('assigns pour letters in the order bottles are tapped', async () => {
+  it('assigns pour letters to whichever slot each bottle was picked for', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
     renderPage()
     await goToBottlesStep()
 
-    await userEvent.click(screen.getByText('Eagle Rare'))
-    await userEvent.click(screen.getByText('Stagg Jr.'))
-    await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+    pickBottle('Pour A', 'Eagle Rare')
+    pickBottle('Pour B', 'Stagg Jr.')
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
 
-    const eagleRareRow = screen.getByText('Eagle Rare').closest('button')!
-    const staggRow = screen.getByText('Stagg Jr.').closest('button')!
-    expect(eagleRareRow).toHaveTextContent('A')
-    expect(staggRow).toHaveTextContent('B')
+    expect(screen.getByLabelText('Pour A')).toHaveValue('b2')
+    expect(screen.getByLabelText('Pour B')).toHaveValue('b1')
+  })
+
+  it('changing Number of Pours grows the bottle slots, defaulting to 3 for Flight and 2 for Head-to-Head', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // session -> flight
+
+    fireEvent.change(screen.getByLabelText('Number of Pours'), { target: { value: '4' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> knowledge
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> name
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> bottles
+
+    expect(screen.getByLabelText('Pour D')).toBeInTheDocument()
+  })
+
+  it('defaults Head-to-Head to 2 pours and Flight to 3', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // session -> flight
+
+    await userEvent.click(screen.getByRole('button', { name: /Head-to-Head/ }))
+    expect(screen.getByLabelText('Number of Pours')).toHaveValue('2')
+
+    await userEvent.click(screen.getByRole('button', { name: /^Flight/ }))
+    expect(screen.getByLabelText('Number of Pours')).toHaveValue('3')
+  })
+
+  it('prevents the same bottle from being selected for two different pours', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    renderPage()
+    await goToBottlesStep()
+
+    pickBottle('Pour A', 'Stagg Jr.')
+
+    const pourBSelect = screen.getByLabelText('Pour B') as HTMLSelectElement
+    const staggOptionInB = Array.from(pourBSelect.options).find((o) => o.value === 'b1')!
+    expect(staggOptionInB.disabled).toBe(true)
+  })
+
+  it('confirms before dropping an already-picked bottle when the pour count is reduced', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage()
+    await goToBottlesStep()
+    pickBottle('Pour A', 'Stagg Jr.')
+    pickBottle('Pour B', 'Eagle Rare')
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
+    await userEvent.click(screen.getByRole('button', { name: 'Back' })) // -> name
+    await userEvent.click(screen.getByRole('button', { name: 'Back' })) // -> knowledge
+    await userEvent.click(screen.getByRole('button', { name: 'Back' })) // -> flight
+
+    fireEvent.change(screen.getByLabelText('Number of Pours'), { target: { value: '2' } })
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('remove 1 already-selected bottle'))
+    confirmSpy.mockRestore()
+  })
+
+  it('keeps the pour count unchanged if the shrink confirmation is declined', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderPage()
+    await goToBottlesStep()
+    pickBottle('Pour A', 'Stagg Jr.')
+    pickBottle('Pour B', 'Eagle Rare')
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Back' })) // -> flight
+
+    fireEvent.change(screen.getByLabelText('Number of Pours'), { target: { value: '2' } })
+
+    expect(screen.getByLabelText('Number of Pours')).toHaveValue('3')
+    confirmSpy.mockRestore()
   })
 
   it('creates the room on Review and navigates to its lobby', async () => {
@@ -149,9 +228,9 @@ describe('CreateBlindPage', () => {
     mockCreateBlindRoom.mockResolvedValue({ id: 'room-1', code: 'OAK742' })
     renderPage()
     await goToBottlesStep()
-    await userEvent.click(screen.getByText('Stagg Jr.'))
-    await userEvent.click(screen.getByText('Eagle Rare'))
-    await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+    pickBottle('Pour A', 'Stagg Jr.')
+    pickBottle('Pour B', 'Eagle Rare')
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
     await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> review
 
     expect(screen.getByRole('heading', { name: 'Review' })).toBeInTheDocument()
@@ -181,9 +260,9 @@ describe('CreateBlindPage', () => {
 
     await userEvent.click(screen.getByText('Solo Blind'))
     await goToBottlesStep()
-    await userEvent.click(screen.getByText('Stagg Jr.'))
-    await userEvent.click(screen.getByText('Eagle Rare'))
-    await userEvent.click(screen.getByText('Elijah Craig Barrel Proof'))
+    pickBottle('Pour A', 'Stagg Jr.')
+    pickBottle('Pour B', 'Eagle Rare')
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
     await userEvent.click(screen.getByRole('button', { name: 'Continue' })) // -> review
 
     expect(screen.getByRole('heading', { name: 'Review' })).toBeInTheDocument()
