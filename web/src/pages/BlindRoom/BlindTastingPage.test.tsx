@@ -81,6 +81,16 @@ async function pickGuideMe() {
   await userEvent.click(screen.getByRole('button', { name: /Guide Me/ }))
 }
 
+// The Nose/Palate/Finish/Complexity note screens follow every pour at every
+// guidance level (see flow.ts) — Continue advances past each one even with
+// nothing picked, since the chips are optional.
+async function skipNoteSteps() {
+  await screen.findByText('Any specific nose notes to capture?')
+  for (let i = 0; i < 4; i++) {
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  }
+}
+
 describe('BlindTastingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -163,8 +173,32 @@ describe('BlindTastingPage', () => {
       finishLength: 'medium',
     })
 
+    await skipNoteSteps()
+
     // Only one pour answered so far — no comparison yet, straight to Pour B.
     expect(await screen.findByRole('heading', { name: 'Pour B' })).toBeInTheDocument()
+  })
+
+  it('lets a taster tap Nose chips and add freeform notes, saving them when they continue', async () => {
+    renderPage()
+    await pickGuideMe()
+    await userEvent.click(screen.getByRole('button', { name: 'Sweet' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Caramel' }))
+    await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sweetness' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Hangs Around' }))
+
+    expect(await screen.findByText('Any specific nose notes to capture?')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Vanilla' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Oak' }))
+    await userEvent.type(screen.getByLabelText('Nose notes (optional)'), 'Big vanilla up front')
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+    expect(mockSaveTastingResponse).toHaveBeenCalledWith('room-1', 'host-1', 'A', {
+      noseTags: ['Vanilla', 'Oak'],
+      noseNotes: 'Big vanilla up front',
+    })
+    expect(await screen.findByText('What flavors come through on the palate?')).toBeInTheDocument()
   })
 
   it('skips the nose second-level question for a broad flavor with no detail list', async () => {
@@ -174,7 +208,7 @@ describe('BlindTastingPage', () => {
     expect(await screen.findByText('Take a sip. What’s your first reaction?')).toBeInTheDocument()
   })
 
-  it('asks only the reaction for I’ve Got This (minimal guidance)', async () => {
+  it('asks only the reaction (plus note screens) for I’ve Got This (minimal guidance)', async () => {
     renderPage()
     await screen.findByText('How would you like me to guide tonight’s tasting?')
     await userEvent.click(screen.getByRole('button', { name: /I.ve Got This/ }))
@@ -183,7 +217,9 @@ describe('BlindTastingPage', () => {
     expect(screen.getByText('Take a sip. What’s your first reaction?')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
 
-    // Straight to Pour B — no nose/liked/finish questions at all.
+    // No nose/liked/finish quiz questions — but every level still gets the
+    // optional note screens, skippable via Continue.
+    await skipNoteSteps()
     expect(await screen.findByRole('heading', { name: 'Pour B' })).toBeInTheDocument()
   })
 
@@ -193,8 +229,10 @@ describe('BlindTastingPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /I.ve Got This/ }))
     await screen.findByRole('heading', { name: 'Pour A' })
     await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await skipNoteSteps()
     await screen.findByRole('heading', { name: 'Pour B' })
     await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
+    await skipNoteSteps()
 
     expect(await screen.findByText('Which one would you rather pour another glass of?')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Pour B' }))
@@ -218,8 +256,10 @@ describe('BlindTastingPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /I.ve Got This/ }))
     await screen.findByRole('heading', { name: 'Pour A' })
     await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await skipNoteSteps()
     await screen.findByRole('heading', { name: 'Pour B' })
     await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
+    await skipNoteSteps()
     await screen.findByText('Which one would you rather pour another glass of?')
     await userEvent.click(screen.getByRole('button', { name: 'Pour B' }))
     await screen.findByText('What gave it the edge?')
@@ -250,8 +290,10 @@ describe('BlindTastingPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /I.ve Got This/ }))
     await screen.findByRole('heading', { name: 'Pour A' })
     await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await skipNoteSteps()
     await screen.findByRole('heading', { name: 'Pour B' })
     await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
+    await skipNoteSteps()
     await screen.findByText('Which one would you rather pour another glass of?')
     await userEvent.click(screen.getByRole('button', { name: 'Pour B' }))
     await screen.findByText('What gave it the edge?')
@@ -268,23 +310,25 @@ describe('BlindTastingPage', () => {
     expect(mockMarkTastingCompleted).not.toHaveBeenCalled()
   })
 
-  it('resumes mid-pour where a returning participant left off, skipping the guidance question', async () => {
+  it('resumes on the first unfinished note screen for a returning participant, skipping the guidance question', async () => {
     localStorage.setItem('fip:blindGuidance:host-1', 'minimal')
     const now = Date.now()
     mockGetTastingResponses.mockResolvedValue([
       { pourLabel: 'A', reaction: 'Love It', fipScore: 9.3, status: 'in-progress', updatedAt: now } as BlindTastingResponse,
     ])
     renderPage()
-    expect(await screen.findByRole('heading', { name: 'Pour B' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Pour A' })).toBeInTheDocument()
     expect(screen.queryByText('How would you like me to guide tonight’s tasting?')).not.toBeInTheDocument()
+    expect(await screen.findByText('Any specific nose notes to capture?')).toBeInTheDocument()
   })
 
   it('jumps straight to ranking if every pour and comparison was already answered', async () => {
     localStorage.setItem('fip:blindGuidance:host-1', 'minimal')
     const now = Date.now()
+    const notesPatch = { noseTags: ['Vanilla'], palateTags: ['Caramel'], finishTags: ['Oak'], complexityTags: ['Balanced'] }
     mockGetTastingResponses.mockResolvedValue([
-      { pourLabel: 'A', reaction: 'Love It', fipScore: 9.3, status: 'in-progress', updatedAt: now } as BlindTastingResponse,
-      { pourLabel: 'B', reaction: 'Enjoying It', fipScore: 8.3, status: 'in-progress', updatedAt: now } as BlindTastingResponse,
+      { pourLabel: 'A', reaction: 'Love It', fipScore: 9.3, status: 'in-progress', updatedAt: now, ...notesPatch } as BlindTastingResponse,
+      { pourLabel: 'B', reaction: 'Enjoying It', fipScore: 8.3, status: 'in-progress', updatedAt: now, ...notesPatch } as BlindTastingResponse,
     ])
     mockGetComparisons.mockResolvedValue([
       { id: 'A-B', pairLabels: ['A', 'B'], winnerLabel: 'B', reason: 'better-flavor', updatedAt: now },

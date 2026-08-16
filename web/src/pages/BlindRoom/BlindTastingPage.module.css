@@ -219,6 +219,13 @@
   text-align: right;
 }
 
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-bottom: var(--fip-space-4);
+}
+
 .guesses {
   margin: var(--fip-space-4) 0;
 }

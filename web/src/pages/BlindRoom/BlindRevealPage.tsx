@@ -16,6 +16,14 @@ import { generateTastingSummary } from '../../features/blindSommelier/summary'
 import type { BlindComparison, BlindFinalRanking, BlindRoomSecrets, BlindTastingResponse } from '../../data/types'
 import styles from './BlindRevealPage.module.css'
 
+// Combines a dimension's tapped chips with its freeform elaboration into one
+// display line, e.g. "Vanilla, Caramel — really lingers on the back end."
+function dimensionNote(tags: string[] | undefined, notes: string | undefined): string | undefined {
+  const tagPart = tags && tags.length > 0 ? tags.join(', ') : undefined
+  const parts = [tagPart, notes?.trim() || undefined].filter(Boolean)
+  return parts.length > 0 ? parts.join(' — ') : undefined
+}
+
 // Everything on this page only ever resolves once room.state === 'revealed'
 // — firestore.rules rejects blindRoomSecrets/responses/ranking reads for a
 // non-host participant before then, so a stray fetch attempt just fails
@@ -174,7 +182,12 @@ export function BlindRevealPage() {
                       response.typeGuess,
                       response.distilleryGuess,
                     ].filter(Boolean)
-                    const notes = [response.noseNotes, response.palateNotes, response.finishNotes].filter(Boolean)
+                    const notes = [
+                      dimensionNote(response.noseTags, response.noseNotes),
+                      dimensionNote(response.palateTags, response.palateNotes),
+                      dimensionNote(response.finishTags, response.finishNotes),
+                      dimensionNote(response.complexityTags, response.complexityNotes),
+                    ].filter(Boolean)
                     return (
                       <div className={styles.participantResult} key={p.uid}>
                         <div className={styles.participantResultHeader}>

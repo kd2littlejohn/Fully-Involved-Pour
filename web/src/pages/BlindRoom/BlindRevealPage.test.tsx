@@ -97,6 +97,28 @@ describe('BlindRevealPage', () => {
     expect(screen.getByText('Just Okay')).toBeInTheDocument()
   })
 
+  it('combines each dimension’s tapped chips with its freeform notes into one line', async () => {
+    mockGetAllParticipantResponses.mockResolvedValue({
+      'host-1': [
+        {
+          pourLabel: 'A',
+          reaction: 'Love It',
+          fipScore: 9.3,
+          noseTags: ['Vanilla', 'Oak'],
+          noseNotes: 'Big vanilla up front',
+          complexityTags: ['Balanced'],
+          status: 'locked',
+          updatedAt: Date.now(),
+        },
+      ],
+      'guest-1': [],
+    })
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect(await screen.findByText('Vanilla, Oak — Big vanilla up front · Balanced')).toBeInTheDocument()
+  })
+
   it('shows each participant’s final ranking translated to real bottle names', async () => {
     mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
     renderPage()

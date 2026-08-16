@@ -53,6 +53,15 @@ export function finishLengthFor(label: string): BlindFinishLength | undefined {
   return FINISH_IMPRESSIONS.find((f) => f.label === label)?.length
 }
 
+// Chip vocab for the optional Finish/Complexity note-taking screens — same
+// tap-to-select pattern as Pour Story's Nose/Palate steps (see
+// features/fip/scoring.ts NOSE_AROMAS/PALATE_FLAVORS, reused directly for
+// those two dimensions here). Pour Story itself has no chip vocab for
+// Finish/Complexity, so these are new.
+export const FINISH_FLAVORS = ['Oak', 'Vanilla', 'Caramel', 'Spice', 'Pepper', 'Char', 'Smoke', 'Dry', 'Sweet', 'Other']
+
+export const COMPLEXITY_DESCRIPTORS = ['Layered', 'Evolving', 'Balanced', 'Bold', 'Simple', 'One-Note', 'Well-Rounded', 'Other']
+
 // Baseline options for the Extra Challenge "Type" guess — shown even for a
 // taster whose own collection doesn't cover the style being poured.
 export const WHISKEY_TYPE_SUGGESTIONS = [

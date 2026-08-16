@@ -275,6 +275,11 @@ export interface BlindTastingResponse {
   noseNotes?: string
   palateNotes?: string
   finishNotes?: string
+  complexityNotes?: string
+  noseTags?: string[]
+  palateTags?: string[]
+  finishTags?: string[]
+  complexityTags?: string[]
   noseBroad?: string
   noseDetail?: string
   likedCharacteristic?: string

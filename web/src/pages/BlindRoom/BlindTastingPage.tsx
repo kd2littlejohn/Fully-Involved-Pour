@@ -5,6 +5,7 @@ import { Field, controlClassName } from '../../components/ui/Field'
 import { ProgressStepper } from '../../components/ui/ProgressStepper'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { SignInButton } from '../../components/domain/SignInButton'
+import { TapChip } from '../../components/ui/TapChip'
 import { useAuth } from '../../hooks/useAuth'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
 import { useBottles } from '../../hooks/useUserData'
@@ -22,19 +23,48 @@ import {
 } from '../../data/repositories/blindRoom'
 import { readBlindGuidanceLevel, writeBlindGuidanceLevel } from '../../data/blindGuidance'
 import { QUICK_POUR_REACTIONS } from '../../features/quickPour/reactions'
+import { NOSE_AROMAS, PALATE_FLAVORS } from '../../features/fip/scoring'
 import {
   GUIDANCE_OPTIONS,
   LIKED_CHARACTERISTICS,
   NOSE_BROAD_FLAVORS,
   NOSE_DETAILS,
   FINISH_IMPRESSIONS,
+  FINISH_FLAVORS,
+  COMPLEXITY_DESCRIPTORS,
   WHISKEY_TYPE_SUGGESTIONS,
   finishLengthFor,
 } from '../../features/blindSommelier/vocabulary'
 import { COMPARISON_REASONS } from '../../features/blindSommelier/comparisonReasons'
-import { activeSubStepsFor, isSubStepAnswered, promptFor } from '../../features/blindSommelier/flow'
+import { activeSubStepsFor, isSubStepAnswered, promptFor, type SubStep } from '../../features/blindSommelier/flow'
 import type { BlindComparison, BlindComparisonReason, BlindFinalRanking, BlindGuidanceLevel, BlindTastingResponse } from '../../data/types'
 import styles from './BlindTastingPage.module.css'
+
+// Config for the four tap-to-select note screens (Nose/Palate/Finish/
+// Complexity) — same chip-vocab + freeform-notes shape as Pour Story's own
+// per-dimension steps (see features/pourWizard/steps). A plain function
+// (not a Record) so an unrelated SubStep just falls through to undefined.
+interface NoteStepConfig {
+  label: string
+  vocab: readonly string[]
+  tagsKey: 'noseTags' | 'palateTags' | 'finishTags' | 'complexityTags'
+  notesKey: 'noseNotes' | 'palateNotes' | 'finishNotes' | 'complexityNotes'
+}
+
+function noteStepConfig(step: SubStep | undefined): NoteStepConfig | undefined {
+  switch (step) {
+    case 'nose-notes':
+      return { label: 'Nose', vocab: NOSE_AROMAS, tagsKey: 'noseTags', notesKey: 'noseNotes' }
+    case 'palate-notes':
+      return { label: 'Palate', vocab: PALATE_FLAVORS, tagsKey: 'palateTags', notesKey: 'palateNotes' }
+    case 'finish-notes':
+      return { label: 'Finish', vocab: FINISH_FLAVORS, tagsKey: 'finishTags', notesKey: 'finishNotes' }
+    case 'complexity-notes':
+      return { label: 'Complexity', vocab: COMPLEXITY_DESCRIPTORS, tagsKey: 'complexityTags', notesKey: 'complexityNotes' }
+    default:
+      return undefined
+  }
+}
 
 // Pour labels are generated client-side from pourCount alone — never fetched
 // from blindRoomSecrets, which a non-host participant can't read anyway
@@ -99,12 +129,15 @@ export function BlindTastingPage() {
   const [pendingPair, setPendingPair] = useState<[string, string] | undefined>(undefined)
   const [comparisonWinner, setComparisonWinner] = useState<string | undefined>(undefined)
   const [guessDraft, setGuessDraft] = useState<GuessDraft>(blankGuessDraft)
+  const [tagsDraft, setTagsDraft] = useState<string[]>([])
+  const [notesDraft, setNotesDraft] = useState('')
   const [locking, setLocking] = useState(false)
   const [lockError, setLockError] = useState<string | null>(null)
 
   const startedRef = useRef(false)
   const initialPositionRef = useRef(false)
   const guessSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notesSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const me = user ? participants.find((p) => p.uid === user.uid) : undefined
   const pourLabels = POUR_LABELS.slice(0, room?.pourCount ?? 0)
@@ -113,6 +146,7 @@ export function BlindTastingPage() {
   const rankingLocked = ranking?.status === 'locked'
   const activeSubSteps = activeSubStepsFor(guidanceLevel, currentResponse?.noseBroad)
   const currentSubStep = activeSubSteps[subStepIndex]
+  const currentNoteConfig = noteStepConfig(currentSubStep)
 
   // Suggestions for the Extra Challenge guess fields draw on the taster's own
   // collection first (they've likely tasted these before) and fall back to a
@@ -216,6 +250,31 @@ export function BlindTastingPage() {
     }
   }, [guessDraft, roomId, user, currentLabel, phase, dataLoaded])
 
+  // Nose/Palate/Finish/Complexity chip + notes draft, reset whenever the
+  // current note screen changes (new pour, or stepping onto a different
+  // dimension) and loaded from whatever was already saved for it.
+  useEffect(() => {
+    if (!currentNoteConfig) return
+    const response = currentLabel ? responses[currentLabel] : undefined
+    setTagsDraft(response?.[currentNoteConfig.tagsKey] ?? [])
+    setNotesDraft(response?.[currentNoteConfig.notesKey] ?? '')
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLabel, currentSubStep])
+
+  useEffect(() => {
+    if (!roomId || !user || !currentLabel || !currentNoteConfig || phase !== 'pour' || !dataLoaded) return
+    if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current)
+    notesSaveTimer.current = setTimeout(() => {
+      void saveTastingResponse(roomId, user.uid, currentLabel, {
+        [currentNoteConfig.tagsKey]: tagsDraft,
+        [currentNoteConfig.notesKey]: notesDraft,
+      })
+    }, AUTOSAVE_DELAY_MS)
+    return () => {
+      if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current)
+    }
+  }, [tagsDraft, notesDraft, roomId, user, currentLabel, currentNoteConfig, phase, dataLoaded])
+
   function pickGuidanceLevel(level: BlindGuidanceLevel) {
     setGuidanceLevel(level)
     if (user) writeBlindGuidanceLevel(user.uid, level)
@@ -224,13 +283,7 @@ export function BlindTastingPage() {
     setPhase('pour')
   }
 
-  function answerCurrentPour(patch: Partial<Omit<BlindTastingResponse, 'pourLabel' | 'status' | 'lockedAt'>>) {
-    if (!roomId || !user || !currentLabel) return
-    const now = Date.now()
-    const updated: BlindTastingResponse = { ...currentResponse, ...patch, pourLabel: currentLabel, status: 'in-progress', updatedAt: now }
-    setResponses((prev) => ({ ...prev, [currentLabel]: updated }))
-    void saveTastingResponse(roomId, user.uid, currentLabel, patch)
-
+  function advanceAfterAnswer(updated: BlindTastingResponse) {
     const steps = activeSubStepsFor(guidanceLevel, updated.noseBroad)
     const nextIndex = subStepIndex + 1
     if (nextIndex < steps.length) {
@@ -238,6 +291,34 @@ export function BlindTastingPage() {
       return
     }
     finishCurrentPour()
+  }
+
+  function answerCurrentPour(patch: Partial<Omit<BlindTastingResponse, 'pourLabel' | 'status' | 'lockedAt'>>) {
+    if (!roomId || !user || !currentLabel) return
+    const now = Date.now()
+    const updated: BlindTastingResponse = { ...currentResponse, ...patch, pourLabel: currentLabel, status: 'in-progress', updatedAt: now }
+    setResponses((prev) => ({ ...prev, [currentLabel]: updated }))
+    void saveTastingResponse(roomId, user.uid, currentLabel, patch)
+    advanceAfterAnswer(updated)
+  }
+
+  function toggleTag(tag: string) {
+    setTagsDraft((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
+
+  // Chip selections are multi-select, so unlike the single-tap questions
+  // above they need an explicit Continue rather than advancing on the first
+  // tap — this flushes whatever's picked (possibly nothing; the screen is
+  // optional) immediately rather than waiting on the autosave debounce.
+  function advanceNoteStep() {
+    if (!roomId || !user || !currentLabel || !currentNoteConfig) return
+    if (notesSaveTimer.current) clearTimeout(notesSaveTimer.current)
+    const patch = { [currentNoteConfig.tagsKey]: tagsDraft, [currentNoteConfig.notesKey]: notesDraft }
+    const now = Date.now()
+    const updated: BlindTastingResponse = { ...currentResponse, ...patch, pourLabel: currentLabel, status: 'in-progress', updatedAt: now }
+    setResponses((prev) => ({ ...prev, [currentLabel]: updated }))
+    void saveTastingResponse(roomId, user.uid, currentLabel, patch)
+    advanceAfterAnswer(updated)
   }
 
   function finishCurrentPour() {
@@ -511,6 +592,26 @@ export function BlindTastingPage() {
               </div>
             ) : null}
 
+            {currentNoteConfig ? (
+              <>
+                <div className={styles.chipRow}>
+                  {currentNoteConfig.vocab.map((tag) => (
+                    <TapChip key={tag} label={tag} active={tagsDraft.includes(tag)} onToggle={() => toggleTag(tag)} />
+                  ))}
+                </div>
+                <Field label={`${currentNoteConfig.label} notes (optional)`} htmlFor="taste-note-text">
+                  <textarea
+                    id="taste-note-text"
+                    className={controlClassName}
+                    rows={3}
+                    value={notesDraft}
+                    onChange={(e) => setNotesDraft(e.target.value)}
+                    placeholder="Add anything else you noticed…"
+                  />
+                </Field>
+              </>
+            ) : null}
+
             {subStepIndex === 0 ? (
               <details className={styles.guesses}>
                 <summary className={styles.guessesSummary}>Extra Challenge — guess the bottle (optional)</summary>
@@ -674,6 +775,7 @@ export function BlindTastingPage() {
         <Button variant="ghost" onClick={handleBack} disabled={!canGoBack || locking}>
           Back
         </Button>
+        {phase === 'pour' && currentNoteConfig ? <Button onClick={advanceNoteStep}>Continue</Button> : null}
         {phase === 'ranking' ? (
           rankingLocked ? (
             <Button onClick={() => navigate(`/blind/${roomId}/lobby`)}>Back to Lobby</Button>
