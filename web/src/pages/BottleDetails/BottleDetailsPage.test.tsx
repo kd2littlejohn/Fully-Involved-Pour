@@ -288,10 +288,10 @@ describe('BottleDetailsPage', () => {
     expect(screen.getByText('Pouring Eagle Rare')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Quick Pour/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Pour Story/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Comparison/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Compare/ })).toBeInTheDocument()
   })
 
-  it('initializes the Compare tab from location.state.initialTab (Comparison routing target)', () => {
+  it('initializes the Compare tab from location.state.initialTab (Compare routing target)', () => {
     mockSignedInWith([eagleRare, wellerSpecial], [pour])
     render(
       <MemoryRouter initialEntries={[{ pathname: '/collection/b1', state: { initialTab: 'compare' } }]}>

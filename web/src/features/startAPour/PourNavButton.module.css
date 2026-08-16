@@ -1,0 +1,68 @@
+/* Mobile bottom nav: a raised circular badge, the one obviously-tappable
+   shape in an otherwise flat row of text links — distinct without being an
+   oversized FAB. */
+.bottomButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--fip-space-1);
+  min-height: 56px;
+  min-width: 44px;
+  padding: 0 0 var(--fip-space-1);
+  border: none;
+  background: transparent;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bottomIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-top: -20px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-amber);
+  border: 3px solid var(--fip-charcoal);
+  box-shadow: var(--fip-shadow-soft);
+  font-size: 22px;
+  line-height: 1;
+  transition: background-color var(--fip-motion) var(--fip-ease);
+}
+
+.bottomButton:hover .bottomIcon,
+.bottomButton:active .bottomIcon {
+  background: #e19a28;
+}
+
+/* Desktop header: an amber pill among the plain text nav links — still the
+   most obvious action, matched to TopNav's existing link sizing/spacing. */
+.topButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  background: var(--fip-amber);
+  color: var(--fip-black);
+  font-size: var(--fip-text-sm);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  padding: var(--fip-space-2) var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--fip-motion) var(--fip-ease);
+}
+
+.topButton:hover {
+  background: #e19a28;
+}
+
+.topIcon {
+  font-size: 1rem;
+}

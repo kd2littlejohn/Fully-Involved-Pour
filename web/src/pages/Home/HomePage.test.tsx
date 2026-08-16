@@ -127,6 +127,22 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', { name: 'Start a Pour' })).toBeInTheDocument()
   })
 
+  it('offers a clear Discover Something New entry point linking to /discover', () => {
+    const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: [bottle], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+    })
+
+    renderHome()
+
+    const discoverLink = screen.getByRole('link', { name: 'Discover Something New' })
+    expect(discoverLink).toHaveAttribute('href', expect.stringContaining('/discover'))
+  })
+
   it('does not offer a standalone Roll the Dice action anymore', () => {
     const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
 

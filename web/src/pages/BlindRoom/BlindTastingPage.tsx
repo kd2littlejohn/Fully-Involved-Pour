@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { Field, controlClassName } from '../../components/ui/Field'
@@ -7,6 +7,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
+import { useBottles } from '../../hooks/useUserData'
 import {
   getComparisons,
   getFinalRanking,
@@ -21,7 +22,15 @@ import {
 } from '../../data/repositories/blindRoom'
 import { readBlindGuidanceLevel, writeBlindGuidanceLevel } from '../../data/blindGuidance'
 import { QUICK_POUR_REACTIONS } from '../../features/quickPour/reactions'
-import { GUIDANCE_OPTIONS, LIKED_CHARACTERISTICS, NOSE_BROAD_FLAVORS, NOSE_DETAILS, FINISH_IMPRESSIONS, finishLengthFor } from '../../features/blindSommelier/vocabulary'
+import {
+  GUIDANCE_OPTIONS,
+  LIKED_CHARACTERISTICS,
+  NOSE_BROAD_FLAVORS,
+  NOSE_DETAILS,
+  FINISH_IMPRESSIONS,
+  WHISKEY_TYPE_SUGGESTIONS,
+  finishLengthFor,
+} from '../../features/blindSommelier/vocabulary'
 import { COMPARISON_REASONS } from '../../features/blindSommelier/comparisonReasons'
 import { activeSubStepsFor, isSubStepAnswered, promptFor } from '../../features/blindSommelier/flow'
 import type { BlindComparison, BlindComparisonReason, BlindFinalRanking, BlindGuidanceLevel, BlindTastingResponse } from '../../data/types'
@@ -65,11 +74,16 @@ function guessDraftToPatch(draft: GuessDraft) {
   }
 }
 
+function sortedUnique(values: (string | undefined)[]): string[] {
+  return [...new Set(values.filter((v): v is string => Boolean(v?.trim())))].sort((a, b) => a.localeCompare(b))
+}
+
 export function BlindTastingPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const { room, participants, loading } = useBlindRoom(roomId)
+  const myBottles = useBottles()
 
   const [guidanceLevel, setGuidanceLevel] = useState<BlindGuidanceLevel>('guide')
   const [responses, setResponses] = useState<Record<string, BlindTastingResponse>>({})
@@ -99,6 +113,16 @@ export function BlindTastingPage() {
   const rankingLocked = ranking?.status === 'locked'
   const activeSubSteps = activeSubStepsFor(guidanceLevel, currentResponse?.noseBroad)
   const currentSubStep = activeSubSteps[subStepIndex]
+
+  // Suggestions for the Extra Challenge guess fields draw on the taster's own
+  // collection first (they've likely tasted these before) and fall back to a
+  // baseline style list for "Type," since a taster's shelf rarely spans every
+  // category they might be pouring blind.
+  const distilleryGuessOptions = useMemo(() => sortedUnique(myBottles.map((b) => b.distillery)), [myBottles])
+  const typeGuessOptions = useMemo(
+    () => sortedUnique([...myBottles.map((b) => b.type), ...WHISKEY_TYPE_SUGGESTIONS]),
+    [myBottles],
+  )
 
   useEffect(() => {
     if (user) setGuidanceLevel(readBlindGuidanceLevel(user.uid))
@@ -520,6 +544,8 @@ export function BlindTastingPage() {
                       value={guessDraft.typeGuess}
                       onChange={(e) => setGuessDraft((prev) => ({ ...prev, typeGuess: e.target.value }))}
                       placeholder="e.g. Bourbon"
+                      list="taste-type-options"
+                      autoComplete="off"
                     />
                   </Field>
                   <Field label="Distillery" htmlFor="taste-distillery">
@@ -530,9 +556,25 @@ export function BlindTastingPage() {
                       value={guessDraft.distilleryGuess}
                       onChange={(e) => setGuessDraft((prev) => ({ ...prev, distilleryGuess: e.target.value }))}
                       placeholder="e.g. Buffalo Trace"
+                      list="taste-distillery-options"
+                      autoComplete="off"
                     />
                   </Field>
                 </div>
+                <datalist id="taste-type-options">
+                  {typeGuessOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </datalist>
+                <datalist id="taste-distillery-options">
+                  {distilleryGuessOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </datalist>
               </details>
             ) : null}
           </>

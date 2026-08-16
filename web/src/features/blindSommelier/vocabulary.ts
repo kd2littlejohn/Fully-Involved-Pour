@@ -52,3 +52,19 @@ export const FINISH_IMPRESSIONS: FinishImpressionOption[] = [
 export function finishLengthFor(label: string): BlindFinishLength | undefined {
   return FINISH_IMPRESSIONS.find((f) => f.label === label)?.length
 }
+
+// Baseline options for the Extra Challenge "Type" guess — shown even for a
+// taster whose own collection doesn't cover the style being poured.
+export const WHISKEY_TYPE_SUGGESTIONS = [
+  'Bourbon',
+  'Wheated Bourbon',
+  'High-Rye Bourbon',
+  'Rye',
+  'Tennessee Whiskey',
+  'Single Malt Scotch',
+  'Blended Scotch',
+  'Irish Whiskey',
+  'Japanese Whisky',
+  'Canadian Whisky',
+  'Corn Whiskey',
+] as const

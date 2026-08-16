@@ -105,12 +105,12 @@ describe('StartAPourButton', () => {
     expect(screen.getByText('Create Blind Page')).toBeInTheDocument()
   })
 
-  it('routes to the Compare tab on the bottle details route when Comparison is chosen', async () => {
+  it('routes to the Compare tab on the bottle details route when Compare is chosen', async () => {
     mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
     renderWithRoute(<StartAPourButton bottleId="b1" label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
-    await userEvent.click(screen.getByRole('button', { name: /Comparison/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Compare/ }))
 
     expect(screen.getByText('Bottle Details Page')).toBeInTheDocument()
   })

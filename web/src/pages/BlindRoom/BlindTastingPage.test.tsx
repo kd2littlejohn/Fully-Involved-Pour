@@ -3,11 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlindTastingPage } from './BlindTastingPage'
-import type { BlindParticipant, BlindRoom, BlindTastingResponse } from '../../data/types'
+import type { Bottle, BlindParticipant, BlindRoom, BlindTastingResponse } from '../../data/types'
 
 const mockUseAuth = vi.fn()
 const mockNavigate = vi.fn()
 const mockUseBlindRoom = vi.fn()
+const mockUseBottles = vi.fn()
 const mockGetTastingResponses = vi.fn()
 const mockSaveTastingResponse = vi.fn()
 const mockLockTastingResponse = vi.fn()
@@ -25,6 +26,10 @@ vi.mock('../../hooks/useAuth', () => ({
 
 vi.mock('../../hooks/useBlindRoom', () => ({
   useBlindRoom: (...args: unknown[]) => mockUseBlindRoom(...args),
+}))
+
+vi.mock('../../hooks/useUserData', () => ({
+  useBottles: () => mockUseBottles(),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -92,6 +97,7 @@ describe('BlindTastingPage', () => {
     mockGetComparisons.mockResolvedValue([])
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockUseBlindRoom.mockReturnValue({ room, participants: [me], loading: false, refresh: vi.fn() })
+    mockUseBottles.mockReturnValue([])
   })
 
   it('asks how to guide the tasting before anything else, defaulting new users to Guide Me', async () => {
@@ -99,6 +105,31 @@ describe('BlindTastingPage', () => {
     expect(await screen.findByText('How would you like me to guide tonight’s tasting?')).toBeInTheDocument()
     const guideMeButton = screen.getByRole('button', { name: /Guide Me/ })
     expect(guideMeButton.className).toMatch(/choiceCardActive/)
+  })
+
+  it('suggests distilleries and types from the taster’s own collection on the Extra Challenge guess fields', async () => {
+    const myBottles: Bottle[] = [
+      { id: 'b1', name: 'Eagle Rare 10', status: 'sealed', distillery: 'Buffalo Trace', type: 'Bourbon' },
+      { id: 'b2', name: 'Redbreast 12', status: 'sealed', distillery: 'Midleton', type: 'Irish Whiskey' },
+      { id: 'b3', name: 'Duplicate Distillery Bottle', status: 'sealed', distillery: 'Buffalo Trace', type: 'Bourbon' },
+    ]
+    mockUseBottles.mockReturnValue(myBottles)
+
+    renderPage()
+    await pickGuideMe()
+    await screen.findByText('Extra Challenge — guess the bottle (optional)')
+
+    const distilleryInput = screen.getByLabelText('Distillery')
+    expect(distilleryInput).toHaveAttribute('list', 'taste-distillery-options')
+    const distilleryOptions = document.querySelectorAll('#taste-distillery-options option')
+    expect([...distilleryOptions].map((o) => o.getAttribute('value'))).toEqual(['Buffalo Trace', 'Midleton'])
+
+    const typeInput = screen.getByLabelText('Type')
+    expect(typeInput).toHaveAttribute('list', 'taste-type-options')
+    const typeOptions = [...document.querySelectorAll('#taste-type-options option')].map((o) => o.getAttribute('value'))
+    expect(typeOptions).toContain('Bourbon')
+    expect(typeOptions).toContain('Irish Whiskey')
+    expect(typeOptions).toContain('Rye')
   })
 
   it('marks tasting started for a participant landing here for the first time', async () => {
