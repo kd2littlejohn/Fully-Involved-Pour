@@ -70,19 +70,12 @@ service cloud.firestore {
       // participant themselves — not even the host may edit someone else's
       // participant record.
       //
-      // getMyBlindRooms (web/src/data/repositories/blindRoom.ts) reads this
-      // via a collection-group query filtered by `where('uid', '==', ...)`
-      // on the DOCUMENT DATA. Real Cloud Firestore only allows a list/query
-      // request when it can prove the rule holds using nothing but the
-      // query's own `where` clause — it cannot infer that this doc's ID
-      // equals its `uid` field just because every write path here happens
-      // to set them equal, so the self-access check below must be phrased
-      // against `resource.data.uid` (the field the query actually filters
-      // on), not the `{uid}` path wildcard, or the whole query is denied.
-      // The local rules-unit-testing emulator does NOT enforce this
-      // provability restriction as strictly as production, so a passing
-      // emulator test here is not proof this works in prod — this exact
-      // gap once shipped a permission-denied that emulator tests missed.
+      // This rule's OR'd get()/exists() lookups are fine for a `get` and
+      // for the plain, single-path roster listing (no `where` filter) that
+      // useBlindRoom.ts does — but NOT for getMyBlindRooms' collection-group
+      // query across every room's participants filtered by uid (see the
+      // separate `{path=**}/participants` rule below, which is what
+      // actually governs that query).
       match /participants/{uid} {
         allow read: if request.auth != null
                      && (resource.data.uid == request.auth.uid
@@ -138,6 +131,26 @@ service cloud.firestore {
           allow delete: if false;
         }
       }
+    }
+
+    // getMyBlindRooms (web/src/data/repositories/blindRoom.ts) — which
+    // backs the Blind Room landing page's Active/Recent lists, Journey's
+    // Blind Stories section, and Bottle Details' Blind History — runs a
+    // collection-group query over every room's `participants` subcollection
+    // filtered by `where('uid', '==', callerUid)`. Real Cloud Firestore only
+    // allows a collection-group list request when it can prove the rule
+    // holds using nothing but the query's own `where` clause; it will NOT
+    // do that proof if the rule includes any get()/exists() cross-document
+    // lookup, even as just one branch of an `||` that would otherwise be
+    // sufficient on its own — so this has to be a separate, deliberately
+    // simple rule kept apart from the richer get()/exists()-based one on
+    // `blindRooms/{roomId}/participants/{uid}` above (which stays in
+    // charge of `get` and the plain, single-room roster `list`). The local
+    // rules-unit-testing emulator does not enforce this restriction, so a
+    // passing emulator test is not proof a collection-group query like
+    // this one works in production — it silently didn't, for a long time.
+    match /{path=**}/participants/{uid} {
+      allow list: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
     // Short human-friendly room code -> roomId index, used by the Join
