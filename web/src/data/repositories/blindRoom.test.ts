@@ -5,6 +5,7 @@ vi.mock('../devMode', () => ({ isMockAuthEnabled: () => true }))
 import {
   completeBlind,
   createBlindRoom,
+  deleteBlindRoom,
   getAllFinalRankings,
   getAllParticipantComparisons,
   getAllParticipantResponses,
@@ -334,6 +335,39 @@ describe('completeBlind', () => {
     await completeBlind(room.id)
     const updated = await getBlindRoom(room.id)
     expect(updated?.state).toBe('completed')
+  })
+})
+
+describe('deleteBlindRoom', () => {
+  it('removes the room, its code, and every participant’s data', async () => {
+    const room = await createBlindRoom(baseInput())
+    await joinBlindRoomByCode(room.code, 'guest-1', 'marcus')
+    await saveTastingResponse(room.id, 'host-1', 'A', { reaction: 'Love It' })
+    await saveComparison(room.id, 'host-1', {
+      id: 'A-B',
+      pairLabels: ['A', 'B'],
+      winnerLabel: 'A',
+      reason: 'less-heat',
+      updatedAt: Date.now(),
+    })
+    await lockFinalRanking(room.id, 'host-1', ['A', 'B', 'C'])
+
+    await deleteBlindRoom(room.id)
+
+    expect(await getBlindRoom(room.id)).toBeUndefined()
+    expect(await getBlindRoomByCode(room.code)).toBeUndefined()
+    expect(await getParticipants(room.id)).toEqual([])
+    expect(await getBlindRoomSecrets(room.id)).toBeUndefined()
+    expect(await getTastingResponses(room.id, 'host-1')).toEqual([])
+    expect(await getComparisons(room.id, 'host-1')).toEqual([])
+    expect(await getFinalRanking(room.id, 'host-1')).toBeUndefined()
+  })
+
+  it('no longer shows up in getMyBlindRooms for the host', async () => {
+    const room = await createBlindRoom(baseInput())
+    await deleteBlindRoom(room.id)
+    const rooms = await getMyBlindRooms('host-1')
+    expect(rooms.find((r) => r.room.id === room.id)).toBeUndefined()
   })
 })
 

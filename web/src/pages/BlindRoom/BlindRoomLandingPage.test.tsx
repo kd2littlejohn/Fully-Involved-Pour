@@ -7,6 +7,7 @@ import type { BlindParticipant, BlindRoom } from '../../data/types'
 
 const mockUseAuth = vi.fn()
 const mockGetMyBlindRooms = vi.fn()
+const mockDeleteBlindRoom = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -14,6 +15,7 @@ vi.mock('../../hooks/useAuth', () => ({
 
 vi.mock('../../data/repositories/blindRoom', () => ({
   getMyBlindRooms: (...args: unknown[]) => mockGetMyBlindRooms(...args),
+  deleteBlindRoom: (...args: unknown[]) => mockDeleteBlindRoom(...args),
 }))
 
 function renderPage() {
@@ -46,6 +48,8 @@ const participant: BlindParticipant = { uid: 'host-1', username: 'kevin', isHost
 describe('BlindRoomLandingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
+    mockDeleteBlindRoom.mockResolvedValue(undefined)
   })
 
   it('prompts sign-in when signed out', () => {
@@ -110,5 +114,58 @@ describe('BlindRoomLandingPage', () => {
     renderPage()
 
     expect(await screen.findByText(/failed-precondition: The query requires an index\./)).toBeInTheDocument()
+  })
+
+  it('lets the host permanently delete a blind after confirming', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ name: 'Friday Night Blind' }), participant }])
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage()
+    await screen.findByText('Friday Night Blind')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Friday Night Blind' }))
+
+    expect(window.confirm).toHaveBeenCalled()
+    await waitFor(() => expect(mockDeleteBlindRoom).toHaveBeenCalledWith('room-1'))
+    expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument()
+  })
+
+  it('does not delete the blind if the host cancels the confirmation', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ name: 'Friday Night Blind' }), participant }])
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderPage()
+    await screen.findByText('Friday Night Blind')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Friday Night Blind' }))
+
+    expect(mockDeleteBlindRoom).not.toHaveBeenCalled()
+    expect(screen.getByText('Friday Night Blind')).toBeInTheDocument()
+  })
+
+  it('lets a non-host participant remove a blind from just their own list, without deleting it', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'guest-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([
+      { room: room({ name: 'Friday Night Blind', hostUid: 'host-1' }), participant },
+    ])
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage()
+    await screen.findByText('Friday Night Blind')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Friday Night Blind from my list' }))
+
+    expect(mockDeleteBlindRoom).not.toHaveBeenCalled()
+    expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('fip:hiddenBlindRooms:guest-1') ?? '[]')).toEqual(['room-1'])
+  })
+
+  it('keeps a hidden blind hidden across a re-render for the same user', async () => {
+    localStorage.setItem('fip:hiddenBlindRooms:host-1', JSON.stringify(['room-1']))
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ name: 'Friday Night Blind' }), participant }])
+    renderPage()
+
+    await screen.findByText('No active Blind Rooms.')
+    expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument()
   })
 })

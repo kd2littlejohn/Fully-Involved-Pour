@@ -62,7 +62,10 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null && request.resource.data.hostUid == request.auth.uid;
       allow update: if request.auth != null && resource.data.hostUid == request.auth.uid;
-      allow delete: if false;
+      // Host-only, any state — deleteBlindRoom (blindRoom.ts) tears down
+      // every participant's own subcollections first, in the same batch,
+      // so by the time this doc itself is deleted nothing is left orphaned.
+      allow delete: if request.auth != null && resource.data.hostUid == request.auth.uid;
 
       // Each participant's own doc. Readable by the host and by any other
       // participant already in the room (the lobby roster needs to show
@@ -85,7 +88,12 @@ service cloud.firestore {
                        && request.auth.uid == uid
                        && request.resource.data.uid == request.auth.uid;
         allow update: if request.auth != null && request.auth.uid == uid;
-        allow delete: if false;
+        // Host-only — part of the same deleteBlindRoom teardown as the room
+        // doc itself; a participant can never delete their own record (they
+        // can only "remove it from my list" client-side, see
+        // web/src/data/hiddenBlindRooms.ts, which never touches Firestore).
+        allow delete: if request.auth != null
+                       && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
 
         // A participant's private per-pour tasting notes (reaction, nose/
         // palate/finish, guesses, FIP score). Self-only before reveal — not
@@ -102,7 +110,8 @@ service cloud.firestore {
                            || (isBlindRevealed(roomId) && isBlindParticipant(roomId, request.auth.uid)));
           allow create: if request.auth != null && request.auth.uid == uid;
           allow update: if request.auth != null && request.auth.uid == uid && resource.data.status != 'locked';
-          allow delete: if false;
+          allow delete: if request.auth != null
+                         && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
         }
 
         // A participant's private final ranking of the pours — same access
@@ -114,7 +123,8 @@ service cloud.firestore {
                            || (isBlindRevealed(roomId) && isBlindParticipant(roomId, request.auth.uid)));
           allow create: if request.auth != null && request.auth.uid == uid;
           allow update: if request.auth != null && request.auth.uid == uid && resource.data.status != 'locked';
-          allow delete: if false;
+          allow delete: if request.auth != null
+                         && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
         }
 
         // A participant's private mid-tasting head-to-head calls ("which
@@ -128,7 +138,8 @@ service cloud.firestore {
                            || (isBlindRevealed(roomId) && isBlindParticipant(roomId, request.auth.uid)));
           allow create: if request.auth != null && request.auth.uid == uid;
           allow update: if request.auth != null && request.auth.uid == uid;
-          allow delete: if false;
+          allow delete: if request.auth != null
+                         && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
         }
       }
     }
@@ -163,7 +174,12 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null
                      && get(/databases/$(database)/documents/blindRooms/$(request.resource.data.roomId)).data.hostUid == request.auth.uid;
-      allow update, delete: if false;
+      allow update: if false;
+      // Part of deleteBlindRoom's teardown — same host-only check, but
+      // reads `resource.data.roomId` (this doc's own data) since deletes
+      // have no `request.resource`.
+      allow delete: if request.auth != null
+                     && get(/databases/$(database)/documents/blindRooms/$(resource.data.roomId)).data.hostUid == request.auth.uid;
     }
 
     // The hidden bottle mapping — the actual security boundary for Blind

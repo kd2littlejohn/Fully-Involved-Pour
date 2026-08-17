@@ -9,6 +9,7 @@ import {
 } from '@firebase/rules-unit-testing'
 import {
   collectionGroup,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -121,6 +122,24 @@ describe('blindRooms/{roomId}', () => {
     await seedRoom()
     const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
     await assertFails(updateDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID), { hostUid: PARTICIPANT_UID }))
+  })
+
+  it('the host can delete the room', async () => {
+    await seedRoom()
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertSucceeds(deleteDoc(doc(host.firestore(), 'blindRooms', ROOM_ID)))
+  })
+
+  it('a participant cannot delete the room', async () => {
+    await seedRoom()
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(deleteDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID)))
+  })
+
+  it('a stranger cannot delete the room', async () => {
+    await seedRoom()
+    const stranger = testEnv.authenticatedContext(OUTSIDER_UID)
+    await assertFails(deleteDoc(doc(stranger.firestore(), 'blindRooms', ROOM_ID)))
   })
 })
 
@@ -272,6 +291,36 @@ describe('blindRooms/{roomId}/participants/{uid}', () => {
     const snapshot = await assertSucceeds(getDocs(myRooms))
     expect(snapshot.docs).toHaveLength(1)
     expect(snapshot.docs[0]?.id).toBe(PARTICIPANT_UID)
+  })
+
+  it('the host can delete a participant record (part of deleteBlindRoom)', async () => {
+    await seedRoom()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'joined',
+        joinedAt: Date.now(),
+      })
+    })
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertSucceeds(deleteDoc(doc(host.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID)))
+  })
+
+  it('a participant cannot delete their own record — only the host can', async () => {
+    await seedRoom()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'joined',
+        joinedAt: Date.now(),
+      })
+    })
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(deleteDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID)))
   })
 })
 
@@ -563,6 +612,24 @@ describe('blindRoomCodes/{code}', () => {
     })
     const anon = testEnv.unauthenticatedContext()
     await assertSucceeds(getDoc(doc(anon.firestore(), 'blindRoomCodes', 'OAK742')))
+  })
+
+  it('the host of the referenced room can delete the code (part of deleteBlindRoom)', async () => {
+    await seedRoom()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRoomCodes', 'OAK742'), { roomId: ROOM_ID, createdAt: Date.now() })
+    })
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertSucceeds(deleteDoc(doc(host.firestore(), 'blindRoomCodes', 'OAK742')))
+  })
+
+  it('a non-host cannot delete a code pointing at someone else’s room', async () => {
+    await seedRoom()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRoomCodes', 'OAK742'), { roomId: ROOM_ID, createdAt: Date.now() })
+    })
+    const stranger = testEnv.authenticatedContext(OUTSIDER_UID)
+    await assertFails(deleteDoc(doc(stranger.firestore(), 'blindRoomCodes', 'OAK742')))
   })
 })
 

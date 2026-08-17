@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, collectionGroup, query, setDoc, updateDoc, where } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, collectionGroup, query, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
 import type {
@@ -535,4 +535,41 @@ export async function completeBlind(roomId: string): Promise<void> {
     return
   }
   await updateDoc(doc(db, 'blindRooms', roomId), patch)
+}
+
+// Host-only, permanent, for every participant — everything about this room
+// (secrets, code mapping, and every participant's own responses/ranking/
+// comparisons, not just the host's) is gone, so this only ever runs for
+// the room's host (see firestore.rules; the same host-only checks govern
+// every doc this touches). One atomic batch — either the whole room is
+// gone or none of it is, never a half-deleted room left visible in a list.
+export async function deleteBlindRoom(roomId: string): Promise<void> {
+  if (isMockAuthEnabled()) {
+    const room = mockRooms.get(roomId)
+    mockRooms.delete(roomId)
+    mockParticipants.delete(roomId)
+    mockSecrets.delete(roomId)
+    if (room?.code) mockCodes.delete(room.code)
+    for (const key of [...mockResponses.keys()]) if (key.startsWith(`${roomId}:`)) mockResponses.delete(key)
+    for (const key of [...mockRankings.keys()]) if (key.startsWith(`${roomId}:`)) mockRankings.delete(key)
+    for (const key of [...mockComparisons.keys()]) if (key.startsWith(`${roomId}:`)) mockComparisons.delete(key)
+    return
+  }
+
+  const [room, participants] = await Promise.all([getBlindRoom(roomId), getParticipants(roomId)])
+  const batch = writeBatch(db)
+
+  for (const participant of participants) {
+    const responsesSnap = await getDocs(collection(db, 'blindRooms', roomId, 'participants', participant.uid, 'responses'))
+    for (const d of responsesSnap.docs) batch.delete(d.ref)
+    const comparisonsSnap = await getDocs(collection(db, 'blindRooms', roomId, 'participants', participant.uid, 'comparisons'))
+    for (const d of comparisonsSnap.docs) batch.delete(d.ref)
+    batch.delete(doc(db, 'blindRooms', roomId, 'participants', participant.uid, 'ranking', 'final'))
+    batch.delete(doc(db, 'blindRooms', roomId, 'participants', participant.uid))
+  }
+  batch.delete(doc(db, 'blindRoomSecrets', roomId))
+  if (room?.code) batch.delete(doc(db, 'blindRoomCodes', room.code))
+  batch.delete(doc(db, 'blindRooms', roomId))
+
+  await batch.commit()
 }

@@ -46,3 +46,36 @@
   color: var(--fip-muted);
   font-size: var(--fip-text-sm);
 }
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  flex-shrink: 0;
+}
+
+.removeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--fip-radius-round);
+  background: transparent;
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-md);
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.removeButton:hover {
+  color: var(--fip-error);
+  border-color: var(--fip-error);
+}
+
+.removeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
