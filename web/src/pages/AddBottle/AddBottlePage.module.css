@@ -110,3 +110,28 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.loadingState {
+  text-align: center;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-md);
+  padding: var(--fip-space-8) var(--fip-shell-x) 0;
+}
+
+.reviewSecondaryRow {
+  display: flex;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-3);
+}
+
+.reviewSecondaryRow > * {
+  flex: 1;
+}
+
+.notFoundActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  width: 100%;
+}
+

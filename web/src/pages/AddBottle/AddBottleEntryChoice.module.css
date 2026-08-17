@@ -1,0 +1,47 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-6) var(--fip-shell-x) 0;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-4);
+  min-height: 72px;
+  padding: var(--fip-space-4);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card:hover {
+  border-color: var(--fip-amber);
+}
+
+.icon {
+  font-size: 1.75rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+}
+
+.description {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}

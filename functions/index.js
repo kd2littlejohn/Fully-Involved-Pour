@@ -1,7 +1,11 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+const upcLookupApiKey = defineSecret("UPC_LOOKUP_API_KEY");
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
 async function callClaude(apiKey, { system, prompt, maxTokens, content, messages }) {
@@ -293,3 +297,140 @@ exports.removeBottleBackground = onCall(
     }
   },
 );
+
+const UPC_PATTERN = /^\d{6,14}$/;
+const TYPE_KEYWORDS = [
+  ["Bourbon", ["bourbon"]],
+  ["Rye", ["rye"]],
+  ["Tennessee Whiskey", ["tennessee whiskey"]],
+  ["Scotch", ["scotch", "single malt"]],
+  ["Irish", ["irish"]],
+  ["Japanese Whisky", ["japanese whisky", "japanese whiskey"]],
+  ["Tequila", ["tequila"]],
+  ["Rum", ["rum"]],
+  ["Other Spirit", ["whisky", "whiskey"]],
+];
+
+function inferSpiritType(text) {
+  const lower = text.toLowerCase();
+  for (const [type, keywords] of TYPE_KEYWORDS) {
+    if (keywords.some((kw) => lower.includes(kw))) return type;
+  }
+  return "";
+}
+
+function inferProof(text) {
+  const match = text.match(/(\d{2,3}(?:\.\d)?)\s*proof/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function inferAgeStatement(text) {
+  const match = text.match(/(\d{1,2})\s*[- ]?year/i);
+  return match ? `${match[1]} Year` : "";
+}
+
+// The one place any client-supplied UPC gets read back out — every caller
+// below runs this first so a malformed/garbage barcode value never reaches
+// Firestore doc IDs or an outbound HTTP request.
+function assertValidUpc(rawUpc) {
+  const upc = String(rawUpc || "").trim();
+  if (!UPC_PATTERN.test(upc)) {
+    throw new HttpsError("invalid-argument", "That doesn't look like a valid barcode.");
+  }
+  return upc;
+}
+
+// Client-side abstraction is web/src/data/repositories/barcode.ts's
+// lookupBottleByBarcode — this is only ever reached after the client's own
+// direct (public-read) check of bottleCatalog/{upc} already missed, so this
+// does not re-check the catalog itself; it only ever calls the external
+// provider. Keeps the external API key (UPCitemdb's paid-tier user_key)
+// entirely server-side, per the "never expose lookup secrets client-side"
+// requirement.
+exports.lookupBottleByBarcode = onCall({ secrets: [upcLookupApiKey], cors: true, timeoutSeconds: 20 }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to scan a barcode.");
+  }
+
+  const upc = assertValidUpc(request.data?.upc);
+  const apiKey = upcLookupApiKey.value();
+
+  // No key configured yet (e.g. local dev before the secret is provisioned)
+  // falls back to UPCitemdb's unauthenticated trial endpoint, which is
+  // rate-limited but requires no account — lets this function work out of
+  // the box before UPC_LOOKUP_API_KEY is set, per the same "keep the app
+  // usable while a secret is being provisioned" spirit as the AI functions.
+  const url = apiKey
+    ? `https://api.upcitemdb.com/prod/v1/lookup?upc=${encodeURIComponent(upc)}`
+    : `https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(upc)}`;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: apiKey
+        ? { Accept: "application/json", user_key: apiKey, key_type: "3scale" }
+        : { Accept: "application/json" },
+      signal: AbortSignal.timeout(12000),
+    });
+  } catch (error) {
+    console.error("UPC lookup request failed", error);
+    throw new HttpsError("unavailable", "The barcode lookup service is unreachable right now.");
+  }
+
+  if (!response.ok) {
+    console.error("UPC lookup non-OK response", response.status, await response.text().catch(() => ""));
+    if (response.status === 404) return { found: false, upc };
+    throw new HttpsError("internal", "The barcode lookup service returned an error.");
+  }
+
+  const data = await response.json().catch(() => null);
+  const item = data?.items?.[0];
+  if (!item || !item.title) {
+    return { found: false, upc };
+  }
+
+  const combinedText = `${item.title} ${item.category || ""}`;
+  return {
+    found: true,
+    upc,
+    name: String(item.title || "").trim(),
+    distillery: String(item.brand || "").trim(),
+    type: inferSpiritType(combinedText),
+    proof: inferProof(combinedText),
+    ageStatement: inferAgeStatement(combinedText),
+    imageUrl: Array.isArray(item.images) && item.images.length > 0 ? String(item.images[0]) : "",
+  };
+});
+
+// The other half of the abstraction — called once a human has actually
+// confirmed a UPC really does map to this bottle (tapping "Add to My Bar"
+// on the review screen, or finishing the form manually after an unknown-UPC
+// scan). Never called automatically from lookupBottleByBarcode itself, so
+// an unverified external-lookup result can never pollute the shared
+// catalog on its own — see AddBottlePage.tsx.
+exports.saveBottleToCatalog = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to contribute to the bottle catalog.");
+  }
+
+  const upc = assertValidUpc(request.data?.upc);
+  const bottle = request.data?.bottle || {};
+  const name = String(bottle.name || "").trim();
+  if (!name) {
+    throw new HttpsError("invalid-argument", "A bottle name is required.");
+  }
+
+  const entry = {
+    upc,
+    name,
+    distillery: bottle.distillery ? String(bottle.distillery).trim() : admin.firestore.FieldValue.delete(),
+    type: bottle.type ? String(bottle.type).trim() : admin.firestore.FieldValue.delete(),
+    proof: typeof bottle.proof === "number" && bottle.proof > 0 ? bottle.proof : admin.firestore.FieldValue.delete(),
+    ageStatement: bottle.ageStatement ? String(bottle.ageStatement).trim() : admin.firestore.FieldValue.delete(),
+    imageUrl: bottle.imageUrl ? String(bottle.imageUrl).trim() : admin.firestore.FieldValue.delete(),
+    updatedAt: Date.now(),
+  };
+
+  await admin.firestore().collection("bottleCatalog").doc(upc).set(entry, { merge: true });
+  return { saved: true };
+});
