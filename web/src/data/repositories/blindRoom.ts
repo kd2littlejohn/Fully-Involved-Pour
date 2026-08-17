@@ -199,14 +199,19 @@ export interface BottleBlindHistoryEntry {
   myResponse?: BlindTastingResponse
 }
 
-// Every revealed Blind this bottle appeared in for this user, newest
-// first — powers Bottle Details' Blind History. Only ever looks at
-// revealed rooms: blindRoomSecrets is unreadable pre-reveal for a
-// participant anyway (see firestore.rules), and a host peeking at their
-// own unrevealed room here would spoil their own upcoming reveal.
+// Every revealed (or since-finished) Blind this bottle appeared in for this
+// user, newest first — powers Bottle Details' Blind History. 'completed'
+// counts alongside 'revealed': it's just the state Finish Blind moves a
+// room to afterward (see completeBlind below and isBlindRevealed in
+// firestore.rules), not an un-reveal — excluding it would make a bottle's
+// blind history silently vanish the moment its host wraps up the blind.
+// Never looks at rooms still in an earlier state: blindRoomSecrets is
+// unreadable pre-reveal for a participant anyway (see firestore.rules), and
+// a host peeking at their own unrevealed room here would spoil their own
+// upcoming reveal.
 export async function getBottleBlindHistory(uid: string, bottleId: string): Promise<BottleBlindHistoryEntry[]> {
   const myRooms = await getMyBlindRooms(uid)
-  const revealed = myRooms.filter(({ room }) => room.state === 'revealed')
+  const revealed = myRooms.filter(({ room }) => room.state === 'revealed' || room.state === 'completed')
 
   const entries: BottleBlindHistoryEntry[] = []
   for (const { room } of revealed) {

@@ -110,6 +110,27 @@ export function collectionFlavorRadarValues(bottles: Bottle[], pours: Pour[]): n
   return radarFromAccumulator(accumulate(bottles, pours))
 }
 
+export interface DominantFlavorAxis {
+  axis: FlavorAxis
+  percent: number
+}
+
+// The single axis with the most evidence behind it, as a share of every
+// tag mention counted (structured chips + free-text matches together) —
+// e.g. { axis: 'Woody', percent: 72 } when Woody tags account for 72% of
+// everything tagged across the given bottles/pours. Used by Home's Your
+// Palate Lately card, which wants one honest headline number rather than
+// the full five-axis radar.
+export function dominantFlavorAxis(bottles: Bottle[], pours: Pour[]): DominantFlavorAxis | undefined {
+  const acc = accumulate(bottles, pours)
+  if (acc.total === 0) return undefined
+  const [axis, count] = (Object.entries(acc.counts) as [FlavorAxis, number][]).reduce((best, cur) =>
+    cur[1] > best[1] ? cur : best,
+  )
+  if (count === 0) return undefined
+  return { axis, percent: Math.round((count / acc.total) * 100) }
+}
+
 export interface FlavorTagRank {
   tag: string
   structuredCount: number

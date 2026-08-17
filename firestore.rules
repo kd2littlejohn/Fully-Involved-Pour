@@ -8,8 +8,16 @@ service cloud.firestore {
     // atomic write with no multi-document race window, which is what makes
     // gating reads on it safe without a Cloud Function (see blindRoomSecrets
     // and the responses/ranking subcollections further down).
+    //
+    // 'completed' counts too — it's the state Finish Blind moves a room to
+    // *from* 'revealed' (see blindRoom.ts completeBlind), purely to file it
+    // under Recent Blinds instead of Active; it never un-reveals anything a
+    // participant already saw. Without this, every blind a host finishes
+    // would silently cut off every other participant's read access to it —
+    // found while building Home's Last Blind card, which needs to resolve
+    // the winning bottle for whichever participant is looking, not just host.
     function isBlindRevealed(roomId) {
-      return get(/databases/$(database)/documents/blindRooms/$(roomId)).data.state == 'revealed';
+      return get(/databases/$(database)/documents/blindRooms/$(roomId)).data.state in ['revealed', 'completed'];
     }
 
     function isBlindParticipant(roomId, uid) {

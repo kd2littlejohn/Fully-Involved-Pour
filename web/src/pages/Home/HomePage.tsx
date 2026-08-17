@@ -3,29 +3,35 @@ import { PageHeader } from '../../components/layout/PageHeader'
 import { Section, SectionRow } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
-import { BottleCard } from '../../components/domain/BottleCard'
-import { PourStoryCard } from '../../components/domain/PourStoryCard'
+import { SecondaryActionCard } from '../../components/ui/SecondaryActionCard'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { StartAPourButton } from '../../features/startAPour/StartAPourButton'
 import { WhatShouldIPourButton } from '../../features/whatShouldIPour/WhatShouldIPourButton'
 import { ContinueYourPourStoryCard } from '../../features/home/ContinueYourPourStoryCard'
+import { MaybeTonightCard } from '../../features/home/MaybeTonightCard'
+import { LastBlindCard } from '../../features/home/LastBlindCard'
+import { PalateInsightCard, PalateInsightEmptyCard } from '../../features/home/PalateInsightCard'
+import { useLastBlindSummary } from '../../features/home/useLastBlindSummary'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import {
-  getFeaturedOpenBottle,
-  getIncomingBottles,
-  getMaybeTonightBottles,
-  getRecentBottles,
-  getRecentPours,
-  greetingForHour,
-} from '../../features/home/selectors'
-import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
-import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
+import { getFeaturedOpenBottle, getMaybeTonightCandidates, getPalateInsight, greetingForHour } from '../../features/home/selectors'
 import styles from './HomePage.module.css'
+
+const BOTTLE_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M9.5 1h5v4.75c0 .7.3 1.35.85 1.8 1.4 1.2 2.15 2.95 2.15 4.8V27a3 3 0 0 1-3 3h-5a3 3 0 0 1-3-3V12.35c0-1.85.75-3.6 2.15-4.8.55-.45.85-1.1.85-1.8V1Z"
+      stroke="currentColor"
+      strokeWidth="1.6"
+    />
+    <path d="M8.5 1h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+)
 
 export function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading } = useUserData()
+  const { summary: lastBlind } = useLastBlindSummary(user?.uid)
 
   const greeting = greetingForHour(new Date().getHours())
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
@@ -49,11 +55,8 @@ export function HomePage() {
 
   const { bottles, pours } = userDoc
   const featuredBottle = getFeaturedOpenBottle(bottles)
-  const maybeTonightBottles = getMaybeTonightBottles(bottles, pours)
-  const incomingBottles = getIncomingBottles(bottles)
-  const recentBottles = getRecentBottles(bottles)
-  const recentPours = getRecentPours(pours)
-  const bottleById = new Map(bottles.map((b) => [b.id, b]))
+  const maybeTonight = getMaybeTonightCandidates(bottles, pours)
+  const palateInsight = getPalateInsight(bottles, pours)
 
   return (
     <>
@@ -81,78 +84,35 @@ export function HomePage() {
 
           <div className={styles.actions}>
             <WhatShouldIPourButton />
-            <Link to="/bottles/new">
-              <Button variant="secondary">Add a Bottle</Button>
-            </Link>
+            <SecondaryActionCard icon={BOTTLE_ICON} title="Add a Bottle" subtitle="Grow your collection" to="/bottles/new" />
           </div>
 
           {featuredBottle ? (
-            <Section title="Continue Your Pour Story">
+            <Section title="Continue Your Pour Story" viewAllHref="/collection">
               <ContinueYourPourStoryCard bottle={featuredBottle} pours={pours} />
             </Section>
           ) : null}
 
-          {maybeTonightBottles.length > 0 ? (
+          {maybeTonight.length > 0 ? (
             <Section title="Maybe Tonight" viewAllHref="/collection">
               <SectionRow>
-                {maybeTonightBottles.map((bottle) => (
-                  <BottleCard key={bottle.id} bottle={bottle} />
+                {maybeTonight.map((candidate) => (
+                  <MaybeTonightCard key={candidate.bottle.id} candidate={candidate} />
                 ))}
               </SectionRow>
             </Section>
           ) : null}
 
-          {incomingBottles.length > 0 ? (
-            <Section title="Coming Soon" viewAllHref="/collection">
-              <SectionRow>
-                {incomingBottles.map((bottle) => (
-                  <BottleCard key={bottle.id} bottle={bottle} />
-                ))}
-              </SectionRow>
-            </Section>
-          ) : null}
-
-          <Section title="Recently Added" viewAllHref="/collection">
-            <SectionRow>
-              {recentBottles.map((bottle) => (
-                <BottleCard key={bottle.id} bottle={bottle} />
-              ))}
-            </SectionRow>
-          </Section>
-
-          <Section title="Recent Pour Stories" viewAllHref="/journal">
-            {recentPours.length === 0 ? (
-              <EmptyState
-                title="Your first Pour Story starts here."
-                message="Open a bottle, capture the pour, and begin your whiskey journey."
-                action={
-                  <div className={styles.emptyActions}>
-                    <QuickPourButton />
-                    <StartPourStoryButton variant="secondary" />
-                  </div>
-                }
-              />
-            ) : (
-              <SectionRow>
-                {recentPours.map((pour) => {
-                  const bottle = bottleById.get(pour.bottleId)
-                  return bottle ? <PourStoryCard key={pour.id} pour={pour} bottle={bottle} /> : null
-                })}
-              </SectionRow>
-            )}
-          </Section>
-
-          <Section title="Discover What's Next" viewAllHref="/discover">
-            <EmptyState
-              title="Recommendations start with your bar."
-              message="Trending bottles and personalized picks, based on what you already own."
-              action={
-                <Link to="/discover">
-                  <Button variant="secondary">Discover Something New</Button>
-                </Link>
-              }
-            />
-          </Section>
+          <div className={styles.insightsRow}>
+            {lastBlind ? (
+              <div className={styles.insightCell}>
+                <LastBlindCard summary={lastBlind} />
+              </div>
+            ) : null}
+            <div className={styles.insightCell}>
+              {palateInsight ? <PalateInsightCard insight={palateInsight} /> : <PalateInsightEmptyCard />}
+            </div>
+          </div>
         </>
       )}
     </>

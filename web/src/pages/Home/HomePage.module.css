@@ -1,5 +1,5 @@
 .primaryAction {
-  margin-bottom: var(--fip-space-3);
+  margin: 0 var(--fip-shell-x) var(--fip-space-3);
 }
 
 .primaryAction > * {
@@ -10,7 +10,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--fip-space-3);
-  margin-bottom: var(--fip-space-6);
+  margin: 0 var(--fip-shell-x) var(--fip-space-6);
 }
 
 .emptyActions {
@@ -18,4 +18,30 @@
   flex-wrap: wrap;
   gap: var(--fip-space-3);
   justify-content: center;
+}
+
+.insightsRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--fip-space-4);
+  margin: var(--fip-space-6) var(--fip-shell-x);
+}
+
+.insightCell {
+  min-width: 0;
+}
+
+/* Side by side once there's real room for it — matches the mockup's
+   tablet/desktop layout instead of leaving one narrow column stranded in
+   a wide shell. When Last Blind is hidden (no blind history yet), the
+   remaining Palate card claims both columns instead of floating alone
+   next to dead space. */
+@media (min-width: 700px) {
+  .insightsRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .insightCell:only-child {
+    grid-column: 1 / -1;
+  }
 }

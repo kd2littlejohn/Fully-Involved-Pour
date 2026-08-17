@@ -35,7 +35,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([wishlist])
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
 
     expect(screen.getByText('Nothing to recommend yet.')).toBeInTheDocument()
   })
@@ -44,7 +44,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([bold, mild, vault])
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
 
     for (const label of ['Something Familiar', 'Something Special', "Haven't Had Lately", 'Sweet', 'High Proof', 'Surprise Me']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
@@ -55,7 +55,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([bold, mild, vault], pours)
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
     await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
 
     expect(screen.getByText('Bookers Bourbon')).toBeInTheDocument()
@@ -66,7 +66,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([vault], [])
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
     await userEvent.click(screen.getByRole('button', { name: "Haven't Had Lately" }))
 
     expect(screen.getByText('Eagle Rare 10')).toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([bold, mild], pours)
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
     await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
     expect(screen.getByText('Bookers Bourbon')).toBeInTheDocument()
 
@@ -91,7 +91,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([bold, mild], pours)
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
     await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
     await userEvent.click(screen.getByRole('button', { name: 'Choose a different mood' }))
 
@@ -102,7 +102,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([bold, mild], pours)
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
     await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
     await userEvent.click(screen.getByRole('button', { name: 'Pour This' }))
 
@@ -113,7 +113,7 @@ describe('WhatShouldIPourButton', () => {
     mockData([bold, mild], pours)
     render(<WhatShouldIPourButton />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'What Should I Pour?' }))
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Surprise Me' }))
 
     // Mid-roll: the die is animating, no recommendation shown yet.

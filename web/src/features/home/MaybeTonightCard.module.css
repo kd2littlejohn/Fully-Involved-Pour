@@ -1,0 +1,60 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 200px;
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+  overflow: hidden;
+}
+
+.media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  background: var(--fip-oak-deep);
+  overflow: hidden;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  padding: var(--fip-space-3);
+}
+
+.name {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-cream);
+  text-decoration: none;
+  line-height: var(--fip-leading-tight);
+}
+
+.distillery {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+}
+
+.reason {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  line-height: var(--fip-leading-copy);
+  margin: var(--fip-space-1) 0 var(--fip-space-2);
+}
+
+.action {
+  display: flex;
+}
+
+.action :global(button) {
+  width: 100%;
+}

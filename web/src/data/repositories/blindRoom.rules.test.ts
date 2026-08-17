@@ -719,6 +719,22 @@ describe('blindRoomSecrets/{roomId} — the actual blind-integrity boundary', ()
     await assertFails(getDoc(doc(stranger.firestore(), 'blindRoomSecrets', ROOM_ID)))
   })
 
+  it('a participant CAN still read the hidden bottle mapping once the host finishes the blind', async () => {
+    await seedRoom({ state: 'completed' })
+    await seedSecrets()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'completed',
+        joinedAt: Date.now(),
+      })
+    })
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertSucceeds(getDoc(doc(participant.firestore(), 'blindRoomSecrets', ROOM_ID)))
+  })
+
   it('a participant still cannot write the hidden bottle mapping even after reveal', async () => {
     await seedRoom({ state: 'revealed' })
     await seedSecrets()

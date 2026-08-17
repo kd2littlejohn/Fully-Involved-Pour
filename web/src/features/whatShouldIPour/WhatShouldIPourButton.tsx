@@ -6,6 +6,7 @@ import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { Badge } from '../../components/ui/Badge'
 import { FipScoreBadge } from '../../components/ui/FipScoreBadge'
 import { StartPourStoryButton } from '../pourWizard/StartPourStoryButton'
+import { SecondaryActionCard } from '../../components/ui/SecondaryActionCard'
 import { useUserData } from '../../hooks/useUserData'
 import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
 import { getRecommendation, type RecommendationResult } from './scoring'
@@ -13,6 +14,18 @@ import { MOODS, type MoodId } from './moods'
 import { DiceFace } from '../diceRoll/DiceFace'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './WhatShouldIPourButton.module.css'
+
+const LIGHTBULB_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.45 1.1 1.05 1.1 1.7v.5h5v-.5c0-.65.5-1.25 1.1-1.7A6 6 0 0 0 12 3Z"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const ROLL_DURATION_MS = 900
@@ -108,7 +121,12 @@ export function WhatShouldIPourButton() {
 
   return (
     <>
-      <Button onClick={handleOpen}>What Should I Pour?</Button>
+      <SecondaryActionCard
+        icon={LIGHTBULB_ICON}
+        title="What Should I Pour?"
+        subtitle="Get a recommendation"
+        onClick={handleOpen}
+      />
 
       {open ? (
         <Modal title="What Should I Pour?" onClose={() => setOpen(false)}>

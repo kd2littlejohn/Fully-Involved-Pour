@@ -1,0 +1,44 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--fip-space-1);
+  flex: 1 1 0;
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border);
+  padding: var(--fip-space-4);
+  min-height: 44px;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: var(--fip-font-body);
+  transition:
+    border-color var(--fip-motion) var(--fip-ease),
+    transform var(--fip-motion-fast) var(--fip-ease);
+}
+
+.card:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.card:active {
+  transform: translateY(1px);
+}
+
+.icon {
+  color: var(--fip-amber);
+  display: inline-flex;
+}
+
+.title {
+  color: var(--fip-cream);
+  font-weight: 700;
+  font-size: var(--fip-text-sm);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.subtitle {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}

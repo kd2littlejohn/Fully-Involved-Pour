@@ -1,0 +1,69 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+  padding: var(--fip-space-4);
+  height: 100%;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: var(--fip-tracking-label);
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+}
+
+.headline {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  margin: 0;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  margin: var(--fip-space-1) 0 var(--fip-space-2);
+}
+
+.barRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.barLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fip-text-xs);
+  color: var(--fip-cream-soft);
+}
+
+.track {
+  height: 8px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-oak-deep);
+  overflow: hidden;
+}
+
+.fillPrimary {
+  height: 100%;
+  background: var(--fip-amber);
+  border-radius: inherit;
+}
+
+.fillSecondary {
+  height: 100%;
+  background: var(--fip-stone);
+  border-radius: inherit;
+}
+
+.card a {
+  align-self: flex-start;
+  margin-top: auto;
+}

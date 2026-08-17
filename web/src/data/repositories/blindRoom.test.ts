@@ -408,6 +408,16 @@ describe('getBottleBlindHistory', () => {
     expect(history).toEqual([])
   })
 
+  it('still includes a room once the host has finished it (completed, not just revealed)', async () => {
+    const room = await createBlindRoom(baseInput({ hostUid: 'blind-history-5', hostUsername: 'h5' }))
+    await revealBlind(room.id)
+    await completeBlind(room.id)
+
+    const history = await getBottleBlindHistory('blind-history-5', 'b2')
+    expect(history).toHaveLength(1)
+    expect(history[0]?.room.id).toBe(room.id)
+  })
+
   it('excludes rooms whose flight never included this bottle', async () => {
     const room = await createBlindRoom(baseInput({ hostUid: 'blind-history-3', hostUsername: 'h3' }))
     await revealBlind(room.id)

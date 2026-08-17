@@ -24,9 +24,6 @@ export function ContinueYourPourStoryCard({ bottle, pours }: ContinueYourPourSto
 
   return (
     <div className={styles.card}>
-      <Link to={`/collection/${bottle.id}`} className={styles.media}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
-      </Link>
       <div className={styles.body}>
         <Link to={`/collection/${bottle.id}`} className={styles.name}>
           {bottle.name}
@@ -51,6 +48,9 @@ export function ContinueYourPourStoryCard({ bottle, pours }: ContinueYourPourSto
           <StartAPourButton bottleId={bottle.id} label="Pour Again" />
         </div>
       </div>
+      <Link to={`/collection/${bottle.id}`} className={styles.media}>
+        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+      </Link>
     </div>
   )
 }
