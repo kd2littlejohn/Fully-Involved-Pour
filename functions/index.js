@@ -353,7 +353,7 @@ exports.lookupBottleByBarcode = onCall({ secrets: [upcLookupApiKey], cors: true,
   }
 
   const upc = assertValidUpc(request.data?.upc);
-  const apiKey = upcLookupApiKey.value();
+  const apiKey = upcLookupApiKey.value().trim();
 
   // No key configured yet (e.g. local dev before the secret is provisioned)
   // falls back to UPCitemdb's unauthenticated trial endpoint, which is
