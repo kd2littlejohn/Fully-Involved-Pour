@@ -105,8 +105,13 @@ export function AddBottlePage() {
         setMode('review-not-found')
       }
     } catch (err) {
+      console.error('barcode lookup failed', err)
+      const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : undefined
+      const message = err instanceof Error ? err.message : String(err)
       setNotFoundTitle(
-        err instanceof BarcodeLookupTimeoutError ? 'That lookup took too long.' : "Something went wrong looking up that barcode.",
+        err instanceof BarcodeLookupTimeoutError
+          ? 'That lookup took too long.'
+          : `Something went wrong looking up that barcode. (${code ? `${code}: ${message}` : message})`,
       )
       setMode('review-not-found')
     }
