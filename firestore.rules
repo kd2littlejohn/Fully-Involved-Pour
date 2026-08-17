@@ -69,9 +69,23 @@ service cloud.firestore {
       // everyone's status), never by a non-member. Writable only by the
       // participant themselves — not even the host may edit someone else's
       // participant record.
+      //
+      // getMyBlindRooms (web/src/data/repositories/blindRoom.ts) reads this
+      // via a collection-group query filtered by `where('uid', '==', ...)`
+      // on the DOCUMENT DATA. Real Cloud Firestore only allows a list/query
+      // request when it can prove the rule holds using nothing but the
+      // query's own `where` clause — it cannot infer that this doc's ID
+      // equals its `uid` field just because every write path here happens
+      // to set them equal, so the self-access check below must be phrased
+      // against `resource.data.uid` (the field the query actually filters
+      // on), not the `{uid}` path wildcard, or the whole query is denied.
+      // The local rules-unit-testing emulator does NOT enforce this
+      // provability restriction as strictly as production, so a passing
+      // emulator test here is not proof this works in prod — this exact
+      // gap once shipped a permission-denied that emulator tests missed.
       match /participants/{uid} {
         allow read: if request.auth != null
-                     && (request.auth.uid == uid
+                     && (resource.data.uid == request.auth.uid
                          || get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid
                          || exists(/databases/$(database)/documents/blindRooms/$(roomId)/participants/$(request.auth.uid)));
         allow create: if request.auth != null
