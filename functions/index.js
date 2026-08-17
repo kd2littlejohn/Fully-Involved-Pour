@@ -380,6 +380,19 @@ exports.lookupBottleByBarcode = onCall({ secrets: [upcLookupApiKey], cors: true,
   if (!response.ok) {
     console.error("UPC lookup non-OK response", response.status, await response.text().catch(() => ""));
     if (response.status === 404) return { found: false, upc };
+    if (response.status === 429) {
+      // The keyless /trial endpoint's rate limit is a single pool shared by
+      // every developer testing without an account, not per-app — it's
+      // realistic to hit this well before any one app's own users would
+      // exhaust a real per-key limit. A real UPC_LOOKUP_API_KEY (paid v1
+      // endpoint) gets its own quota instead of sharing this one.
+      throw new HttpsError(
+        "resource-exhausted",
+        apiKey
+          ? "The barcode lookup service is rate-limited right now. Try again shortly."
+          : "The free barcode lookup tier is rate-limited right now (it's shared by everyone testing without an API key). Try again shortly, or add a real UPCitemdb key for a dedicated quota.",
+      );
+    }
     throw new HttpsError("internal", "The barcode lookup service returned an error.");
   }
 
