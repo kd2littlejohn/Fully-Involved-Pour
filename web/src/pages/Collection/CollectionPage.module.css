@@ -6,13 +6,17 @@
   width: 100%;
 }
 
+/* Stacked rows, not one wide flex row — a phone-width viewport has no room
+   for filter chips + sort + view toggle + Select + Infinity Bottle + Add a
+   Bottle all fighting for the same line. Each row below is its own
+   min-width:0 flex context so it can wrap or scroll internally instead of
+   pushing the page wider than the viewport. */
 .toolbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--fip-space-4);
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--fip-space-3);
   padding: 0 var(--fip-shell-x) var(--fip-space-4);
+  min-width: 0;
 }
 
 .chips {
@@ -20,12 +24,23 @@
   gap: var(--fip-space-2);
   overflow-x: auto;
   padding-bottom: var(--fip-space-1);
+  min-width: 0;
+  scrollbar-width: none;
 }
 
-.toolbarActions {
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* Row 1: Explore Whiskey / sort. Row 2: view toggle, Select, Infinity
+   Bottle, Add a Bottle — wraps cleanly onto a 3rd line rather than
+   overflowing if it doesn't fit. */
+.toolbarRow {
   display: flex;
+  align-items: center;
   gap: var(--fip-space-3);
-  flex-shrink: 0;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .chip {
@@ -56,11 +71,35 @@
   color: var(--fip-black);
 }
 
+/* A deterministic 2-up grid on phones — auto-fill's column count can drift
+   with rounding at real device widths, where a fixed 2-column split reads
+   more predictably as "this fills the screen." Only drops to 1 column on
+   genuinely narrow devices (see the media query below). min-width:0 on the
+   children stops a long bottle name from forcing a track wider than its
+   fr share. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--fip-space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fip-space-3);
   padding: 0 var(--fip-shell-x) var(--fip-space-8);
+  min-width: 0;
+}
+
+.grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 359px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--fip-space-4);
+  }
 }
 
 .sortSelect {

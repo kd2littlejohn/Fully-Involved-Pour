@@ -155,7 +155,8 @@ export function CollectionPage() {
                 </button>
               ))}
             </div>
-            <div className={styles.toolbarActions}>
+
+            <div className={styles.toolbarRow}>
               <Link to="/discover">
                 <Button variant="ghost">Explore Whiskey</Button>
               </Link>
@@ -171,6 +172,9 @@ export function CollectionPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className={styles.toolbarRow}>
               <div className={styles.viewToggle} role="group" aria-label="View as">
                 <button
                   type="button"
