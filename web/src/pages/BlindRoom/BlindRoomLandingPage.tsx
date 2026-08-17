@@ -57,6 +57,8 @@ function RoomCard({ room }: { room: BlindRoom }) {
 export function BlindRoomLandingPage() {
   const { user, loading: authLoading } = useAuth()
   const [rooms, setRooms] = useState<{ room: BlindRoom; participant: BlindParticipant }[] | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     if (!user) {
@@ -64,15 +66,19 @@ export function BlindRoomLandingPage() {
       return
     }
     let cancelled = false
+    setLoadError(false)
     getMyBlindRooms(user.uid)
       .then((result) => {
         if (!cancelled) setRooms(result)
       })
-      .catch((err) => console.error('getMyBlindRooms failed', err))
+      .catch((err) => {
+        console.error('getMyBlindRooms failed', err)
+        if (!cancelled) setLoadError(true)
+      })
     return () => {
       cancelled = true
     }
-  }, [user])
+  }, [user, retryKey])
 
   if (authLoading) {
     return <PageHeader eyebrow="Journey" title="Blind Room" />
@@ -86,6 +92,19 @@ export function BlindRoomLandingPage() {
           title="Taste blind. Decide for yourself."
           message="Sign in to start a Blind Room, solo or with friends."
           action={<SignInButton />}
+        />
+      </>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <>
+        <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
+        <EmptyState
+          title="We couldn’t load your Blind Rooms."
+          message="Check your connection and try again."
+          action={<Button onClick={() => setRetryKey((k) => k + 1)}>Retry</Button>}
         />
       </>
     )

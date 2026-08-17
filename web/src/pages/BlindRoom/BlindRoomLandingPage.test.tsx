@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlindRoomLandingPage } from './BlindRoomLandingPage'
@@ -83,5 +84,20 @@ describe('BlindRoomLandingPage', () => {
 
     expect(await screen.findByText('Friday Night Blind')).toBeInTheDocument()
     expect(screen.queryByText('Recent Blinds')).not.toBeInTheDocument()
+  })
+
+  it('shows a real error state instead of a misleading "no blinds" empty state when the fetch fails', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockRejectedValueOnce(new Error('failed-precondition'))
+    renderPage()
+
+    expect(await screen.findByText('We couldn’t load your Blind Rooms.')).toBeInTheDocument()
+    expect(screen.queryByText('No active Blind Rooms.')).not.toBeInTheDocument()
+
+    mockGetMyBlindRooms.mockResolvedValueOnce([{ room: room({ name: 'Recovered Blind' }), participant }])
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await waitFor(() => expect(mockGetMyBlindRooms).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('Recovered Blind')).toBeInTheDocument()
   })
 })
