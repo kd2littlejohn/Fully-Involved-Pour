@@ -3,8 +3,7 @@ import { Modal } from '../../components/ui/Modal'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { uploadPhoto } from '../../features/photoUpload/uploadPhoto'
-import { cutoutBottlePhoto } from '../../features/photoUpload/cutoutBottlePhoto'
+import { standardizeAndUploadBottlePhoto } from '../../features/photoUpload/standardizeAndUploadBottlePhoto'
 import type { Bottle } from '../../data/types'
 import styles from './BottlePhotoLightbox.module.css'
 
@@ -18,14 +17,22 @@ export function BottlePhotoLightbox({ bottle, onClose }: BottlePhotoLightboxProp
   const { updateBottle } = useUserData()
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showingOriginal, setShowingOriginal] = useState(false)
+
+  const hasOriginal = Boolean(bottle.originalImageUrl && bottle.originalImageUrl !== bottle.imageUrl)
+  const displayedUrl = showingOriginal && bottle.originalImageUrl ? bottle.originalImageUrl : bottle.imageUrl
 
   async function handleReplace(file: File) {
     setError(null)
     setUploading(true)
+    setShowingOriginal(false)
     try {
-      const cutout = await cutoutBottlePhoto(file)
-      const url = await uploadPhoto(user?.uid, cutout, 'bottle-photos')
-      await updateBottle(bottle.id, { imageUrl: url })
+      const result = await standardizeAndUploadBottlePhoto(user?.uid, file)
+      await updateBottle(bottle.id, {
+        imageUrl: result.imageUrl,
+        originalImageUrl: result.originalImageUrl,
+        imageProcessingStatus: result.imageProcessingStatus,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Photo upload failed. Please try again.')
     } finally {
@@ -42,7 +49,7 @@ export function BottlePhotoLightbox({ bottle, onClose }: BottlePhotoLightboxProp
   return (
     <Modal title={bottle.name} onClose={onClose}>
       <div className={styles.frame}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+        {displayedUrl ? <img className={styles.image} src={displayedUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
         {uploading ? (
           <div className={styles.overlay}>
             <span className={styles.overlayText}>Uploading…</span>
@@ -54,6 +61,12 @@ export function BottlePhotoLightbox({ bottle, onClose }: BottlePhotoLightboxProp
         <p className={styles.error} role="alert">
           {error}
         </p>
+      ) : null}
+
+      {hasOriginal ? (
+        <button type="button" className={styles.originalToggle} onClick={() => setShowingOriginal((v) => !v)} disabled={uploading}>
+          {showingOriginal ? 'View Standardized Photo' : 'View Original Photo'}
+        </button>
       ) : null}
 
       <label className={styles.replaceAction}>

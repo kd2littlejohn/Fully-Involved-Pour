@@ -73,11 +73,20 @@ vi.mock('./BottlePhotoHero', () => ({
     onImageChange,
     onScanResult,
   }: {
-    onImageChange: (url: string | undefined) => void
+    onImageChange: (change: { imageUrl: string | undefined; originalImageUrl?: string; imageProcessingStatus?: string }) => void
     onScanResult: (info: { name?: string; distillery?: string }) => void
   }) => (
     <div>
-      <button type="button" onClick={() => onImageChange('https://example.com/bottle.jpg')}>
+      <button
+        type="button"
+        onClick={() =>
+          onImageChange({
+            imageUrl: 'https://example.com/bottle-fip.jpg',
+            originalImageUrl: 'https://example.com/bottle-original.jpg',
+            imageProcessingStatus: 'ready',
+          })
+        }
+      >
         fake-set-image
       </button>
       <button type="button" onClick={() => onScanResult({ name: 'Scanned Bottle', distillery: 'Scanned Distillery' })}>
@@ -203,7 +212,13 @@ describe('AddBottlePage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
 
     expect(mockAddBottle).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Blanton's", imageUrl: 'https://example.com/bottle.jpg', status: 'sealed' }),
+      expect.objectContaining({
+        name: "Blanton's",
+        imageUrl: 'https://example.com/bottle-fip.jpg',
+        originalImageUrl: 'https://example.com/bottle-original.jpg',
+        imageProcessingStatus: 'ready',
+        status: 'sealed',
+      }),
     )
     expect(mockNavigate).toHaveBeenCalledWith('/collection/new-bottle-id')
   })

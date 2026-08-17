@@ -16,7 +16,7 @@ import {
   type BarcodeLookupResult,
 } from '../../data/repositories/barcode'
 import { BarcodeScannerModal } from '../../features/barcodeScan/BarcodeScannerModal'
-import { BottlePhotoHero } from './BottlePhotoHero'
+import { BottlePhotoHero, type BottlePhotoChange } from './BottlePhotoHero'
 import { AddBottleEntryChoice } from './AddBottleEntryChoice'
 import { BarcodeFoundReview } from './BarcodeFoundReview'
 import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFieldsCard'
@@ -51,7 +51,7 @@ export function AddBottlePage() {
   const state = location.state as LocationState | null
   const defaultStatus = state?.defaultStatus ?? 'sealed'
 
-  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined)
+  const [photo, setPhoto] = useState<BottlePhotoChange>({ imageUrl: undefined })
   const [essential, setEssential] = useState<EssentialFieldsValues>({
     name: state?.prefill?.name ?? '',
     distillery: state?.prefill?.distillery ?? '',
@@ -167,7 +167,9 @@ export function AddBottlePage() {
       proof: prev.proof || (barcodeResult.proof ? String(barcodeResult.proof) : prev.proof),
       ageStatement: barcodeResult.ageStatement?.trim() || prev.ageStatement,
     }))
-    if (barcodeResult.imageUrl) setImageUrl(barcodeResult.imageUrl)
+    // A barcode-catalog image is externally sourced, not a user photo — it
+    // never goes through standardization, so there's no original to track.
+    if (barcodeResult.imageUrl) setPhoto({ imageUrl: barcodeResult.imageUrl })
     setMode('form')
   }
 
@@ -178,7 +180,11 @@ export function AddBottlePage() {
   useEffect(() => {
     if (!isEditing || hydratedRef.current || !existingBottle) return
     hydratedRef.current = true
-    setImageUrl(existingBottle.imageUrl)
+    setPhoto({
+      imageUrl: existingBottle.imageUrl,
+      originalImageUrl: existingBottle.originalImageUrl,
+      imageProcessingStatus: existingBottle.imageProcessingStatus,
+    })
     setEssential({
       name: existingBottle.name,
       distillery: existingBottle.distillery ?? '',
@@ -232,7 +238,9 @@ export function AddBottlePage() {
         region: essential.region.trim() || undefined,
         proof: essential.proof ? Number(essential.proof) : undefined,
         ageStatement: essential.ageStatement.trim() || undefined,
-        imageUrl,
+        imageUrl: photo.imageUrl,
+        originalImageUrl: photo.originalImageUrl,
+        imageProcessingStatus: photo.imageProcessingStatus,
         status: ownership.status,
         price: ownership.price ? Number(ownership.price) : undefined,
         storeLocation: ownership.storeLocation.trim() || undefined,
@@ -264,7 +272,7 @@ export function AddBottlePage() {
             type: payload.type,
             proof: payload.proof,
             ageStatement: payload.ageStatement,
-            imageUrl,
+            imageUrl: photo.imageUrl,
           })
         }
         navigate(id ? `/collection/${id}` : '/collection')
@@ -415,7 +423,7 @@ export function AddBottlePage() {
       {mode === 'form' ? (
         <>
           <div className={styles.content}>
-            <BottlePhotoHero imageUrl={imageUrl} name={essential.name} onImageChange={setImageUrl} onScanResult={handleScanResult} />
+            <BottlePhotoHero imageUrl={photo.imageUrl} name={essential.name} onImageChange={setPhoto} onScanResult={handleScanResult} />
 
             <div className={styles.cards}>
               <EssentialFieldsCard

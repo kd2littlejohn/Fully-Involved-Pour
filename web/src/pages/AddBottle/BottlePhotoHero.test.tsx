@@ -2,27 +2,23 @@ import { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { BottlePhotoHero } from './BottlePhotoHero'
+import { BottlePhotoHero, type BottlePhotoChange } from './BottlePhotoHero'
 import type { LabelScanResult } from '../../data/repositories/ai'
 
 function ControlledHero({ onScanResult }: { onScanResult: (info: LabelScanResult) => void }) {
-  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined)
-  return <BottlePhotoHero imageUrl={imageUrl} onImageChange={setImageUrl} onScanResult={onScanResult} />
+  const [photo, setPhoto] = useState<BottlePhotoChange>({ imageUrl: undefined })
+  return <BottlePhotoHero imageUrl={photo.imageUrl} onImageChange={setPhoto} onScanResult={onScanResult} />
 }
 
-const mockUpload = vi.fn()
+const mockStandardizeAndUpload = vi.fn()
 const mockScan = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({ user: { uid: 'u1' }, loading: false }),
 }))
 
-vi.mock('../../features/photoUpload/uploadPhoto', () => ({
-  uploadPhoto: (...args: unknown[]) => mockUpload(...args),
-}))
-
-vi.mock('../../features/photoUpload/cutoutBottlePhoto', () => ({
-  cutoutBottlePhoto: (file: File) => Promise.resolve(file),
+vi.mock('../../features/photoUpload/standardizeAndUploadBottlePhoto', () => ({
+  standardizeAndUploadBottlePhoto: (...args: unknown[]) => mockStandardizeAndUpload(...args),
 }))
 
 vi.mock('../../data/repositories/ai', () => ({
@@ -33,31 +29,37 @@ vi.mock('../../features/ai/imageToBase64', () => ({
   downscaleImageToJpegBase64: () => Promise.resolve('base64data'),
 }))
 
+const uploadResult = {
+  imageUrl: 'https://example.com/bottle-fip.jpg',
+  originalImageUrl: 'https://example.com/bottle-original.jpg',
+  imageProcessingStatus: 'ready' as const,
+}
+
 beforeEach(() => {
-  mockUpload.mockReset()
+  mockStandardizeAndUpload.mockReset()
   mockScan.mockReset()
   URL.createObjectURL = vi.fn(() => 'blob:local-preview')
   URL.revokeObjectURL = vi.fn()
 })
 
 describe('BottlePhotoHero', () => {
-  it('uploads a photo chosen via Choose Photo and reports the resulting URL', async () => {
-    mockUpload.mockResolvedValue('https://example.com/bottle.jpg')
+  it('uploads a photo chosen via Choose Photo and reports the standardized result', async () => {
+    mockStandardizeAndUpload.mockResolvedValue(uploadResult)
     const onImageChange = vi.fn()
     render(<BottlePhotoHero onImageChange={onImageChange} onScanResult={vi.fn()} />)
 
     const file = new File(['data'], 'bottle.jpg', { type: 'image/jpeg' })
     await userEvent.upload(screen.getByLabelText('Choose Photo'), file)
 
-    expect(onImageChange).toHaveBeenCalledWith('blob:local-preview')
-    expect(mockUpload).toHaveBeenCalledWith('u1', file, 'bottle-photos', expect.any(Function))
-    await vi.waitFor(() => expect(onImageChange).toHaveBeenLastCalledWith('https://example.com/bottle.jpg'))
+    expect(onImageChange).toHaveBeenCalledWith({ imageUrl: 'blob:local-preview' })
+    expect(mockStandardizeAndUpload).toHaveBeenCalledWith('u1', file, expect.any(Function))
+    await vi.waitFor(() => expect(onImageChange).toHaveBeenLastCalledWith(uploadResult))
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:local-preview')
     expect(mockScan).not.toHaveBeenCalled()
   })
 
   it('scans the label and uploads in parallel when Scan Label with AI is used', async () => {
-    mockUpload.mockResolvedValue('https://example.com/bottle.jpg')
+    mockStandardizeAndUpload.mockResolvedValue(uploadResult)
     mockScan.mockResolvedValue({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' })
     const onScanResult = vi.fn()
     render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={onScanResult} />)
@@ -71,7 +73,7 @@ describe('BottlePhotoHero', () => {
   })
 
   it('shows an inline error when the label cannot be read', async () => {
-    mockUpload.mockResolvedValue('https://example.com/bottle.jpg')
+    mockStandardizeAndUpload.mockResolvedValue(uploadResult)
     mockScan.mockResolvedValue({ found: false })
     render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={vi.fn()} />)
 
@@ -84,7 +86,7 @@ describe('BottlePhotoHero', () => {
   })
 
   it('shows the upload error message when the upload fails', async () => {
-    mockUpload.mockRejectedValue(new Error('You do not have permission to upload this image.'))
+    mockStandardizeAndUpload.mockRejectedValue(new Error('You do not have permission to upload this image.'))
     render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={vi.fn()} />)
 
     const file = new File(['data'], 'bottle.jpg', { type: 'image/jpeg' })
@@ -94,8 +96,8 @@ describe('BottlePhotoHero', () => {
   })
 
   it('offers Retry after a failed upload and re-attempts the same file without re-picking it', async () => {
-    mockUpload.mockRejectedValueOnce(new Error('The upload was interrupted. Tap Retry.'))
-    mockUpload.mockResolvedValueOnce('https://example.com/bottle.jpg')
+    mockStandardizeAndUpload.mockRejectedValueOnce(new Error('The upload was interrupted. Tap Retry.'))
+    mockStandardizeAndUpload.mockResolvedValueOnce(uploadResult)
     const onImageChange = vi.fn()
     render(<BottlePhotoHero onImageChange={onImageChange} onScanResult={vi.fn()} />)
 
@@ -105,10 +107,10 @@ describe('BottlePhotoHero', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
-    expect(mockUpload).toHaveBeenCalledTimes(2)
-    expect(mockUpload).toHaveBeenNthCalledWith(2, 'u1', file, 'bottle-photos', expect.any(Function))
+    expect(mockStandardizeAndUpload).toHaveBeenCalledTimes(2)
+    expect(mockStandardizeAndUpload).toHaveBeenNthCalledWith(2, 'u1', file, expect.any(Function))
     await vi.waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
-    expect(onImageChange).toHaveBeenLastCalledWith('https://example.com/bottle.jpg')
+    expect(onImageChange).toHaveBeenLastCalledWith(uploadResult)
   })
 
   it('does not show a Retry button when there is no error', () => {
@@ -117,7 +119,7 @@ describe('BottlePhotoHero', () => {
   })
 
   it('lets you scan an already-chosen photo instead of picking it again', async () => {
-    mockUpload.mockResolvedValue('https://example.com/bottle.jpg')
+    mockStandardizeAndUpload.mockResolvedValue(uploadResult)
     mockScan.mockResolvedValue({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' })
     const onScanResult = vi.fn()
     render(<ControlledHero onScanResult={onScanResult} />)
@@ -133,7 +135,7 @@ describe('BottlePhotoHero', () => {
 
     expect(mockScan).toHaveBeenCalledWith('base64data', 'image/jpeg')
     expect(onScanResult).toHaveBeenCalledWith({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' })
-    expect(mockUpload).toHaveBeenCalledTimes(1) // reuses the already-uploaded photo, no re-upload
+    expect(mockStandardizeAndUpload).toHaveBeenCalledTimes(1) // reuses the already-uploaded photo, no re-upload
   })
 
   it('shows the bottle initials in the placeholder when a name is given but no photo yet', () => {
@@ -148,6 +150,6 @@ describe('BottlePhotoHero', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove' }))
 
-    expect(onImageChange).toHaveBeenCalledWith(undefined)
+    expect(onImageChange).toHaveBeenCalledWith({ imageUrl: undefined })
   })
 })

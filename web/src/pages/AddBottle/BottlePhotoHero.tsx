@@ -3,14 +3,20 @@ import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { useAuth } from '../../hooks/useAuth'
 import { downscaleImageToJpegBase64 } from '../../features/ai/imageToBase64'
 import { scanBottleLabel, type LabelScanResult } from '../../data/repositories/ai'
-import { uploadPhoto } from '../../features/photoUpload/uploadPhoto'
-import { cutoutBottlePhoto } from '../../features/photoUpload/cutoutBottlePhoto'
+import { standardizeAndUploadBottlePhoto } from '../../features/photoUpload/standardizeAndUploadBottlePhoto'
+import type { ImageProcessingStatus } from '../../data/types'
 import styles from './BottlePhotoHero.module.css'
+
+export interface BottlePhotoChange {
+  imageUrl: string | undefined
+  originalImageUrl?: string
+  imageProcessingStatus?: ImageProcessingStatus
+}
 
 interface BottlePhotoHeroProps {
   imageUrl?: string
   name?: string
-  onImageChange: (url: string | undefined) => void
+  onImageChange: (change: BottlePhotoChange) => void
   onScanResult: (info: LabelScanResult) => void
 }
 
@@ -42,7 +48,7 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
     const localUrl = URL.createObjectURL(file)
     objectUrlRef.current = localUrl
-    onImageChange(localUrl)
+    onImageChange({ imageUrl: localUrl })
 
     setError(null)
     setUploading(true)
@@ -50,16 +56,14 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
     if (mode === 'scan') setScanning(true)
 
     try {
-      const uploadPromise = cutoutBottlePhoto(file)
-        .then((cutout) => uploadPhoto(user?.uid, cutout, 'bottle-photos', setProgress))
-        .then((url) => {
-          if (objectUrlRef.current) {
-            URL.revokeObjectURL(objectUrlRef.current)
-            objectUrlRef.current = null
-          }
-          onImageChange(url)
-          return url
-        })
+      const uploadPromise = standardizeAndUploadBottlePhoto(user?.uid, file, setProgress).then((result) => {
+        if (objectUrlRef.current) {
+          URL.revokeObjectURL(objectUrlRef.current)
+          objectUrlRef.current = null
+        }
+        onImageChange(result)
+        return result.imageUrl
+      })
 
       if (mode === 'scan') {
         const base64 = await downscaleImageToJpegBase64(file)
@@ -120,7 +124,7 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
       objectUrlRef.current = null
     }
     setError(null)
-    onImageChange(undefined)
+    onImageChange({ imageUrl: undefined })
   }
 
   const busy = uploading || scanning

@@ -23,13 +23,29 @@ export interface GalleryPhoto {
   caption?: string
 }
 
+export type ImageProcessingStatus = 'ready' | 'failed'
+
 export interface Bottle {
   id: string
   name: string
   distillery?: string
   type?: string
   region?: string
+  // The canonical My Bar / Bottle Details display image — a standardized
+  // 4:5 FIP-treated shot (see features/photoUpload/standardizeBottlePhoto.ts)
+  // whenever the photo came through the standardization pipeline, so every
+  // card looks consistent regardless of how the original photo was taken.
   imageUrl?: string
+  // The user's original, unprocessed upload — preserved so a photo is never
+  // lost even if standardization fails or looks worse than the source.
+  originalImageUrl?: string
+  // Outcome of standardizing the *current* imageUrl. 'ready' = background
+  // removed and centered on the FIP canvas; 'failed' = the plain original
+  // was composited onto the same 4:5 canvas instead (still consistent
+  // sizing/background, just not background-cleaned) — standardization is
+  // synchronous and awaited before a bottle is ever saved, so there is no
+  // 'pending'/'processing' state to persist here.
+  imageProcessingStatus?: ImageProcessingStatus
   proof?: number
   price?: number
   msrp?: number

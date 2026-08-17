@@ -41,6 +41,25 @@
   margin: var(--fip-space-3) 0 0;
 }
 
+.originalToggle {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  margin: var(--fip-space-3) auto 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--fip-copper);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.originalToggle:hover {
+  color: var(--fip-amber);
+}
+
 .replaceAction {
   display: flex;
   align-items: center;
