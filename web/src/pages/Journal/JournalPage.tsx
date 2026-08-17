@@ -13,6 +13,7 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
+import { getJourneyFeedEntries } from '../../features/journal/journeyCardVariant'
 import { BottleJourneyCard } from '../../features/journal/BottleJourneyCard'
 import { StartPourStoryButton } from '../../features/pourWizard/StartPourStoryButton'
 import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
@@ -84,6 +85,7 @@ export function JournalPage() {
 
   const bottleById = new Map(bottles.map((b) => [b.id, b]))
   const recentPours = [...pours].sort((a, b) => b.date.localeCompare(a.date))
+  const journeyFeed = getJourneyFeedEntries(pours, bottles)
   const recentMemories = [...memories].sort((a, b) => b.date.localeCompare(a.date))
   const timelineEvents = getJournalTimeline(bottles, pours)
   const companions = getCompanionStats(pours)
@@ -143,11 +145,10 @@ export function JournalPage() {
               }
             />
           ) : (
-            <div className={styles.storiesGrid}>
-              {recentPours.map((pour) => {
-                const bottle = bottleById.get(pour.bottleId)
-                return bottle ? <PourStoryCard key={pour.id} pour={pour} bottle={bottle} /> : null
-              })}
+            <div className={styles.storiesFeed}>
+              {journeyFeed.map(({ pour, bottle, variant, reason }) => (
+                <PourStoryCard key={pour.id} pour={pour} bottle={bottle} variant={variant} reason={reason} />
+              ))}
             </div>
           )
         ) : null}

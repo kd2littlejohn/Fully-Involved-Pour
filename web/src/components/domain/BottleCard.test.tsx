@@ -133,6 +133,20 @@ describe('BottleCard', () => {
     expect(screen.getByText('Edit Bottle Page')).toBeInTheDocument()
   })
 
+  it('shows the score with its FIP tier label when the bottle has a rating', () => {
+    mockData([eagleRare])
+    renderCard(eagleRare)
+    expect(screen.getByText('9.2')).toBeInTheDocument()
+    expect(screen.getByText('Fully Involved')).toBeInTheDocument()
+  })
+
+  it('shows no score badge when the bottle has no rating yet', () => {
+    const unrated: Bottle = { id: 'b4', name: 'Wild Turkey 101', status: 'sealed' }
+    mockData([unrated])
+    renderCard(unrated)
+    expect(screen.queryByText('9.2')).not.toBeInTheDocument()
+  })
+
   it('renders as a selection checkbox instead of a link when selectable', async () => {
     mockData([eagleRare])
     const onToggleSelect = vi.fn()

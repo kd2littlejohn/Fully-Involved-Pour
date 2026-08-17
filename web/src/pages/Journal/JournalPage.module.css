@@ -37,6 +37,18 @@
   gap: var(--fip-space-4);
 }
 
+/* Journey's Stories tab is a single-column feed of memories, not a bottle
+   grid — Standard split cards and occasional full-width Featured cards read
+   top to bottom, same as the approved mockup, with a comfortable reading
+   width on wider screens instead of stretching cards edge to edge. */
+.storiesFeed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+  max-width: var(--fip-readable-max);
+  margin: 0 auto;
+}
+
 .companionList {
   display: flex;
   flex-direction: column;

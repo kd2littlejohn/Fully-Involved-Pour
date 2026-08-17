@@ -1,18 +1,10 @@
 .card {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  padding: 0;
+  position: relative;
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
   box-shadow: var(--fip-shadow-card);
   overflow: hidden;
-  text-decoration: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
   transition: border-color var(--fip-motion) var(--fip-ease);
 }
 
@@ -20,8 +12,46 @@
   border-color: var(--fip-border);
 }
 
+.cardFeatured {
+  border-color: var(--fip-border);
+}
+
+.menuOverlay {
+  position: absolute;
+  top: var(--fip-space-3);
+  right: var(--fip-space-3);
+  z-index: 2;
+}
+
+/* Compact split card: image on the left, story on the right. */
+.trigger {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-decoration: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Featured is a cinematic banner-on-top layout, not a side-by-side split. */
+.triggerFeatured {
+  flex-direction: column;
+}
+
+/* A fixed pixel width (not a percentage) keeps the story column readable
+   at real phone widths — a percentage split looked fine on paper but left
+   too little room for the name/score once text actually wrapped. Widens to
+   a proportional split only once there's real room for it (see the
+   min-width query below). */
 .media {
-  height: 160px;
+  position: relative;
+  flex: 0 0 128px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -29,30 +59,72 @@
   overflow: hidden;
 }
 
+@media (min-width: 480px) {
+  .media {
+    flex-basis: 38%;
+  }
+}
+
+/* Larger cinematic banner for meaningful moments only. */
+.mediaFeatured {
+  flex-basis: auto;
+  width: 100%;
+  height: clamp(200px, 34vw, 320px);
+}
+
 .photo {
   width: 100%;
   height: 100%;
+}
+
+.photoCover {
   object-fit: cover;
+}
+
+.photoContain {
+  object-fit: contain;
+  padding: var(--fip-space-3);
+}
+
+.badge {
+  position: absolute;
+  top: var(--fip-space-3);
+  left: var(--fip-space-3);
+  background: rgba(8, 7, 6, 0.72);
+  border: 1px solid var(--fip-border-strong);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  padding: var(--fip-space-1) var(--fip-space-2);
+  border-radius: var(--fip-radius-sm);
 }
 
 .body {
   display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
   flex-direction: column;
   gap: var(--fip-space-2);
   padding: var(--fip-space-4);
-}
-
-.header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--fip-space-3);
+  /* Extra right padding so the bottle name never runs under the absolutely
+     positioned "..." menu button in the corner. */
+  padding-right: calc(var(--fip-space-4) + 36px);
 }
 
 .bottleName {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-lg);
   line-height: var(--fip-leading-tight);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bottleNameFeatured {
+  font-size: var(--fip-text-xl);
 }
 
 .meta {
@@ -70,4 +142,27 @@
   color: var(--fip-cream-soft);
   font-size: var(--fip-text-sm);
   line-height: var(--fip-leading-copy);
+}
+
+.memoryFeatured {
+  font-size: var(--fip-text-md);
+  font-style: italic;
+}
+
+.scoreRow {
+  margin-top: auto;
+  padding-top: var(--fip-space-1);
+}
+
+/* Below this, the side-by-side split loses too much width to stay
+   legible — stack instead of squeezing image and text past readability. */
+@media (max-width: 320px) {
+  .trigger {
+    flex-direction: column;
+  }
+
+  .media {
+    flex-basis: auto;
+    height: 180px;
+  }
 }

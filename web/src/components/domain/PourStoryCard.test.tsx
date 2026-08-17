@@ -4,8 +4,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { PourStoryCard } from './PourStoryCard'
 import type { Bottle, Pour } from '../../data/types'
 
+const mockUpdatePour = vi.fn()
+
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ updatePour: vi.fn(), deletePour: vi.fn(), addPour: vi.fn() }),
+  useUserData: () => ({ updatePour: mockUpdatePour, deletePour: vi.fn(), addPour: vi.fn() }),
 }))
 
 const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open' }
@@ -25,7 +27,7 @@ describe('PourStoryCard', () => {
 
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: /Eagle Rare/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Great catch-up/ }))
 
     expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument()
@@ -54,5 +56,30 @@ describe('PourStoryCard', () => {
   it('falls back to pour.notes for the short note when memory is unset (Quick Pour case)', () => {
     render(<PourStoryCard pour={{ ...pour, memory: undefined, notes: 'Great porch pour' }} bottle={bottle} />)
     expect(screen.getByText('Great porch pour')).toBeInTheDocument()
+  })
+
+  it('offers "Feature This Memory" in the card menu when not yet featured', async () => {
+    render(<PourStoryCard pour={pour} bottle={bottle} />)
+    await userEvent.click(screen.getByRole('button', { name: /pour actions/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Feature This Memory' }))
+    expect(mockUpdatePour).toHaveBeenCalledWith('p1', expect.objectContaining({ isFeatured: true }))
+  })
+
+  it('offers "Remove From Featured" once a pour is already featured', async () => {
+    render(<PourStoryCard pour={{ ...pour, isFeatured: true }} bottle={bottle} />)
+    await userEvent.click(screen.getByRole('button', { name: /pour actions/ }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove From Featured' }))
+    expect(mockUpdatePour).toHaveBeenCalledWith('p1', expect.objectContaining({ isFeatured: false }))
+  })
+
+  it('shows the feature-reason badge and moves the score below the story on a featured card', () => {
+    render(<PourStoryCard pour={pour} bottle={bottle} variant="featured" reason="hall-of-fame" />)
+    expect(screen.getByText('Hall of Fame')).toBeInTheDocument()
+  })
+
+  it('does not show a reason badge on a standard card', () => {
+    render(<PourStoryCard pour={pour} bottle={bottle} />)
+    expect(screen.queryByText('Hall of Fame')).not.toBeInTheDocument()
+    expect(screen.queryByText('Bottle Kill')).not.toBeInTheDocument()
   })
 })

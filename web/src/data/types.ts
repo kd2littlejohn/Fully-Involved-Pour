@@ -104,6 +104,11 @@ export interface Pour {
   buyAgain?: BuyAgain
   wouldBuyAgain?: boolean
   fip: FipBreakdown
+  // Manual "Feature This Memory" override for Journey's card feed (see
+  // features/journal/journeyCardVariant.ts) — lets a user pin a pour to the
+  // larger cinematic treatment regardless of score/status, and un-pin it
+  // later. Absent/false means the automatic rules alone decide.
+  isFeatured?: boolean
 }
 
 export interface Memory {

@@ -65,18 +65,24 @@
   border-color: var(--fip-amber);
 }
 
+/* Bottle photography is the dominant element here — roughly 60-70% of the
+   card's height goes to it, matching the "premium bottle library" ratio in
+   the approved mockup. object-fit:contain never crops the neck or base;
+   the padding keeps a full bottle from touching the frame edge. */
 .imageWrap {
-  height: 190px;
+  aspect-ratio: 3 / 4;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--fip-space-3);
   background: var(--fip-oak-deep);
   border-radius: var(--fip-radius-md);
   overflow: hidden;
 }
 
 .image {
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
@@ -86,16 +92,26 @@
   gap: 2px;
 }
 
+/* Long bottle names shouldn't overwhelm the card — clamp to 3 lines rather
+   than let one giant title crowd out everything below it. */
 .name {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
   line-height: var(--fip-leading-tight);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .subtitle {
   color: var(--fip-copper);
   font-size: var(--fip-text-xs);
   font-style: italic;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .distillery {
@@ -106,7 +122,8 @@
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
 }
 
 .journey {

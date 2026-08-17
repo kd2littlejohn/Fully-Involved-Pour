@@ -7,6 +7,7 @@ import { useBottlePourFlow } from '../../features/startAPour/useBottlePourFlow'
 import { useUserData } from '../../hooks/useUserData'
 import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
+import { FipScoreBadge } from '../ui/FipScoreBadge'
 import { OverflowMenu, type OverflowMenuItem } from '../ui/OverflowMenu'
 import styles from './BottleCard.module.css'
 
@@ -85,7 +86,11 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   const content = (
     <>
       <div className={styles.imageWrap}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+        {bottle.imageUrl ? (
+          <img className={styles.image} src={bottle.imageUrl} alt="" />
+        ) : (
+          <BottlePlaceholder name={bottle.name} compact />
+        )}
       </div>
       <div className={styles.titleBlock}>
         <div className={styles.name}>{title}</div>
@@ -94,7 +99,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
       </div>
       <div className={styles.footer}>
         <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
-        {typeof bottle.rating === 'number' ? <span>{bottle.rating.toFixed(1)}</span> : null}
+        {typeof bottle.rating === 'number' ? <FipScoreBadge score={bottle.rating} /> : null}
       </div>
       {journeyStage ? (
         <div className={styles.journey} style={{ color: journeyStage.color }}>

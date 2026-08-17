@@ -19,20 +19,34 @@
   text-transform: uppercase;
 }
 
+/* Refined "no photo" treatment — a dark amber/brown backdrop (not a pale
+   wash) with a faint bottle-shaped watermark behind smaller initials, so an
+   empty slot still reads as intentional bottle packaging rather than a
+   placeholder that dominates the card. */
 .avatar {
+  position: relative;
   width: 100%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--fip-amber-soft);
+  background: linear-gradient(160deg, var(--fip-oak-deep), var(--fip-brass-soft));
+}
+
+.watermark {
+  position: absolute;
+  width: 46%;
+  height: auto;
+  color: var(--fip-brass);
+  opacity: 0.35;
 }
 
 .initials {
+  position: relative;
   font-family: var(--fip-font-display);
   font-weight: 600;
   color: var(--fip-amber);
-  font-size: var(--fip-text-2xl);
+  font-size: var(--fip-text-lg);
   letter-spacing: 0.02em;
 }
 
