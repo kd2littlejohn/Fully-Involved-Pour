@@ -57,7 +57,7 @@ function RoomCard({ room }: { room: BlindRoom }) {
 export function BlindRoomLandingPage() {
   const { user, loading: authLoading } = useAuth()
   const [rooms, setRooms] = useState<{ room: BlindRoom; participant: BlindParticipant }[] | null>(null)
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
@@ -66,14 +66,16 @@ export function BlindRoomLandingPage() {
       return
     }
     let cancelled = false
-    setLoadError(false)
+    setLoadError(null)
     getMyBlindRooms(user.uid)
       .then((result) => {
         if (!cancelled) setRooms(result)
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error('getMyBlindRooms failed', err)
-        if (!cancelled) setLoadError(true)
+        const code = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : undefined
+        const message = err instanceof Error ? err.message : String(err)
+        if (!cancelled) setLoadError(code ? `${code}: ${message}` : message)
       })
     return () => {
       cancelled = true
@@ -103,7 +105,7 @@ export function BlindRoomLandingPage() {
         <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
         <EmptyState
           title="We couldn’t load your Blind Rooms."
-          message="Check your connection and try again."
+          message={`Check your connection and try again. (${loadError})`}
           action={<Button onClick={() => setRetryKey((k) => k + 1)}>Retry</Button>}
         />
       </>

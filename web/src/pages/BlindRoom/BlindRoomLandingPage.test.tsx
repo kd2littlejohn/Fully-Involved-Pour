@@ -92,6 +92,7 @@ describe('BlindRoomLandingPage', () => {
     renderPage()
 
     expect(await screen.findByText('We couldn’t load your Blind Rooms.')).toBeInTheDocument()
+    expect(screen.getByText(/failed-precondition/)).toBeInTheDocument()
     expect(screen.queryByText('No active Blind Rooms.')).not.toBeInTheDocument()
 
     mockGetMyBlindRooms.mockResolvedValueOnce([{ room: room({ name: 'Recovered Blind' }), participant }])
@@ -99,5 +100,15 @@ describe('BlindRoomLandingPage', () => {
 
     await waitFor(() => expect(mockGetMyBlindRooms).toHaveBeenCalledTimes(2))
     expect(await screen.findByText('Recovered Blind')).toBeInTheDocument()
+  })
+
+  it('includes the Firestore error code in the on-screen message when the SDK provides one', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockRejectedValueOnce(
+      Object.assign(new Error('The query requires an index.'), { code: 'failed-precondition' }),
+    )
+    renderPage()
+
+    expect(await screen.findByText(/failed-precondition: The query requires an index\./)).toBeInTheDocument()
   })
 })
