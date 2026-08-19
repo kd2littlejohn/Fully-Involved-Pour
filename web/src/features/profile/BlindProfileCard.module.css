@@ -1,0 +1,31 @@
+.card {
+  padding: var(--fip-space-5);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-3);
+}
+
+.line {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.strong {
+  color: var(--fip-amber);
+  font-weight: 700;
+}
+
+.tierLine {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}

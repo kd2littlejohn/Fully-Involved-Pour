@@ -1,0 +1,44 @@
+.card {
+  margin: 0 var(--fip-shell-x) var(--fip-space-6);
+  padding: var(--fip-space-6) var(--fip-space-5);
+  border-radius: var(--fip-radius-xl);
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-card));
+  border: 1px solid var(--fip-border);
+  box-shadow: var(--fip-shadow-card);
+  text-align: center;
+}
+
+.eyebrow {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin-bottom: var(--fip-space-3);
+}
+
+.tags {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-amber);
+  line-height: var(--fip-leading-tight);
+}
+
+.dot {
+  color: var(--fip-brass);
+}
+
+.description {
+  margin-top: var(--fip-space-3);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  max-width: var(--fip-readable-max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.developing {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}

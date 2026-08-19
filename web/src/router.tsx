@@ -11,6 +11,8 @@ const BottleDetailsPage = lazy(() =>
 const JournalPage = lazy(() => import('./pages/Journal/JournalPage').then((m) => ({ default: m.JournalPage })))
 const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage').then((m) => ({ default: m.DiscoverPage })))
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage').then((m) => ({ default: m.ProfilePage })))
+const EditProfilePage = lazy(() => import('./pages/Profile/EditProfilePage').then((m) => ({ default: m.EditProfilePage })))
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const AddBottlePage = lazy(() => import('./pages/AddBottle/AddBottlePage').then((m) => ({ default: m.AddBottlePage })))
 const BlindRoomLandingPage = lazy(() =>
   import('./pages/BlindRoom/BlindRoomLandingPage').then((m) => ({ default: m.BlindRoomLandingPage })),
@@ -61,6 +63,25 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
   // Outside AppShell — a full-screen add flow shouldn't compete with the
   // persistent bottom nav for the sticky action bar's space. These routes
   // sit outside AppShell's Outlet, so each wraps its own Suspense boundary.
+  // Settings and Edit Profile are secondary screens reached from Profile's
+  // gear icon / Edit Profile button — same full-screen, no-bottom-nav
+  // treatment as Add Bottle and the Blind Room flow below.
+  {
+    path: '/settings',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <SettingsPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/profile/edit',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <EditProfilePage />
+      </Suspense>
+    ),
+  },
   {
     path: '/bottles/new',
     element: (

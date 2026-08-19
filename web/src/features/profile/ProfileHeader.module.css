@@ -1,0 +1,92 @@
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--fip-space-1);
+  padding: var(--fip-space-6) var(--fip-shell-x) var(--fip-space-4);
+}
+
+.settingsButton {
+  position: absolute;
+  top: var(--fip-space-4);
+  right: var(--fip-shell-x);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+  transition: border-color var(--fip-motion) var(--fip-ease);
+}
+
+.settingsButton:hover {
+  border-color: var(--fip-border-strong);
+  color: var(--fip-amber);
+}
+
+.avatarWrap {
+  margin-top: var(--fip-space-2);
+  margin-bottom: var(--fip-space-3);
+}
+
+.avatar,
+.avatarFallback {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--fip-radius-round);
+  border: 2px solid var(--fip-border-strong);
+  box-shadow: var(--fip-shadow-soft);
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
+  color: var(--fip-amber);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+}
+
+.name {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-cream);
+  line-height: var(--fip-leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.handle {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.location {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.bio {
+  margin-top: var(--fip-space-2);
+  max-width: var(--fip-readable-max);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.editButton {
+  margin-top: var(--fip-space-4);
+}

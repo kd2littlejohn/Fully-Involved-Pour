@@ -150,3 +150,28 @@ export function topFlavorTags(bottles: Bottle[], pours: Pour[], limit = 6): Flav
     .sort((a, b) => b.structuredCount - a.structuredCount || b.freeTextCount - a.freeTextCount || a.tag.localeCompare(b.tag))
     .slice(0, limit)
 }
+
+export interface FlavorTagPercent {
+  tag: string
+  count: number
+  percent: number
+}
+
+// Real percentages — each tag's share of every tag mention counted (the
+// same denominator dominantFlavorAxis uses for its own honest percent), not
+// anything scaled or approximated to look like a mockup number. Profile's
+// palate breakdown card is built on this specifically so every percentage
+// shown there is independently recomputable from the user's own tagged
+// pours/bottles.
+export function topFlavorTagPercentages(bottles: Bottle[], pours: Pour[], limit = 5): FlavorTagPercent[] {
+  const acc = accumulate(bottles, pours)
+  if (acc.total === 0) return []
+  const allTags = new Set<string>([...acc.structured.keys(), ...acc.freeText.keys()])
+  return [...allTags]
+    .map((tag) => {
+      const count = (acc.structured.get(tag) ?? 0) + (acc.freeText.get(tag) ?? 0)
+      return { tag, count, percent: Math.round((count / acc.total) * 100) }
+    })
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+    .slice(0, limit)
+}

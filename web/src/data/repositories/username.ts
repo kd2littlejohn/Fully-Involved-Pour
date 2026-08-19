@@ -20,6 +20,9 @@ export async function claimUsername(uid: string, username: string): Promise<void
 
   await Promise.all([
     setDoc(usernameRef, { uid, username }),
-    setDoc(doc(db, 'profiles', uid), { username }),
+    // merge:true — profiles/{uid} also holds displayName/bio/location/
+    // photoURL (see data/repositories/profile.ts); a plain setDoc here would
+    // silently wipe those fields whenever a username is (re)claimed.
+    setDoc(doc(db, 'profiles', uid), { username }, { merge: true }),
   ])
 }

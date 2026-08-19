@@ -1,23 +1,30 @@
-import { signOut } from 'firebase/auth'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
-import { Button } from '../../components/ui/Button'
 import { StatTile } from '../../components/ui/StatTile'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { auth } from '../../data/firebase'
-import { getCollectionStats, getMostSharedBottle, getLegacyShelfBottles } from '../../features/profile/selectors'
+import { getCollectionStats, getFavoriteBottle, getMostSharedBottle } from '../../features/profile/selectors'
 import { getDistilleryStats } from '../../features/discover/selectors'
 import { getCompanionStats } from '../../features/journal/selectors'
-import { UsernameClaim } from '../../features/profile/UsernameClaim'
+import { getCurrentScore } from '../../features/bottleDetails/selectors'
+import { getWhiskeyIdentity } from '../../features/profile/identity'
+import { getRecentMilestones } from '../../features/profile/milestones'
+import { useBlindProfileStats } from '../../features/profile/useBlindProfileStats'
+import { ProfileHeader } from '../../features/profile/ProfileHeader'
+import { WhiskeyIdentityCard } from '../../features/profile/WhiskeyIdentityCard'
+import { FavoritesGrid } from '../../features/profile/FavoritesGrid'
+import { BlindProfileCard } from '../../features/profile/BlindProfileCard'
+import { MilestonesRow } from '../../features/profile/MilestonesRow'
+import { PalateBreakdown } from '../../features/profile/PalateBreakdown'
 import { YourPalateSection } from '../../features/yourPalate/YourPalateSection'
 import styles from './ProfilePage.module.css'
 
 export function ProfilePage() {
   const { user, loading: authLoading } = useAuth()
-  const { userDoc, loading: dataLoading } = useUserData()
+  const { userDoc, profile, loading: dataLoading } = useUserData()
+  const { stats: blindStats } = useBlindProfileStats(user?.uid)
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Profile" title="My Journey" />
@@ -37,78 +44,62 @@ export function ProfilePage() {
   }
 
   const { bottles, pours, memories } = userDoc
+  const displayName = profile?.displayName || user.displayName || user.email?.split('@')[0] || 'Whiskey Explorer'
+
   const stats = getCollectionStats(bottles, pours, memories.length)
+  const experiencedBottles = bottles.filter((b) => b.status !== 'wishlist' && b.status !== 'incoming').length
+
+  const identity = getWhiskeyIdentity(bottles, pours)
+
+  const favoriteBottle = getFavoriteBottle(bottles, pours)
   const distilleries = getDistilleryStats(bottles)
   const companions = getCompanionStats(pours)
   const mostShared = getMostSharedBottle(bottles, pours)
-  const legacyBottles = getLegacyShelfBottles(bottles)
-  const hasAnyFavorites = distilleries.length > 0 || companions.length > 0 || Boolean(mostShared)
+
+  const milestones = getRecentMilestones(bottles, pours, blindStats?.completedRooms ?? [])
 
   return (
     <>
-      <PageHeader eyebrow="Profile" title="My Journey" subtitle={user.displayName ?? user.email ?? undefined} />
+      <ProfileHeader
+        photoURL={profile?.photoURL}
+        displayName={displayName}
+        username={userDoc.username}
+        location={profile?.location}
+        bio={profile?.bio}
+      />
 
-      <UsernameClaim current={userDoc.username} />
+      <WhiskeyIdentityCard identity={identity} />
 
-      <Section title="Your Bar at a Glance">
+      <Section title="Journey at a Glance">
         <div className={styles.statsGrid}>
-          <StatTile value={stats.totalBottles} label="Bottles" />
-          <StatTile value={stats.openBottles} label="Opened" />
+          <StatTile value={experiencedBottles} label="Bottles Experienced" />
+          <StatTile value={stats.openBottles} label="Bottles Opened" />
           <StatTile value={stats.totalPours} label="Pour Stories" />
-          <StatTile value={stats.totalMemories} label="Memories" />
+          <StatTile value={blindStats?.completedCount ?? 0} label="Blind Tastings" />
         </div>
       </Section>
 
       <Section title="Favorites">
-        {!hasAnyFavorites ? (
-          <EmptyState title="Your favorites will build up here." message="Add bottles and log pours to see your patterns emerge." />
-        ) : (
-          <div className={styles.favoritesList}>
-            {distilleries.length > 0 ? (
-              <div className={styles.favoriteRow}>
-                <span className={styles.favoriteLabel}>Favorite Distillery</span>
-                <span className={styles.favoriteValue}>{distilleries[0]?.name}</span>
-              </div>
-            ) : null}
-            {companions.length > 0 ? (
-              <div className={styles.favoriteRow}>
-                <span className={styles.favoriteLabel}>Favorite Companion</span>
-                <span className={styles.favoriteValue}>{companions[0]?.name}</span>
-              </div>
-            ) : null}
-            {mostShared ? (
-              <div className={styles.favoriteRow}>
-                <span className={styles.favoriteLabel}>Most Shared Bottle</span>
-                <span className={styles.favoriteValue}>{mostShared.bottle.name}</span>
-              </div>
-            ) : null}
-          </div>
-        )}
+        <FavoritesGrid
+          favoriteBottle={favoriteBottle ? { bottle: favoriteBottle, score: getCurrentScore(favoriteBottle, pours) } : undefined}
+          favoriteDistillery={distilleries[0]}
+          favoriteCompanion={companions[0]}
+          mostShared={mostShared}
+        />
       </Section>
 
       <YourPalateSection bottles={bottles} pours={pours} />
+      <div className={styles.palateBreakdownWrap}>
+        <PalateBreakdown bottles={bottles} pours={pours} />
+      </div>
 
-      <Section title="Legacy Shelf">
-        {legacyBottles.length === 0 ? (
-          <EmptyState
-            title="No Legacy Shelf bottles yet."
-            message="Mark a bottle as Legacy Shelf when it earns a permanent place in your story."
-          />
-        ) : (
-          <div className={styles.legacyList}>
-            {legacyBottles.map((bottle) => (
-              <div className={styles.legacyRow} key={bottle.id}>
-                <div className={styles.legacyName}>{bottle.name}</div>
-                {bottle.legacyShelfReason ? <div className={styles.legacyReason}>{bottle.legacyShelfReason}</div> : null}
-              </div>
-            ))}
-          </div>
-        )}
+      <Section title="Blind Profile">
+        <BlindProfileCard stats={blindStats} />
       </Section>
 
-      <Button variant="secondary" className={styles.signOut} onClick={() => signOut(auth)}>
-        Sign out
-      </Button>
+      <Section title="Recent Milestones">
+        <MilestonesRow milestones={milestones} />
+      </Section>
     </>
   )
 }

@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { updateProfile as updateAuthProfile } from 'firebase/auth'
 import { useAuth } from './useAuth'
+import { auth } from '../data/firebase'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { claimUsername as claimUsernameRepo } from '../data/repositories/username'
+import { fetchProfile, saveProfile as saveProfileRepo } from '../data/repositories/profile'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
-import type { Bottle, GalleryPhoto, InfinityBottleAddition, Memory, Pour, UserDoc } from '../data/types'
+import type { Bottle, GalleryPhoto, InfinityBottleAddition, Memory, Pour, Profile, UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type BottlePatch = Partial<Omit<Bottle, 'id' | 'createdAt'>>
@@ -12,9 +15,12 @@ export type NewPourInput = Omit<Pour, 'id'>
 export type PourPatch = Omit<Pour, 'id' | 'bottleId'>
 export type NewMemoryInput = Omit<Memory, 'id' | 'createdAt'>
 export type MemoryPatch = Omit<Memory, 'id' | 'createdAt'>
+export type ProfilePatch = Partial<Pick<Profile, 'displayName' | 'bio' | 'location' | 'photoURL'>>
 
 interface UserDataState {
   userDoc: UserDoc
+  profile: Profile | undefined
+  profileLoading: boolean
   loading: boolean
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<string | undefined>
@@ -31,10 +37,13 @@ interface UserDataState {
   createInfinityBottle: (name: string) => Promise<void>
   addInfinityAddition: (infinityBottleId: string, addition: InfinityBottleAddition) => Promise<void>
   claimUsername: (username: string) => Promise<void>
+  updateProfile: (patch: ProfilePatch) => Promise<void>
 }
 
 const UserDataContext = createContext<UserDataState>({
   userDoc: EMPTY_USER_DOC,
+  profile: undefined,
+  profileLoading: true,
   loading: true,
   signedIn: false,
   addBottle: async () => {},
@@ -51,6 +60,7 @@ const UserDataContext = createContext<UserDataState>({
   createInfinityBottle: async () => {},
   addInfinityAddition: async () => {},
   claimUsername: async () => {},
+  updateProfile: async () => {},
 })
 
 function generateId(): string {
@@ -62,6 +72,8 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   const mockMode = isMockAuthEnabled()
   const [userDoc, setUserDoc] = useState<UserDoc>(EMPTY_USER_DOC)
   const [dataLoading, setDataLoading] = useState(true)
+  const [profile, setProfile] = useState<Profile | undefined>(undefined)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   useEffect(() => {
     if (authLoading) return
@@ -98,6 +110,39 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       setUserDoc(doc)
       setDataLoading(false)
       writeCachedUserDoc(user.uid, doc)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user, authLoading, mockMode])
+
+  // profiles/{uid} — public displayName/bio/location/photoURL, fetched
+  // separately from userDoc since it's a different Firestore document (see
+  // data/repositories/profile.ts). Username itself is NOT mirrored here —
+  // userDoc.username (above) stays the single source of truth for that,
+  // same as it already was before this profile doc existed.
+  useEffect(() => {
+    if (authLoading) return
+
+    if (!user) {
+      setProfile(undefined)
+      setProfileLoading(false)
+      return
+    }
+
+    if (mockMode) {
+      setProfile({ username: '', displayName: user.displayName ?? undefined })
+      setProfileLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setProfileLoading(true)
+    fetchProfile(user.uid).then((p) => {
+      if (cancelled) return
+      setProfile(p)
+      setProfileLoading(false)
     })
 
     return () => {
@@ -301,9 +346,46 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  // Updates the public profiles/{uid} doc (displayName/bio/location/
+  // photoURL). When displayName changes, also mirrors it into
+  // userDoc.greetingName — the field Home already reads for its greeting
+  // (see pages/Home/HomePage.tsx) — and into Firebase Auth's own
+  // displayName/photoURL via updateProfile(), so both stay in sync with
+  // whatever the rest of the app already reads off the Auth user object.
+  const updateProfile = useCallback(
+    async (patch: ProfilePatch) => {
+      if (!user) return
+      const nextProfile: Profile = { ...(profile ?? { username: userDoc.username ?? '' }), ...patch }
+      setProfile(nextProfile)
+
+      if (patch.displayName !== undefined && patch.displayName !== userDoc.greetingName) {
+        const nextDoc: UserDoc = { ...userDoc, greetingName: patch.displayName }
+        setUserDoc(nextDoc)
+        if (!mockMode) {
+          writeCachedUserDoc(user.uid, nextDoc)
+          await saveUserDoc(user.uid, { greetingName: patch.displayName })
+        }
+      }
+
+      if (mockMode) return
+
+      await saveProfileRepo(user.uid, patch)
+
+      if (auth.currentUser && (patch.displayName !== undefined || patch.photoURL !== undefined)) {
+        await updateAuthProfile(auth.currentUser, {
+          ...(patch.displayName !== undefined ? { displayName: patch.displayName } : {}),
+          ...(patch.photoURL !== undefined ? { photoURL: patch.photoURL } : {}),
+        })
+      }
+    },
+    [user, userDoc, profile, mockMode],
+  )
+
   const value = useMemo<UserDataState>(
     () => ({
       userDoc,
+      profile,
+      profileLoading,
       loading: authLoading || dataLoading,
       signedIn: Boolean(user),
       addBottle,
@@ -320,9 +402,12 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       createInfinityBottle,
       addInfinityAddition,
       claimUsername,
+      updateProfile,
     }),
     [
       userDoc,
+      profile,
+      profileLoading,
       authLoading,
       dataLoading,
       user,
@@ -340,6 +425,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       createInfinityBottle,
       addInfinityAddition,
       claimUsername,
+      updateProfile,
     ],
   )
 

@@ -1,0 +1,41 @@
+.row {
+  display: flex;
+  gap: var(--fip-space-3);
+  overflow-x: auto;
+  padding-bottom: var(--fip-space-1);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.row::-webkit-scrollbar {
+  display: none;
+}
+
+.card {
+  flex: 0 0 auto;
+  width: 160px;
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.label {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-amber);
+  line-height: var(--fip-leading-tight);
+}
+
+.detail {
+  margin-top: var(--fip-space-1);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.date {
+  margin-top: var(--fip-space-2);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}

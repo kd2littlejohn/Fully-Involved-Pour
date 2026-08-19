@@ -1,5 +1,5 @@
 import type { Bottle, Pour } from '../../data/types'
-import { getPoursForBottle } from '../bottleDetails/selectors'
+import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
 
 export interface CollectionStats {
   totalBottles: number
@@ -68,4 +68,26 @@ export function getMostSharedBottle(bottles: Bottle[], pours: Pour[]): SharedBot
 
 export function getLegacyShelfBottles(bottles: Bottle[]): Bottle[] {
   return bottles.filter((b) => b.legacyShelf)
+}
+
+// The user's own explicit favorite flag (see YourTakeCard's "Add to
+// Favorites" toggle, already live on Bottle Details) — never a guess. Among
+// favorited bottles, the highest current score wins; ties break to the most
+// recently added.
+export function getFavoriteBottle(bottles: Bottle[], pours: Pour[]): Bottle | undefined {
+  const favorited = bottles.filter((b) => b.favorite)
+  if (favorited.length === 0) return undefined
+  return [...favorited].sort((a, b) => {
+    const scoreA = getCurrentScore(a, pours)
+    const scoreB = getCurrentScore(b, pours)
+    // Infinity - Infinity is NaN, not 0 — comparing two unscored bottles
+    // with the naive `?? -Infinity` subtraction broke the createdAt
+    // tiebreak below entirely. Handle "no score" explicitly instead.
+    if (scoreA !== scoreB) {
+      if (scoreA === undefined) return 1
+      if (scoreB === undefined) return -1
+      return scoreB - scoreA
+    }
+    return (b.createdAt ?? 0) - (a.createdAt ?? 0)
+  })[0]
 }

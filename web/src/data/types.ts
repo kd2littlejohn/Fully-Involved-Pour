@@ -178,6 +178,10 @@ export interface UsernameRecord {
 
 export interface Profile {
   username: string
+  displayName?: string
+  bio?: string
+  location?: string
+  photoURL?: string
 }
 
 export interface Follow {

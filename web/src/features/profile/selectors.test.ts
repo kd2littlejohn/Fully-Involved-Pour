@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAverageProof, getCollectionStats, getFavoriteFlavors, getLegacyShelfBottles, getMostSharedBottle } from './selectors'
+import { getAverageProof, getCollectionStats, getFavoriteBottle, getFavoriteFlavors, getLegacyShelfBottles, getMostSharedBottle } from './selectors'
 import type { Bottle, Pour } from '../../data/types'
 
 const bottles: Bottle[] = [
@@ -84,5 +84,28 @@ describe('getMostSharedBottle', () => {
 describe('getLegacyShelfBottles', () => {
   it('returns only bottles flagged legacyShelf', () => {
     expect(getLegacyShelfBottles(bottles).map((b) => b.id)).toEqual(['b3'])
+  })
+})
+
+describe('getFavoriteBottle', () => {
+  it('returns undefined when no bottle is explicitly marked a favorite', () => {
+    expect(getFavoriteBottle(bottles, pours)).toBeUndefined()
+  })
+
+  it('picks the highest-scoring bottle among those explicitly favorited by the user', () => {
+    const favorited: Bottle[] = [
+      { ...bottles[0]!, favorite: true }, // b1, latest pour rating 8
+      { ...bottles[1]!, favorite: true }, // b2, latest pour rating 7
+    ]
+    const result = getFavoriteBottle(favorited, pours)
+    expect(result?.id).toBe('b1')
+  })
+
+  it('falls back to most recently added on a tie, never fabricating a winner', () => {
+    const favorited: Bottle[] = [
+      { id: 'x', name: 'X', status: 'open', favorite: true, createdAt: 1 },
+      { id: 'y', name: 'Y', status: 'open', favorite: true, createdAt: 2 },
+    ]
+    expect(getFavoriteBottle(favorited, [])?.id).toBe('y')
   })
 })

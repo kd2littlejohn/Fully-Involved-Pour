@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { flavorRadarValues, collectionFlavorRadarValues, topFlavorTags, FLAVOR_AXES } from './flavorCategories'
+import { flavorRadarValues, collectionFlavorRadarValues, topFlavorTags, topFlavorTagPercentages, FLAVOR_AXES } from './flavorCategories'
 import type { Bottle, Pour } from '../../data/types'
 
 const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
@@ -132,5 +132,32 @@ describe('topFlavorTags', () => {
     const ranked = topFlavorTags([bottleWithFlavors], [], 2)
     expect(ranked).toHaveLength(2)
     expect(ranked.map((r) => r.tag)).toEqual(['Cherry', 'Honey']) // alphabetical among equal structuredCount=1 ties
+  })
+})
+
+describe('topFlavorTagPercentages', () => {
+  it('returns an empty list when there is no tagged data at all', () => {
+    expect(topFlavorTagPercentages([bottle], [])).toEqual([])
+  })
+
+  it('computes real percentages that sum to the same total mention count — never invented numbers', () => {
+    // 3 Sweet mentions (Vanilla x2, Caramel x1), 1 Woody mention (Oak) — 4 total.
+    const bottleWithFlavors: Bottle = { ...bottle, flavors: ['Vanilla', 'Caramel'] }
+    const pours = [pourFor('b1', ['Vanilla'], []), pourFor('b1', ['Oak'], [])]
+    const percentages = topFlavorTagPercentages([bottleWithFlavors], pours)
+
+    const vanilla = percentages.find((p) => p.tag === 'Vanilla')
+    const caramel = percentages.find((p) => p.tag === 'Caramel')
+    const oak = percentages.find((p) => p.tag === 'Oak')
+
+    expect(vanilla).toEqual({ tag: 'Vanilla', count: 2, percent: 50 })
+    expect(caramel).toEqual({ tag: 'Caramel', count: 1, percent: 25 })
+    expect(oak).toEqual({ tag: 'Oak', count: 1, percent: 25 })
+  })
+
+  it('respects the limit, keeping the highest-count tags first', () => {
+    const bottleWithFlavors: Bottle = { ...bottle, flavors: ['Oak', 'Cherry', 'Honey', 'Vanilla'] }
+    const percentages = topFlavorTagPercentages([bottleWithFlavors], [], 2)
+    expect(percentages).toHaveLength(2)
   })
 })

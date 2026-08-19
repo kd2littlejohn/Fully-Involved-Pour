@@ -1,0 +1,114 @@
+.page {
+  min-height: 100dvh;
+  background: var(--fip-black);
+  padding-bottom: max(var(--fip-space-8), env(safe-area-inset-bottom));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: max(var(--fip-space-4), env(safe-area-inset-top)) var(--fip-shell-x) var(--fip-space-4);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.title {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-cream);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+  padding: 0 var(--fip-shell-x);
+}
+
+.photoRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-4);
+  margin-bottom: var(--fip-space-2);
+}
+
+.photoPreview {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--fip-radius-round);
+  overflow: hidden;
+  border: 2px solid var(--fip-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
+  flex: 0 0 auto;
+}
+
+.photoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photoPlaceholder {
+  color: var(--fip-amber);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+}
+
+.photoButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.photoInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.charCount {
+  margin-top: calc(var(--fip-space-2) * -1);
+  text-align: right;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.fieldError {
+  margin-top: calc(var(--fip-space-2) * -1);
+  color: var(--fip-error);
+  font-size: var(--fip-text-xs);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}
