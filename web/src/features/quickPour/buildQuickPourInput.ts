@@ -15,6 +15,7 @@ export interface QuickPourInputParams {
   companion?: string
   location?: string
   photoUrl?: string
+  sharedWithUids?: string[]
 }
 
 // Quick Pour skips the component-by-component rubric for speed, so the
@@ -32,6 +33,7 @@ export function buildQuickPourInput({
   companion,
   location,
   photoUrl,
+  sharedWithUids,
 }: QuickPourInputParams): NewPourInput {
   const total = round1(Math.max(0, Math.min(10, score)))
   const ratio = total / 10
@@ -52,6 +54,7 @@ export function buildQuickPourInput({
     companion,
     location,
     photoUrl,
+    sharedWithUids: sharedWithUids && sharedWithUids.length > 0 ? sharedWithUids : undefined,
     fip: {
       nose,
       palate,

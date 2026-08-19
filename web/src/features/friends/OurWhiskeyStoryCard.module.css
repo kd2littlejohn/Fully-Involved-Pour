@@ -1,0 +1,52 @@
+.card {
+  padding: var(--fip-space-5);
+  border-radius: var(--fip-radius-lg);
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-card));
+  border: 1px solid var(--fip-border);
+}
+
+.eyebrow {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin-bottom: var(--fip-space-3);
+}
+
+.developing {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.statsRow {
+  display: flex;
+  gap: var(--fip-space-6);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.statValue {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-amber);
+}
+
+.statLabel {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.line {
+  margin-top: var(--fip-space-3);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+.strong {
+  color: var(--fip-cream);
+}

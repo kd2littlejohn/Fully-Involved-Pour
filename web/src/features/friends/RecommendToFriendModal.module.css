@@ -1,0 +1,41 @@
+.friendList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-bottom: var(--fip-space-4);
+}
+
+.friendOption {
+  min-height: 44px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  cursor: pointer;
+}
+
+.friendOptionActive {
+  background: var(--fip-amber-soft);
+  border-color: var(--fip-border-strong);
+  color: var(--fip-amber);
+}
+
+.emptyMessage {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.sentMessage {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  margin-bottom: var(--fip-space-4);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}

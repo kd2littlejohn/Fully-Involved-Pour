@@ -13,6 +13,13 @@ vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({ user: { uid: 'u1' }, loading: false }),
 }))
 
+// The "Shared with" friend-tagging field (see features/friends/
+// TagFriendsField) reads this repository — mocked to an empty friend list
+// so it never attempts a real Firestore call in tests.
+vi.mock('../../data/repositories/relationships', () => ({
+  getFriendIds: () => Promise.resolve([]),
+}))
+
 vi.mock('../pourWizard/PourWizard', () => ({
   PourWizard: ({ bottleName, existingPour }: { bottleName: string; existingPour?: { id: string } }) => (
     <div>

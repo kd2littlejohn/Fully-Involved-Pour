@@ -4,7 +4,9 @@ import { ProgressStepper } from '../../components/ui/ProgressStepper'
 import { Button } from '../../components/ui/Button'
 import { useWizardDraft } from './useWizardDraft'
 import { useUserData, type NewPourInput } from '../../hooks/useUserData'
+import { useAuth } from '../../hooks/useAuth'
 import { buyAgainToValueScore, computeFipTotal } from '../fip/scoring'
+import { shareStoryWithTaggedFriends } from '../friends/shareStoryOnSave'
 import type { Pour } from '../../data/types'
 import { SessionStep } from './steps/SessionStep'
 import { NoseStep } from './steps/NoseStep'
@@ -34,7 +36,8 @@ interface PourWizardProps {
 export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSaved }: PourWizardProps) {
   const isEditing = Boolean(existingPour)
   const { draft, updateDraft, clearDraft } = useWizardDraft(bottleId, existingPour)
-  const { userDoc, addPour, updatePour } = useUserData()
+  const { user } = useAuth()
+  const { userDoc, profile, addPour, updatePour } = useUserData()
   const bottle = userDoc?.bottles.find((b) => b.id === bottleId)
   const [stepIndex, setStepIndex] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -55,6 +58,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
       occasion: draft.occasion,
       notes: draft.notes,
       companion: draft.companion,
+      sharedWithUids: draft.sharedWithUids,
       location: draft.location,
       mood: draft.mood,
       glass: draft.glass,
@@ -78,12 +82,27 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
       },
     }
 
+    let savedPour: Pour | undefined
     if (existingPour) {
       const { bottleId: _bottleId, ...patch } = pour
       await updatePour(existingPour.id, patch)
+      savedPour = { ...existingPour, ...patch }
     } else {
-      await addPour(pour)
+      savedPour = await addPour(pour)
       clearDraft()
+    }
+
+    if (user && savedPour && savedPour.sharedWithUids && savedPour.sharedWithUids.length > 0) {
+      void shareStoryWithTaggedFriends(
+        {
+          uid: user.uid,
+          username: userDoc.username ?? '',
+          displayName: profile?.displayName || user.displayName || undefined,
+          photoURL: profile?.photoURL,
+        },
+        savedPour,
+        bottle,
+      )
     }
 
     setSaving(false)

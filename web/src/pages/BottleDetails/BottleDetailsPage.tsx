@@ -18,6 +18,7 @@ import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { getCurrentScore } from '../../features/bottleDetails/selectors'
 import { fipTier } from '../../features/fip/tiers'
 import { BottleKillCelebration } from '../../features/bottleKill/BottleKillCelebration'
+import { RecommendToFriendModal } from '../../features/friends/RecommendToFriendModal'
 import { YourTakeCard } from '../../features/bottleDetails/YourTakeCard'
 import { StartAPourButton } from '../../features/startAPour/StartAPourButton'
 import { OverviewTab } from './tabs/OverviewTab'
@@ -80,6 +81,7 @@ export function BottleDetailsPage() {
   const [markingOpen, setMarkingOpen] = useState(false)
   const [markingFinished, setMarkingFinished] = useState(false)
   const [showBottleKillCelebration, setShowBottleKillCelebration] = useState(false)
+  const [showRecommendModal, setShowRecommendModal] = useState(false)
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Bottle" title="Bottle details" />
@@ -181,6 +183,7 @@ export function BottleDetailsPage() {
   menuItems.push(
     { label: 'Edit Bottle', onClick: () => navigate(`/bottles/${bottle.id}/edit`) },
     { label: bottle.favorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
+    { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
     { label: 'Replace Bottle', onClick: handleReplaceBottle },
     { label: 'Delete Bottle', onClick: () => setConfirmingDelete(true), tone: 'danger' },
   )
@@ -270,6 +273,8 @@ export function BottleDetailsPage() {
       {showBottleKillCelebration ? (
         <BottleKillCelebration bottle={bottle} pours={userDoc.pours} onClose={() => setShowBottleKillCelebration(false)} />
       ) : null}
+
+      {showRecommendModal ? <RecommendToFriendModal bottle={bottle} onClose={() => setShowRecommendModal(false)} /> : null}
     </>
   )
 }

@@ -1,0 +1,147 @@
+import { Navigate, useParams } from 'react-router-dom'
+import { PageHeader } from '../../components/layout/PageHeader'
+import { EmptyState } from '../../components/ui/EmptyState'
+import { StatTile } from '../../components/ui/StatTile'
+import { useAuth } from '../../hooks/useAuth'
+import { useUserData } from '../../hooks/useUserData'
+import { useFriendProfile } from '../../features/friends/useFriendProfile'
+import { useOurWhiskeyStory } from '../../features/friends/useOurWhiskeyStory'
+import { AddFriendButton } from '../../features/friends/AddFriendButton'
+import { OurWhiskeyStoryCard } from '../../features/friends/OurWhiskeyStoryCard'
+import { SharedMomentCard } from '../../features/friends/SharedMomentCard'
+import { getBottlesInCommon } from '../../features/friends/friendProfileSelectors'
+import styles from './FriendProfilePage.module.css'
+
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  const [first, second] = words
+  if (!first) return '?'
+  if (!second) return first.slice(0, 2).toUpperCase()
+  return (first.charAt(0) + second.charAt(0)).toUpperCase()
+}
+
+// Privacy-aware by construction, not by hiding fields after the fact:
+// everything rendered here comes from either the already-public profiles
+// doc, or sharedCollection/sharedMoments — data the owner explicitly chose
+// to project (see data/repositories/sharedCollections.ts). Nothing here
+// ever reads the friend's private users/{uid} doc.
+export function FriendProfilePage() {
+  const { username } = useParams<{ username: string }>()
+  const { user, loading: authLoading } = useAuth()
+  const { userDoc } = useUserData()
+  const { data, loading, notFound } = useFriendProfile(username, user?.uid)
+  const { story, loading: storyLoading } = useOurWhiskeyStory(user?.uid, data?.uid)
+
+  if (authLoading || loading) {
+    return <PageHeader eyebrow="Friends" title="Profile" />
+  }
+
+  if (data && user && data.uid === user.uid) {
+    return <Navigate to="/profile" replace />
+  }
+
+  if (notFound || !data) {
+    return (
+      <>
+        <PageHeader eyebrow="Friends" title="Profile" />
+        <EmptyState title="We couldn't find that profile." message="Double-check the link, or search for them by @username." />
+      </>
+    )
+  }
+
+  const { profile, uid, sharedCollection, sharedMomentsWithViewer } = data
+  const displayName = profile.displayName || profile.username
+  const commonBottles = sharedCollection ? getBottlesInCommon(userDoc.bottles, sharedCollection.bottles) : []
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.header}>
+        <div className={styles.avatarWrap}>
+          {profile.photoURL ? (
+            <img className={styles.avatar} src={profile.photoURL} alt="" />
+          ) : (
+            <div className={styles.avatarFallback} aria-hidden="true">
+              {initials(displayName)}
+            </div>
+          )}
+        </div>
+        <h1 className={styles.name}>{displayName}</h1>
+        <p className={styles.username}>@{profile.username}</p>
+        {profile.location ? <p className={styles.location}>{profile.location}</p> : null}
+        {profile.bio ? <p className={styles.bio}>{profile.bio}</p> : null}
+        <div className={styles.actionRow}>
+          <AddFriendButton targetUid={uid} />
+        </div>
+      </div>
+
+      {profile.whiskeyIdentityTags && profile.whiskeyIdentityTags.length > 0 ? (
+        <div className={styles.identityCard}>
+          <div className={styles.identityEyebrow}>Whiskey Identity</div>
+          <div className={styles.identityTags}>{profile.whiskeyIdentityTags.join(' · ')}</div>
+        </div>
+      ) : null}
+
+      {sharedCollection && (sharedCollection.bottles.length > 0 || sharedCollection.wishlist.length > 0) ? (
+        <div className={styles.statsRow}>
+          {sharedCollection.bottles.length > 0 ? <StatTile value={sharedCollection.bottles.length} label="Bottles Shared" /> : null}
+          {sharedCollection.wishlist.length > 0 ? <StatTile value={sharedCollection.wishlist.length} label="Wish List Items" /> : null}
+        </div>
+      ) : null}
+
+      {!storyLoading && story ? <OurWhiskeyStoryCard story={story} friendFirstName={displayName.split(' ')[0] ?? displayName} /> : null}
+
+      {sharedMomentsWithViewer.length > 0 ? (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Recent Shared Pours</h2>
+          <div className={styles.momentList}>
+            {sharedMomentsWithViewer.slice(0, 5).map((moment) => (
+              <SharedMomentCard key={moment.id} moment={moment} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {commonBottles.length > 0 ? (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Bottles We Both Own</h2>
+          <div className={styles.bottleGrid}>
+            {commonBottles.slice(0, 8).map((bottle) => (
+              <div className={styles.bottleTile} key={`${bottle.name}-${bottle.distillery ?? ''}`}>
+                <div className={styles.bottleImageWrap}>{bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : null}</div>
+                <div className={styles.bottleName}>{bottle.name}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {sharedCollection && sharedCollection.wishlist.length > 0 ? (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Their Wish List</h2>
+          <div className={styles.bottleGrid}>
+            {sharedCollection.wishlist.slice(0, 8).map((bottle) => (
+              <div className={styles.bottleTile} key={bottle.id}>
+                <div className={styles.bottleImageWrap}>{bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : null}</div>
+                <div className={styles.bottleName}>{bottle.name}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {sharedCollection && sharedCollection.bottles.length > 0 ? (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Bottles They&rsquo;re Sharing</h2>
+          <div className={styles.bottleGrid}>
+            {sharedCollection.bottles.slice(0, 8).map((bottle) => (
+              <div className={styles.bottleTile} key={bottle.id}>
+                <div className={styles.bottleImageWrap}>{bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : null}</div>
+                <div className={styles.bottleName}>{bottle.name}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  )
+}

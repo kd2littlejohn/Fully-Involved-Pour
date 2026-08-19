@@ -1,0 +1,153 @@
+.page {
+  padding-bottom: var(--fip-space-8);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--fip-space-1);
+  padding: var(--fip-space-6) var(--fip-shell-x) var(--fip-space-4);
+}
+
+.avatarWrap {
+  margin-bottom: var(--fip-space-3);
+}
+
+.avatar,
+.avatarFallback {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--fip-radius-round);
+  border: 2px solid var(--fip-border-strong);
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
+  color: var(--fip-amber);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+}
+
+.name {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-cream);
+}
+
+.username {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.location {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.bio {
+  margin-top: var(--fip-space-2);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  max-width: var(--fip-readable-max);
+}
+
+.actionRow {
+  margin-top: var(--fip-space-4);
+}
+
+.identityCard {
+  margin: 0 var(--fip-shell-x) var(--fip-space-4);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  text-align: center;
+}
+
+.identityEyebrow {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin-bottom: var(--fip-space-2);
+}
+
+.identityTags {
+  font-family: var(--fip-font-display);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-md);
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-3);
+  margin: 0 var(--fip-shell-x) var(--fip-space-4);
+}
+
+.section {
+  margin: 0 var(--fip-shell-x) var(--fip-space-6);
+}
+
+.sectionTitle {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+  margin-bottom: var(--fip-space-3);
+}
+
+.momentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.bottleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--fip-space-3);
+}
+
+@media (min-width: 560px) {
+  .bottleGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.bottleTile {
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  overflow: hidden;
+}
+
+.bottleImageWrap {
+  aspect-ratio: 4 / 5;
+  background: var(--fip-oak-deep);
+}
+
+.bottleImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bottleName {
+  padding: var(--fip-space-2) var(--fip-space-3);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

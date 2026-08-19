@@ -8,10 +8,15 @@
   padding: var(--fip-space-6) var(--fip-shell-x) var(--fip-space-4);
 }
 
-.settingsButton {
+.iconRow {
   position: absolute;
   top: var(--fip-space-4);
   right: var(--fip-shell-x);
+  display: flex;
+  gap: var(--fip-space-2);
+}
+
+.iconButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -26,7 +31,7 @@
   transition: border-color var(--fip-motion) var(--fip-ease);
 }
 
-.settingsButton:hover {
+.iconButton:hover {
   border-color: var(--fip-border-strong);
   color: var(--fip-amber);
 }
@@ -87,6 +92,14 @@
   line-height: var(--fip-leading-copy);
 }
 
-.editButton {
+.actionRow {
   margin-top: var(--fip-space-4);
+  display: flex;
+  gap: var(--fip-space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.editButton {
+  margin-top: 0;
 }

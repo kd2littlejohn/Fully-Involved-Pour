@@ -218,6 +218,219 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
     }
 
+    // ---------------------------------------------------------------------
+    // Friends / social (web/src/data/repositories/{relationships,
+    // sharedMoments,recommendations,notifications,sharedCollections}.ts).
+    // "Share the pour, not your whole life" — every rule below only ever
+    // grants access tied to a specific, explicit relationship or share,
+    // never a broad allow read/write.
+
+    // relationships/{uidA}_{uidB} — doc id is always the two uids sorted
+    // lexicographically, regardless of who initiated. A block is stored as
+    // a symmetric doc too (status:'blocked'); `requestedBy` is whichever
+    // uid actually did the blocking, and — deliberately, for simplicity —
+    // isBlockedBetween() below treats a block as stopping interaction in
+    // BOTH directions rather than only restricting the blocked party. That
+    // is a conscious simplification: a block still fully achieves "this
+    // pair can no longer interact," just without distinguishing who
+    // technically initiated it for interaction *rules* (relationship
+    // *deletion* below does still respect direction — see relationships'
+    // own delete rule).
+    function relationshipId(uidA, uidB) {
+      return uidA < uidB ? uidA + '_' + uidB : uidB + '_' + uidA;
+    }
+
+    function friendsWith(uidA, uidB) {
+      let relId = relationshipId(uidA, uidB);
+      return exists(/databases/$(database)/documents/relationships/$(relId))
+        && get(/databases/$(database)/documents/relationships/$(relId)).data.status == 'friends';
+    }
+
+    function isBlockedBetween(uidA, uidB) {
+      let relId = relationshipId(uidA, uidB);
+      return exists(/databases/$(database)/documents/relationships/$(relId))
+        && get(/databases/$(database)/documents/relationships/$(relId)).data.status == 'blocked';
+    }
+
+    function friendRequestId(senderId, receiverId) {
+      return senderId + '_' + receiverId;
+    }
+
+    function hasPendingRequestFrom(senderId, receiverId) {
+      let reqId = friendRequestId(senderId, receiverId);
+      return exists(/databases/$(database)/documents/friendRequests/$(reqId))
+        && get(/databases/$(database)/documents/friendRequests/$(reqId)).data.status == 'pending';
+    }
+
+    // Shared by storyReactions/storyComments below — one place that
+    // fetches a sharedMoments doc and answers "can this uid see it," so
+    // neither rule repeats the same get() three times over.
+    function canAccessMoment(momentId, uid) {
+      let moment = get(/databases/$(database)/documents/sharedMoments/$(momentId)).data;
+      return moment.ownerId == uid || uid in moment.participantIds;
+    }
+
+    function momentOwner(momentId) {
+      return get(/databases/$(database)/documents/sharedMoments/$(momentId)).data.ownerId;
+    }
+
+    match /relationships/{pairId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.userIds;
+      // 'friends' can only ever be created/overwritten by the RECEIVER of a
+      // real, still-pending request from whoever `requestedBy` names — this
+      // is what actually turns "accept" into a relationship, not a bare
+      // client claim. 'blocked' can only be created by the blocker
+      // themselves, unconditionally (blocking never needs the other
+      // party's consent).
+      allow create, update: if request.auth != null
+        && request.auth.uid in request.resource.data.userIds
+        && (
+          (request.resource.data.status == 'friends'
+            && request.resource.data.requestedBy != request.auth.uid
+            && hasPendingRequestFrom(request.resource.data.requestedBy, request.auth.uid))
+          || (request.resource.data.status == 'blocked' && request.resource.data.requestedBy == request.auth.uid)
+        );
+      // Either side of a friendship can end it; only the blocker can lift
+      // their own block — the blocked party can never unblock themselves.
+      allow delete: if request.auth != null
+        && request.auth.uid in resource.data.userIds
+        && (resource.data.status == 'friends' || resource.data.requestedBy == request.auth.uid);
+    }
+
+    // friendRequests/{senderId}_{receiverId} — direction lives in the doc
+    // id itself, unlike relationships.
+    match /friendRequests/{requestId} {
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.senderId
+        && request.resource.data.status == 'pending'
+        && requestId == friendRequestId(request.resource.data.senderId, request.resource.data.receiverId)
+        && !isBlockedBetween(request.resource.data.senderId, request.resource.data.receiverId);
+      // The sender can only cancel; the receiver can only accept or
+      // decline — never the other way around — and only while still
+      // pending (a decided request is a permanent record, not reopenable).
+      allow update: if request.auth != null
+        && resource.data.status == 'pending'
+        && (
+          (request.auth.uid == resource.data.senderId && request.resource.data.status == 'cancelled')
+          || (request.auth.uid == resource.data.receiverId && request.resource.data.status in ['accepted', 'declined'])
+        );
+    }
+
+    // sharedMoments/{id} — a Pour Story shared with specific tagged
+    // friends (web/src/features/friends/shareStoryOnSave.ts). Content is a
+    // snapshot taken at share time (see data/types.ts SharedMoment) since
+    // participants can never read the owner's private users/{uid} doc.
+    match /sharedMoments/{momentId} {
+      allow read: if request.auth != null
+        && (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.participantIds);
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.acceptedParticipantIds.size() == 0;
+      // The owner can edit/moderate anything; a tagged participant may only
+      // ever touch their own membership in acceptedParticipantIds — never
+      // the snapshot, never anyone else's acceptance.
+      allow update: if request.auth != null
+        && (
+          resource.data.ownerId == request.auth.uid
+          || (request.auth.uid in resource.data.participantIds
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acceptedParticipantIds']))
+        );
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+
+      // A participant's own optional tasting impression on someone else's
+      // shared moment — never edits the original story (see
+      // SharedMomentParticipantNote in data/types.ts).
+      match /participantNotes/{uid} {
+        allow read: if request.auth != null && canAccessMoment(momentId, request.auth.uid);
+        allow write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // storyReactions/{sharedMomentId}_{uid} — one per person per story;
+    // reacting again just overwrites this same doc (see
+    // data/repositories/sharedMoments.ts setReaction).
+    match /storyReactions/{reactionId} {
+      allow read: if request.auth != null && canAccessMoment(resource.data.sharedMomentId, request.auth.uid);
+      allow create, update: if request.auth != null
+        && request.auth.uid == request.resource.data.uid
+        && reactionId == request.resource.data.sharedMomentId + '_' + request.resource.data.uid
+        && canAccessMoment(request.resource.data.sharedMomentId, request.auth.uid)
+        && !isBlockedBetween(request.auth.uid, momentOwner(request.resource.data.sharedMomentId));
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+    }
+
+    // storyComments/{id} — short conversation attached to one shared
+    // moment. Deletable by its own author, or by the story's owner
+    // moderating their own story (see data/repositories/sharedMoments.ts
+    // deleteComment; enforced here, not just in the UI).
+    match /storyComments/{commentId} {
+      allow read: if request.auth != null && canAccessMoment(resource.data.sharedMomentId, request.auth.uid);
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.authorId
+        && canAccessMoment(request.resource.data.sharedMomentId, request.auth.uid)
+        && !isBlockedBetween(request.auth.uid, momentOwner(request.resource.data.sharedMomentId));
+      allow delete: if request.auth != null
+        && (request.auth.uid == resource.data.authorId || request.auth.uid == momentOwner(resource.data.sharedMomentId));
+    }
+
+    // recommendations/{id} — a bottle recommendation, sender to recipient
+    // (web/src/data/repositories/recommendations.ts). Same snapshot
+    // reasoning as sharedMoments: bottleId only resolves in the sender's
+    // own private collection.
+    match /recommendations/{recommendationId} {
+      allow read: if request.auth != null
+        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId);
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.senderId
+        && request.resource.data.status == 'pending'
+        && !isBlockedBetween(request.resource.data.senderId, request.resource.data.recipientId);
+      // Only the recipient ever changes status (added-to-wishlist/
+      // dismissed) — the sender's copy is otherwise immutable history.
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.recipientId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow delete: if request.auth != null
+        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId);
+    }
+
+    // notifications/{id} — always written by the ACTOR on behalf of the
+    // recipient (web/src/data/repositories/notifications.ts
+    // createNotification is called by whoever performed the triggering
+    // action), so create checks actorId, not recipientId.
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.recipientId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.actorId;
+      // The recipient may only ever flip `read` — never rewrite what the
+      // notification says happened.
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.recipientId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.recipientId;
+    }
+
+    // sharedCollections/{uid} — an OWNER-COMPUTED, already-privacy-filtered
+    // projection of their own bottles/wishlist (see
+    // data/repositories/sharedCollections.ts buildSharedCollectionProjection
+    // — collectionVisibility/wishListVisibility are applied client-side at
+    // write time, since Firestore rules can't filter individual array
+    // elements out of a read). Only the owner ever writes it; read access
+    // here just has to match what their own profiles/{uid}.privacy already
+    // promises a friend or any FIP user.
+    match /sharedCollections/{ownerUid} {
+      allow read: if request.auth != null
+        && (
+          request.auth.uid == ownerUid
+          || (friendsWith(request.auth.uid, ownerUid)
+              && (get(/databases/$(database)/documents/profiles/$(ownerUid)).data.privacy.collectionVisibility != 'private'
+                  || get(/databases/$(database)/documents/profiles/$(ownerUid)).data.privacy.wishListVisibility != 'private'))
+          || get(/databases/$(database)/documents/profiles/$(ownerUid)).data.privacy.collectionVisibility == 'fip-users'
+          || get(/databases/$(database)/documents/profiles/$(ownerUid)).data.privacy.wishListVisibility == 'fip-users'
+        );
+      allow write: if request.auth != null && request.auth.uid == ownerUid;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

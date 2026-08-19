@@ -10,6 +10,9 @@ import { buildQuickPourInput } from './buildQuickPourInput'
 import { PhotoUploadField } from '../photoUpload/PhotoUploadField'
 import { PourWizard } from '../pourWizard/PourWizard'
 import { fipTier } from '../fip/tiers'
+import { useAuth } from '../../hooks/useAuth'
+import { TagFriendsField } from '../friends/TagFriendsField'
+import { shareStoryWithTaggedFriends } from '../friends/shareStoryOnSave'
 import type { Pour } from '../../data/types'
 import styles from './QuickPour.module.css'
 
@@ -30,7 +33,8 @@ interface QuickPourProps {
 // just-saved pour in the full wizard for anyone who wants to go deeper — the
 // fast path is never blocked on making that choice up front.
 export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourProps) {
-  const { addPour } = useUserData()
+  const { user } = useAuth()
+  const { userDoc, profile, addPour } = useUserData()
   const [reaction, setReaction] = useState<QuickPourReaction | null>(null)
   const [flavors, setFlavors] = useState<string[]>([])
   const [score, setScore] = useState<number | null>(null)
@@ -38,6 +42,7 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
   const [companion, setCompanion] = useState('')
   const [location, setLocation] = useState('')
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined)
+  const [sharedWithUids, setSharedWithUids] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [savedPour, setSavedPour] = useState<Pour | null>(null)
   const [tellingFullStory, setTellingFullStory] = useState(false)
@@ -65,11 +70,20 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
         companion: companion.trim() || undefined,
         location: location.trim() || undefined,
         photoUrl,
+        sharedWithUids,
       }),
     )
     setSaving(false)
     onSaved?.()
     if (pour) {
+      if (user && pour.sharedWithUids && pour.sharedWithUids.length > 0) {
+        const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+        void shareStoryWithTaggedFriends(
+          { uid: user.uid, username: userDoc.username ?? '', displayName: profile?.displayName || user.displayName || undefined, photoURL: profile?.photoURL },
+          pour,
+          bottle,
+        )
+      }
       setSavedPour(pour)
     } else {
       onClose()
@@ -189,6 +203,7 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
                 />
               </Field>
               <PhotoUploadField label="Photo" folder="pour-photos" onUploaded={setPhotoUrl} />
+              <TagFriendsField uid={user?.uid} selectedUids={sharedWithUids} onChange={setSharedWithUids} />
             </div>
           </details>
         </>

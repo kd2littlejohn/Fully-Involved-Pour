@@ -15,7 +15,9 @@ export type NewPourInput = Omit<Pour, 'id'>
 export type PourPatch = Omit<Pour, 'id' | 'bottleId'>
 export type NewMemoryInput = Omit<Memory, 'id' | 'createdAt'>
 export type MemoryPatch = Omit<Memory, 'id' | 'createdAt'>
-export type ProfilePatch = Partial<Pick<Profile, 'displayName' | 'bio' | 'location' | 'photoURL'>>
+export type ProfilePatch = Partial<
+  Pick<Profile, 'displayName' | 'bio' | 'location' | 'photoURL' | 'whiskeyIdentityTags' | 'whiskeyIdentityDescription' | 'privacy'>
+>
 
 interface UserDataState {
   userDoc: UserDoc

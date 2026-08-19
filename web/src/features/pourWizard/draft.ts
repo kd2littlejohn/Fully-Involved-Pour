@@ -5,6 +5,7 @@ export interface PourDraft {
   ounces?: number
   occasion?: string
   companion?: string
+  sharedWithUids?: string[]
   location?: string
   mood?: string
   glass?: string
@@ -43,6 +44,7 @@ export function pourToDraft(pour: Pour): PourDraft {
     ounces: pour.ounces,
     occasion: pour.occasion,
     companion: pour.companion,
+    sharedWithUids: pour.sharedWithUids,
     location: pour.location,
     mood: pour.mood,
     glass: pour.glass,

@@ -20,6 +20,8 @@ import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
 import { PourStoryDetail } from '../../features/pourWizard/PourStoryDetail'
 import { getMyBlindRooms } from '../../data/repositories/blindRoom'
+import { useFriends } from '../../features/friends/useFriends'
+import { FriendCard } from '../../features/friends/FriendCard'
 import type { BlindRoom, Pour } from '../../data/types'
 import styles from './JournalPage.module.css'
 
@@ -41,6 +43,7 @@ const TABS = [
 export function JournalPage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading } = useUserData()
+  const { friends } = useFriends(user?.uid)
   const [activeTab, setActiveTab] = useState('stories')
   const [selectedTimelinePour, setSelectedTimelinePour] = useState<Pour | null>(null)
   const [blindRooms, setBlindRooms] = useState<BlindRoom[]>([])
@@ -168,27 +171,40 @@ export function JournalPage() {
         ) : null}
 
         {activeTab === 'people' ? (
-          companions.length === 0 ? (
-            <EmptyState title="Your shared journey begins here." message="Add who joined you during a Pour Story." />
-          ) : (
-            <>
-              <div className={styles.favorite}>
-                <div className={styles.favoriteLabel}>Favorite Companion</div>
-                <div className={styles.favoriteName}>{companions[0]?.name}</div>
-              </div>
-              <div className={styles.companionList}>
-                {companions.map((companion) => (
-                  <div className={styles.companionRow} key={companion.name}>
-                    <span className={styles.companionName}>{companion.name}</span>
-                    <span className={styles.companionMeta}>
-                      {companion.pourCount} {companion.pourCount === 1 ? 'pour' : 'pours'} · {companion.bottleIds.length}{' '}
-                      {companion.bottleIds.length === 1 ? 'bottle' : 'bottles'}
-                    </span>
-                  </div>
+          <>
+            {friends.length > 0 ? (
+              <div className={styles.friendsRow}>
+                {friends.slice(0, 6).map((friend) => (
+                  <FriendCard key={friend.uid} friend={friend} />
                 ))}
               </div>
-            </>
-          )
+            ) : (
+              <Link to="/friends/add" className={styles.friendsPrompt}>
+                Add real FIP friends to tag them in Pour Stories →
+              </Link>
+            )}
+            {companions.length === 0 ? (
+              <EmptyState title="Your shared journey begins here." message="Add who joined you during a Pour Story." />
+            ) : (
+              <>
+                <div className={styles.favorite}>
+                  <div className={styles.favoriteLabel}>Favorite Companion</div>
+                  <div className={styles.favoriteName}>{companions[0]?.name}</div>
+                </div>
+                <div className={styles.companionList}>
+                  {companions.map((companion) => (
+                    <div className={styles.companionRow} key={companion.name}>
+                      <span className={styles.companionName}>{companion.name}</span>
+                      <span className={styles.companionMeta}>
+                        {companion.pourCount} {companion.pourCount === 1 ? 'pour' : 'pours'} · {companion.bottleIds.length}{' '}
+                        {companion.bottleIds.length === 1 ? 'bottle' : 'bottles'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         ) : null}
 
         {activeTab === 'bottles' ? (

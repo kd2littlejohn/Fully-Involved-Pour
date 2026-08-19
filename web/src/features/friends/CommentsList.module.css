@@ -1,0 +1,50 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-2);
+}
+
+.comment {
+  padding: var(--fip-space-2) var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card-soft);
+}
+
+.commentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.author {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+}
+
+.delete {
+  background: none;
+  border: none;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-md);
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.text {
+  margin-top: 2px;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+.composer {
+  display: flex;
+  gap: var(--fip-space-2);
+  align-items: center;
+}
+
+.composer input {
+  flex: 1 1 auto;
+}

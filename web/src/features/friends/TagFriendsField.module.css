@@ -1,0 +1,33 @@
+.wrap {
+  margin-bottom: var(--fip-space-4);
+}
+
+.label {
+  font-size: var(--fip-text-sm);
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+  margin-bottom: var(--fip-space-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}
+
+.chip {
+  min-height: 40px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  cursor: pointer;
+}
+
+.chipActive {
+  background: var(--fip-amber-soft);
+  border-color: var(--fip-border-strong);
+  color: var(--fip-amber);
+}

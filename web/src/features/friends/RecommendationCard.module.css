@@ -1,0 +1,72 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+}
+
+.sender {
+  color: var(--fip-cream);
+  font-weight: 700;
+  font-size: var(--fip-text-sm);
+}
+
+.eyebrow {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.body {
+  display: flex;
+  gap: var(--fip-space-3);
+  align-items: center;
+}
+
+.image {
+  width: 64px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-oak-deep);
+  flex: 0 0 auto;
+}
+
+.bottleInfo {
+  min-width: 0;
+}
+
+.bottleName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-cream);
+}
+
+.distillery {
+  color: var(--fip-brass);
+  font-size: var(--fip-text-xs);
+}
+
+.message {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  font-style: italic;
+  line-height: var(--fip-leading-copy);
+}
+
+.actions {
+  display: flex;
+  gap: var(--fip-space-2);
+}
+
+.status {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}

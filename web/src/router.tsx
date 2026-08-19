@@ -13,6 +13,9 @@ const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage').then((m)
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const EditProfilePage = lazy(() => import('./pages/Profile/EditProfilePage').then((m) => ({ default: m.EditProfilePage })))
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const FriendsPage = lazy(() => import('./pages/Friends/FriendsPage').then((m) => ({ default: m.FriendsPage })))
+const FriendProfilePage = lazy(() => import('./pages/Friends/FriendProfilePage').then((m) => ({ default: m.FriendProfilePage })))
+const AddFriendPage = lazy(() => import('./pages/Friends/AddFriendPage').then((m) => ({ default: m.AddFriendPage })))
 const AddBottlePage = lazy(() => import('./pages/AddBottle/AddBottlePage').then((m) => ({ default: m.AddBottlePage })))
 const BlindRoomLandingPage = lazy(() =>
   import('./pages/BlindRoom/BlindRoomLandingPage').then((m) => ({ default: m.BlindRoomLandingPage })),
@@ -53,6 +56,12 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
       { path: '/journey', element: <Navigate to="/journal" replace /> },
       { path: '/discover', element: <DiscoverPage /> },
       { path: '/profile', element: <ProfilePage /> },
+      // Browsable like Bottle Details — bottom nav stays visible while
+      // looking at Friends or a friend's profile. Reached via Profile ->
+      // Friends for this first version (see navItems.ts comment); not a
+      // sixth bottom-nav item.
+      { path: '/friends', element: <FriendsPage /> },
+      { path: '/friends/u/:username', element: <FriendProfilePage /> },
       // Browsable like Collection/Discover — bottom nav stays visible while
       // deciding which Blind Room to open. Not itself a bottom-nav item; see
       // the "Blind Room" option in Start a Pour and the Journey "Blind
@@ -79,6 +88,14 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
     element: (
       <Suspense fallback={<RouteFallback />}>
         <EditProfilePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/friends/add',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        <AddFriendPage />
       </Suspense>
     ),
   },

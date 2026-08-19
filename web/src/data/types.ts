@@ -111,6 +111,14 @@ export interface Pour {
   occasion?: string
   notes?: string
   companion?: string
+  // Real FIP friends tagged as present for this pour (see
+  // data/repositories/sharedMoments.ts) — deliberately separate from the
+  // free-text `companion` field above, which every existing selector
+  // (getCompanionStats, "Shared Pour" tagging, "most shared bottle")
+  // already treats as a single string. Tagging someone here creates a
+  // SharedMoment they can view/react/comment on; it never touches or
+  // replaces `companion`.
+  sharedWithUids?: string[]
   location?: string
   mood?: string
   glass?: string
@@ -176,12 +184,51 @@ export interface UsernameRecord {
   username: string
 }
 
+// --- Privacy ------------------------------------------------------------
+// "Do not make collections public automatically" — every new account gets
+// DEFAULT_PRIVACY_SETTINGS below, the most private option in each category.
+export type ProfileVisibility = 'friends' | 'fip-users'
+export type CollectionVisibility = 'private' | 'friends' | 'fip-users'
+export type PourStoryVisibility = 'private' | 'friends' | 'selected-friends'
+export type WishListVisibility = 'private' | 'friends'
+
+export interface PrivacySettings {
+  profileVisibility: ProfileVisibility
+  collectionVisibility: CollectionVisibility
+  pourStoryDefault: PourStoryVisibility
+  wishListVisibility: WishListVisibility
+}
+
+export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
+  profileVisibility: 'friends',
+  collectionVisibility: 'private',
+  pourStoryDefault: 'private',
+  wishListVisibility: 'private',
+}
+
 export interface Profile {
   username: string
   displayName?: string
   bio?: string
   location?: string
   photoURL?: string
+  // Lowercase mirrors of username/displayName, kept in sync on every
+  // profile write — Firestore only supports prefix-range queries on a
+  // literal field value, so search (see data/repositories/profile.ts
+  // searchProfiles) reads these instead of doing this normalization at
+  // query time. profiles/{uid} is already public-read (see
+  // firestore.rules); these add no new exposure since username/
+  // displayName are already public fields on the same doc.
+  normalizedUsername?: string
+  normalizedDisplayName?: string
+  // Snapshot of the owner's own Whiskey Identity card (see
+  // features/profile/identity.ts getWhiskeyIdentity), written whenever
+  // they view their own Profile page — lets a friend's profile view show
+  // "if shared" identity without ever reading the owner's private
+  // bottles/pours. Never fabricated: identical to what the owner sees.
+  whiskeyIdentityTags?: string[]
+  whiskeyIdentityDescription?: string
+  privacy?: PrivacySettings
 }
 
 export interface Follow {
@@ -389,4 +436,179 @@ export interface BlindRoomSecrets {
 export interface BlindRoomCode {
   roomId: string
   createdAt: number
+}
+
+// ---------------------------------------------------------------------------
+// Friends / social — "share the pour, not your whole life." Deliberately not
+// a feed: every collection below exists to back a specific, meaningful
+// interaction (a request, a tagged pour, a recommendation), never a
+// scrollable timeline of everything a user does. See
+// data/repositories/{relationships,sharedMoments,recommendations,
+// notifications,sharedCollections}.ts.
+
+// A friendship is mutual and symmetric — one doc per pair, keyed by sorted
+// uids (relationships/{uidA}_{uidB}, uidA < uidB), covering both terminal
+// states a pair of users can be in. Everything in between ("none",
+// "outgoing_pending", "incoming_pending") is derived from the ABSENCE of a
+// relationship doc plus whichever FriendRequest exists, never stored here.
+// Blocking is directional in effect even though the doc is shared: whichever
+// uid is NOT `requestedBy` is the one being blocked from interacting with
+// the blocker, never the other way around.
+export type RelationshipStatus = 'friends' | 'blocked'
+
+export interface Relationship {
+  id: string
+  userIds: [string, string]
+  status: RelationshipStatus
+  requestedBy: string
+  createdAt: number
+  updatedAt: number
+}
+
+export type FriendRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled'
+
+// friendRequests/{senderId}_{receiverId} — direction is part of the doc id,
+// unlike Relationship. Sender fields are a display snapshot (see
+// profiles/{uid}, already public) so the receiver's request card never
+// needs a second read.
+export interface FriendRequest {
+  id: string
+  senderId: string
+  senderUsername: string
+  senderDisplayName?: string
+  senderPhotoURL?: string
+  receiverId: string
+  status: FriendRequestStatus
+  createdAt: number
+  updatedAt: number
+}
+
+// A tasting moment shared with specific tagged friends — created when a Pour
+// Story names real FIP friends (Pour.sharedWithUids), not a general "friends
+// can browse my pours" feed. `snapshot` exists because Pour docs live inside
+// the owner's private users/{uid} doc (see firestore.rules) which a
+// participant can never read directly; this is the same "store a viewer-safe
+// snapshot at write time" pattern blindRoomSecrets already uses for hidden
+// bottle identities. Tagging never transfers ownership — a participant can
+// react/comment/add their own note (see sharedMoments/{id}/participantNotes)
+// but the story itself always belongs to `ownerId`.
+export interface SharedMomentSnapshot {
+  bottleName: string
+  distillery?: string
+  bottleImageUrl?: string
+  rating?: number
+  occasion?: string
+  memory?: string
+  date: string
+}
+
+export interface SharedMoment {
+  id: string
+  storyId: string
+  ownerId: string
+  ownerUsername: string
+  ownerDisplayName?: string
+  ownerPhotoURL?: string
+  participantIds: string[]
+  acceptedParticipantIds: string[]
+  snapshot: SharedMomentSnapshot
+  createdAt: number
+}
+
+export interface SharedMomentParticipantNote {
+  uid: string
+  note: string
+  updatedAt: number
+}
+
+export type StoryReactionType = 'cheers' | 'great-pour' | 'need-to-try' | 'good-notes'
+
+// storyReactions/{sharedMomentId}_{uid} — one reaction per person per
+// story; reacting again with a different type just overwrites this same
+// doc rather than stacking. No public like *counts* are surfaced as a
+// metric — see features/friends/reactions.ts.
+export interface StoryReaction {
+  id: string
+  sharedMomentId: string
+  uid: string
+  type: StoryReactionType
+  createdAt: number
+}
+
+export interface StoryComment {
+  id: string
+  sharedMomentId: string
+  authorId: string
+  authorUsername: string
+  authorDisplayName?: string
+  authorPhotoURL?: string
+  text: string
+  createdAt: number
+}
+
+export type RecommendationStatus = 'pending' | 'added-to-wishlist' | 'dismissed'
+
+// A bottle recommendation is also a snapshot, for the same reason as
+// SharedMomentSnapshot — bottleId only resolves inside the sender's own
+// private collection, so the recipient needs display fields copied at
+// send time, not a live reference.
+export interface Recommendation {
+  id: string
+  senderId: string
+  senderUsername: string
+  senderDisplayName?: string
+  senderPhotoURL?: string
+  recipientId: string
+  bottleName: string
+  bottleDistillery?: string
+  bottleImageUrl?: string
+  message?: string
+  status: RecommendationStatus
+  createdAt: number
+}
+
+export type NotificationType =
+  | 'friend-request-received'
+  | 'friend-request-accepted'
+  | 'tagged-in-pour'
+  | 'bottle-recommended'
+  | 'story-reaction'
+  | 'story-comment'
+
+// Named AppNotification (not Notification) to avoid colliding with the DOM
+// global. `refId` is the id of whatever this points to (a FriendRequest,
+// SharedMoment, or Recommendation), so a tap can route straight to it.
+export interface AppNotification {
+  id: string
+  recipientId: string
+  type: NotificationType
+  actorId: string
+  actorUsername: string
+  actorDisplayName?: string
+  actorPhotoURL?: string
+  refId: string
+  read: boolean
+  createdAt: number
+}
+
+// A lightweight summary of ONLY the bottles/wishlist items the owner's own
+// privacy settings currently allow friends (or all FIP users) to see —
+// synced from their real collection (see
+// data/repositories/sharedCollections.ts buildSharedCollectionProjection),
+// never computed live from another user's private users/{uid} doc, which
+// no one but its owner can ever read. Backs "Bottles We Both Own," a
+// friend's shared bottles, and their Wish List when they've allowed it.
+export interface SharedBottleSummary {
+  id: string
+  name: string
+  distillery?: string
+  imageUrl?: string
+  status: BottleStatus
+}
+
+export interface SharedCollection {
+  uid: string
+  bottles: SharedBottleSummary[]
+  wishlist: SharedBottleSummary[]
+  updatedAt: number
 }

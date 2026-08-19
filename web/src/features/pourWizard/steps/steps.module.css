@@ -8,6 +8,10 @@
   .grid {
     grid-template-columns: 1fr 1fr;
   }
+
+  .fullWidth {
+    grid-column: 1 / -1;
+  }
 }
 
 .chipRow {

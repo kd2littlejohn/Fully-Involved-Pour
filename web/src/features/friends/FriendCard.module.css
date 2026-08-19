@@ -1,0 +1,66 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  text-decoration: none;
+  color: inherit;
+  min-height: 44px;
+}
+
+.avatarWrap {
+  flex: 0 0 auto;
+}
+
+.avatar,
+.avatarFallback {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
+  color: var(--fip-amber);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+}
+
+.info {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.name {
+  color: var(--fip-cream);
+  font-weight: 600;
+  font-size: var(--fip-text-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.username {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+}
+
+.identity {
+  margin-top: 2px;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -5,6 +5,7 @@ import { auth } from '../../data/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { downloadUserDataExport } from '../../features/profile/dataExport'
+import { PrivacyControls } from '../../features/friends/PrivacyControls'
 import homeHeroImage from '../../assets/home-hero.webp'
 import styles from './SettingsPage.module.css'
 
@@ -116,10 +117,13 @@ export function SettingsPage() {
             <ChevronIcon open={expanded === 'privacy'} />
           </button>
           {expanded === 'privacy' ? (
-            <p className={styles.detail}>
-              Your bottles, pours, memories, and Blind Room results are stored privately and are only ever readable by you while
-              signed in. Your username and display name are the only fields visible on a public profile.
-            </p>
+            <div className={styles.detail}>
+              <p className={styles.detailIntro}>
+                Every account starts fully private. Choosing "Friends" or "FIP users" below only shares exactly that category —
+                nothing else.
+              </p>
+              <PrivacyControls />
+            </div>
           ) : null}
         </div>
 

@@ -1,8 +1,12 @@
 import { Field, controlClassName } from '../../../components/ui/Field'
+import { useAuth } from '../../../hooks/useAuth'
+import { TagFriendsField } from '../../friends/TagFriendsField'
 import type { StepProps } from './StepProps'
 import styles from './steps.module.css'
 
 export function SessionStep({ draft, updateDraft }: StepProps) {
+  const { user } = useAuth()
+
   return (
     <div className={styles.grid}>
       <Field label="Date" htmlFor="pw-date">
@@ -86,6 +90,14 @@ export function SessionStep({ draft, updateDraft }: StepProps) {
           placeholder="1.5"
         />
       </Field>
+
+      <div className={styles.fullWidth}>
+        <TagFriendsField
+          uid={user?.uid}
+          selectedUids={draft.sharedWithUids ?? []}
+          onChange={(uids) => updateDraft({ sharedWithUids: uids })}
+        />
+      </div>
     </div>
   )
 }

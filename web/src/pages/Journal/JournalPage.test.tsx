@@ -21,6 +21,13 @@ vi.mock('../../data/repositories/blindRoom', () => ({
   getMyBlindRooms: (...args: unknown[]) => mockGetMyBlindRooms(...args),
 }))
 
+// The People tab's Friends section (see features/friends/useFriends) reads
+// this repository — mocked to an empty friend list so it never attempts a
+// real Firestore call in tests.
+vi.mock('../../data/repositories/relationships', () => ({
+  getFriendIds: () => Promise.resolve([]),
+}))
+
 function renderJournal() {
   return render(
     <MemoryRouter>

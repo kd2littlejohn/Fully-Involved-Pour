@@ -9,6 +9,7 @@ import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
 import { FipScoreBadge } from '../ui/FipScoreBadge'
 import { OverflowMenu, type OverflowMenuItem } from '../ui/OverflowMenu'
+import { RecommendToFriendModal } from '../../features/friends/RecommendToFriendModal'
 import styles from './BottleCard.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -45,6 +46,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   const { title, subtitle } = splitBottleTitle(bottle.name)
   const { open: openPourFlow, modals } = useBottlePourFlow(bottle.id)
   const [markingFinished, setMarkingFinished] = useState(false)
+  const [showRecommendModal, setShowRecommendModal] = useState(false)
 
   const currentBottleId = bottle.id
   const currentFavorite = bottle.favorite
@@ -73,6 +75,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   menuItems.push(
     { label: 'View Bottle', onClick: () => navigate(`/collection/${currentBottleId}`) },
     { label: currentFavorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
+    { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
     { label: 'Edit', onClick: () => navigate(`/bottles/${currentBottleId}/edit`) },
   )
   if (canMarkFinished) {
@@ -143,6 +146,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
         {content}
       </Link>
       {modals}
+      {showRecommendModal ? <RecommendToFriendModal bottle={bottle} onClose={() => setShowRecommendModal(false)} /> : null}
     </div>
   )
 }

@@ -1,0 +1,48 @@
+.button {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.pendingLink {
+  text-decoration: none;
+}
+
+.friendsMenuRoot {
+  position: relative;
+}
+
+.menuPanel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--fip-space-1));
+  right: 0;
+  min-width: 180px;
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border);
+  border-radius: var(--fip-radius-md);
+  box-shadow: var(--fip-shadow-lift);
+  padding: var(--fip-space-1);
+  display: flex;
+  flex-direction: column;
+}
+
+.menuItem {
+  min-height: 44px;
+  padding: var(--fip-space-2) var(--fip-space-3);
+  background: none;
+  border: none;
+  border-radius: var(--fip-radius-sm);
+  color: var(--fip-cream);
+  text-align: left;
+  font-size: var(--fip-text-sm);
+  font-family: var(--fip-font-body);
+  cursor: pointer;
+}
+
+.menuItem:hover {
+  background: var(--fip-amber-soft);
+}
+
+.menuItemDanger {
+  color: var(--fip-error);
+}

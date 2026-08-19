@@ -1,0 +1,109 @@
+.page {
+  min-height: 100dvh;
+  background: var(--fip-black);
+  padding-bottom: max(var(--fip-space-8), env(safe-area-inset-bottom));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: max(var(--fip-space-4), env(safe-area-inset-top)) var(--fip-shell-x) var(--fip-space-4);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+}
+
+.title {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-cream);
+}
+
+.searchWrap {
+  padding: 0 var(--fip-shell-x);
+}
+
+.hint {
+  padding: 0 var(--fip-shell-x);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-2) var(--fip-shell-x) 0;
+}
+
+.resultCard {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.avatarWrap {
+  flex: 0 0 auto;
+}
+
+.avatar,
+.avatarFallback {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
+  color: var(--fip-amber);
+  font-family: var(--fip-font-display);
+}
+
+.info {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.name {
+  color: var(--fip-cream);
+  font-weight: 600;
+  font-size: var(--fip-text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.username {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+}
+
+.identity {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -101,6 +101,10 @@
   line-height: var(--fip-leading-copy);
 }
 
+.detailIntro {
+  margin-bottom: var(--fip-space-3);
+}
+
 .signOutRow {
   width: calc(100% - 2 * var(--fip-shell-x));
   margin: var(--fip-space-8) var(--fip-shell-x) 0;

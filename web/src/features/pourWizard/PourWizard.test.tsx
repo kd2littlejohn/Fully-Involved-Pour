@@ -6,7 +6,18 @@ import { PourWizard } from './PourWizard'
 const mockAddPour = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ addPour: mockAddPour }),
+  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] }, addPour: mockAddPour }),
+}))
+
+vi.mock('../../hooks/useAuth', () => ({
+  useAuth: () => ({ user: null, loading: false }),
+}))
+
+// The Session step's friend-tagging field (see features/friends/
+// TagFriendsField) reads this repository — mocked so it never attempts a
+// real Firestore call in tests.
+vi.mock('../../data/repositories/relationships', () => ({
+  getFriendIds: () => Promise.resolve([]),
 }))
 
 beforeEach(() => {
