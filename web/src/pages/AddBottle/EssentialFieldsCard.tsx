@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
+import { Combobox } from '../../components/ui/Combobox'
 import { lookupBottleInfo } from '../../data/repositories/ai'
+import { distilleryToOption, searchDistilleries } from '../../data/distillery/search'
 import styles from './FieldsCard.module.css'
 
 export interface EssentialFieldsValues {
@@ -78,12 +80,12 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
       {aiStatus ? <p className={styles.aiStatus}>{aiStatus}</p> : null}
 
       <Field label="Distillery" htmlFor="ab-distillery">
-        <input
+        <Combobox
           id="ab-distillery"
-          className={controlClassName}
           value={values.distillery}
-          onChange={(e) => onChange({ distillery: e.target.value })}
-          placeholder="Buffalo Trace"
+          onChange={(value) => onChange({ distillery: value })}
+          getOptions={(query) => searchDistilleries(query).map(distilleryToOption)}
+          placeholder="Buffalo Trace — or Unknown / Undisclosed Source"
         />
       </Field>
 

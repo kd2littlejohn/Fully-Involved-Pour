@@ -1,0 +1,26 @@
+import type { DistillerySeed } from '../types'
+
+export const AUSTRALIA_DISTILLERY_SEEDS: DistillerySeed[] = [
+  { name: 'Sullivans Cove Distillery', aliases: ['Sullivans Cove'], city: 'Cambridge', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Lark Distillery', aliases: ['Lark'], city: 'Hobart', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Overeem Distillery', aliases: ['Overeem'], city: 'Hobart', stateProvince: 'Tasmania', country: 'Australia', verified: false },
+  { name: 'Hellyers Road Distillery', aliases: ['Hellyers Road'], city: 'Burnie', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Nant Distillery', aliases: ['Nant'], city: 'Bothwell', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Belgrove Distillery', aliases: ['Belgrove'], city: 'Kempton', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Old Kempton Distillery', aliases: ['Old Kempton'], city: 'Kempton', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Redlands Distillery', aliases: ['Redlands'], city: 'Plenty', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Shene Estate & Distillery', aliases: ['Shene'], city: 'Pontville', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'William McHenry & Sons Distillery', aliases: ['McHenry Distillery'], city: 'Port Arthur', stateProvince: 'Tasmania', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Fannys Bay Distillery', aliases: ['Fannys Bay'], stateProvince: 'Tasmania', country: 'Australia', verified: false, status: 'active' },
+  { name: 'Starward Whisky', aliases: ['Starward', 'New World Whisky Distillery'], city: 'Melbourne', stateProvince: 'Victoria', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Timboon Railway Shed Distillery', aliases: ['Timboon'], city: 'Timboon', stateProvince: 'Victoria', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Bakery Hill Distillery', aliases: ['Bakery Hill'], city: 'Melbourne', stateProvince: 'Victoria', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Corowa Distilling Co.', aliases: ['Corowa'], city: 'Corowa', stateProvince: 'New South Wales', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Archie Rose Distilling Co.', aliases: ['Archie Rose'], city: 'Sydney', stateProvince: 'New South Wales', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Black Gate Distillery', aliases: ['Black Gate'], city: 'Mendooran', stateProvince: 'New South Wales', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Great Southern Distilling Co.', aliases: ['Limeburners'], city: 'Albany', stateProvince: 'Western Australia', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Whipper Snapper Distillery', aliases: ['Whipper Snapper'], city: 'Perth', stateProvince: 'Western Australia', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Backwoods Distilling Co.', aliases: ['Backwoods'], city: 'Petrie', stateProvince: 'Queensland', country: 'Australia', verified: false, status: 'active' },
+  { name: 'Killara Distillery', aliases: ['Killara'], city: 'Wangaratta', stateProvince: 'Victoria', country: 'Australia', verified: true, status: 'active' },
+  { name: 'Adelaide Hills Distillery', aliases: ["Wilkin & Sons"], city: 'Adelaide Hills', stateProvince: 'South Australia', country: 'Australia', verified: true, status: 'active' },
+]

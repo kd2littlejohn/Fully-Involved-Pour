@@ -1,0 +1,52 @@
+.root {
+  position: relative;
+}
+
+.panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--fip-space-1));
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border);
+  border-radius: var(--fip-radius-md);
+  box-shadow: var(--fip-shadow-lift);
+  padding: var(--fip-space-1);
+  list-style: none;
+}
+
+.option {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--fip-space-2) var(--fip-space-3);
+  min-height: 44px;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: var(--fip-radius-sm);
+  color: var(--fip-cream);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--fip-font-body);
+}
+
+.option:hover,
+.optionActive {
+  background: var(--fip-amber-soft);
+}
+
+.optionLabel {
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.optionSublabel {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+}

@@ -12,6 +12,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { getCoreBarBottles } from '../../features/coreBar/selectors'
 import { InfinityBottleButton } from '../../features/infinityBottle/InfinityBottleButton'
 import { sortBottles, SORT_OPTIONS, type SortOption } from '../../features/collection/sortBottles'
+import { bottleDistilleryMatches } from '../../data/distillery/search'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
 
@@ -43,7 +44,11 @@ function matchesFilter(bottle: Bottle, filter: Filter): boolean {
 function matchesQuery(bottle: Bottle, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  return bottle.name.toLowerCase().includes(q) || (bottle.distillery?.toLowerCase().includes(q) ?? false)
+  if (bottle.name.toLowerCase().includes(q) || (bottle.distillery?.toLowerCase().includes(q) ?? false)) return true
+  // Catches e.g. "MGP" finding a bottle stored under "Ross & Squibb
+  // Distillery", or "BT" finding one stored under "Buffalo Trace" — see
+  // data/distillery/search.ts.
+  return bottleDistilleryMatches(bottle.distillery, q)
 }
 
 export function CollectionPage() {
