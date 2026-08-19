@@ -37,10 +37,13 @@ describe('LastBlindCard', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Double Oak Showdown')).toBeInTheDocument()
-    expect(screen.getByText(/Pursuit Double Oaked Rye/)).toBeInTheDocument()
-    expect(screen.getByText('9.3')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View Results' })).toHaveAttribute('href', '/blind/room-1/reveal')
+    expect(screen.getByText('You picked the winner!')).toBeInTheDocument()
+    expect(screen.getByText('Pursuit Double Oaked Rye')).toBeInTheDocument()
+    expect(screen.getByText('Pursuit')).toBeInTheDocument()
+    expect(screen.getByText(/Double Oak Showdown/)).toBeInTheDocument()
+    expect(screen.getByText('Score: 9.3')).toBeInTheDocument()
+    expect(screen.getByText('1st Place')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Details' })).toHaveAttribute('href', '/blind/room-1/reveal')
   })
 
   it('omits the score line when there is none', () => {
@@ -50,6 +53,6 @@ describe('LastBlindCard', () => {
         <LastBlindCard summary={summary} />
       </MemoryRouter>,
     )
-    expect(screen.queryByText(/^\d\.\d$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Score:/)).not.toBeInTheDocument()
   })
 })

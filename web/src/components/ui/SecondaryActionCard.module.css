@@ -4,10 +4,11 @@
   align-items: flex-start;
   gap: var(--fip-space-1);
   flex: 1 1 0;
+  min-width: 0;
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border);
-  padding: var(--fip-space-4);
+  padding: var(--fip-space-3);
   min-height: 44px;
   cursor: pointer;
   text-decoration: none;

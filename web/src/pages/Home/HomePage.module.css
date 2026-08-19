@@ -1,3 +1,21 @@
+/* Full, uncropped hero artwork — width:100%/height:auto at the image's own
+   ~3:1 ratio, never object-fit:cover, so the compass mark, wordmark, and
+   the full lounge scene on the right are always entirely visible on every
+   phone width. The dark background is a safety net for any edge rounding,
+   not a crop mask. */
+.hero {
+  width: 100%;
+  background: var(--fip-black);
+  overflow: hidden;
+}
+
+.heroImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
 .primaryAction {
   margin: 0 var(--fip-shell-x) var(--fip-space-3);
 }
@@ -18,30 +36,4 @@
   flex-wrap: wrap;
   gap: var(--fip-space-3);
   justify-content: center;
-}
-
-.insightsRow {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--fip-space-4);
-  margin: var(--fip-space-6) var(--fip-shell-x);
-}
-
-.insightCell {
-  min-width: 0;
-}
-
-/* Side by side once there's real room for it — matches the mockup's
-   tablet/desktop layout instead of leaving one narrow column stranded in
-   a wide shell. When Last Blind is hidden (no blind history yet), the
-   remaining Palate card claims both columns instead of floating alone
-   next to dead space. */
-@media (min-width: 700px) {
-  .insightsRow {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .insightCell:only-child {
-    grid-column: 1 / -1;
-  }
 }

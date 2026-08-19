@@ -68,7 +68,7 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', { name: 'Start a Pour' })).toBeInTheDocument()
   })
 
-  it('offers the two secondary actions as icon+title+subtitle cards', () => {
+  it('offers the three secondary actions as icon+title+subtitle cards', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
 
@@ -76,6 +76,14 @@ describe('HomePage', () => {
     expect(screen.getByText('Get a recommendation')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /^Add a Bottle/ })).toHaveAttribute('href', '/bottles/new')
     expect(screen.getByText('Grow your collection')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^Blind Room/ })).toHaveAttribute('href', '/blind')
+    expect(screen.getByText('Challenge your palate')).toBeInTheDocument()
+  })
+
+  it('shows the full uncropped hero artwork above the greeting', () => {
+    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
+    renderHome()
+    expect(screen.getByAltText(/Fully Involved Pour/)).toBeInTheDocument()
   })
 
   it('does not offer a standalone Roll the Dice action anymore', () => {
@@ -111,19 +119,13 @@ describe('HomePage', () => {
     expect(screen.getByRole('button', { name: 'Pour Again' })).toBeInTheDocument()
   })
 
-  it('shows the honest not-enough-data copy for Your Palate Lately instead of fabricating a trend', () => {
+  it('hides the Last Blind Result section when the user has no finished blinds', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
-    expect(screen.getByText('Keep logging pours and your palate trends will appear here.')).toBeInTheDocument()
+    expect(screen.queryByText('Last Blind Result')).not.toBeInTheDocument()
   })
 
-  it('hides the Last Blind card when the user has no finished blinds', () => {
-    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
-    renderHome()
-    expect(screen.queryByText('Last Blind')).not.toBeInTheDocument()
-  })
-
-  it('shows the Last Blind card with the winning bottle and a View Results link once resolved', () => {
+  it('shows the Last Blind Result card with the winning bottle and a View Details link once resolved', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     mockUseLastBlindSummary.mockReturnValue({
       summary: {
@@ -149,8 +151,10 @@ describe('HomePage', () => {
 
     renderHome()
 
-    expect(screen.getByText('Double Oak Showdown')).toBeInTheDocument()
-    expect(screen.getByText(/Pursuit Double Oaked Rye/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View Results' })).toHaveAttribute('href', '/blind/room-1/reveal')
+    expect(screen.getByText('Last Blind Result')).toBeInTheDocument()
+    expect(screen.getByText('You picked the winner!')).toBeInTheDocument()
+    expect(screen.getByText('Pursuit Double Oaked Rye')).toBeInTheDocument()
+    expect(screen.getByText(/Double Oak Showdown/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Details' })).toHaveAttribute('href', '/blind/room-1/reveal')
   })
 })

@@ -10,11 +10,11 @@ import { WhatShouldIPourButton } from '../../features/whatShouldIPour/WhatShould
 import { ContinueYourPourStoryCard } from '../../features/home/ContinueYourPourStoryCard'
 import { MaybeTonightCard } from '../../features/home/MaybeTonightCard'
 import { LastBlindCard } from '../../features/home/LastBlindCard'
-import { PalateInsightCard, PalateInsightEmptyCard } from '../../features/home/PalateInsightCard'
 import { useLastBlindSummary } from '../../features/home/useLastBlindSummary'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { getFeaturedOpenBottle, getMaybeTonightCandidates, getPalateInsight, greetingForHour } from '../../features/home/selectors'
+import { getFeaturedOpenBottle, getMaybeTonightCandidates, greetingForHour } from '../../features/home/selectors'
+import homeHeroImage from '../../assets/home-hero.webp'
 import styles from './HomePage.module.css'
 
 const BOTTLE_ICON = (
@@ -28,6 +28,32 @@ const BOTTLE_ICON = (
   </svg>
 )
 
+const BLIND_ROOM_ICON = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.6" />
+    <circle cx="16" cy="8" r="3" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M2.5 20c.6-3.4 3-5.5 5.5-5.5s4.9 2.1 5.5 5.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <path d="M10.5 20c.6-3.4 3-5.5 5.5-5.5s4.9 2.1 5.5 5.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+)
+
+// The approved hero banner — the real FIP compass mark, wordmark, and
+// lounge photography, never regenerated. Rendered at its native ~3:1 ratio
+// (width:100%, height:auto) so the whole thing is always visible; never
+// object-fit:cover, which would crop the logo or the glass/decanter on the
+// right at narrow widths.
+function HomeHero() {
+  return (
+    <div className={styles.hero}>
+      <img
+        className={styles.heroImage}
+        src={homeHeroImage}
+        alt="Fully Involved Pour — drink what you enjoy, share what matters."
+      />
+    </div>
+  )
+}
+
 export function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading } = useUserData()
@@ -37,12 +63,18 @@ export function HomePage() {
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
 
   if (authLoading || dataLoading) {
-    return <PageHeader eyebrow="Home" title={`${greeting}.`} />
+    return (
+      <>
+        <HomeHero />
+        <PageHeader eyebrow="Home" title={`${greeting}.`} />
+      </>
+    )
   }
 
   if (!user) {
     return (
       <>
+        <HomeHero />
         <PageHeader eyebrow="Home" title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
         <EmptyState
           title="Your whiskey journey starts here."
@@ -56,10 +88,10 @@ export function HomePage() {
   const { bottles, pours } = userDoc
   const featuredBottle = getFeaturedOpenBottle(bottles)
   const maybeTonight = getMaybeTonightCandidates(bottles, pours)
-  const palateInsight = getPalateInsight(bottles, pours)
 
   return (
     <>
+      <HomeHero />
       <PageHeader
         eyebrow="Home"
         title={name ? `${greeting}, ${name}.` : `${greeting}.`}
@@ -85,6 +117,7 @@ export function HomePage() {
           <div className={styles.actions}>
             <WhatShouldIPourButton />
             <SecondaryActionCard icon={BOTTLE_ICON} title="Add a Bottle" subtitle="Grow your collection" to="/bottles/new" />
+            <SecondaryActionCard icon={BLIND_ROOM_ICON} title="Blind Room" subtitle="Challenge your palate" to="/blind" />
           </div>
 
           {featuredBottle ? (
@@ -103,16 +136,11 @@ export function HomePage() {
             </Section>
           ) : null}
 
-          <div className={styles.insightsRow}>
-            {lastBlind ? (
-              <div className={styles.insightCell}>
-                <LastBlindCard summary={lastBlind} />
-              </div>
-            ) : null}
-            <div className={styles.insightCell}>
-              {palateInsight ? <PalateInsightCard insight={palateInsight} /> : <PalateInsightEmptyCard />}
-            </div>
-          </div>
+          {lastBlind ? (
+            <Section title="Last Blind Result">
+              <LastBlindCard summary={lastBlind} />
+            </Section>
+          ) : null}
         </>
       )}
     </>

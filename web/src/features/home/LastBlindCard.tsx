@@ -18,28 +18,25 @@ export function LastBlindCard({ summary }: LastBlindCardProps) {
 
   return (
     <div className={styles.card}>
-      <div className={styles.media}>
-        {winningImageUrl ? (
-          <img className={styles.image} src={winningImageUrl} alt="" />
-        ) : (
-          <BottlePlaceholder name={winningBottleName} compact />
-        )}
-      </div>
-      <div className={styles.body}>
-        <div className={styles.eyebrow}>Last Blind</div>
-        <div className={styles.name}>{room.name}</div>
-        <div className={styles.winner}>
-          <span className={styles.trophy} aria-hidden="true">
-            🏆
-          </span>
-          {winningBottleName}
-          {winningDistillery ? <span className={styles.distillery}> · {winningDistillery}</span> : null}
+      <p className={styles.subtitle}>You picked the winner!</p>
+      <div className={styles.row}>
+        <div className={styles.media}>
+          <span className={styles.ribbon}>1st Place</span>
+          {winningImageUrl ? (
+            <img className={styles.image} src={winningImageUrl} alt="" />
+          ) : (
+            <BottlePlaceholder name={winningBottleName} compact />
+          )}
         </div>
-        {typeof score === 'number' ? <div className={styles.score}>{score.toFixed(1)}</div> : null}
-        <p className={styles.summaryText}>You chose it before the labels were revealed.</p>
-        <Link to={`/blind/${room.id}/reveal`}>
-          <Button variant="secondary">View Results</Button>
-        </Link>
+        <div className={styles.body}>
+          <div className={styles.name}>{winningBottleName}</div>
+          {winningDistillery ? <div className={styles.distillery}>{winningDistillery}</div> : null}
+          <div className={styles.eyebrow}>From {room.name}</div>
+          {typeof score === 'number' ? <div className={styles.score}>Score: {score.toFixed(1)}</div> : null}
+          <Link to={`/blind/${room.id}/reveal`}>
+            <Button variant="secondary">View Details</Button>
+          </Link>
+        </div>
       </div>
     </div>
   )
