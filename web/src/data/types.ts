@@ -80,10 +80,9 @@ export interface Bottle {
   createdAt?: number
   buyAgain?: BottleBuyAgain
   wouldReplace?: WouldReplace
-  // The scanned UPC/EAN this bottle was added from, if any (see
-  // data/repositories/barcode.ts) — lets a future scan of the same physical
-  // product resolve instantly from FIP's own bottleCatalog collection
-  // instead of hitting the external lookup service again.
+  // UPC/EAN this bottle was originally added from, if any — the barcode
+  // scan flow that used to write this has been removed, but the field
+  // stays so existing bottles that already have one don't lose it.
   upc?: string
 }
 

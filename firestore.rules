@@ -61,18 +61,6 @@ service cloud.firestore {
                    && voteId == request.resource.data.pairKey + '_' + request.auth.uid;
     }
 
-    // Shared UPC/EAN -> bottle lookup catalog (web/src/data/repositories/
-    // barcode.ts). Public read so any signed-in-or-not scan can resolve
-    // instantly against what other users have already confirmed. Writes
-    // only ever happen server-side, via the lookupBottleByBarcode /
-    // saveBottleToCatalog Cloud Functions using the Admin SDK (which
-    // bypasses these rules) — never directly from a client — so there's no
-    // client-writable path for someone to plant bad data under a UPC.
-    match /bottleCatalog/{upc} {
-      allow read: if true;
-      allow write: if false;
-    }
-
     // Blind Room — remote blind tastings (web/src/data/repositories/blindRoom.ts).
     // Room config is public-read (the join-preview screen needs to show
     // room info before a visitor has joined, or even signed in); only the
