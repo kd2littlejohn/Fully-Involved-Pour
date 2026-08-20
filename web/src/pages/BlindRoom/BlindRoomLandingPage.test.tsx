@@ -81,6 +81,30 @@ describe('BlindRoomLandingPage', () => {
     expect(screen.getByText('Recent Blinds')).toBeInTheDocument()
   })
 
+  it('links a completed blind straight to its results, not the lobby', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ id: 'done-1', name: 'Done One', state: 'completed' }), participant }])
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /Done One/ })).toHaveAttribute('href', '/blind/done-1/reveal')
+  })
+
+  it('links a revealed blind straight to its results too', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ id: 'rev-1', name: 'Revealed One', state: 'revealed' }), participant }])
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /Revealed One/ })).toHaveAttribute('href', '/blind/rev-1/reveal')
+  })
+
+  it('links a still-in-progress blind to its lobby, not the reveal page', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ id: 'lobby-1', name: 'Waiting One', state: 'lobby' }), participant }])
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /Waiting One/ })).toHaveAttribute('href', '/blind/lobby-1/lobby')
+  })
+
   it('does not show a Recent Blinds section when there are no completed rooms', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockGetMyBlindRooms.mockResolvedValue([{ room: room(), participant }])

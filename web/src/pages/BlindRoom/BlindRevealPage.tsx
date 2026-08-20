@@ -24,10 +24,14 @@ function dimensionNote(tags: string[] | undefined, notes: string | undefined): s
   return parts.length > 0 ? parts.join(' — ') : undefined
 }
 
-// Everything on this page only ever resolves once room.state === 'revealed'
-// — firestore.rules rejects blindRoomSecrets/responses/ranking reads for a
-// non-host participant before then, so a stray fetch attempt just fails
-// quietly (see the guard below) rather than leaking anything early.
+// Everything on this page only ever resolves once room.state is 'revealed'
+// or 'completed' (completeBlind just moves a revealed room out of Active
+// Blinds — results stay exactly as revealed, see isBlindRevealed in
+// firestore.rules, which already treats the two states as equivalent for
+// read access). Before either, firestore.rules rejects blindRoomSecrets/
+// responses/ranking reads for a non-host participant, so a stray fetch
+// attempt just fails quietly (see the guard below) rather than leaking
+// anything early.
 export function BlindRevealPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
@@ -43,8 +47,10 @@ export function BlindRevealPage() {
   const [finishError, setFinishError] = useState<string | null>(null)
   const fetchedRef = useRef(false)
 
+  const resultsVisible = room?.state === 'revealed' || room?.state === 'completed'
+
   useEffect(() => {
-    if (fetchedRef.current || !roomId || room?.state !== 'revealed' || participants.length === 0) return
+    if (fetchedRef.current || !roomId || !resultsVisible || participants.length === 0) return
     fetchedRef.current = true
     const uids = participants.map((p) => p.uid)
     Promise.all([
@@ -59,9 +65,9 @@ export function BlindRevealPage() {
       setComparisonsByUid(comparisonsResult)
       setDataLoaded(true)
     })
-  }, [roomId, room?.state, participants])
+  }, [roomId, resultsVisible, participants])
 
-  if (authLoading || loading || (room?.state === 'revealed' && !dataLoaded)) {
+  if (authLoading || loading || (resultsVisible && !dataLoaded)) {
     return <div className={styles.page} />
   }
 
@@ -73,7 +79,7 @@ export function BlindRevealPage() {
     )
   }
 
-  if (room.state !== 'revealed') {
+  if (!resultsVisible) {
     return (
       <div className={styles.page}>
         <div className={styles.content}>
@@ -146,7 +152,7 @@ export function BlindRevealPage() {
         <button
           type="button"
           className={styles.backButton}
-          onClick={() => navigate(`/blind/${roomId}/lobby`)}
+          onClick={() => navigate(room.state === 'completed' ? '/blind' : `/blind/${roomId}/lobby`)}
           aria-label="Back"
         >
           ←
@@ -314,11 +320,13 @@ export function BlindRevealPage() {
         ) : null}
       </div>
 
-      <div className={styles.actions}>
-        <Button onClick={() => void handleFinish()} disabled={finishing}>
-          {finishing ? 'Saving Blind…' : finishError ? 'Retry Save' : 'Finish Blind'}
-        </Button>
-      </div>
+      {room.state === 'revealed' ? (
+        <div className={styles.actions}>
+          <Button onClick={() => void handleFinish()} disabled={finishing}>
+            {finishing ? 'Saving Blind…' : finishError ? 'Retry Save' : 'Finish Blind'}
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

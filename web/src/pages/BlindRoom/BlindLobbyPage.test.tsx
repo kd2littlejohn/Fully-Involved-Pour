@@ -252,6 +252,24 @@ describe('BlindLobbyPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/reveal')
   })
 
+  it('shows a See Results control for a completed room too, not a stale "ready to reveal?" prompt', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({
+      room: { ...room, state: 'completed' },
+      participants: [host, guest],
+      loading: false,
+      refresh: vi.fn(),
+    })
+    renderPage()
+
+    expect(screen.getAllByText('Completed').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/ready to reveal\?/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reveal' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'See Results' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/reveal')
+  })
+
   it('shows the deadline for an active Blind Challenge room whose deadline hasn’t passed', () => {
     const challengeRoom: BlindRoom = { ...room, sessionType: 'challenge', state: 'active', deadline: Date.now() + 60_000 }
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })

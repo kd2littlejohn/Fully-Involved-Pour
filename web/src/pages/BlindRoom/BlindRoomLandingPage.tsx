@@ -44,10 +44,15 @@ interface RoomCardProps {
 }
 
 function RoomCard({ room, isHost, uid, onDeleted }: RoomCardProps) {
+  // Revealed and completed rooms have results to show, not a lobby to wait
+  // in — send them straight to the reveal page (same destination
+  // BlindResultCard/JourneyTab already use for these two states).
+  const destination =
+    room.state === 'revealed' || room.state === 'completed' ? `/blind/${room.id}/reveal` : `/blind/${room.id}/lobby`
   return (
     <div className={styles.card}>
       <BlindHistoryDeleteAction room={room} uid={uid} isHost={isHost} onDeleted={onDeleted} />
-      <Link to={`/blind/${room.id}/lobby`} className={styles.cardLink}>
+      <Link to={destination} className={styles.cardLink}>
         <div className={styles.cardHeader}>
           <span className={styles.cardName}>{room.name}</span>
           <Badge tone={room.state === 'lobby' ? 'amber' : 'default'}>{stateLabel(room.state)}</Badge>

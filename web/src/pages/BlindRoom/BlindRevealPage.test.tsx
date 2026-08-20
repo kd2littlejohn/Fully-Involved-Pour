@@ -253,4 +253,41 @@ describe('BlindRevealPage', () => {
     expect(screen.getByRole('button', { name: 'Retry Save' })).toBeInTheDocument()
     expect(mockNavigate).not.toHaveBeenCalledWith('/blind')
   })
+
+  it('still shows full results for a completed (not just revealed) room', async () => {
+    mockUseBlindRoom.mockReturnValue({ room: { ...room, state: 'completed' }, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    expect((await screen.findAllByText('Stagg Jr.')).length).toBeGreaterThan(0)
+    expect(screen.getByText('Love It')).toBeInTheDocument()
+    expect(screen.queryByText('Not revealed yet.')).not.toBeInTheDocument()
+  })
+
+  it('hides the Finish Blind action once the room is already completed', async () => {
+    mockUseBlindRoom.mockReturnValue({ room: { ...room, state: 'completed' }, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+
+    await screen.findByText('Your Ranking')
+    expect(screen.queryByRole('button', { name: 'Finish Blind' })).not.toBeInTheDocument()
+  })
+
+  it('sends the back button to Blind Room (not the dead-end lobby) once the room is completed', async () => {
+    mockUseBlindRoom.mockReturnValue({ room: { ...room, state: 'completed' }, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+    await screen.findByText('Your Ranking')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/blind')
+  })
+
+  it('sends the back button to the lobby while still just revealed (not yet completed)', async () => {
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    renderPage()
+    await screen.findByText('Your Ranking')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/lobby')
+  })
 })

@@ -47,7 +47,7 @@ export function BlindLobbyPage() {
   // finish").
   const deadlinePassed = room?.sessionType === 'challenge' && !!room.deadline && Date.now() >= room.deadline
   const readyToReveal = allCompleted || deadlinePassed
-  const showDeadline = room?.sessionType === 'challenge' && !!room.deadline && room.state !== 'revealed'
+  const showDeadline = room?.sessionType === 'challenge' && !!room.deadline && room.state !== 'revealed' && room.state !== 'completed'
   const notDoneNames = participants.filter((p) => p.status !== 'completed').map((p) => p.username)
   const canRemind = isHost && room?.sessionType === 'challenge' && room.state === 'active' && notDoneNames.length > 0
 
@@ -217,7 +217,12 @@ export function BlindLobbyPage() {
               ) : null}
             </div>
           </>
-        ) : room.state === 'revealed' ? (
+        ) : room.state === 'revealed' || room.state === 'completed' ? (
+          // Nothing left to wait on for either state — same "go see the
+          // results" roster, so a completed room never falls through to the
+          // still-tasting branch below and re-shows stale "ready to reveal?"
+          // messaging (or, worse, a still-live Reveal button) for a session
+          // that's long since wrapped up.
           <>
             <div className={styles.roster}>
               {participants.map((p) => (
@@ -225,7 +230,7 @@ export function BlindLobbyPage() {
                   <span className={styles.participantName}>{p.username}</span>
                   <span className={styles.participantStatus}>
                     {p.isHost ? <Badge tone="brass">Host</Badge> : null}
-                    <Badge tone="amber">Revealed</Badge>
+                    <Badge tone="amber">{room.state === 'completed' ? 'Completed' : 'Revealed'}</Badge>
                   </span>
                 </div>
               ))}
