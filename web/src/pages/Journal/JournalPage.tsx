@@ -20,6 +20,7 @@ import { QuickPourButton } from '../../features/quickPour/QuickPourButton'
 import { CreateMemoryButton } from '../../features/memories/CreateMemoryButton'
 import { PourStoryDetail } from '../../features/pourWizard/PourStoryDetail'
 import { getMyBlindRooms } from '../../data/repositories/blindRoom'
+import { readHiddenBlindRoomIds } from '../../data/hiddenBlindRooms'
 import { useFriends } from '../../features/friends/useFriends'
 import { FriendCard } from '../../features/friends/FriendCard'
 import type { BlindRoom, Pour } from '../../data/types'
@@ -59,7 +60,9 @@ export function JournalPage() {
     let cancelled = false
     getMyBlindRooms(user.uid)
       .then((result) => {
-        if (!cancelled) setBlindRooms(result.map(({ room }) => room))
+        if (cancelled) return
+        const hiddenIds = readHiddenBlindRoomIds(user.uid)
+        setBlindRooms(result.map(({ room }) => room).filter((room) => !hiddenIds.has(room.id)))
       })
       .catch((err) => console.error('getMyBlindRooms failed', err))
     return () => {
@@ -93,8 +96,18 @@ export function JournalPage() {
   const timelineEvents = getJournalTimeline(bottles, pours)
   const companions = getCompanionStats(pours)
   const journeyBottles = getBottleJourneys(bottles)
-  const revealedBlinds = blindRooms.filter((r) => r.state === 'revealed').sort((a, b) => (b.revealedAt ?? 0) - (a.revealedAt ?? 0))
+  // 'completed' counts alongside 'revealed': it's just the state Finish
+  // Blind moves a room to afterward, not an un-reveal — excluding it would
+  // make a blind silently vanish from Blind Stories the moment its host
+  // wraps up, with no way back to it except navigating to /blind directly.
+  const revealedBlinds = blindRooms
+    .filter((r) => r.state === 'revealed' || r.state === 'completed')
+    .sort((a, b) => (b.revealedAt ?? 0) - (a.revealedAt ?? 0))
   const poursTastedBlind = revealedBlinds.reduce((sum, r) => sum + r.pourCount, 0)
+
+  function handleBlindRoomDeleted(room: BlindRoom) {
+    setBlindRooms((prev) => prev.filter((r) => r.id !== room.id))
+  }
 
   function handleTimelineEventClick(event: TimelineEvent) {
     const pour = pours.find((p) => p.id === event.pourId)
@@ -121,7 +134,7 @@ export function JournalPage() {
           </div>
           <div className={styles.storiesGrid}>
             {revealedBlinds.slice(0, 4).map((room) => (
-              <BlindResultCard key={room.id} room={room} />
+              <BlindResultCard key={room.id} room={room} uid={user.uid} onDeleted={handleBlindRoomDeleted} />
             ))}
           </div>
         </Section>

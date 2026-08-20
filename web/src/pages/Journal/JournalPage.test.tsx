@@ -8,6 +8,7 @@ import type { Bottle, BlindRoom, Memory, Pour } from '../../data/types'
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockGetMyBlindRooms = vi.fn()
+const mockDeleteBlindRoom = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -19,6 +20,7 @@ vi.mock('../../hooks/useUserData', () => ({
 
 vi.mock('../../data/repositories/blindRoom', () => ({
   getMyBlindRooms: (...args: unknown[]) => mockGetMyBlindRooms(...args),
+  deleteBlindRoom: (...args: unknown[]) => mockDeleteBlindRoom(...args),
 }))
 
 // The People tab's Friends section (see features/friends/useFriends) reads
@@ -76,6 +78,9 @@ describe('JournalPage', () => {
   beforeEach(() => {
     mockGetMyBlindRooms.mockReset()
     mockGetMyBlindRooms.mockResolvedValue([])
+    mockDeleteBlindRoom.mockReset()
+    mockDeleteBlindRoom.mockResolvedValue(undefined)
+    localStorage.clear()
   })
 
   it('shows a sign-in prompt when signed out', () => {
@@ -287,5 +292,75 @@ describe('JournalPage', () => {
 
     expect(await screen.findByText('Blind History →')).toBeInTheDocument()
     expect(screen.queryByText('Still Tasting')).not.toBeInTheDocument()
+  })
+
+  it('includes a completed (not just revealed) Blind Room in the Blind Stories section', async () => {
+    const completedRoom: BlindRoom = {
+      id: 'room-3',
+      code: 'CRN881',
+      name: 'Wrapped Up Blind',
+      hostUid: 'u1',
+      hostUsername: 'kevin',
+      sessionType: 'solo',
+      knowledgeMode: 'single',
+      pourCount: 2,
+      state: 'completed',
+      createdAt: Date.now(),
+      revealedAt: Date.now(),
+      completedAt: Date.now(),
+      participantCount: 1,
+    }
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    mockGetMyBlindRooms.mockResolvedValue([
+      { room: completedRoom, participant: { uid: 'u1', username: 'kevin', isHost: true, status: 'completed', joinedAt: Date.now() } },
+    ])
+
+    renderJournal()
+
+    expect(await screen.findByText('Blind Stories')).toBeInTheDocument()
+    expect(screen.getByText('Wrapped Up Blind')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
+  })
+
+  it('lets the host delete a blind from the Blind Stories section and removes it immediately', async () => {
+    const revealedRoom: BlindRoom = {
+      id: 'room-1',
+      code: 'OAK742',
+      name: 'Friday Night Blind',
+      hostUid: 'u1',
+      hostUsername: 'kevin',
+      sessionType: 'live',
+      knowledgeMode: 'single',
+      pourCount: 3,
+      state: 'revealed',
+      createdAt: Date.now(),
+      revealedAt: Date.now(),
+      participantCount: 2,
+    }
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: vi.fn(),
+    })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: revealedRoom, participant: { uid: 'u1', username: 'kevin', isHost: true, status: 'completed', joinedAt: Date.now() } }])
+
+    renderJournal()
+    await screen.findByText('Friday Night Blind')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Friday Night Blind actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Blind' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Blind for Everyone' }))
+
+    expect(mockDeleteBlindRoom).toHaveBeenCalledWith('room-1')
+    expect(await screen.findByText('Blind History →')).toBeInTheDocument()
+    expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument()
   })
 })

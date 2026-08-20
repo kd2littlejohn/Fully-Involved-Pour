@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -9,6 +9,7 @@ import type { Bottle, Memory, Pour } from '../../../data/types'
 const mockUseUserData = vi.fn()
 const mockUseAuth = vi.fn()
 const mockGetBottleBlindHistory = vi.fn()
+const mockDeleteBlindRoom = vi.fn()
 
 vi.mock('../../../hooks/useUserData', () => ({
   useUserData: () => mockUseUserData(),
@@ -20,6 +21,7 @@ vi.mock('../../../hooks/useAuth', () => ({
 
 vi.mock('../../../data/repositories/blindRoom', () => ({
   getBottleBlindHistory: (...args: unknown[]) => mockGetBottleBlindHistory(...args),
+  deleteBlindRoom: (...args: unknown[]) => mockDeleteBlindRoom(...args),
 }))
 
 function renderTab(ui: ReactElement) {
@@ -50,6 +52,9 @@ describe('JourneyTab', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockGetBottleBlindHistory.mockReset()
     mockGetBottleBlindHistory.mockResolvedValue([])
+    mockDeleteBlindRoom.mockReset()
+    mockDeleteBlindRoom.mockResolvedValue(undefined)
+    localStorage.clear()
   })
 
   it('shows the sealed-specific empty state with a pour action for a never-poured sealed bottle', () => {
@@ -157,5 +162,49 @@ describe('JourneyTab', () => {
     renderTab(<JourneyTab bottle={eagleRare} pours={pours} memories={[]} onViewAllPours={vi.fn()} />)
 
     expect(screen.queryByText('Blind History')).not.toBeInTheDocument()
+  })
+
+  it('lets the host delete a Blind History entry and removes it immediately, no refetch', async () => {
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6 })]
+    setUserDoc([eagleRare], pours)
+    mockGetBottleBlindHistory.mockResolvedValue([
+      {
+        room: { id: 'room-1', name: 'Friday Night Blind', hostUid: 'u1', revealedAt: Date.now() },
+        pour: { label: 'B', bottleId: 'b1', bottleName: 'Eagle Rare' },
+        myResponse: { pourLabel: 'B', reaction: 'Love It', fipScore: 9.1, status: 'locked', updatedAt: Date.now() },
+      },
+    ])
+    renderTab(<JourneyTab bottle={eagleRare} pours={pours} memories={[]} onViewAllPours={vi.fn()} />)
+    await screen.findByText('Friday Night Blind')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Friday Night Blind actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Blind' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Blind for Everyone' }))
+
+    await waitFor(() => expect(mockDeleteBlindRoom).toHaveBeenCalledWith('room-1'))
+    expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument()
+    expect(screen.queryByText('Blind History')).not.toBeInTheDocument()
+  })
+
+  it('lets a non-host remove a Blind History entry from just their own history', async () => {
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6 })]
+    setUserDoc([eagleRare], pours)
+    mockGetBottleBlindHistory.mockResolvedValue([
+      {
+        room: { id: 'room-1', name: 'Friday Night Blind', hostUid: 'someone-else', revealedAt: Date.now() },
+        pour: { label: 'B', bottleId: 'b1', bottleName: 'Eagle Rare' },
+        myResponse: { pourLabel: 'B', reaction: 'Love It', fipScore: 9.1, status: 'locked', updatedAt: Date.now() },
+      },
+    ])
+    renderTab(<JourneyTab bottle={eagleRare} pours={pours} memories={[]} onViewAllPours={vi.fn()} />)
+    await screen.findByText('Friday Night Blind')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Friday Night Blind actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Blind' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Remove From My History' }))
+
+    expect(mockDeleteBlindRoom).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument())
+    expect(JSON.parse(localStorage.getItem('fip:hiddenBlindRooms:u1') ?? '[]')).toEqual(['room-1'])
   })
 })

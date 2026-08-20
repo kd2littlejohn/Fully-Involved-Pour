@@ -1,19 +1,26 @@
 .card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--fip-space-2);
-  padding: var(--fip-space-4);
+  position: relative;
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
   box-shadow: var(--fip-shadow-card);
-  text-decoration: none;
-  color: inherit;
   transition: border-color var(--fip-motion) var(--fip-ease);
 }
 
 .card:hover {
   border-color: var(--fip-border);
+}
+
+.cardLink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-4);
+  /* Extra right padding so the room name never runs under the absolutely
+     positioned "..." menu button in the corner. */
+  padding-right: calc(var(--fip-space-4) + 36px);
+  text-decoration: none;
+  color: inherit;
 }
 
 .header {

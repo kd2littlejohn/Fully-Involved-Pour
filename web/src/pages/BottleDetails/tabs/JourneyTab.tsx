@@ -12,6 +12,9 @@ import { StartPourStoryButton } from '../../../features/pourWizard/StartPourStor
 import { QuickPourButton } from '../../../features/quickPour/QuickPourButton'
 import { useAuth } from '../../../hooks/useAuth'
 import { getBottleBlindHistory, type BottleBlindHistoryEntry } from '../../../data/repositories/blindRoom'
+import { readHiddenBlindRoomIds } from '../../../data/hiddenBlindRooms'
+import { BlindHistoryDeleteAction } from '../../../features/blindRoom/BlindHistoryDeleteAction'
+import type { BlindRoom } from '../../../data/types'
 import styles from './JourneyTab.module.css'
 
 interface JourneyTabProps {
@@ -23,25 +26,36 @@ interface JourneyTabProps {
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
-function BlindHistorySection({ entries }: { entries: BottleBlindHistoryEntry[] }) {
+function BlindHistorySection({
+  entries,
+  uid,
+  onDeleted,
+}: {
+  entries: BottleBlindHistoryEntry[]
+  uid: string
+  onDeleted: (room: BlindRoom) => void
+}) {
   if (entries.length === 0) return null
   return (
     <div className={styles.blindHistory}>
       <h3 className={styles.blindHistoryTitle}>Blind History</h3>
       {entries.map((entry) => (
-        <Link to={`/blind/${entry.room.id}/reveal`} className={styles.blindHistoryRow} key={entry.room.id}>
-          <div className={styles.blindHistoryRowHeader}>
-            <span className={styles.blindHistoryRoomName}>{entry.room.name}</span>
-            {entry.myResponse?.fipScore != null ? (
-              <span className={styles.blindHistoryScore}>{entry.myResponse.fipScore.toFixed(1)}</span>
-            ) : null}
-          </div>
-          <p className={styles.blindHistoryMeta}>
-            Pour {entry.pour.label}
-            {entry.room.revealedAt ? ` · ${dateFormatter.format(new Date(entry.room.revealedAt))}` : ''}
-          </p>
-          {entry.myResponse?.reaction ? <p className={styles.blindHistoryReaction}>{entry.myResponse.reaction}</p> : null}
-        </Link>
+        <div className={styles.blindHistoryRow} key={entry.room.id}>
+          <BlindHistoryDeleteAction room={entry.room} uid={uid} isHost={entry.room.hostUid === uid} onDeleted={onDeleted} />
+          <Link to={`/blind/${entry.room.id}/reveal`} className={styles.blindHistoryRowLink}>
+            <div className={styles.blindHistoryRowHeader}>
+              <span className={styles.blindHistoryRoomName}>{entry.room.name}</span>
+              {entry.myResponse?.fipScore != null ? (
+                <span className={styles.blindHistoryScore}>{entry.myResponse.fipScore.toFixed(1)}</span>
+              ) : null}
+            </div>
+            <p className={styles.blindHistoryMeta}>
+              Pour {entry.pour.label}
+              {entry.room.revealedAt ? ` · ${dateFormatter.format(new Date(entry.room.revealedAt))}` : ''}
+            </p>
+            {entry.myResponse?.reaction ? <p className={styles.blindHistoryReaction}>{entry.myResponse.reaction}</p> : null}
+          </Link>
+        </div>
       ))}
     </div>
   )
@@ -66,7 +80,9 @@ export function JourneyTab({ bottle, pours, memories, onViewAllPours }: JourneyT
     let cancelled = false
     getBottleBlindHistory(user.uid, bottle.id)
       .then((entries) => {
-        if (!cancelled) setBlindHistory(entries)
+        if (cancelled) return
+        const hiddenIds = readHiddenBlindRoomIds(user.uid)
+        setBlindHistory(entries.filter((entry) => !hiddenIds.has(entry.room.id)))
       })
       .catch((err) => console.error('getBottleBlindHistory failed', err))
     return () => {
@@ -77,6 +93,10 @@ export function JourneyTab({ bottle, pours, memories, onViewAllPours }: JourneyT
   const bottlePours = getPoursForBottle(pours, bottle.id)
   const bottleMemories = getMemoriesForBottle(memories, bottle.id)
   const hasAnyStoryContent = bottlePours.length > 0 || bottleMemories.length > 0 || bottle.status === 'finished'
+
+  function handleBlindHistoryDeleted(room: BlindRoom) {
+    setBlindHistory((prev) => prev.filter((entry) => entry.room.id !== room.id))
+  }
 
   if (!hasAnyStoryContent) {
     if (bottle.status === 'sealed') {
@@ -92,14 +112,14 @@ export function JourneyTab({ bottle, pours, memories, onViewAllPours }: JourneyT
               </div>
             }
           />
-          <BlindHistorySection entries={blindHistory} />
+          <BlindHistorySection entries={blindHistory} uid={user?.uid ?? ''} onDeleted={handleBlindHistoryDeleted} />
         </>
       )
     }
     return (
       <>
         <EmptyState title="This bottle's journey is just beginning." message="Its story will build as you log pours over time." />
-        <BlindHistorySection entries={blindHistory} />
+        <BlindHistorySection entries={blindHistory} uid={user?.uid ?? ''} onDeleted={handleBlindHistoryDeleted} />
       </>
     )
   }
@@ -130,7 +150,7 @@ export function JourneyTab({ bottle, pours, memories, onViewAllPours }: JourneyT
         </Button>
       ) : null}
 
-      <BlindHistorySection entries={blindHistory} />
+      <BlindHistorySection entries={blindHistory} uid={user?.uid ?? ''} onDeleted={handleBlindHistoryDeleted} />
 
       {selectedPour ? <PourStoryDetail pour={selectedPour} bottle={bottle} onClose={() => setSelectedPour(null)} /> : null}
       {selectedMemory ? <MemoryDetail memory={selectedMemory} bottleName={bottle.name} onClose={() => setSelectedMemory(null)} /> : null}

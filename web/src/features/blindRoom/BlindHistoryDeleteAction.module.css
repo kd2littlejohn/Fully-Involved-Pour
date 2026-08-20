@@ -1,0 +1,25 @@
+.overlay {
+  position: absolute;
+  top: var(--fip-space-3);
+  right: var(--fip-space-3);
+  z-index: 2;
+}
+
+.body {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.error {
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+  margin-top: var(--fip-space-2);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}

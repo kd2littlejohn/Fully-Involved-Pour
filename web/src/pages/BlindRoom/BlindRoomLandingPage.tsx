@@ -6,9 +6,10 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { SignInButton } from '../../components/domain/SignInButton'
+import { BlindHistoryDeleteAction } from '../../features/blindRoom/BlindHistoryDeleteAction'
 import { useAuth } from '../../hooks/useAuth'
-import { deleteBlindRoom, getMyBlindRooms } from '../../data/repositories/blindRoom'
-import { hideBlindRoomForUser, readHiddenBlindRoomIds } from '../../data/hiddenBlindRooms'
+import { getMyBlindRooms } from '../../data/repositories/blindRoom'
+import { readHiddenBlindRoomIds } from '../../data/hiddenBlindRooms'
 import type { BlindParticipant, BlindRoom } from '../../data/types'
 import styles from './BlindRoomLandingPage.module.css'
 
@@ -38,44 +39,30 @@ function stateLabel(state: BlindRoom['state']): string {
 interface RoomCardProps {
   room: BlindRoom
   isHost: boolean
-  busy: boolean
-  onDelete: (room: BlindRoom) => void
-  onHide: (room: BlindRoom) => void
+  uid: string
+  onDeleted: (room: BlindRoom) => void
 }
 
-function RoomCard({ room, isHost, busy, onDelete, onHide }: RoomCardProps) {
+function RoomCard({ room, isHost, uid, onDeleted }: RoomCardProps) {
   return (
-    <Link to={`/blind/${room.id}/lobby`} className={styles.card}>
-      <div className={styles.cardHeader}>
-        <span className={styles.cardName}>{room.name}</span>
-        <div className={styles.headerActions}>
+    <div className={styles.card}>
+      <BlindHistoryDeleteAction room={room} uid={uid} isHost={isHost} onDeleted={onDeleted} />
+      <Link to={`/blind/${room.id}/lobby`} className={styles.cardLink}>
+        <div className={styles.cardHeader}>
+          <span className={styles.cardName}>{room.name}</span>
           <Badge tone={room.state === 'lobby' ? 'amber' : 'default'}>{stateLabel(room.state)}</Badge>
-          <button
-            type="button"
-            className={styles.removeButton}
-            aria-label={isHost ? `Delete ${room.name}` : `Remove ${room.name} from my list`}
-            disabled={busy}
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              if (isHost) onDelete(room)
-              else onHide(room)
-            }}
-          >
-            ×
-          </button>
         </div>
-      </div>
-      <div className={styles.cardMeta}>
-        {room.sessionType === 'solo' ? 'Solo Blind' : room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} ·{' '}
-        {room.pourCount} pours ·{' '}
-        {room.knowledgeMode === 'single' ? 'Single Blind' : 'Double Blind'}
-      </div>
-      <div className={styles.cardMeta}>
-        Hosted by {room.hostUsername} · {room.participantCount} {room.participantCount === 1 ? 'participant' : 'participants'}
-      </div>
-      {room.deadline ? <div className={styles.cardMeta}>Deadline {new Date(room.deadline).toLocaleString()}</div> : null}
-    </Link>
+        <div className={styles.cardMeta}>
+          {room.sessionType === 'solo' ? 'Solo Blind' : room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} ·{' '}
+          {room.pourCount} pours ·{' '}
+          {room.knowledgeMode === 'single' ? 'Single Blind' : 'Double Blind'}
+        </div>
+        <div className={styles.cardMeta}>
+          Hosted by {room.hostUsername} · {room.participantCount} {room.participantCount === 1 ? 'participant' : 'participants'}
+        </div>
+        {room.deadline ? <div className={styles.cardMeta}>Deadline {new Date(room.deadline).toLocaleString()}</div> : null}
+      </Link>
+    </div>
   )
 }
 
@@ -85,32 +72,21 @@ export function BlindRoomLandingPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
-  const [busyRoomId, setBusyRoomId] = useState<string | null>(null)
 
   useEffect(() => {
     setHiddenIds(user ? readHiddenBlindRoomIds(user.uid) : new Set())
   }, [user])
 
-  async function handleDeleteRoom(room: BlindRoom) {
-    if (busyRoomId) return
-    if (!window.confirm(`Delete “${room.name}”? This removes it — and everyone’s answers — for good.`)) return
-    setBusyRoomId(room.id)
-    try {
-      await deleteBlindRoom(room.id)
-      setRooms((prev) => (prev ?? []).filter((r) => r.room.id !== room.id))
-    } catch (err) {
-      console.error('deleteBlindRoom failed', err)
-      window.alert('Could not delete this blind. Check your connection and try again.')
-    } finally {
-      setBusyRoomId(null)
+  // Fires after BlindHistoryDeleteAction succeeds, host or participant path
+  // alike — either way this device should stop showing the room immediately,
+  // no refetch needed. For a participant's local-only hide, also record it
+  // in hiddenIds so a later retryKey-triggered refetch (which re-reads every
+  // room this uid still participates in) doesn't bring it back.
+  function handleRoomDeleted(room: BlindRoom) {
+    setRooms((prev) => (prev ?? []).filter((r) => r.room.id !== room.id))
+    if (user && room.hostUid !== user.uid) {
+      setHiddenIds((prev) => new Set(prev).add(room.id))
     }
-  }
-
-  function handleHideRoom(room: BlindRoom) {
-    if (!user) return
-    if (!window.confirm(`Remove “${room.name}” from your list? It’ll stay visible to other participants.`)) return
-    hideBlindRoomForUser(user.uid, room.id)
-    setHiddenIds((prev) => new Set(prev).add(room.id))
   }
 
   useEffect(() => {
@@ -190,14 +166,7 @@ export function BlindRoomLandingPage() {
         ) : (
           <div className={styles.grid}>
             {active.map(({ room }) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                isHost={room.hostUid === user.uid}
-                busy={busyRoomId === room.id}
-                onDelete={handleDeleteRoom}
-                onHide={handleHideRoom}
-              />
+              <RoomCard key={room.id} room={room} isHost={room.hostUid === user.uid} uid={user.uid} onDeleted={handleRoomDeleted} />
             ))}
           </div>
         )}
@@ -207,14 +176,7 @@ export function BlindRoomLandingPage() {
         <Section title="Recent Blinds">
           <div className={styles.grid}>
             {recent.map(({ room }) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                isHost={room.hostUid === user.uid}
-                busy={busyRoomId === room.id}
-                onDelete={handleDeleteRoom}
-                onHide={handleHideRoom}
-              />
+              <RoomCard key={room.id} room={room} isHost={room.hostUid === user.uid} uid={user.uid} onDeleted={handleRoomDeleted} />
             ))}
           </div>
         </Section>

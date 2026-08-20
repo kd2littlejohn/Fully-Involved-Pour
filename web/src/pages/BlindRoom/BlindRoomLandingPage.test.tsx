@@ -116,16 +116,22 @@ describe('BlindRoomLandingPage', () => {
     expect(await screen.findByText(/failed-precondition: The query requires an index\./)).toBeInTheDocument()
   })
 
+  async function openDeleteConfirm(roomName: string) {
+    await userEvent.click(screen.getByRole('button', { name: `${roomName} actions` }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete Blind' }))
+    expect(screen.getByText('Delete this blind?')).toBeInTheDocument()
+    expect(screen.getByText('This will remove the saved blind results and related history. This cannot be undone.')).toBeInTheDocument()
+  }
+
   it('lets the host permanently delete a blind after confirming', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockGetMyBlindRooms.mockResolvedValue([{ room: room({ name: 'Friday Night Blind' }), participant }])
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderPage()
     await screen.findByText('Friday Night Blind')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Friday Night Blind' }))
+    await openDeleteConfirm('Friday Night Blind')
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Blind for Everyone' }))
 
-    expect(window.confirm).toHaveBeenCalled()
     await waitFor(() => expect(mockDeleteBlindRoom).toHaveBeenCalledWith('room-1'))
     expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument()
   })
@@ -133,14 +139,54 @@ describe('BlindRoomLandingPage', () => {
   it('does not delete the blind if the host cancels the confirmation', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockGetMyBlindRooms.mockResolvedValue([{ room: room({ name: 'Friday Night Blind' }), participant }])
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderPage()
     await screen.findByText('Friday Night Blind')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Friday Night Blind' }))
+    await openDeleteConfirm('Friday Night Blind')
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(mockDeleteBlindRoom).not.toHaveBeenCalled()
     expect(screen.getByText('Friday Night Blind')).toBeInTheDocument()
+  })
+
+  it('disables the confirm button and shows Deleting… while the delete is in flight, so a second tap cannot double-fire it', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ name: 'Friday Night Blind' }), participant }])
+    let resolveDelete: () => void = () => {}
+    mockDeleteBlindRoom.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveDelete = resolve
+      }),
+    )
+    renderPage()
+    await screen.findByText('Friday Night Blind')
+
+    await openDeleteConfirm('Friday Night Blind')
+    const confirmButton = screen.getByRole('button', { name: 'Delete Blind for Everyone' })
+    await userEvent.click(confirmButton)
+
+    const deletingButton = screen.getByRole('button', { name: 'Deleting…' })
+    expect(deletingButton).toBeDisabled()
+    await userEvent.click(deletingButton)
+    expect(mockDeleteBlindRoom).toHaveBeenCalledTimes(1)
+
+    resolveDelete()
+    await waitFor(() => expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument())
+  })
+
+  it('keeps the blind visible and shows a retry message if the delete fails', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([{ room: room({ name: 'Friday Night Blind' }), participant }])
+    mockDeleteBlindRoom.mockRejectedValueOnce(new Error('network error'))
+    renderPage()
+    await screen.findByText('Friday Night Blind')
+
+    await openDeleteConfirm('Friday Night Blind')
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Blind for Everyone' }))
+
+    expect(await screen.findByText('We couldn’t delete this blind. Try again.')).toBeInTheDocument()
+    expect(screen.getByText('Friday Night Blind')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete Blind for Everyone' })).not.toBeDisabled()
   })
 
   it('lets a non-host participant remove a blind from just their own list, without deleting it', async () => {
@@ -148,14 +194,14 @@ describe('BlindRoomLandingPage', () => {
     mockGetMyBlindRooms.mockResolvedValue([
       { room: room({ name: 'Friday Night Blind', hostUid: 'host-1' }), participant },
     ])
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderPage()
     await screen.findByText('Friday Night Blind')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Friday Night Blind from my list' }))
+    await openDeleteConfirm('Friday Night Blind')
+    await userEvent.click(screen.getByRole('button', { name: 'Remove From My History' }))
 
     expect(mockDeleteBlindRoom).not.toHaveBeenCalled()
-    expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Friday Night Blind')).not.toBeInTheDocument())
     expect(JSON.parse(localStorage.getItem('fip:hiddenBlindRooms:guest-1') ?? '[]')).toEqual(['room-1'])
   })
 
