@@ -1,5 +1,9 @@
 .card {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
@@ -23,12 +27,16 @@
   z-index: 2;
 }
 
-/* Compact split card: image on the left, story on the right. */
+/* Mobile-first: image stacked on top of the story, full width. The
+   side-by-side split only kicks in once there's real room for it (see the
+   min-width: 640px query below), matching this codebase's standard mobile
+   breakpoint. */
 .trigger {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: stretch;
   width: 100%;
+  min-width: 0;
   padding: 0;
   border: none;
   background: none;
@@ -39,19 +47,22 @@
   cursor: pointer;
 }
 
-/* Featured is a cinematic banner-on-top layout, not a side-by-side split. */
+@media (min-width: 640px) {
+  .trigger:not(.triggerFeatured) {
+    flex-direction: row;
+  }
+}
+
+/* Featured is always a cinematic banner-on-top layout, never a side-by-side
+   split, at any width. */
 .triggerFeatured {
   flex-direction: column;
 }
 
-/* A fixed pixel width (not a percentage) keeps the story column readable
-   at real phone widths — a percentage split looked fine on paper but left
-   too little room for the name/score once text actually wrapped. Widens to
-   a proportional split only once there's real room for it (see the
-   min-width query below). */
 .media {
   position: relative;
-  flex: 0 0 128px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,9 +70,10 @@
   overflow: hidden;
 }
 
-@media (min-width: 480px) {
-  .media {
-    flex-basis: 38%;
+@media (min-width: 640px) {
+  .media:not(.mediaFeatured) {
+    flex: 0 0 38%;
+    aspect-ratio: auto;
   }
 }
 
@@ -152,17 +164,4 @@
 .scoreRow {
   margin-top: auto;
   padding-top: var(--fip-space-1);
-}
-
-/* Below this, the side-by-side split loses too much width to stay
-   legible — stack instead of squeezing image and text past readability. */
-@media (max-width: 320px) {
-  .trigger {
-    flex-direction: column;
-  }
-
-  .media {
-    flex-basis: auto;
-    height: 180px;
-  }
 }
