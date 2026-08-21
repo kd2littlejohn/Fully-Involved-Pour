@@ -197,6 +197,19 @@ describe('blindRooms/{roomId}', () => {
 })
 
 describe('blindRooms/{roomId}/participants/{uid}', () => {
+  it('checking whether you’ve already joined (a getDoc on your own not-yet-existing participant doc) does not throw', async () => {
+    // Regression coverage for the actual production bug: joinBlindRoomByCode's
+    // very first step is getParticipant(), a plain getDoc() on a document
+    // that legitimately doesn't exist yet for a first-time joiner. Before the
+    // read rule's self-check used the uid path parameter instead of
+    // resource.data.uid, this threw permission-denied on every first join —
+    // before the code ever reached the actual participant-doc create.
+    await seedRoom()
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    const snap = await assertSucceeds(getDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID)))
+    expect(snap.exists()).toBe(false)
+  })
+
   it('a user can join by creating their own participant doc', async () => {
     await seedRoom()
     const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
@@ -232,6 +245,26 @@ describe('blindRooms/{roomId}/participants/{uid}', () => {
     // someone else entirely.
     await seedRoom({ hostUid: HOST_UID })
     const userB = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertSucceeds(
+      setDoc(doc(userB.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'joined',
+        joinedAt: Date.now(),
+      }),
+    )
+  })
+
+  it('the full joinBlindRoomByCode sequence — check-then-create — succeeds end to end for a brand-new user', async () => {
+    // The exact two Firestore calls joinBlindRoomByCode makes, in order,
+    // against a room this uid has never touched before.
+    await seedRoom({ hostUid: HOST_UID })
+    const userB = testEnv.authenticatedContext(PARTICIPANT_UID)
+    const existing = await assertSucceeds(
+      getDoc(doc(userB.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID)),
+    )
+    expect(existing.exists()).toBe(false)
     await assertSucceeds(
       setDoc(doc(userB.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
         uid: PARTICIPANT_UID,

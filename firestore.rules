@@ -88,8 +88,19 @@ service cloud.firestore {
       // separate `{path=**}/participants` rule below, which is what
       // actually governs that query).
       match /participants/{uid} {
+        // Checking your own doc via the PATH parameter (uid), not
+        // resource.data.uid — a getDoc() for "have I already joined?" is
+        // the very first thing joinBlindRoomByCode does, on a document
+        // that legitimately doesn't exist yet for a first-time joiner.
+        // resource is null for a nonexistent document, so resource.data.uid
+        // would throw during rule evaluation, which Firestore reports as
+        // permission-denied rather than "not found" — this exact class of
+        // bug already bit relationships/{pairId} and friendRequests/{id}
+        // above (see their own !exists() comments); the fix here is
+        // simpler still, since uid is already available as a path segment
+        // and never requires the document to exist at all.
         allow read: if request.auth != null
-                     && (resource.data.uid == request.auth.uid
+                     && (uid == request.auth.uid
                          || get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid
                          || exists(/databases/$(database)/documents/blindRooms/$(roomId)/participants/$(request.auth.uid)));
         // isHost may only ever be true for the room's actual hostUid — a
