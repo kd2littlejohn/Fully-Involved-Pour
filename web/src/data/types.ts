@@ -206,7 +206,12 @@ export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
 }
 
 export interface Profile {
-  username: string
+  // Optional, not just in theory: confirmed in production that a real
+  // profiles/{uid} document can exist with only displayName/bio/location
+  // set and no username at all, e.g. from an Edit Profile save that never
+  // went through the separate username-claim flow (see profile.ts
+  // ensureSearchableProfile for how that gets backfilled).
+  username?: string
   displayName?: string
   bio?: string
   location?: string

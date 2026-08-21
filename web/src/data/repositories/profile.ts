@@ -135,20 +135,32 @@ const MAX_USERNAME_ATTEMPTS = 25
 // Idempotent, safe to call on every load. Takes the profile the caller
 // already fetched (avoids a second, redundant read of the same document)
 // and returns the profile to actually use — either the original, untouched,
-// or the newly created/repaired one. Handles two distinct cases, both of
+// or the newly created/repaired one. Handles three distinct cases, all of
 // which leave an account unfindable by Friend Search until fixed:
-// (1) no profile at all — "brand-new signup" (called once auth resolves,
-// before the user has ever touched Edit Profile) and "backfill for an
-// account that predates this searchable-profile system" are the same fix
-// here; and (2) a profile that exists but is missing or stale on
-// normalizedUsername/normalizedDisplayName specifically — an account whose
-// username/displayName predates those fields, or whose claim write only
-// partially succeeded, can have a perfectly real profile that search still
-// can't find them through. See useUserData.tsx's profile effect for where
-// this gets called from. For case (1), prefers the account's
-// already-chosen private username (userDoc.username, if any) over deriving
-// a fresh one from the Google display name, so a returning user keeps
-// whatever they're already known as elsewhere.
+// (1) no profile document at all — "brand-new signup" (called once auth
+// resolves, before the user has ever touched Edit Profile) and "backfill
+// for an account that predates this searchable-profile system" are the
+// same fix here; (2) a profile that exists WITH a username but is stale on
+// normalizedUsername/normalizedDisplayName specifically — a claim write
+// that only partially succeeded, most likely; and (3) a profile that
+// exists but has no username at all, even though the account already has
+// one privately (userDoc.username) — this happens when Edit Profile saved
+// displayName/bio/location before the account ever went through the
+// separate username-claim flow (saveProfile writes displayName etc.
+// straight to profiles/{uid}; only claimUsername writes username/
+// normalizedUsername there), so a real, complete-looking profile document
+// can still have no username field whatsoever. Cases (1) and (3) both
+// reduce to "claim a username via the same collision-checked loop," just
+// merging onto different starting data — treating "profile doc exists" as
+// "nothing to claim" was the actual bug behind a real production report:
+// an account with its own displayName correctly set, and its own Profile
+// page correctly showing "@theirusername" (read from the private
+// userDoc.username field, not this one), was still fully invisible to
+// Friend Search because this function only checked whether the document
+// existed, never whether it had a username on it. Prefers the account's
+// already-chosen private username (userDoc.username, if any) over
+// deriving a fresh one from the Google display name, so a returning user
+// keeps whatever they're already known as elsewhere.
 export async function ensureSearchableProfile(
   uid: string,
   existingProfile: Profile | undefined,
@@ -156,9 +168,9 @@ export async function ensureSearchableProfile(
 ): Promise<Profile | undefined> {
   if (isMockAuthEnabled()) return existingProfile
 
-  if (existingProfile) {
+  if (existingProfile?.username) {
     const patch: Partial<Profile> = {}
-    if (existingProfile.username && existingProfile.normalizedUsername !== normalizeForSearch(existingProfile.username)) {
+    if (existingProfile.normalizedUsername !== normalizeForSearch(existingProfile.username)) {
       patch.normalizedUsername = normalizeForSearch(existingProfile.username)
     }
     if (
@@ -172,8 +184,9 @@ export async function ensureSearchableProfile(
     return { ...existingProfile, ...patch }
   }
 
-  const base = slugifyUsername(hints.preferredUsername || hints.displayName || `friend_${uid.slice(0, 6)}`)
-  const displayName = hints.displayName
+  const displayName = hints.displayName ?? existingProfile?.displayName
+  const photoURL = hints.photoURL ?? existingProfile?.photoURL
+  const base = slugifyUsername(hints.preferredUsername || displayName || `friend_${uid.slice(0, 6)}`)
   const normalizedDisplayName = displayName ? normalizeForSearch(displayName) : undefined
 
   for (let attempt = 0; attempt < MAX_USERNAME_ATTEMPTS; attempt++) {
@@ -183,18 +196,18 @@ export async function ensureSearchableProfile(
       const usernameSnap = await getDoc(usernameRef)
       if (usernameSnap.exists() && (usernameSnap.data() as UsernameRecord).uid !== uid) continue
 
-      const newProfile: Profile = {
+      const patch: Partial<Profile> = {
         username: candidate,
         normalizedUsername: candidate,
         ...(displayName ? { displayName, normalizedDisplayName } : {}),
-        ...(hints.photoURL ? { photoURL: hints.photoURL } : {}),
+        ...(photoURL ? { photoURL } : {}),
       }
-      await Promise.all([setDoc(usernameRef, { uid, username: candidate }), setDoc(doc(db, 'profiles', uid), newProfile, { merge: true })])
-      return newProfile
+      await Promise.all([setDoc(usernameRef, { uid, username: candidate }), setDoc(doc(db, 'profiles', uid), patch, { merge: true })])
+      return { ...existingProfile, ...patch }
     } catch (err) {
       console.error('ensureSearchableProfile: attempt failed', { uid, candidate, err })
     }
   }
   console.error('ensureSearchableProfile: exhausted username attempts', { uid })
-  return undefined
+  return existingProfile
 }

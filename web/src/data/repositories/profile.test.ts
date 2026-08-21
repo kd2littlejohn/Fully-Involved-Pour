@@ -208,6 +208,48 @@ describe('ensureSearchableProfile', () => {
     expect(result?.normalizedUsername).toBe('newname')
   })
 
+  // This is the real production bug: an account whose Profile page correctly
+  // shows "@captainpouralot" (read from the private userDoc.username field)
+  // can still have a profiles/{uid} doc that only ever got displayName
+  // written to it — e.g. from an Edit Profile save that touched displayName/
+  // bio/location without ever going through the separate username-claim
+  // flow. The doc existing (with a username field present, previously the
+  // only check) is not the same as it being findable.
+  it('claims a username onto an existing profile that has other fields but no username at all', async () => {
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false }) // usernames/captainpouralot check
+    const profile = { displayName: 'Captain Pour-a-lot', normalizedDisplayName: 'captain pour-a-lot' }
+
+    const result = await ensureSearchableProfile('uid-1', profile, { preferredUsername: 'captainpouralot' })
+
+    expect(usernameDocCandidates()).toEqual(['captainpouralot'])
+    expect(mockSetDoc).toHaveBeenCalledWith(expect.anything(), { uid: 'uid-1', username: 'captainpouralot' })
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        username: 'captainpouralot',
+        normalizedUsername: 'captainpouralot',
+        displayName: 'Captain Pour-a-lot',
+        normalizedDisplayName: 'captain pour-a-lot',
+      },
+      { merge: true },
+    )
+    expect(result).toEqual({
+      displayName: 'Captain Pour-a-lot',
+      normalizedDisplayName: 'captain pour-a-lot',
+      username: 'captainpouralot',
+      normalizedUsername: 'captainpouralot',
+    })
+  })
+
+  it('derives the missing username from the profile’s own displayName when there is no preferredUsername hint', async () => {
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false })
+    const profile = { displayName: 'Captain Pour-a-lot' }
+
+    await ensureSearchableProfile('uid-1', profile, {})
+
+    expect(usernameDocCandidates()).toEqual(['captain_pour_a_lot'])
+  })
+
   it('creates usernames/{slug} and profiles/{uid} from the display name when no profile exists yet', async () => {
     mockGetDoc.mockResolvedValueOnce({ exists: () => false }) // usernames/{candidate} check
 

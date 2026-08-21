@@ -50,7 +50,7 @@ export function AddFriendPage() {
       ) : (
         <div className={styles.results}>
           {results.map((result) => {
-            const name = result.displayName || result.username
+            const name = result.displayName || result.username || 'FIP User'
             return (
               <div className={styles.resultCard} key={result.uid}>
                 <div className={styles.avatarWrap}>

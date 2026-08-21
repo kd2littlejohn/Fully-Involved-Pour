@@ -50,7 +50,7 @@ export function FriendProfilePage() {
   }
 
   const { profile, uid, sharedCollection, sharedMomentsWithViewer } = data
-  const displayName = profile.displayName || profile.username
+  const displayName = profile.displayName || profile.username || 'FIP User'
   const commonBottles = sharedCollection ? getBottlesInCommon(userDoc.bottles, sharedCollection.bottles) : []
 
   return (

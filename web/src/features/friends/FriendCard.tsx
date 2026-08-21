@@ -13,7 +13,7 @@ function initials(name: string): string {
 // Deliberately no follower/pour-count vanity metrics — just enough to
 // recognize someone and start a real interaction.
 export function FriendCard({ friend }: { friend: FriendProfile }) {
-  const displayName = friend.displayName || friend.username
+  const displayName = friend.displayName || friend.username || ''
 
   return (
     <Link to={`/friends/u/${friend.username}`} className={styles.card}>
