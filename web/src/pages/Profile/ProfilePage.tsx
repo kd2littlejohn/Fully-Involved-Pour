@@ -13,6 +13,7 @@ import { getWhiskeyIdentity } from '../../features/profile/identity'
 import { getRecentMilestones } from '../../features/profile/milestones'
 import { useBlindProfileStats } from '../../features/profile/useBlindProfileStats'
 import { ProfileHeader } from '../../features/profile/ProfileHeader'
+import { ProfileTopBar } from '../../features/profile/ProfileTopBar'
 import { WhiskeyIdentityCard } from '../../features/profile/WhiskeyIdentityCard'
 import { FavoritesGrid } from '../../features/profile/FavoritesGrid'
 import { BlindProfileCard } from '../../features/profile/BlindProfileCard'
@@ -26,7 +27,7 @@ export function ProfilePage() {
   const { userDoc, profile, loading: dataLoading } = useUserData()
   const { stats: blindStats } = useBlindProfileStats(user?.uid)
 
-  if (authLoading || dataLoading) {
+  if (authLoading) {
     return <PageHeader eyebrow="Profile" title="My Journey" />
   }
 
@@ -39,6 +40,19 @@ export function ProfilePage() {
           message="Fully Involved Pour uses Google sign-in to sync your bar."
           action={<SignInButton />}
         />
+      </>
+    )
+  }
+
+  // Friends/Settings access doesn't depend on bottles, pours, or the
+  // profile doc having finished loading — rendered as soon as we know
+  // there's a signed-in user, so it stays put instead of popping in and
+  // out on every visit while the rest of the page catches up.
+  if (dataLoading) {
+    return (
+      <>
+        <ProfileTopBar />
+        <PageHeader eyebrow="Profile" title="My Journey" />
       </>
     )
   }
@@ -60,6 +74,7 @@ export function ProfilePage() {
 
   return (
     <>
+      <ProfileTopBar />
       <ProfileHeader
         photoURL={profile?.photoURL}
         displayName={displayName}

@@ -1,0 +1,26 @@
+.row {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-4) var(--fip-shell-x) 0;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+  transition: border-color var(--fip-motion) var(--fip-ease);
+}
+
+.iconButton:hover {
+  border-color: var(--fip-border-strong);
+  color: var(--fip-amber);
+}

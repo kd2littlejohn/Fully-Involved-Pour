@@ -8,34 +8,6 @@
   padding: var(--fip-space-6) var(--fip-shell-x) var(--fip-space-4);
 }
 
-.iconRow {
-  position: absolute;
-  top: var(--fip-space-4);
-  right: var(--fip-shell-x);
-  display: flex;
-  gap: var(--fip-space-2);
-}
-
-.iconButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: var(--fip-radius-round);
-  background: var(--fip-card);
-  border: 1px solid var(--fip-border-subtle);
-  color: var(--fip-cream);
-  transition: border-color var(--fip-motion) var(--fip-ease);
-}
-
-.iconButton:hover {
-  border-color: var(--fip-border-strong);
-  color: var(--fip-amber);
-}
-
 .avatarWrap {
   margin-top: var(--fip-space-2);
   margin-bottom: var(--fip-space-3);
