@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../../data/firebase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
+import { clearUserCache } from '../../data/clearUserCache'
 import { downloadUserDataExport } from '../../features/profile/dataExport'
 import { PrivacyControls } from '../../features/friends/PrivacyControls'
 import homeHeroImage from '../../assets/home-hero.webp'
@@ -93,7 +94,9 @@ export function SettingsPage() {
   }
 
   async function handleSignOut() {
+    const uid = user?.uid
     await signOut(auth)
+    if (uid) clearUserCache(uid)
     navigate('/')
   }
 

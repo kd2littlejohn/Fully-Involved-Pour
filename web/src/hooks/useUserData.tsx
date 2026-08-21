@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { updateProfile as updateAuthProfile } from 'firebase/auth'
 import { useAuth } from './useAuth'
 import { auth } from '../data/firebase'
@@ -76,6 +76,8 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   const [dataLoading, setDataLoading] = useState(true)
   const [profile, setProfile] = useState<Profile | undefined>(undefined)
   const [profileLoading, setProfileLoading] = useState(true)
+  const previousUidRef = useRef<string | null>(null)
+  const previousProfileUidRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (authLoading) return
@@ -83,8 +85,19 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setUserDoc(EMPTY_USER_DOC)
       setDataLoading(false)
+      previousUidRef.current = null
       return
     }
+
+    // A direct switch from one signed-in account to another (no intervening
+    // signed-out render — e.g. an in-app account switcher) skips the !user
+    // branch above, which is the only place this state otherwise gets
+    // cleared. Without this, the previous user's bottles/pours would keep
+    // rendering for the length of the fetch below.
+    if (previousUidRef.current !== null && previousUidRef.current !== user.uid) {
+      setUserDoc(EMPTY_USER_DOC)
+    }
+    previousUidRef.current = user.uid
 
     if (mockMode) {
       let cancelled = false
@@ -130,8 +143,14 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setProfile(undefined)
       setProfileLoading(false)
+      previousProfileUidRef.current = null
       return
     }
+
+    if (previousProfileUidRef.current !== null && previousProfileUidRef.current !== user.uid) {
+      setProfile(undefined)
+    }
+    previousProfileUidRef.current = user.uid
 
     if (mockMode) {
       setProfile({ username: '', displayName: user.displayName ?? undefined })

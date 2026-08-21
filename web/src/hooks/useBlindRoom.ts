@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { collection, doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../data/firebase'
 import { isMockAuthEnabled } from '../data/devMode'
+import { useAuth } from './useAuth'
 import { getBlindRoom, getParticipants } from '../data/repositories/blindRoom'
 import type { BlindParticipant, BlindRoom } from '../data/types'
 
@@ -23,6 +24,7 @@ interface UseBlindRoomResult {
 // back to a one-shot fetch (plus a manual `refresh()`) rather than a fake
 // listener that would just sit idle.
 export function useBlindRoom(roomId: string | undefined): UseBlindRoomResult {
+  const { user } = useAuth()
   const [room, setRoom] = useState<BlindRoom | undefined>(undefined)
   const [participants, setParticipants] = useState<BlindParticipant[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +32,11 @@ export function useBlindRoom(roomId: string | undefined): UseBlindRoomResult {
 
   const refresh = useCallback(() => setRefreshToken((t) => t + 1), [])
 
+  // user?.uid is in the dependency array (not just roomId/refreshToken) so a
+  // same-tab sign-out or switch to a different account tears down the old
+  // listener and re-subscribes under the new auth context, rather than a
+  // listener started under the previous user quietly continuing to stream to
+  // a component instance that never unmounted.
   useEffect(() => {
     if (!roomId) {
       setRoom(undefined)
@@ -65,7 +72,7 @@ export function useBlindRoom(roomId: string | undefined): UseBlindRoomResult {
       unsubRoom()
       unsubParticipants()
     }
-  }, [roomId, refreshToken])
+  }, [roomId, refreshToken, user?.uid])
 
   return { room, participants, loading, refresh }
 }

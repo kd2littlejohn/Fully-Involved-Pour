@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { askSommelier, type SommelierTurn } from '../../data/repositories/ai'
+import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { summarizeCollectionForAi } from './collectionSummary'
 
@@ -22,10 +23,20 @@ const SommelierContext = createContext<SommelierState>({
 // page entirely. Previously this lived in SommelierPanel's own useState,
 // which meant it was wiped every time the panel unmounted.
 export function SommelierProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const { userDoc } = useUserData()
   const [messages, setMessages] = useState<SommelierTurn[]>([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // The conversation is generated from (and can reference specifics of) this
+  // user's own collection — it must never survive a sign-out or a same-tab
+  // switch to a different account. Sign-out is a client-side navigation, not
+  // a full reload, so nothing else clears this automatically.
+  useEffect(() => {
+    setMessages([])
+    setError(null)
+  }, [user?.uid])
 
   const send = useCallback(
     async (prompt: string) => {

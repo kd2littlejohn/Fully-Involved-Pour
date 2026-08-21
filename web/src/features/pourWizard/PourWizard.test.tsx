@@ -10,7 +10,7 @@ vi.mock('../../hooks/useUserData', () => ({
 }))
 
 vi.mock('../../hooks/useAuth', () => ({
-  useAuth: () => ({ user: null, loading: false }),
+  useAuth: () => ({ user: { uid: 'test-uid' }, loading: false }),
 }))
 
 // The Session step's friend-tagging field (see features/friends/
