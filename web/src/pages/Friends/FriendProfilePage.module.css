@@ -118,6 +118,46 @@
   margin-bottom: var(--fip-space-3);
 }
 
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.sectionHeader .sectionTitle {
+  margin-bottom: var(--fip-space-3);
+}
+
+.seeAll {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.blindRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.blindName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-cream);
+}
+
+.blindDate {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  flex: 0 0 auto;
+}
+
 .momentList {
   display: flex;
   flex-direction: column;

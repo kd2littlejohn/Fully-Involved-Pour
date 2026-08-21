@@ -10,6 +10,8 @@ import { useFriendRequests } from '../../features/friends/useFriendRequests'
 import { useSharedWithYou } from '../../features/friends/useSharedWithYou'
 import { useNotifications } from '../../features/friends/useNotifications'
 import { useFriendsPouring } from '../../features/friends/useFriendsPouring'
+import { useSharedBlindActivity } from '../../features/friends/useSharedBlindActivity'
+import { notificationToActivityItem } from '../../features/friends/notificationCopy'
 import { FriendCard } from '../../features/friends/FriendCard'
 import { FriendRequestCard } from '../../features/friends/FriendRequestCard'
 import { SharedMomentCard } from '../../features/friends/SharedMomentCard'
@@ -17,6 +19,7 @@ import { RecommendationCard } from '../../features/friends/RecommendationCard'
 import { SharedPreviewCard } from '../../features/friends/SharedPreviewCard'
 import { FriendActivityRow } from '../../features/friends/FriendActivityRow'
 import { FriendsPouringRow } from '../../features/friends/FriendsPouringRow'
+import { FriendQuickAccessRow } from '../../features/friends/FriendQuickAccessRow'
 import styles from './FriendsPage.module.css'
 
 type Tab = 'shared' | 'friends' | 'requests'
@@ -66,8 +69,17 @@ export function FriendsPage() {
     reloadFriends()
   }
   const { items, loading: sharedLoading, reload: reloadShared } = useSharedWithYou(user?.uid)
-  const { notifications, loading: activityLoading, markRead } = useNotifications(user?.uid)
+  const { notifications, loading: notificationsLoading, markRead } = useNotifications(user?.uid)
+  const { items: blindActivity, loading: blindActivityLoading } = useSharedBlindActivity(user?.uid, friends)
   const { items: pouring, loading: pouringLoading } = useFriendsPouring(friends)
+  const activityLoading = notificationsLoading || blindActivityLoading
+
+  // Every real activity source merged into one chronological list — see
+  // activityItem.ts. Notifications carry a real unread state; a shared
+  // blind-room completion doesn't (it's not a per-user notification doc),
+  // so it's just always "read" rather than faking an unread dot for
+  // something with no read/unread concept.
+  const activity = [...notifications.map(notificationToActivityItem), ...blindActivity].sort((a, b) => b.timestamp - a.timestamp)
 
   function selectTab(next: Tab) {
     setTab(next)
@@ -91,9 +103,21 @@ export function FriendsPage() {
     )
   }
 
-  const visibleActivity = showAllActivity ? notifications : notifications.slice(0, ACTIVITY_PREVIEW_COUNT)
+  const visibleActivity = showAllActivity ? activity : activity.slice(0, ACTIVITY_PREVIEW_COUNT)
+  // Only a real notification doc has anything to mark read — a derived
+  // blind-activity row (id prefixed "blind-") has no such doc.
+  function openActivity(id: string) {
+    if (notifications.some((n) => n.id === id)) markRead(id)
+  }
   const sharedTabEmpty =
-    !sharedLoading && !activityLoading && !pouringLoading && items.length === 0 && notifications.length === 0 && pouring.length === 0
+    !sharedLoading &&
+    !activityLoading &&
+    !pouringLoading &&
+    !friendsLoading &&
+    items.length === 0 &&
+    activity.length === 0 &&
+    pouring.length === 0 &&
+    friends.length === 0
 
   return (
     <div className={styles.page}>
@@ -184,19 +208,19 @@ export function FriendsPage() {
               </section>
             ) : null}
 
-            {notifications.length > 0 ? (
+            {activity.length > 0 ? (
               <section className={styles.section}>
                 <div className={styles.sectionHeader}>
                   <h2 className={styles.sectionTitle}>Recent Friend Activity</h2>
-                  {notifications.length > ACTIVITY_PREVIEW_COUNT ? (
+                  {activity.length > ACTIVITY_PREVIEW_COUNT ? (
                     <button type="button" className={styles.seeAll} onClick={() => setShowAllActivity((v) => !v)}>
                       {showAllActivity ? 'Show Less' : 'See All'}
                     </button>
                   ) : null}
                 </div>
                 <div className={styles.activityList}>
-                  {visibleActivity.map((notification) => (
-                    <FriendActivityRow key={notification.id} notification={notification} onOpen={markRead} />
+                  {visibleActivity.map((activityItem) => (
+                    <FriendActivityRow key={activityItem.id} item={activityItem} onOpen={openActivity} />
                   ))}
                 </div>
               </section>
@@ -208,6 +232,22 @@ export function FriendsPage() {
                 <div className={styles.hScroll}>
                   {pouring.map((friend) => (
                     <FriendsPouringRow key={friend.uid} friend={friend} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {friends.length > 0 ? (
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <h2 className={styles.sectionTitle}>Your Friends</h2>
+                  <button type="button" className={styles.seeAll} onClick={() => selectTab('friends')}>
+                    See All
+                  </button>
+                </div>
+                <div className={styles.hScroll}>
+                  {friends.map((friend) => (
+                    <FriendQuickAccessRow key={friend.uid} friend={friend} />
                   ))}
                 </div>
               </section>

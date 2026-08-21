@@ -54,6 +54,7 @@ export function RecommendBottleModal({ friendUid, friendName, onClose }: Recomme
         actorDisplayName: profile?.displayName || user.displayName || undefined,
         actorPhotoURL: profile?.photoURL,
         refId: recommendation.id,
+        refBottleName: selectedBottle.name,
       })
       setSent(true)
     } finally {

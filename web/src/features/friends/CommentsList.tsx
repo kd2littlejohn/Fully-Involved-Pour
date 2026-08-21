@@ -11,12 +11,13 @@ import styles from './CommentsList.module.css'
 interface CommentsListProps {
   sharedMomentId: string
   storyOwnerId: string
+  bottleName?: string
 }
 
 // Deletion rules enforced here AND in firestore.rules: the comment's own
 // author can always delete it, and the story's owner can moderate any
 // comment on their own story.
-export function CommentsList({ sharedMomentId, storyOwnerId }: CommentsListProps) {
+export function CommentsList({ sharedMomentId, storyOwnerId, bottleName }: CommentsListProps) {
   const { user } = useAuth()
   const { userDoc, profile } = useUserData()
   const [comments, setComments] = useState<StoryComment[]>([])
@@ -56,6 +57,7 @@ export function CommentsList({ sharedMomentId, storyOwnerId }: CommentsListProps
           actorDisplayName: profile?.displayName || user.displayName || undefined,
           actorPhotoURL: profile?.photoURL,
           refId: sharedMomentId,
+          refBottleName: bottleName,
         })
       }
     } finally {

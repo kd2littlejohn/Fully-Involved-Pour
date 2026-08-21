@@ -46,6 +46,7 @@ export async function shareStoryWithTaggedFriends(owner: ShareStoryOwner, pour: 
           actorDisplayName: owner.displayName,
           actorPhotoURL: owner.photoURL,
           refId: moment.id,
+          refBottleName: moment.snapshot.bottleName,
         }),
       ),
     )

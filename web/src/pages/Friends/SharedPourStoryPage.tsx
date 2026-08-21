@@ -120,12 +120,12 @@ export function SharedPourStoryPage() {
       ) : null}
 
       <div className={styles.reactionsRow}>
-        <ReactionBar sharedMomentId={moment.id} storyOwnerId={moment.ownerId} />
+        <ReactionBar sharedMomentId={moment.id} storyOwnerId={moment.ownerId} bottleName={moment.snapshot.bottleName} />
       </div>
 
       <div className={styles.commentsSection}>
         <h2 className={styles.commentsHeading}>Comments</h2>
-        <CommentsList sharedMomentId={moment.id} storyOwnerId={moment.ownerId} />
+        <CommentsList sharedMomentId={moment.id} storyOwnerId={moment.ownerId} bottleName={moment.snapshot.bottleName} />
       </div>
     </div>
   )

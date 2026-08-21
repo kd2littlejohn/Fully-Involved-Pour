@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom'
-import type { AppNotification } from '../../data/types'
-import { describeNotification } from './notificationCopy'
+import type { ActivityItem } from './activityItem'
 import { timeAgo } from './timeAgo'
 import styles from './FriendActivityRow.module.css'
 
@@ -13,47 +12,47 @@ function initials(name: string): string {
 }
 
 interface FriendActivityRowProps {
-  notification: AppNotification
-  onOpen: (id: string) => void
+  item: ActivityItem
+  onOpen?: (id: string) => void
 }
 
-// One row of "Recent Friend Activity" (see FriendsPage.tsx) — built from
-// the existing notifications backend (data/repositories/notifications.ts),
-// which was already writing these events on every meaningful friend
-// interaction but had no UI reading them until now. Tapping a row marks it
-// read and, where there's somewhere meaningful to go (see
-// describeNotification), navigates there.
-export function FriendActivityRow({ notification, onOpen }: FriendActivityRowProps) {
-  const { text, to } = describeNotification(notification)
-  const name = notification.actorDisplayName || notification.actorUsername
-
+// One row of "Recent Friend Activity" (see FriendsPage.tsx) — real activity
+// only, from either the notifications backend (which was already writing
+// these events but had no UI reading them until now) or a derived source
+// like shared Blind Room completions. Tapping a row marks it read (when
+// there's a real read state to mark) and, where there's somewhere
+// meaningful to go, navigates there.
+export function FriendActivityRow({ item, onOpen }: FriendActivityRowProps) {
   const content = (
     <>
       <span className={styles.avatarWrap}>
-        {notification.actorPhotoURL ? (
-          <img className={styles.avatarImage} src={notification.actorPhotoURL} alt="" />
+        {item.actorPhotoURL ? (
+          <img className={styles.avatarImage} src={item.actorPhotoURL} alt="" />
         ) : (
           <span className={styles.avatarFallback} aria-hidden="true">
-            {initials(name)}
+            {initials(item.actorName)}
           </span>
         )}
-        {!notification.read ? <span className={styles.unreadDot} aria-hidden="true" /> : null}
+        {!item.read ? <span className={styles.unreadDot} aria-hidden="true" /> : null}
       </span>
-      <span className={styles.text}>{text}</span>
-      <span className={styles.time}>{timeAgo(notification.createdAt)}</span>
+      <span className={styles.body}>
+        <span className={styles.text}>{item.text}</span>
+        {item.subtitle ? <span className={styles.subtitle}>{item.subtitle}</span> : null}
+      </span>
+      <span className={styles.time}>{timeAgo(item.timestamp)}</span>
     </>
   )
 
-  if (to) {
+  if (item.to) {
     return (
-      <Link to={to} className={styles.row} onClick={() => onOpen(notification.id)}>
+      <Link to={item.to} className={styles.row} onClick={() => onOpen?.(item.id)}>
         {content}
       </Link>
     )
   }
 
   return (
-    <button type="button" className={styles.row} onClick={() => onOpen(notification.id)}>
+    <button type="button" className={styles.row} onClick={() => onOpen?.(item.id)}>
       {content}
     </button>
   )

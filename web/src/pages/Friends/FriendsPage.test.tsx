@@ -11,6 +11,7 @@ const mockUseFriendRequests = vi.fn()
 const mockUseSharedWithYou = vi.fn()
 const mockUseNotifications = vi.fn()
 const mockUseFriendsPouring = vi.fn()
+const mockUseSharedBlindActivity = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -44,6 +45,10 @@ vi.mock('../../features/friends/useNotifications', () => ({
 
 vi.mock('../../features/friends/useFriendsPouring', () => ({
   useFriendsPouring: (...args: unknown[]) => mockUseFriendsPouring(...args),
+}))
+
+vi.mock('../../features/friends/useSharedBlindActivity', () => ({
+  useSharedBlindActivity: (...args: unknown[]) => mockUseSharedBlindActivity(...args),
 }))
 
 function renderPage() {
@@ -90,6 +95,7 @@ describe('FriendsPage', () => {
     mockUseSharedWithYou.mockReturnValue({ items: [], loading: false, reload: vi.fn() })
     mockUseNotifications.mockReturnValue({ notifications: [], unread: 0, loading: false, reload: vi.fn(), markRead: vi.fn() })
     mockUseFriendsPouring.mockReturnValue({ items: [], loading: false })
+    mockUseSharedBlindActivity.mockReturnValue({ items: [], loading: false })
   })
 
   it('shows a sign-in prompt when signed out', () => {
@@ -112,19 +118,55 @@ describe('FriendsPage', () => {
     expect(screen.getByText('Nothing shared yet.')).toBeInTheDocument()
   })
 
-  it('shows Shared With You cards, Recent Friend Activity, and Friends Are Pouring from real data', () => {
+  it('shows Shared With You cards (led by who shared it), Recent Friend Activity, and Friends Are Pouring from real data', () => {
     mockUseSharedWithYou.mockReturnValue({ items: [{ kind: 'shared-moment', moment }], loading: false, reload: vi.fn() })
     mockUseNotifications.mockReturnValue({ notifications: [notification], unread: 1, loading: false, reload: vi.fn(), markRead: vi.fn() })
     mockUseFriendsPouring.mockReturnValue({ items: [pouringFriend], loading: false })
     renderPage()
 
     expect(screen.getByText('Shared With You')).toBeInTheDocument()
+    // The preview card leads with who shared it, not just the bottle.
+    expect(screen.getByText('Kevin Littlejohn')).toBeInTheDocument()
+    expect(screen.getByText('shared a Pour Story')).toBeInTheDocument()
     expect(screen.getByText('Stagg Batch 23')).toBeInTheDocument()
     expect(screen.getByText('Recent Friend Activity')).toBeInTheDocument()
     expect(screen.getByText('Mike Johnson reacted to your shared pour')).toBeInTheDocument()
     expect(screen.getByText('Friends Are Pouring')).toBeInTheDocument()
     expect(screen.getByText('Dre')).toBeInTheDocument()
     expect(screen.getByText('Old Forester 1924')).toBeInTheDocument()
+  })
+
+  it('includes a real Blind Room completion in Recent Friend Activity', () => {
+    mockUseSharedBlindActivity.mockReturnValue({
+      items: [
+        {
+          id: 'blind-room-1-friend-3',
+          actorName: 'Dre',
+          text: 'You and Dre completed a Blind Room',
+          subtitle: 'Double Oak Showdown',
+          to: '/blind/room-1/reveal',
+          timestamp: Date.now(),
+          read: true,
+        },
+      ],
+      loading: false,
+    })
+    renderPage()
+
+    expect(screen.getByText('You and Dre completed a Blind Room')).toBeInTheDocument()
+    expect(screen.getByText('Double Oak Showdown')).toBeInTheDocument()
+  })
+
+  it('shows a "Your Friends" quick-access row on the Shared/home tab, without needing a tab switch', () => {
+    mockUseFriends.mockReturnValue({
+      friends: [{ uid: 'friend-1', username: 'kevin', displayName: 'Kevin Littlejohn' }],
+      loading: false,
+      reload: vi.fn(),
+    })
+    renderPage()
+
+    expect(screen.getByText('Your Friends')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Kevin Littlejohn' })).toHaveAttribute('href', '/friends/u/kevin')
   })
 
   it('reveals the full actionable list for Shared With You only after "See All" is tapped', async () => {

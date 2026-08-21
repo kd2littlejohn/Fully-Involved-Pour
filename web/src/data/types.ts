@@ -591,6 +591,14 @@ export interface AppNotification {
   actorDisplayName?: string
   actorPhotoURL?: string
   refId: string
+  // The bottle the notification is actually about, where one exists (every
+  // type except friend-request-received/accepted) — set at each
+  // createNotification call site from data already in scope there (see
+  // shareStoryOnSave.ts, ReactionBar.tsx, CommentsList.tsx,
+  // RecommendToFriendModal.tsx, RecommendBottleModal.tsx). Optional and
+  // additive: older notification docs written before this field existed
+  // just render without a bottle line, never break.
+  refBottleName?: string
   read: boolean
   createdAt: number
 }

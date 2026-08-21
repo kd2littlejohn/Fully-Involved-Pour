@@ -10,8 +10,63 @@
   scroll-snap-align: start;
 }
 
+.personRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-3) var(--fip-space-3) var(--fip-space-2);
+}
+
+.avatarWrap {
+  flex: 0 0 auto;
+}
+
+.avatarImage,
+.avatarFallback {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--fip-radius-round);
+}
+
+.avatarImage {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
+  color: var(--fip-amber);
+  font-family: var(--fip-font-display);
+  font-size: 10px;
+}
+
+.personText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.personName {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .imageWrap {
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 16 / 9;
   background: var(--fip-oak-deep);
 }
 
@@ -22,20 +77,10 @@
 }
 
 .body {
-  padding: var(--fip-space-3);
+  padding: var(--fip-space-2) var(--fip-space-3) var(--fip-space-3);
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.eyebrow {
-  color: var(--fip-muted);
-  font-size: var(--fip-text-xs);
-  line-height: var(--fip-leading-copy);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .bottleName {

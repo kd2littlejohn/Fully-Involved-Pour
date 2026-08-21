@@ -58,12 +58,14 @@ export function SharedMomentCard({ moment, onChange }: SharedMomentCardProps) {
         </Button>
       ) : null}
 
-      <ReactionBar sharedMomentId={moment.id} storyOwnerId={moment.ownerId} />
+      <ReactionBar sharedMomentId={moment.id} storyOwnerId={moment.ownerId} bottleName={moment.snapshot.bottleName} />
 
       <button type="button" className={styles.commentsToggle} onClick={() => setExpanded((v) => !v)}>
         {expanded ? 'Hide comments' : 'View comments'}
       </button>
-      {expanded ? <CommentsList sharedMomentId={moment.id} storyOwnerId={moment.ownerId} /> : null}
+      {expanded ? (
+        <CommentsList sharedMomentId={moment.id} storyOwnerId={moment.ownerId} bottleName={moment.snapshot.bottleName} />
+      ) : null}
     </div>
   )
 }

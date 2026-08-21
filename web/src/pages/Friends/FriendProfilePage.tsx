@@ -171,6 +171,27 @@ export function FriendProfilePage() {
         </section>
       ) : null}
 
+      {!storyLoading && story && story.sharedBlindRooms.length > 0 ? (
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Shared Blind Tastings</h2>
+            <Link to={`/friends/u/${username}/story`} className={styles.seeAll}>
+              See All
+            </Link>
+          </div>
+          <div className={styles.momentList}>
+            {story.sharedBlindRooms.slice(0, 3).map((room) => (
+              <div key={room.id} className={styles.blindRow}>
+                <span className={styles.blindName}>{room.name}</span>
+                {room.completedAt ? (
+                  <span className={styles.blindDate}>{new Date(room.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {commonBottles.length > 0 ? (
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Bottles We Both Own</h2>

@@ -8,6 +8,7 @@ import type { Bottle } from '../../data/types'
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockUseFriendProfile = vi.fn()
+const mockUseOurWhiskeyStory = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -22,7 +23,7 @@ vi.mock('../../features/friends/useFriendProfile', () => ({
 }))
 
 vi.mock('../../features/friends/useOurWhiskeyStory', () => ({
-  useOurWhiskeyStory: () => ({ story: undefined, loading: false }),
+  useOurWhiskeyStory: (...args: unknown[]) => mockUseOurWhiskeyStory(...args),
 }))
 
 vi.mock('../../features/friends/AddFriendButton', () => ({
@@ -33,12 +34,17 @@ function myBottle(overrides: Partial<Bottle> & Pick<Bottle, 'id' | 'name' | 'sta
   return overrides
 }
 
-function renderPage(friendData: FriendProfileData | undefined, myBottles: Bottle[] = []) {
+function renderPage(
+  friendData: FriendProfileData | undefined,
+  myBottles: Bottle[] = [],
+  ourWhiskeyStory: { story: unknown; loading: boolean } = { story: undefined, loading: false },
+) {
   mockUseAuth.mockReturnValue({ user: { uid: 'viewer-uid' }, loading: false })
   mockUseUserData.mockReturnValue({
     userDoc: { bottles: myBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
   })
   mockUseFriendProfile.mockReturnValue({ data: friendData, loading: false, notFound: !friendData })
+  mockUseOurWhiskeyStory.mockReturnValue(ourWhiskeyStory)
 
   return render(
     <MemoryRouter initialEntries={['/friends/u/kevin']}>
@@ -144,5 +150,44 @@ describe('FriendProfilePage — shared bottle detail', () => {
     })
 
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument()
+  })
+
+  it('shows real shared blind tastings, not just a count, linking through to the full Our Whiskey Story', () => {
+    renderPage(
+      {
+        uid: 'friend-uid',
+        profile: { username: 'kevin', displayName: 'Kevin Littlejohn' },
+        sharedMomentsWithViewer: [],
+      },
+      [],
+      {
+        story: {
+          poursTogetherCount: 3,
+          blindTastingsTogetherCount: 1,
+          recentSharedMoments: [],
+          sharedBlindRooms: [
+            {
+              id: 'room-1',
+              code: 'ABC123',
+              name: 'Double Oak Showdown',
+              hostUid: 'viewer-uid',
+              hostUsername: 'viewer',
+              sessionType: 'live',
+              knowledgeMode: 'single',
+              pourCount: 3,
+              state: 'completed',
+              createdAt: 1,
+              completedAt: 1,
+              participantCount: 2,
+            },
+          ],
+        },
+        loading: false,
+      },
+    )
+
+    expect(screen.getByText('Shared Blind Tastings')).toBeInTheDocument()
+    expect(screen.getByText('Double Oak Showdown')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'See All' })).toHaveAttribute('href', '/friends/u/kevin/story')
   })
 })

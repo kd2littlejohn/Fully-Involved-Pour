@@ -19,9 +19,10 @@ const REACTIONS: { type: StoryReactionType; emoji: string; label: string }[] = [
 interface ReactionBarProps {
   sharedMomentId: string
   storyOwnerId: string
+  bottleName?: string
 }
 
-export function ReactionBar({ sharedMomentId, storyOwnerId }: ReactionBarProps) {
+export function ReactionBar({ sharedMomentId, storyOwnerId, bottleName }: ReactionBarProps) {
   const { user } = useAuth()
   const { userDoc, profile } = useUserData()
   const [reactions, setReactions] = useState<StoryReaction[]>([])
@@ -59,6 +60,7 @@ export function ReactionBar({ sharedMomentId, storyOwnerId }: ReactionBarProps) 
         actorDisplayName: profile?.displayName || user.displayName || undefined,
         actorPhotoURL: profile?.photoURL,
         refId: sharedMomentId,
+        refBottleName: bottleName,
       })
     }
   }

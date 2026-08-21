@@ -47,6 +47,7 @@ export function RecommendToFriendModal({ bottle, onClose }: RecommendToFriendMod
         actorDisplayName: profile?.displayName || user.displayName || undefined,
         actorPhotoURL: profile?.photoURL,
         refId: recommendation.id,
+        refBottleName: bottle.name,
       })
       setSent(true)
     } finally {
