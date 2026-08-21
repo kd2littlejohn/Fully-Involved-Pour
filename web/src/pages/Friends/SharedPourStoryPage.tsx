@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -7,6 +8,7 @@ import { useSharedPourStory } from '../../features/friends/useSharedPourStory'
 import { acceptSharedMoment } from '../../data/repositories/sharedMoments'
 import { ReactionBar } from '../../features/friends/ReactionBar'
 import { CommentsList } from '../../features/friends/CommentsList'
+import { FriendBottleQuickView, type FriendBottleQuickViewTarget } from '../../features/friends/FriendBottleQuickView'
 import styles from './SharedPourStoryPage.module.css'
 
 function initials(name: string): string {
@@ -33,6 +35,7 @@ export function SharedPourStoryPage() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const { data, loading, notFound } = useSharedPourStory(momentId)
+  const [quickView, setQuickView] = useState<FriendBottleQuickViewTarget | undefined>(undefined)
 
   if (authLoading || loading) {
     return <PageHeader eyebrow="Friends" title="Pour Story (Shared)" />
@@ -98,13 +101,28 @@ export function SharedPourStoryPage() {
         </div>
       ) : null}
 
-      {moment.snapshot.bottleImageUrl ? <img className={styles.bottleImage} src={moment.snapshot.bottleImageUrl} alt="" /> : null}
+      <button
+        type="button"
+        className={styles.bottleTapArea}
+        onClick={() =>
+          setQuickView({
+            friendUid: moment.ownerId,
+            friendName: moment.ownerDisplayName || moment.ownerUsername,
+            friendUsername: moment.ownerUsername,
+            bottleName: moment.snapshot.bottleName,
+            distillery: moment.snapshot.distillery,
+            imageUrl: moment.snapshot.bottleImageUrl,
+          })
+        }
+      >
+        {moment.snapshot.bottleImageUrl ? <img className={styles.bottleImage} src={moment.snapshot.bottleImageUrl} alt="" /> : null}
 
-      <div className={styles.bottleInfo}>
-        <div className={styles.bottleName}>{moment.snapshot.bottleName}</div>
-        {moment.snapshot.distillery ? <div className={styles.distillery}>{moment.snapshot.distillery}</div> : null}
-        {moment.snapshot.occasion ? <div className={styles.occasion}>{moment.snapshot.occasion}</div> : null}
-      </div>
+        <div className={styles.bottleInfo}>
+          <div className={styles.bottleName}>{moment.snapshot.bottleName}</div>
+          {moment.snapshot.distillery ? <div className={styles.distillery}>{moment.snapshot.distillery}</div> : null}
+          {moment.snapshot.occasion ? <div className={styles.occasion}>{moment.snapshot.occasion}</div> : null}
+        </div>
+      </button>
 
       {typeof moment.snapshot.rating === 'number' ? (
         <div className={styles.scoreRow}>
@@ -127,6 +145,8 @@ export function SharedPourStoryPage() {
         <h2 className={styles.commentsHeading}>Comments</h2>
         <CommentsList sharedMomentId={moment.id} storyOwnerId={moment.ownerId} bottleName={moment.snapshot.bottleName} />
       </div>
+
+      <FriendBottleQuickView target={quickView} onClose={() => setQuickView(undefined)} />
     </div>
   )
 }

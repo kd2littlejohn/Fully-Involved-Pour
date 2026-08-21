@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import type { SharedItem } from './useSharedWithYou'
 import { timeAgo } from './timeAgo'
 import styles from './SharedPreviewCard.module.css'
@@ -13,6 +12,7 @@ function initials(name: string): string {
 
 interface SharedPreviewCardProps {
   item: SharedItem
+  onTap: (item: SharedItem) => void
 }
 
 // The compact horizontal card in FriendsPage's "Shared With You" row —
@@ -20,11 +20,10 @@ interface SharedPreviewCardProps {
 // surface, with the bottle as supporting detail rather than the headline.
 // SharedMomentCard/RecommendationCard (rendered in the full list further
 // down the same tab) stay the actionable, full-detail versions; this is
-// just a preview. A shared-moment preview taps through to the dedicated
-// SharedPourStoryPage; a recommendation preview doesn't link anywhere on
-// its own (there's no separate detail page for one) — its Add/Dismiss
-// actions live on the full card below.
-export function SharedPreviewCard({ item }: SharedPreviewCardProps) {
+// just a preview. Tapping either kind opens Friend Bottle Quick View
+// (never navigates away immediately — see FriendBottleQuickView.tsx),
+// which itself offers "See Pour Stories" through to the full story page.
+export function SharedPreviewCard({ item, onTap }: SharedPreviewCardProps) {
   const name =
     item.kind === 'shared-moment'
       ? item.moment.ownerDisplayName || item.moment.ownerUsername
@@ -35,8 +34,8 @@ export function SharedPreviewCard({ item }: SharedPreviewCardProps) {
   const bottleImageUrl = item.kind === 'shared-moment' ? item.moment.snapshot.bottleImageUrl : item.recommendation.bottleImageUrl
   const createdAt = item.kind === 'shared-moment' ? item.moment.createdAt : item.recommendation.createdAt
 
-  const content = (
-    <>
+  return (
+    <button type="button" className={styles.card} onClick={() => onTap(item)}>
       <div className={styles.personRow}>
         <span className={styles.avatarWrap}>
           {photoURL ? (
@@ -57,16 +56,6 @@ export function SharedPreviewCard({ item }: SharedPreviewCardProps) {
         <div className={styles.bottleName}>{bottleName}</div>
         <div className={styles.time}>{timeAgo(createdAt)}</div>
       </div>
-    </>
+    </button>
   )
-
-  if (item.kind === 'shared-moment') {
-    return (
-      <Link to={`/friends/shared/${item.moment.id}`} className={styles.card}>
-        {content}
-      </Link>
-    )
-  }
-
-  return <div className={styles.card}>{content}</div>
 }

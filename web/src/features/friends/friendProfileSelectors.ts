@@ -46,3 +46,14 @@ export function getBottlesInCommon(myBottles: Bottle[], friendBottles: SharedBot
   }
   return results
 }
+
+// Finds the viewer's own copy of a friend's bottle by the same name+
+// distillery key getBottlesInCommon uses — powers Friend Bottle Quick
+// View's adaptive primary action (Add to Wish List / On Wish List / View
+// in My Bar). Matches on ANY status, including 'wishlist', since knowing
+// "I already wishlisted this" is exactly what the quick view needs to
+// decide.
+export function findMyMatchingBottle(myBottles: Bottle[], name: string, distillery?: string): Bottle | undefined {
+  const target = key({ name, distillery })
+  return myBottles.find((b) => key(b) === target)
+}

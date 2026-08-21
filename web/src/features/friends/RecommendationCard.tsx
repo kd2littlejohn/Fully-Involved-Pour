@@ -8,9 +8,13 @@ import styles from './RecommendationCard.module.css'
 interface RecommendationCardProps {
   recommendation: Recommendation
   onChange?: () => void
+  // Opens Friend Bottle Quick View for the recommended bottle — omitted
+  // where there's nowhere to route it from, in which case the bottle info
+  // just isn't tappable.
+  onTapBottle?: () => void
 }
 
-export function RecommendationCard({ recommendation, onChange }: RecommendationCardProps) {
+export function RecommendationCard({ recommendation, onChange, onTapBottle }: RecommendationCardProps) {
   const { addBottle } = useUserData()
   const [busy, setBusy] = useState(false)
 
@@ -46,13 +50,23 @@ export function RecommendationCard({ recommendation, onChange }: RecommendationC
         <span className={styles.sender}>{recommendation.senderDisplayName || recommendation.senderUsername}</span>
         <span className={styles.eyebrow}>recommended a bottle</span>
       </div>
-      <div className={styles.body}>
-        {recommendation.bottleImageUrl ? <img className={styles.image} src={recommendation.bottleImageUrl} alt="" /> : null}
-        <div className={styles.bottleInfo}>
-          <div className={styles.bottleName}>{recommendation.bottleName}</div>
-          {recommendation.bottleDistillery ? <div className={styles.distillery}>{recommendation.bottleDistillery}</div> : null}
+      {onTapBottle ? (
+        <button type="button" className={styles.body} onClick={onTapBottle}>
+          {recommendation.bottleImageUrl ? <img className={styles.image} src={recommendation.bottleImageUrl} alt="" /> : null}
+          <div className={styles.bottleInfo}>
+            <div className={styles.bottleName}>{recommendation.bottleName}</div>
+            {recommendation.bottleDistillery ? <div className={styles.distillery}>{recommendation.bottleDistillery}</div> : null}
+          </div>
+        </button>
+      ) : (
+        <div className={styles.body}>
+          {recommendation.bottleImageUrl ? <img className={styles.image} src={recommendation.bottleImageUrl} alt="" /> : null}
+          <div className={styles.bottleInfo}>
+            <div className={styles.bottleName}>{recommendation.bottleName}</div>
+            {recommendation.bottleDistillery ? <div className={styles.distillery}>{recommendation.bottleDistillery}</div> : null}
+          </div>
         </div>
-      </div>
+      )}
       {recommendation.message ? <p className={styles.message}>&ldquo;{recommendation.message}&rdquo;</p> : null}
       {recommendation.status === 'pending' ? (
         <div className={styles.actions}>

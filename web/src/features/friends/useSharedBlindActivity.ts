@@ -42,7 +42,9 @@ export function useSharedBlindActivity(uid: string | undefined, friends: FriendP
           if (!participantChecks[i]) return
           results.push({
             id: `blind-${room.id}-${friend.uid}`,
+            actorId: friend.uid,
             actorName: friend.displayName || friend.username || 'FIP Friend',
+            actorUsername: friend.username,
             actorPhotoURL: friend.photoURL,
             text: `You and ${friend.displayName || friend.username} completed a Blind Room`,
             subtitle: room.name,

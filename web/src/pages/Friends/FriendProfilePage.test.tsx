@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { FriendProfilePage } from './FriendProfilePage'
@@ -9,6 +10,14 @@ const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockUseFriendProfile = vi.fn()
 const mockUseOurWhiskeyStory = vi.fn()
+const mockUseFriendBottleQuickView = vi.fn()
+
+// FriendBottleQuickView (rendered, unmocked, by FriendProfilePage) fetches
+// friend context of its own when opened — never hit the real network from
+// a unit test.
+vi.mock('../../features/friends/useFriendBottleQuickView', () => ({
+  useFriendBottleQuickView: (...args: unknown[]) => mockUseFriendBottleQuickView(...args),
+}))
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -42,9 +51,12 @@ function renderPage(
   mockUseAuth.mockReturnValue({ user: { uid: 'viewer-uid' }, loading: false })
   mockUseUserData.mockReturnValue({
     userDoc: { bottles: myBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+    profile: { whiskeyIdentityTags: [] },
+    addBottle: vi.fn(),
   })
   mockUseFriendProfile.mockReturnValue({ data: friendData, loading: false, notFound: !friendData })
   mockUseOurWhiskeyStory.mockReturnValue(ourWhiskeyStory)
+  mockUseFriendBottleQuickView.mockReturnValue({ data: { friendProfile: undefined, bottleFacts: undefined, stories: [] }, loading: false })
 
   return render(
     <MemoryRouter initialEntries={['/friends/u/kevin']}>
@@ -134,6 +146,25 @@ describe('FriendProfilePage — shared bottle detail', () => {
     // private bottle data.
     expect(screen.getByText('Sealed')).toBeInTheDocument()
     expect(screen.getByText('Bourbon · 90 proof · 10 Year')).toBeInTheDocument()
+  })
+
+  it('opens Friend Bottle Quick View — not a navigation — when a shared bottle tile is tapped', async () => {
+    renderPage({
+      uid: 'friend-uid',
+      profile: { username: 'kevin', displayName: 'Kevin Littlejohn' },
+      sharedCollection: {
+        uid: 'friend-uid',
+        bottles: [{ id: 'b1', name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace', status: 'open' }],
+        wishlist: [],
+        updatedAt: 1,
+      },
+      sharedMomentsWithViewer: [],
+    })
+
+    await userEvent.click(screen.getByRole('button', { name: /Eagle Rare 10 Year/ }))
+
+    expect(screen.getByText('Kevin Littlejohn’s Take')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add to Wish List' })).toBeInTheDocument()
   })
 
   it('omits price, store, notes, and other personal fields entirely — they were never in the projection to begin with', () => {

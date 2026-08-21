@@ -20,6 +20,9 @@ import { SharedPreviewCard } from '../../features/friends/SharedPreviewCard'
 import { FriendActivityRow } from '../../features/friends/FriendActivityRow'
 import { FriendsPouringRow } from '../../features/friends/FriendsPouringRow'
 import { FriendQuickAccessRow } from '../../features/friends/FriendQuickAccessRow'
+import { FriendBottleQuickView, type FriendBottleQuickViewTarget } from '../../features/friends/FriendBottleQuickView'
+import type { ActivityItem } from '../../features/friends/activityItem'
+import type { SharedItem } from '../../features/friends/useSharedWithYou'
 import styles from './FriendsPage.module.css'
 
 type Tab = 'shared' | 'friends' | 'requests'
@@ -48,6 +51,7 @@ export function FriendsPage() {
   const [requestsSubTab, setRequestsSubTab] = useState<RequestsSubTab>('incoming')
   const [showAllShared, setShowAllShared] = useState(false)
   const [showAllActivity, setShowAllActivity] = useState(false)
+  const [quickView, setQuickView] = useState<FriendBottleQuickViewTarget | undefined>(undefined)
 
   useEffect(() => {
     const fromUrl = searchParams.get('tab')
@@ -84,6 +88,40 @@ export function FriendsPage() {
   function selectTab(next: Tab) {
     setTab(next)
     setSearchParams(next === 'shared' ? {} : { tab: next })
+  }
+
+  function openBottleFromSharedItem(item: SharedItem) {
+    if (item.kind === 'shared-moment') {
+      const { moment } = item
+      setQuickView({
+        friendUid: moment.ownerId,
+        friendName: moment.ownerDisplayName || moment.ownerUsername,
+        friendUsername: moment.ownerUsername,
+        bottleName: moment.snapshot.bottleName,
+        distillery: moment.snapshot.distillery,
+        imageUrl: moment.snapshot.bottleImageUrl,
+      })
+      return
+    }
+    const { recommendation } = item
+    setQuickView({
+      friendUid: recommendation.senderId,
+      friendName: recommendation.senderDisplayName || recommendation.senderUsername,
+      friendUsername: recommendation.senderUsername,
+      bottleName: recommendation.bottleName,
+      distillery: recommendation.bottleDistillery,
+      imageUrl: recommendation.bottleImageUrl,
+    })
+  }
+
+  function openBottleFromActivity(item: ActivityItem) {
+    if (!item.bottleName) return
+    setQuickView({
+      friendUid: item.actorId,
+      friendName: item.actorName,
+      friendUsername: item.actorUsername,
+      bottleName: item.bottleName,
+    })
   }
 
   if (authLoading) {
@@ -191,16 +229,30 @@ export function FriendsPage() {
                 </div>
                 <div className={styles.hScroll}>
                   {items.map((item) => (
-                    <SharedPreviewCard key={item.kind === 'shared-moment' ? item.moment.id : item.recommendation.id} item={item} />
+                    <SharedPreviewCard
+                      key={item.kind === 'shared-moment' ? item.moment.id : item.recommendation.id}
+                      item={item}
+                      onTap={openBottleFromSharedItem}
+                    />
                   ))}
                 </div>
                 {showAllShared ? (
                   <div className={styles.list}>
                     {items.map((item) =>
                       item.kind === 'shared-moment' ? (
-                        <SharedMomentCard key={item.moment.id} moment={item.moment} onChange={reloadShared} />
+                        <SharedMomentCard
+                          key={item.moment.id}
+                          moment={item.moment}
+                          onChange={reloadShared}
+                          onTapBottle={() => openBottleFromSharedItem(item)}
+                        />
                       ) : (
-                        <RecommendationCard key={item.recommendation.id} recommendation={item.recommendation} onChange={reloadShared} />
+                        <RecommendationCard
+                          key={item.recommendation.id}
+                          recommendation={item.recommendation}
+                          onChange={reloadShared}
+                          onTapBottle={() => openBottleFromSharedItem(item)}
+                        />
                       ),
                     )}
                   </div>
@@ -220,7 +272,7 @@ export function FriendsPage() {
                 </div>
                 <div className={styles.activityList}>
                   {visibleActivity.map((activityItem) => (
-                    <FriendActivityRow key={activityItem.id} item={activityItem} onOpen={openActivity} />
+                    <FriendActivityRow key={activityItem.id} item={activityItem} onOpen={openActivity} onTapBottle={openBottleFromActivity} />
                   ))}
                 </div>
               </section>
@@ -325,6 +377,8 @@ export function FriendsPage() {
           )}
         </div>
       ) : null}
+
+      <FriendBottleQuickView target={quickView} onClose={() => setQuickView(undefined)} />
     </div>
   )
 }

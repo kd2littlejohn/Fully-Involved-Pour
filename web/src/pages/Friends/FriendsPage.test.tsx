@@ -51,6 +51,14 @@ vi.mock('../../features/friends/useSharedBlindActivity', () => ({
   useSharedBlindActivity: (...args: unknown[]) => mockUseSharedBlindActivity(...args),
 }))
 
+// FriendBottleQuickView (rendered, unmocked, by FriendsPage) fetches
+// friend context of its own when opened — never hit the real network from
+// a unit test.
+const mockUseFriendBottleQuickView = vi.fn()
+vi.mock('../../features/friends/useFriendBottleQuickView', () => ({
+  useFriendBottleQuickView: (...args: unknown[]) => mockUseFriendBottleQuickView(...args),
+}))
+
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/friends']}>
@@ -79,6 +87,7 @@ const notification = {
   actorUsername: 'mike',
   actorDisplayName: 'Mike Johnson',
   refId: 'moment-1',
+  refBottleName: 'Elijah Craig Barrel Proof',
   read: false,
   createdAt: Date.now(),
 }
@@ -96,6 +105,7 @@ describe('FriendsPage', () => {
     mockUseNotifications.mockReturnValue({ notifications: [], unread: 0, loading: false, reload: vi.fn(), markRead: vi.fn() })
     mockUseFriendsPouring.mockReturnValue({ items: [], loading: false })
     mockUseSharedBlindActivity.mockReturnValue({ items: [], loading: false })
+    mockUseFriendBottleQuickView.mockReturnValue({ data: { friendProfile: undefined, bottleFacts: undefined, stories: [] }, loading: false })
   })
 
   it('shows a sign-in prompt when signed out', () => {
@@ -167,6 +177,26 @@ describe('FriendsPage', () => {
 
     expect(screen.getByText('Your Friends')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Kevin Littlejohn' })).toHaveAttribute('href', '/friends/u/kevin')
+  })
+
+  it('opens Friend Bottle Quick View — not a navigation — when a Shared With You card is tapped', async () => {
+    mockUseSharedWithYou.mockReturnValue({ items: [{ kind: 'shared-moment', moment }], loading: false, reload: vi.fn() })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: /Kevin Littlejohn/ }))
+
+    // The quick view sheet, not a route change — Kevin's Take heading only
+    // renders inside it.
+    expect(screen.getByText('Kevin Littlejohn’s Take')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add to Wish List' })).toBeInTheDocument()
+  })
+
+  it('opens Friend Bottle Quick View when a bottle-related activity row is tapped', async () => {
+    mockUseNotifications.mockReturnValue({ notifications: [notification], unread: 1, loading: false, reload: vi.fn(), markRead: vi.fn() })
+    renderPage()
+
+    await userEvent.click(screen.getByText('Mike Johnson reacted to your shared pour'))
+    expect(screen.getByText('Mike Johnson’s Take')).toBeInTheDocument()
   })
 
   it('reveals the full actionable list for Shared With You only after "See All" is tapped', async () => {

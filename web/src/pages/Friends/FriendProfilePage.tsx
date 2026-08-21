@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -11,7 +12,8 @@ import { AddFriendButton } from '../../features/friends/AddFriendButton'
 import { OurWhiskeyStoryCard } from '../../features/friends/OurWhiskeyStoryCard'
 import { SharedMomentCard } from '../../features/friends/SharedMomentCard'
 import { getBottlesInCommon } from '../../features/friends/friendProfileSelectors'
-import type { BottleStatus } from '../../data/types'
+import { FriendBottleQuickView, type FriendBottleQuickViewTarget } from '../../features/friends/FriendBottleQuickView'
+import type { BottleStatus, FriendBottleTake } from '../../data/types'
 import styles from './FriendProfilePage.module.css'
 
 function initials(name: string): string {
@@ -58,14 +60,16 @@ interface SharedBottleTileProps {
   proof?: number
   ageStatement?: string
   status?: BottleStatus
+  take?: FriendBottleTake
+  onTap: () => void
 }
 
-function SharedBottleTile({ name, distillery, imageUrl, type, proof, ageStatement, status }: SharedBottleTileProps) {
+function SharedBottleTile({ name, distillery, imageUrl, type, proof, ageStatement, status, onTap }: SharedBottleTileProps) {
   const meta = bottleMetaLine({ type, proof, ageStatement })
   const statusLabel = status ? STATUS_LABEL[status] : undefined
   const statusTone = status ? STATUS_TONE[status] : undefined
   return (
-    <div className={styles.bottleTile}>
+    <button type="button" className={styles.bottleTile} onClick={onTap}>
       <div className={styles.bottleImageWrap}>{imageUrl ? <img className={styles.bottleImage} src={imageUrl} alt="" /> : null}</div>
       <div className={styles.bottleBody}>
         <div className={styles.bottleName}>{name}</div>
@@ -77,7 +81,7 @@ function SharedBottleTile({ name, distillery, imageUrl, type, proof, ageStatemen
           </div>
         ) : null}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -92,6 +96,7 @@ export function FriendProfilePage() {
   const { userDoc } = useUserData()
   const { data, loading, notFound } = useFriendProfile(username, user?.uid)
   const { story, loading: storyLoading } = useOurWhiskeyStory(user?.uid, data?.uid)
+  const [quickView, setQuickView] = useState<FriendBottleQuickViewTarget | undefined>(undefined)
 
   if (authLoading || loading) {
     return <PageHeader eyebrow="Friends" title="Profile" />
@@ -116,6 +121,31 @@ export function FriendProfilePage() {
   const hasAnySharedStat = Boolean(
     story?.poursTogetherCount || sharedCollection?.bottles.length || story?.blindTastingsTogetherCount || sharedMomentsWithViewer.length,
   )
+
+  function openBottle(bottle: {
+    name: string
+    distillery?: string
+    imageUrl?: string
+    type?: string
+    proof?: number
+    ageStatement?: string
+    status?: BottleStatus
+    take?: FriendBottleTake
+  }) {
+    setQuickView({
+      friendUid: uid,
+      friendName: displayName,
+      friendUsername: profile.username,
+      bottleName: bottle.name,
+      distillery: bottle.distillery,
+      imageUrl: bottle.imageUrl,
+      type: bottle.type,
+      proof: bottle.proof,
+      ageStatement: bottle.ageStatement,
+      status: bottle.status,
+      take: bottle.take,
+    })
+  }
 
   return (
     <div className={styles.page}>
@@ -197,7 +227,11 @@ export function FriendProfilePage() {
           <h2 className={styles.sectionTitle}>Bottles We Both Own</h2>
           <div className={styles.bottleGrid}>
             {commonBottles.slice(0, 8).map((bottle) => (
-              <SharedBottleTile key={`${bottle.name}-${bottle.distillery ?? ''}`} {...bottle} />
+              <SharedBottleTile
+                key={`${bottle.name}-${bottle.distillery ?? ''}`}
+                {...bottle}
+                onTap={() => openBottle(bottle)}
+              />
             ))}
           </div>
         </section>
@@ -208,7 +242,7 @@ export function FriendProfilePage() {
           <h2 className={styles.sectionTitle}>Their Wish List</h2>
           <div className={styles.bottleGrid}>
             {sharedCollection.wishlist.slice(0, 8).map((bottle) => (
-              <SharedBottleTile key={bottle.id} {...bottle} />
+              <SharedBottleTile key={bottle.id} {...bottle} onTap={() => openBottle(bottle)} />
             ))}
           </div>
         </section>
@@ -219,11 +253,13 @@ export function FriendProfilePage() {
           <h2 className={styles.sectionTitle}>Bottles They&rsquo;re Sharing</h2>
           <div className={styles.bottleGrid}>
             {sharedCollection.bottles.slice(0, 8).map((bottle) => (
-              <SharedBottleTile key={bottle.id} {...bottle} />
+              <SharedBottleTile key={bottle.id} {...bottle} onTap={() => openBottle(bottle)} />
             ))}
           </div>
         </section>
       ) : null}
+
+      <FriendBottleQuickView target={quickView} onClose={() => setQuickView(undefined)} />
     </div>
   )
 }

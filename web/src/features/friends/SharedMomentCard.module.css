@@ -28,6 +28,17 @@
   display: flex;
   gap: var(--fip-space-3);
   align-items: center;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+button.body {
+  cursor: pointer;
 }
 
 .image {

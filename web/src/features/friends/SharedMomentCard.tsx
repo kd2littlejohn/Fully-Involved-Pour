@@ -10,12 +10,16 @@ import styles from './SharedMomentCard.module.css'
 interface SharedMomentCardProps {
   moment: SharedMoment
   onChange?: () => void
+  // Opens Friend Bottle Quick View for this pour's bottle — omitted where
+  // there's nowhere to route it from (e.g. a context with no friend uid in
+  // hand), in which case the bottle info just isn't tappable.
+  onTapBottle?: () => void
 }
 
 // Tagging never transfers ownership — accepting just adds it to the
 // participant's own shared-memories view; the story itself always still
 // belongs to moment.ownerId.
-export function SharedMomentCard({ moment, onChange }: SharedMomentCardProps) {
+export function SharedMomentCard({ moment, onChange, onTapBottle }: SharedMomentCardProps) {
   const { user } = useAuth()
   const [expanded, setExpanded] = useState(false)
   const [accepting, setAccepting] = useState(false)
@@ -41,14 +45,25 @@ export function SharedMomentCard({ moment, onChange }: SharedMomentCardProps) {
         <span className={styles.eyebrow}>shared a Pour Story with you</span>
       </div>
 
-      <div className={styles.body}>
-        {moment.snapshot.bottleImageUrl ? <img className={styles.image} src={moment.snapshot.bottleImageUrl} alt="" /> : null}
-        <div className={styles.bottleInfo}>
-          <div className={styles.bottleName}>{moment.snapshot.bottleName}</div>
-          {moment.snapshot.distillery ? <div className={styles.distillery}>{moment.snapshot.distillery}</div> : null}
-          {typeof moment.snapshot.rating === 'number' ? <div className={styles.rating}>Scored {moment.snapshot.rating.toFixed(1)}</div> : null}
+      {onTapBottle ? (
+        <button type="button" className={styles.body} onClick={onTapBottle}>
+          {moment.snapshot.bottleImageUrl ? <img className={styles.image} src={moment.snapshot.bottleImageUrl} alt="" /> : null}
+          <div className={styles.bottleInfo}>
+            <div className={styles.bottleName}>{moment.snapshot.bottleName}</div>
+            {moment.snapshot.distillery ? <div className={styles.distillery}>{moment.snapshot.distillery}</div> : null}
+            {typeof moment.snapshot.rating === 'number' ? <div className={styles.rating}>Scored {moment.snapshot.rating.toFixed(1)}</div> : null}
+          </div>
+        </button>
+      ) : (
+        <div className={styles.body}>
+          {moment.snapshot.bottleImageUrl ? <img className={styles.image} src={moment.snapshot.bottleImageUrl} alt="" /> : null}
+          <div className={styles.bottleInfo}>
+            <div className={styles.bottleName}>{moment.snapshot.bottleName}</div>
+            {moment.snapshot.distillery ? <div className={styles.distillery}>{moment.snapshot.distillery}</div> : null}
+            {typeof moment.snapshot.rating === 'number' ? <div className={styles.rating}>Scored {moment.snapshot.rating.toFixed(1)}</div> : null}
+          </div>
         </div>
-      </div>
+      )}
 
       {moment.snapshot.memory ? <p className={styles.memory}>{moment.snapshot.memory}</p> : null}
 

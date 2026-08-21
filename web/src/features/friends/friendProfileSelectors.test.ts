@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getBottlesInCommon } from './friendProfileSelectors'
+import { getBottlesInCommon, findMyMatchingBottle } from './friendProfileSelectors'
 import type { Bottle } from '../../data/types'
 
 function bottle(overrides: Partial<Bottle> & Pick<Bottle, 'name' | 'status'>): Bottle {
@@ -50,5 +50,22 @@ describe('getBottlesInCommon', () => {
         status: 'sealed',
       },
     ])
+  })
+})
+
+describe('findMyMatchingBottle', () => {
+  it('finds a match by name + distillery, case-insensitively, regardless of status', () => {
+    const mine = [bottle({ name: 'Eagle Rare', distillery: 'Buffalo Trace', status: 'wishlist' })]
+    expect(findMyMatchingBottle(mine, 'eagle rare', 'buffalo trace')?.status).toBe('wishlist')
+  })
+
+  it('returns undefined when nothing matches', () => {
+    const mine = [bottle({ name: 'Eagle Rare', distillery: 'Buffalo Trace', status: 'open' })]
+    expect(findMyMatchingBottle(mine, 'Weller 12', 'Buffalo Trace')).toBeUndefined()
+  })
+
+  it('never fabricates a match when distillery differs', () => {
+    const mine = [bottle({ name: 'Eagle Rare', distillery: 'Buffalo Trace', status: 'open' })]
+    expect(findMyMatchingBottle(mine, 'Eagle Rare', 'Some Other Distillery')).toBeUndefined()
   })
 })

@@ -177,10 +177,17 @@
 }
 
 .bottleTile {
+  display: block;
+  width: 100%;
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
   overflow: hidden;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
 }
 
 .bottleImageWrap {

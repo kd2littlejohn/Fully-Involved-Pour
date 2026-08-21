@@ -60,12 +60,15 @@ export function notificationToActivityItem(notification: AppNotification): Activ
   const { text, subtitle, to } = describeNotification(notification)
   return {
     id: notification.id,
+    actorId: notification.actorId,
     actorName: notification.actorDisplayName || notification.actorUsername,
+    actorUsername: notification.actorUsername,
     actorPhotoURL: notification.actorPhotoURL,
     text,
     subtitle,
     to,
     timestamp: notification.createdAt,
     read: notification.read,
+    bottleName: notification.refBottleName,
   }
 }

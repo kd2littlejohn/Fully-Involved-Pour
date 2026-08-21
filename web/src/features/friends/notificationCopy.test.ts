@@ -68,13 +68,16 @@ describe('notificationToActivityItem', () => {
     )
     expect(item).toEqual({
       id: 'n1',
+      actorId: 'friend-1',
       actorName: 'Kevin Littlejohn',
+      actorUsername: 'kevin',
       actorPhotoURL: undefined,
       text: 'Kevin Littlejohn shared a Pour Story with you',
       subtitle: 'Stagg Batch 23',
       to: '/friends/shared/moment-1',
       timestamp: 42,
       read: true,
+      bottleName: 'Stagg Batch 23',
     })
   })
 })

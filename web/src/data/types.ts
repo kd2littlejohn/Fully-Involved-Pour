@@ -619,14 +619,38 @@ export interface SharedBottleSummary {
   // Deliberately limited to fields that describe the BOTTLE, not the
   // owner — "share the pour, not your whole life" (see the friends/social
   // rules comment in firestore.rules). Purchase price, store, purchase
-  // date, personal notes, quantity/fill level, and rating are never
-  // projected here even when the collection itself is shared, since
-  // sharing "I own this bottle" doesn't imply sharing what it cost or
-  // where you keep it.
+  // date, personal notes, quantity/fill level are never projected here,
+  // no matter what privacy settings allow — sharing "I own this bottle"
+  // doesn't imply sharing what it cost or where you keep it.
   type?: string
   region?: string
   proof?: number
   ageStatement?: string
+  // The owner's own opinion of THIS bottle — separate from the bottle
+  // facts above, and gated by a stricter, separate privacy setting
+  // (pourStoryDefault === 'friends', not just collectionVisibility — see
+  // buildFriendBottleTake in data/repositories/sharedCollections.ts).
+  // Undefined whenever that setting isn't 'friends', regardless of
+  // whether the bottle itself is visible.
+  take?: FriendBottleTake
+}
+
+// The owner's own aggregate take on one bottle, computed from their own
+// Pours at write time (data/repositories/sharedCollections.ts) — never a
+// live read of another user's private data. See FriendBottleQuickView.tsx.
+export interface FriendBottleTake {
+  // FIP total from the owner's most recent pour of this bottle, or the
+  // bottle's own settled rating if they haven't logged a pour of it yet.
+  score?: number
+  // The most recent pour's memory (fallback: notes), trimmed — the same
+  // kind of excerpt a SharedMoment already carries when explicitly tagged,
+  // just surfaced here for every pour of this bottle rather than one.
+  latestTake?: string
+  buyAgain?: BottleBuyAgain
+  wouldReplace?: WouldReplace
+  topFlavors?: string[]
+  pourCount: number
+  lastPourDate?: string
 }
 
 export interface SharedCollection {

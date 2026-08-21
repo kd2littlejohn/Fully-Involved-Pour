@@ -28,6 +28,14 @@ vi.mock('../../features/friends/CommentsList', () => ({
   CommentsList: () => <div>Comments list</div>,
 }))
 
+// FriendBottleQuickView (rendered, unmocked, by SharedPourStoryPage) fetches
+// friend context of its own when opened — never hit the real network from
+// a unit test.
+const mockUseFriendBottleQuickView = vi.fn()
+vi.mock('../../features/friends/useFriendBottleQuickView', () => ({
+  useFriendBottleQuickView: (...args: unknown[]) => mockUseFriendBottleQuickView(...args),
+}))
+
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/friends/shared/moment-1']}>
@@ -66,6 +74,7 @@ describe('SharedPourStoryPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseAuth.mockReturnValue({ user: { uid: 'me' }, loading: false })
+    mockUseFriendBottleQuickView.mockReturnValue({ data: { friendProfile: undefined, bottleFacts: undefined, stories: [] }, loading: false })
   })
 
   it('shows a not-found state when the story does not exist or is not shared with the viewer', () => {
@@ -86,6 +95,15 @@ describe('SharedPourStoryPage', () => {
     expect(screen.getByRole('link', { name: 'Mike Johnson' })).toHaveAttribute('href', '/friends/u/mike')
     expect(screen.getByText('Reaction bar')).toBeInTheDocument()
     expect(screen.getByText('Comments list')).toBeInTheDocument()
+  })
+
+  it('opens Friend Bottle Quick View when the bottle info is tapped', async () => {
+    mockUseSharedPourStory.mockReturnValue({ data: { moment, people }, loading: false, notFound: false })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: /Stagg Batch 23/ }))
+
+    expect(screen.getByText('Kevin Littlejohn’s Take')).toBeInTheDocument()
   })
 
   it('lets a tagged participant who has not accepted yet add it to their shared memories', async () => {

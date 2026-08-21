@@ -7,6 +7,11 @@
   border: 1px solid var(--fip-border-subtle);
   overflow: hidden;
   text-decoration: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
   scroll-snap-align: start;
 }
 

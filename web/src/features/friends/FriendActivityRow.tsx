@@ -14,15 +14,20 @@ function initials(name: string): string {
 interface FriendActivityRowProps {
   item: ActivityItem
   onOpen?: (id: string) => void
+  // Opens Friend Bottle Quick View instead of navigating away, for
+  // whichever activity items are actually about a bottle (item.bottleName
+  // set — see activityItem.ts). A friend-request event has no bottle, so
+  // it always falls back to the plain `to` navigation below.
+  onTapBottle?: (item: ActivityItem) => void
 }
 
 // One row of "Recent Friend Activity" (see FriendsPage.tsx) — real activity
 // only, from either the notifications backend (which was already writing
 // these events but had no UI reading them until now) or a derived source
 // like shared Blind Room completions. Tapping a row marks it read (when
-// there's a real read state to mark) and, where there's somewhere
-// meaningful to go, navigates there.
-export function FriendActivityRow({ item, onOpen }: FriendActivityRowProps) {
+// there's a real read state to mark) and either opens the bottle quick
+// view or navigates, whichever is meaningful for that item.
+export function FriendActivityRow({ item, onOpen, onTapBottle }: FriendActivityRowProps) {
   const content = (
     <>
       <span className={styles.avatarWrap}>
@@ -42,6 +47,21 @@ export function FriendActivityRow({ item, onOpen }: FriendActivityRowProps) {
       <span className={styles.time}>{timeAgo(item.timestamp)}</span>
     </>
   )
+
+  if (item.bottleName && onTapBottle) {
+    return (
+      <button
+        type="button"
+        className={styles.row}
+        onClick={() => {
+          onOpen?.(item.id)
+          onTapBottle(item)
+        }}
+      >
+        {content}
+      </button>
+    )
+  }
 
   if (item.to) {
     return (
