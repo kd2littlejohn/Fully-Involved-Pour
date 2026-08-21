@@ -2,6 +2,7 @@ import { Navigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { StatTile } from '../../components/ui/StatTile'
+import { Badge } from '../../components/ui/Badge'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { useFriendProfile } from '../../features/friends/useFriendProfile'
@@ -10,6 +11,7 @@ import { AddFriendButton } from '../../features/friends/AddFriendButton'
 import { OurWhiskeyStoryCard } from '../../features/friends/OurWhiskeyStoryCard'
 import { SharedMomentCard } from '../../features/friends/SharedMomentCard'
 import { getBottlesInCommon } from '../../features/friends/friendProfileSelectors'
+import type { BottleStatus } from '../../data/types'
 import styles from './FriendProfilePage.module.css'
 
 function initials(name: string): string {
@@ -18,6 +20,65 @@ function initials(name: string): string {
   if (!first) return '?'
   if (!second) return first.slice(0, 2).toUpperCase()
   return (first.charAt(0) + second.charAt(0)).toUpperCase()
+}
+
+// Matches the STATUS_LABEL/STATUS_TONE convention already used by
+// components/domain/BottleListRow.tsx for the viewer's own collection —
+// same labels/colors, so a bottle reads the same way here as it does in My
+// Bar. 'wishlist' is omitted: only ever shown here for bottles that are
+// definitely not wishlist items (Bottles We Both Own, Bottles They're
+// Sharing) — the Wish List section itself doesn't need a redundant badge.
+const STATUS_LABEL: Partial<Record<BottleStatus, string>> = {
+  open: 'Opened',
+  sealed: 'Sealed',
+  finished: 'Finished',
+  incoming: 'Incoming',
+}
+
+const STATUS_TONE: Partial<Record<BottleStatus, 'default' | 'amber' | 'brass'>> = {
+  open: 'amber',
+  sealed: 'default',
+  finished: 'default',
+  incoming: 'brass',
+}
+
+// name/proof/age-statement summary line — the descriptive, non-personal
+// detail projected into SharedBottleSummary (see
+// data/repositories/sharedCollections.ts and its own comment on exactly
+// why price/store/notes/rating never appear here).
+function bottleMetaLine(bottle: { type?: string; proof?: number; ageStatement?: string }): string {
+  return [bottle.type, bottle.proof != null ? `${bottle.proof} proof` : undefined, bottle.ageStatement].filter(Boolean).join(' · ')
+}
+
+interface SharedBottleTileProps {
+  name: string
+  distillery?: string
+  imageUrl?: string
+  type?: string
+  proof?: number
+  ageStatement?: string
+  status?: BottleStatus
+}
+
+function SharedBottleTile({ name, distillery, imageUrl, type, proof, ageStatement, status }: SharedBottleTileProps) {
+  const meta = bottleMetaLine({ type, proof, ageStatement })
+  const statusLabel = status ? STATUS_LABEL[status] : undefined
+  const statusTone = status ? STATUS_TONE[status] : undefined
+  return (
+    <div className={styles.bottleTile}>
+      <div className={styles.bottleImageWrap}>{imageUrl ? <img className={styles.bottleImage} src={imageUrl} alt="" /> : null}</div>
+      <div className={styles.bottleBody}>
+        <div className={styles.bottleName}>{name}</div>
+        {distillery ? <div className={styles.bottleDistillery}>{distillery}</div> : null}
+        {meta ? <div className={styles.bottleMeta}>{meta}</div> : null}
+        {statusLabel ? (
+          <div className={styles.bottleStatusRow}>
+            <Badge tone={statusTone}>{statusLabel}</Badge>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 // Privacy-aware by construction, not by hiding fields after the fact:
@@ -106,10 +167,7 @@ export function FriendProfilePage() {
           <h2 className={styles.sectionTitle}>Bottles We Both Own</h2>
           <div className={styles.bottleGrid}>
             {commonBottles.slice(0, 8).map((bottle) => (
-              <div className={styles.bottleTile} key={`${bottle.name}-${bottle.distillery ?? ''}`}>
-                <div className={styles.bottleImageWrap}>{bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : null}</div>
-                <div className={styles.bottleName}>{bottle.name}</div>
-              </div>
+              <SharedBottleTile key={`${bottle.name}-${bottle.distillery ?? ''}`} {...bottle} />
             ))}
           </div>
         </section>
@@ -120,10 +178,7 @@ export function FriendProfilePage() {
           <h2 className={styles.sectionTitle}>Their Wish List</h2>
           <div className={styles.bottleGrid}>
             {sharedCollection.wishlist.slice(0, 8).map((bottle) => (
-              <div className={styles.bottleTile} key={bottle.id}>
-                <div className={styles.bottleImageWrap}>{bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : null}</div>
-                <div className={styles.bottleName}>{bottle.name}</div>
-              </div>
+              <SharedBottleTile key={bottle.id} {...bottle} />
             ))}
           </div>
         </section>
@@ -134,10 +189,7 @@ export function FriendProfilePage() {
           <h2 className={styles.sectionTitle}>Bottles They&rsquo;re Sharing</h2>
           <div className={styles.bottleGrid}>
             {sharedCollection.bottles.slice(0, 8).map((bottle) => (
-              <div className={styles.bottleTile} key={bottle.id}>
-                <div className={styles.bottleImageWrap}>{bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : null}</div>
-                <div className={styles.bottleName}>{bottle.name}</div>
-              </div>
+              <SharedBottleTile key={bottle.id} {...bottle} />
             ))}
           </div>
         </section>

@@ -142,12 +142,38 @@
   object-fit: cover;
 }
 
+.bottleBody {
+  padding: var(--fip-space-2) var(--fip-space-3) var(--fip-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+}
+
 .bottleName {
-  padding: var(--fip-space-2) var(--fip-space-3);
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-sm);
   color: var(--fip-cream);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.bottleDistillery {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottleMeta {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottleStatusRow {
+  margin-top: var(--fip-space-1);
 }

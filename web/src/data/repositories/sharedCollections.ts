@@ -22,6 +22,10 @@ export function buildSharedCollectionProjection(uid: string, userDoc: UserDoc, p
     distillery: bottle.distillery,
     imageUrl: bottle.imageUrl,
     status: bottle.status,
+    type: bottle.type,
+    region: bottle.region,
+    proof: bottle.proof,
+    ageStatement: bottle.ageStatement,
   })
 
   const bottles = privacy.collectionVisibility === 'private' ? [] : userDoc.bottles.filter((b) => b.status !== 'wishlist').map(toSummary)
@@ -30,10 +34,11 @@ export function buildSharedCollectionProjection(uid: string, userDoc: UserDoc, p
   return { uid, bottles, wishlist, updatedAt: Date.now() }
 }
 
-// Not wired into every bottle mutation — called when the Friends section or
-// the owner's own Settings/Edit Profile privacy controls are used, so a
-// friend's view of "Bottles We Both Own" / shared bottles / Wish List is
-// refreshed on the owner's next visit rather than instantly on every add.
+// Not wired into every bottle mutation — called when the owner changes a
+// privacy setting (features/friends/PrivacyControls.tsx) or visits their
+// own Profile page (pages/Profile/ProfilePage.tsx), so a friend's view of
+// "Bottles We Both Own" / shared bottles / Wish List is refreshed on the
+// owner's next visit to either of those rather than instantly on every add.
 export async function syncSharedCollection(uid: string, userDoc: UserDoc, privacy: PrivacySettings): Promise<void> {
   const projection = buildSharedCollectionProjection(uid, userDoc, privacy)
   if (isMockAuthEnabled()) {
