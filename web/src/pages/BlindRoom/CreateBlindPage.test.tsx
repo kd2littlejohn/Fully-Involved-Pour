@@ -29,9 +29,13 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-vi.mock('../../data/repositories/blindRoom', () => ({
-  createBlindRoom: (...args: unknown[]) => mockCreateBlindRoom(...args),
-}))
+vi.mock('../../data/repositories/blindRoom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../data/repositories/blindRoom')>()
+  return {
+    ...actual,
+    createBlindRoom: (...args: unknown[]) => mockCreateBlindRoom(...args),
+  }
+})
 
 function renderPage() {
   return render(

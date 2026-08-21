@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { BlindHistoryDeleteAction } from '../../features/blindRoom/BlindHistoryDeleteAction'
 import { useAuth } from '../../hooks/useAuth'
-import { getMyBlindRooms } from '../../data/repositories/blindRoom'
+import { getMyBlindRooms, sessionTypeLabel } from '../../data/repositories/blindRoom'
 import { readHiddenBlindRoomIds } from '../../data/hiddenBlindRooms'
 import type { BlindParticipant, BlindRoom } from '../../data/types'
 import styles from './BlindRoomLandingPage.module.css'
@@ -58,7 +58,7 @@ function RoomCard({ room, isHost, uid, onDeleted }: RoomCardProps) {
           <Badge tone={room.state === 'lobby' ? 'amber' : 'default'}>{stateLabel(room.state)}</Badge>
         </div>
         <div className={styles.cardMeta}>
-          {room.sessionType === 'solo' ? 'Solo Blind' : room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} ·{' '}
+          {sessionTypeLabel(room.sessionType)} ·{' '}
           {room.pourCount} pours ·{' '}
           {room.knowledgeMode === 'single' ? 'Single Blind' : 'Double Blind'}
         </div>

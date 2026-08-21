@@ -6,7 +6,7 @@ import { Field, controlClassName } from '../../components/ui/Field'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { createBlindRoom } from '../../data/repositories/blindRoom'
+import { createBlindRoom, sessionTypeLabel } from '../../data/repositories/blindRoom'
 import type { BlindKnowledgeMode, BlindSecretPour, BlindSessionType } from '../../data/types'
 import styles from './CreateBlindPage.module.css'
 
@@ -135,7 +135,8 @@ export function CreateBlindPage() {
       // Solo has no one else to wait for — skip the lobby and go straight
       // to tasting. Group modes still land in the lobby (invite/ready-up).
       navigate(sessionType === 'solo' ? `/blind/${room.id}/taste` : `/blind/${room.id}/lobby`)
-    } catch {
+    } catch (err) {
+      console.error('[CreateBlindPage] handleCreate failed', { uid: user.uid, sessionType, err })
       setError('Could not create the Blind Room. Please try again.')
     } finally {
       setCreating(false)
@@ -308,9 +309,7 @@ export function CreateBlindPage() {
             </div>
             <div className={styles.reviewRow}>
               <span className={styles.reviewLabel}>Session type</span>
-              <span className={styles.reviewValue}>
-                {sessionType === 'solo' ? 'Solo Blind' : sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'}
-              </span>
+              <span className={styles.reviewValue}>{sessionTypeLabel(sessionType)}</span>
             </div>
             <div className={styles.reviewRow}>
               <span className={styles.reviewLabel}>Knowledge mode</span>

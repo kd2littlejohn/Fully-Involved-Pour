@@ -30,12 +30,16 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-vi.mock('../../data/repositories/blindRoom', () => ({
-  setParticipantReady: (...args: unknown[]) => mockSetParticipantReady(...args),
-  startBlind: (...args: unknown[]) => mockStartBlind(...args),
-  joinBlindRoomByCode: (...args: unknown[]) => mockJoinBlindRoomByCode(...args),
-  revealBlind: (...args: unknown[]) => mockRevealBlind(...args),
-}))
+vi.mock('../../data/repositories/blindRoom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../data/repositories/blindRoom')>()
+  return {
+    ...actual,
+    setParticipantReady: (...args: unknown[]) => mockSetParticipantReady(...args),
+    startBlind: (...args: unknown[]) => mockStartBlind(...args),
+    joinBlindRoomByCode: (...args: unknown[]) => mockJoinBlindRoomByCode(...args),
+    revealBlind: (...args: unknown[]) => mockRevealBlind(...args),
+  }
+})
 
 const room: BlindRoom = {
   id: 'room-1',
@@ -129,6 +133,33 @@ describe('BlindLobbyPage', () => {
     renderPage()
 
     expect(screen.getByText('You haven’t joined this Blind Room yet.')).toBeInTheDocument()
+  })
+
+  it('joins from the lobby prompt and refreshes the live roster', async () => {
+    const refresh = vi.fn()
+    mockUseAuth.mockReturnValue({ user: { uid: 'outsider-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh })
+    mockJoinBlindRoomByCode.mockResolvedValueOnce(undefined)
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Join Blind' }))
+
+    expect(mockJoinBlindRoomByCode).toHaveBeenCalledWith('OAK742', 'outsider-1', expect.any(String))
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it('shows a clear error and un-sticks the button when joining from the lobby prompt fails', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'outsider-1' }, loading: false })
+    mockUseBlindRoom.mockReturnValue({ room, participants: [host, guest], loading: false, refresh: vi.fn() })
+    mockJoinBlindRoomByCode.mockRejectedValueOnce(
+      Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }),
+    )
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Join Blind' }))
+
+    expect(await screen.findByText(/don.t have permission to join/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Join Blind' })).not.toBeDisabled()
   })
 
   it('shows a Start Tasting control once tasting has started, for a participant who hasn’t started yet', () => {

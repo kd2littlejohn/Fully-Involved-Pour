@@ -23,10 +23,14 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-vi.mock('../../data/repositories/blindRoom', () => ({
-  getBlindRoomByCode: (...args: unknown[]) => mockGetBlindRoomByCode(...args),
-  joinBlindRoomByCode: (...args: unknown[]) => mockJoinBlindRoomByCode(...args),
-}))
+vi.mock('../../data/repositories/blindRoom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../data/repositories/blindRoom')>()
+  return {
+    ...actual,
+    getBlindRoomByCode: (...args: unknown[]) => mockGetBlindRoomByCode(...args),
+    joinBlindRoomByCode: (...args: unknown[]) => mockJoinBlindRoomByCode(...args),
+  }
+})
 
 const room: BlindRoom = {
   id: 'room-1',
@@ -104,6 +108,32 @@ describe('JoinBlindPage', () => {
 
     expect(mockJoinBlindRoomByCode).toHaveBeenCalledWith('OAK742', 'guest-1', 'marcus')
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/lobby')
+  })
+
+  it('shows a permission-specific message when the join write is rejected by Firestore rules', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'guest-1', displayName: 'Marcus' }, loading: false })
+    mockGetBlindRoomByCode.mockResolvedValue(room)
+    mockJoinBlindRoomByCode.mockRejectedValue(Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }))
+    renderPage()
+
+    await userEvent.type(screen.getByLabelText('Room code'), 'OAK742')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Join Blind' }))
+
+    expect(await screen.findByText(/don.t have permission to join/)).toBeInTheDocument()
+  })
+
+  it('falls back to a generic message for a non-permission join failure', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'guest-1', displayName: 'Marcus' }, loading: false })
+    mockGetBlindRoomByCode.mockResolvedValue(room)
+    mockJoinBlindRoomByCode.mockRejectedValue(new Error('network error'))
+    renderPage()
+
+    await userEvent.type(screen.getByLabelText('Room code'), 'OAK742')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Join Blind' }))
+
+    expect(await screen.findByText('Could not join that Blind Room. Please try again.')).toBeInTheDocument()
   })
 
   it('auto-looks-up a code passed in the URL', async () => {

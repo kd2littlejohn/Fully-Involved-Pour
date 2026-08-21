@@ -7,7 +7,13 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { useBlindRoom } from '../../hooks/useBlindRoom'
-import { joinBlindRoomByCode, revealBlind, setParticipantReady, startBlind } from '../../data/repositories/blindRoom'
+import {
+  isPermissionDenied,
+  joinBlindRoomByCode,
+  revealBlind,
+  setParticipantReady,
+  startBlind,
+} from '../../data/repositories/blindRoom'
 import styles from './BlindLobbyPage.module.css'
 
 function inviteMessage(roomName: string, pourCount: number, knowledgeMode: string, code: string): string {
@@ -32,6 +38,7 @@ export function BlindLobbyPage() {
   const { userDoc } = useUserData()
   const { room, participants, loading, refresh } = useBlindRoom(roomId)
   const [busy, setBusy] = useState(false)
+  const [joinError, setJoinError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [reminderCopied, setReminderCopied] = useState(false)
 
@@ -54,10 +61,21 @@ export function BlindLobbyPage() {
   async function handleJoinAsViewer() {
     if (!user || !room) return
     setBusy(true)
-    const username = userDoc.username || user.displayName || 'Guest'
-    await joinBlindRoomByCode(room.code, user.uid, username)
-    refresh()
-    setBusy(false)
+    setJoinError(null)
+    try {
+      const username = userDoc.username || user.displayName || 'Guest'
+      await joinBlindRoomByCode(room.code, user.uid, username)
+      refresh()
+    } catch (err) {
+      console.error('[BlindLobbyPage] handleJoinAsViewer failed', { uid: user.uid, roomId: room.id, err })
+      setJoinError(
+        isPermissionDenied(err)
+          ? 'You don’t have permission to join this Blind Room. It may have been deleted or ended.'
+          : 'Could not join that Blind Room. Please try again.',
+      )
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function handleToggleReady() {
@@ -147,7 +165,7 @@ export function BlindLobbyPage() {
         <div className={styles.content}>
           <EmptyState
             title={room.name}
-            message="You haven’t joined this Blind Room yet."
+            message={joinError ?? 'You haven’t joined this Blind Room yet.'}
             action={
               <Button onClick={() => void handleJoinAsViewer()} disabled={busy}>
                 {busy ? 'Joining…' : 'Join Blind'}

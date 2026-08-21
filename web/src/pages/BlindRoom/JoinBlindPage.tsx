@@ -5,7 +5,13 @@ import { controlClassName } from '../../components/ui/Field'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { getBlindRoomByCode, joinBlindRoomByCode } from '../../data/repositories/blindRoom'
+import {
+  RoomCodeInvalidError,
+  getBlindRoomByCode,
+  isPermissionDenied as isPermissionDeniedError,
+  joinBlindRoomByCode,
+  sessionTypeLabel,
+} from '../../data/repositories/blindRoom'
 import type { BlindRoom } from '../../data/types'
 import styles from './JoinBlindPage.module.css'
 
@@ -48,8 +54,15 @@ export function JoinBlindPage() {
       const username = userDoc.username || user.displayName || 'Guest'
       const joined = await joinBlindRoomByCode(room.code, user.uid, username)
       navigate(`/blind/${joined.id}/lobby`)
-    } catch {
-      setError('Could not join that Blind Room. Please try again.')
+    } catch (err) {
+      console.error('[JoinBlindPage] handleJoin failed', { uid: user.uid, roomId: room.id, code: room.code, err })
+      if (err instanceof RoomCodeInvalidError) {
+        setError('That room code doesn’t match an active Blind Room.')
+      } else if (isPermissionDeniedError(err)) {
+        setError('You don’t have permission to join this Blind Room. It may have been deleted or ended.')
+      } else {
+        setError('Could not join that Blind Room. Please try again.')
+      }
     } finally {
       setJoining(false)
     }
@@ -94,7 +107,7 @@ export function JoinBlindPage() {
             <div className={styles.previewName}>{room.name}</div>
             <div className={styles.previewMeta}>Hosted by {room.hostUsername}</div>
             <div className={styles.previewMeta}>
-              {room.sessionType === 'solo' ? 'Solo Blind' : room.sessionType === 'live' ? 'Live Blind' : 'Blind Challenge'} ·{' '}
+              {sessionTypeLabel(room.sessionType)} ·{' '}
               {room.pourCount} pours ·{' '}
               {room.knowledgeMode === 'single' ? 'Single Blind' : 'Double Blind'}
             </div>

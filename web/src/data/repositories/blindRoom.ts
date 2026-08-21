@@ -15,6 +15,36 @@ import type {
 
 export class RoomCodeInvalidError extends Error {}
 
+// Structured dev-console logging for every Blind Room write that can fail
+// on a real permission/rules problem — the UI only ever shows a short,
+// user-safe message (see JoinBlindPage/CreateBlindPage), so this is the
+// only place the actual uid/roomId/operation/Firebase error code/failed
+// path surface for debugging. Never pass tasting answers, rankings, or
+// bottle identities in `context` — this only ever logs *where* a write
+// failed, never the hidden data itself.
+function logBlindRoomError(operation: string, context: Record<string, string | undefined>, err: unknown): void {
+  const code = typeof err === 'object' && err !== null && 'code' in err ? String((err as { code?: unknown }).code) : 'unknown'
+  const message = err instanceof Error ? err.message : String(err)
+  console.error(`[blindRoom] ${operation} failed`, { ...context, code, message })
+}
+
+export function sessionTypeLabel(sessionType: BlindSessionType): string {
+  switch (sessionType) {
+    case 'solo':
+      return 'Solo Blind'
+    case 'live':
+      return 'Live Blind'
+    case 'challenge':
+      return 'Blind Challenge'
+    default:
+      // Should be unreachable for any room this app created — surfaces
+      // loudly rather than silently mislabeling an unrecognized/legacy
+      // value as "Blind Challenge" the way a plain ternary fallback would.
+      console.warn('[blindRoom] unrecognized sessionType', sessionType)
+      return String(sessionType)
+  }
+}
+
 // Unambiguous alphabet — no O/0 or I/1 confusion when someone reads a code
 // aloud or copies it by hand.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -125,7 +155,14 @@ export async function getMyBlindRooms(uid: string): Promise<{ room: BlindRoom; p
     const roomId = participantDoc.ref.parent.parent?.id
     if (!roomId) continue
     const room = await getBlindRoom(roomId)
-    if (room) results.push({ room, participant: participantDoc.data() as BlindParticipant })
+    if (!room) continue
+    // room.participantCount is set once at creation and never legitimately
+    // updated again (see joinBlindRoomByCode) — recompute it here from the
+    // actual roster so the landing page's "N participants" line reflects
+    // reality instead of whatever it happened to be when the room was
+    // created.
+    const participants = await getParticipants(roomId)
+    results.push({ room: { ...room, participantCount: participants.length }, participant: participantDoc.data() as BlindParticipant })
   }
   return results
 }
@@ -343,9 +380,25 @@ export async function joinBlindRoomByCode(code: string, uid: string, username: s
     return room
   }
 
-  await setDoc(doc(db, 'blindRooms', room.id, 'participants', uid), participant)
-  await updateDoc(doc(db, 'blindRooms', room.id), { participantCount: room.participantCount + 1 })
-  return { ...room, participantCount: room.participantCount + 1 }
+  // `blindRooms/{roomId}` is host-only-write by design (firestore.rules) —
+  // the room's `hostUid` is the whole reason its config can't be tampered
+  // with by a participant. A joining (non-host) user must therefore never
+  // attempt to write anything on the room doc itself, including a
+  // participantCount bump: that write was previously right here, and
+  // Firestore correctly rejected it with `permission-denied` on every join,
+  // by every non-host, since the very first Blind Room commit — which is
+  // why a second participant could never actually get in. The participants
+  // subcollection is the real source of truth for who's in the room;
+  // getMyBlindRooms recomputes participantCount from it for display instead
+  // of trusting this easily-stale, write-restricted field.
+  try {
+    await setDoc(doc(db, 'blindRooms', room.id, 'participants', uid), participant)
+  } catch (err) {
+    logBlindRoomError('joinBlindRoomByCode', { roomId: room.id, uid, path: `blindRooms/${room.id}/participants/${uid}` }, err)
+    throw err
+  }
+  const participants = await getParticipants(room.id)
+  return { ...room, participantCount: participants.length }
 }
 
 export async function setParticipantReady(roomId: string, uid: string, ready: boolean): Promise<void> {
@@ -433,7 +486,7 @@ export async function saveTastingResponse(
   }
 }
 
-function isPermissionDenied(err: unknown): boolean {
+export function isPermissionDenied(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'code' in err && (err as { code?: string }).code === 'permission-denied'
 }
 

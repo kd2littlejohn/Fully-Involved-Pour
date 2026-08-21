@@ -8,6 +8,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import {
+  collection,
   collectionGroup,
   deleteDoc,
   doc,
@@ -118,6 +119,58 @@ describe('blindRooms/{roomId}', () => {
     await assertFails(updateDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID), { state: 'active' }))
   })
 
+  it('the host can start the blind (state -> active)', async () => {
+    await seedRoom()
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertSucceeds(updateDoc(doc(host.firestore(), 'blindRooms', ROOM_ID), { state: 'active', startedAt: Date.now() }))
+  })
+
+  it('a non-host (including a joined participant) cannot start the blind', async () => {
+    await seedRoom()
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(
+      updateDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID), { state: 'active', startedAt: Date.now() }),
+    )
+  })
+
+  it('the host can reveal the blind', async () => {
+    await seedRoom({ state: 'active' })
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertSucceeds(
+      updateDoc(doc(host.firestore(), 'blindRooms', ROOM_ID), { state: 'revealed', revealedAt: Date.now() }),
+    )
+  })
+
+  it('a participant cannot reveal the blind', async () => {
+    await seedRoom({ state: 'active' })
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(
+      updateDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID), { state: 'revealed', revealedAt: Date.now() }),
+    )
+  })
+
+  it('host and a fellow participant can both read the lobby (room + roster) at once', async () => {
+    await seedRoom()
+    await seedHostParticipant()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'joined',
+        joinedAt: Date.now(),
+      })
+    })
+    const host = testEnv.authenticatedContext(HOST_UID)
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await Promise.all([
+      assertSucceeds(getDoc(doc(host.firestore(), 'blindRooms', ROOM_ID))),
+      assertSucceeds(getDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID))),
+      assertSucceeds(getDocs(collection(host.firestore(), 'blindRooms', ROOM_ID, 'participants'))),
+      assertSucceeds(getDocs(collection(participant.firestore(), 'blindRooms', ROOM_ID, 'participants'))),
+    ])
+  })
+
   it('a participant cannot become host by rewriting hostUid', async () => {
     await seedRoom()
     const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
@@ -156,6 +209,93 @@ describe('blindRooms/{roomId}/participants/{uid}', () => {
         joinedAt: Date.now(),
       }),
     )
+  })
+
+  it('an unauthenticated user cannot join by creating a participant doc', async () => {
+    await seedRoom()
+    const anon = testEnv.unauthenticatedContext()
+    await assertFails(
+      setDoc(doc(anon.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'joined',
+        joinedAt: Date.now(),
+      }),
+    )
+  })
+
+  it('joining a real room via joinBlindRoomByCode’s exact write shape succeeds for a second, different user', async () => {
+    // Regression coverage for the actual production bug: a non-host user
+    // creating their own participant doc (the ONLY Firestore write
+    // joinBlindRoomByCode makes now) must succeed on a room hosted by
+    // someone else entirely.
+    await seedRoom({ hostUid: HOST_UID })
+    const userB = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertSucceeds(
+      setDoc(doc(userB.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'joined',
+        joinedAt: Date.now(),
+      }),
+    )
+  })
+
+  it('a participant cannot make themselves host by setting isHost:true on their own doc', async () => {
+    await seedRoom()
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(
+      setDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: true,
+        status: 'joined',
+        joinedAt: Date.now(),
+      }),
+    )
+  })
+
+  it('the actual host creating their own participant doc with isHost:true succeeds', async () => {
+    await seedRoom()
+    const host = testEnv.authenticatedContext(HOST_UID)
+    await assertSucceeds(
+      setDoc(doc(host.firestore(), 'blindRooms', ROOM_ID, 'participants', HOST_UID), {
+        uid: HOST_UID,
+        username: 'kevin',
+        isHost: true,
+        status: 'ready',
+        joinedAt: Date.now(),
+      }),
+    )
+  })
+
+  it('a participant cannot later flip isHost to true via update', async () => {
+    await seedRoom()
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), {
+        uid: PARTICIPANT_UID,
+        username: 'marcus',
+        isHost: false,
+        status: 'joined',
+        joinedAt: Date.now(),
+      })
+    })
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(
+      updateDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID, 'participants', PARTICIPANT_UID), { isHost: true }),
+    )
+  })
+
+  it('a non-host participant cannot bump the room’s participantCount — the field is host-only-write on the room doc', async () => {
+    // This is the exact write the old (buggy) joinBlindRoomByCode used to
+    // make right after creating its own participant doc — confirming it's
+    // correctly rejected documents why that call had to be removed rather
+    // than "fixed" to somehow succeed.
+    await seedRoom()
+    const participant = testEnv.authenticatedContext(PARTICIPANT_UID)
+    await assertFails(updateDoc(doc(participant.firestore(), 'blindRooms', ROOM_ID), { participantCount: 2 }))
   })
 
   it('cannot create a participant doc for someone else', async () => {

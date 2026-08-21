@@ -13,10 +13,14 @@ vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
 }))
 
-vi.mock('../../data/repositories/blindRoom', () => ({
-  getMyBlindRooms: (...args: unknown[]) => mockGetMyBlindRooms(...args),
-  deleteBlindRoom: (...args: unknown[]) => mockDeleteBlindRoom(...args),
-}))
+vi.mock('../../data/repositories/blindRoom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../data/repositories/blindRoom')>()
+  return {
+    ...actual,
+    getMyBlindRooms: (...args: unknown[]) => mockGetMyBlindRooms(...args),
+    deleteBlindRoom: (...args: unknown[]) => mockDeleteBlindRoom(...args),
+  }
+})
 
 function renderPage() {
   return render(
