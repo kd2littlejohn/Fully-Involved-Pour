@@ -1,7 +1,7 @@
 import { collection, doc, endAt, getDoc, getDocs, orderBy, query, setDoc, startAt } from 'firebase/firestore'
 import { db } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
-import type { Profile } from '../types'
+import type { Profile, UsernameRecord } from '../types'
 
 // profiles/{uid} — same public doc username.ts already writes `username`
 // into. Public read (see firestore.rules), owner-only write.
@@ -23,8 +23,12 @@ export async function fetchProfile(uid: string): Promise<Profile | undefined> {
   return snap.exists() ? (snap.data() as Profile) : undefined
 }
 
+// Shared by both the searchable-fields written on save (below) and the
+// query normalization in searchProfiles — a leading '@' is stripped so
+// "@kevin", "kevin", and "Kevin" all normalize identically, matching how
+// people actually type a username with or without the sigil.
 function normalizeForSearch(value: string): string {
-  return value.trim().toLowerCase()
+  return value.trim().replace(/^@+/, '').toLowerCase()
 }
 
 // Keeps normalizedDisplayName in sync whenever displayName changes — see
@@ -49,6 +53,12 @@ const SEARCH_LIMIT = 20
 // single-doc get (see firestore.rules); this only additionally permits
 // prefix-range LIST queries against the same already-public fields, not
 // any new private data.
+//
+// prefixEnd below appends the standard Firestore prefix-range sentinel
+// character (a very-high-codepoint character that renders invisibly in
+// most editors/terminals) to q, so do not be alarmed that nothing is
+// visibly appended to it in this file. startAt(q).endAt(prefixEnd) is
+// what makes this a "starts with q" range instead of an exact-match one.
 export async function searchProfiles(rawQuery: string, excludeUid?: string): Promise<ProfileSearchResult[]> {
   const q = normalizeForSearch(rawQuery)
   if (!q) return []
@@ -61,10 +71,31 @@ export async function searchProfiles(rawQuery: string, excludeUid?: string): Pro
   }
 
   const profiles = collection(db, 'profiles')
-  const [byUsername, byDisplayName] = await Promise.all([
-    getDocs(query(profiles, orderBy('normalizedUsername'), startAt(q), endAt(`${q}`))),
-    getDocs(query(profiles, orderBy('normalizedDisplayName'), startAt(q), endAt(`${q}`))),
-  ])
+  const prefixEnd = `${q}`
+  let byUsername
+  let byDisplayName
+  try {
+    ;[byUsername, byDisplayName] = await Promise.all([
+      getDocs(query(profiles, orderBy('normalizedUsername'), startAt(q), endAt(prefixEnd))),
+      getDocs(query(profiles, orderBy('normalizedDisplayName'), startAt(q), endAt(prefixEnd))),
+    ])
+  } catch (err) {
+    // Dev-only — never a production log, and never anything beyond the
+    // already-public normalized query string and a generic error code/
+    // message (see isMockAuthEnabled's own DEV-elimination comment in
+    // devMode.ts for why this branch never ships).
+    if (import.meta.env.DEV) {
+      const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: unknown }).code : undefined
+      console.debug('[searchProfiles] Firestore error', {
+        normalizedQuery: q,
+        collection: 'profiles',
+        fields: ['normalizedUsername', 'normalizedDisplayName'],
+        code,
+        message: err instanceof Error ? err.message : String(err),
+      })
+    }
+    throw err
+  }
 
   const results = new Map<string, ProfileSearchResult>()
   for (const snap of [byUsername, byDisplayName]) {
@@ -73,5 +104,80 @@ export async function searchProfiles(rawQuery: string, excludeUid?: string): Pro
       results.set(docSnap.id, { uid: docSnap.id, ...(docSnap.data() as Profile) })
     }
   }
+
+  if (import.meta.env.DEV) {
+    console.debug('[searchProfiles]', {
+      normalizedQuery: q,
+      collection: 'profiles',
+      fields: ['normalizedUsername', 'normalizedDisplayName'],
+      resultCount: results.size,
+    })
+  }
+
   return [...results.values()].slice(0, SEARCH_LIMIT)
+}
+
+export interface EnsureSearchableProfileHints {
+  preferredUsername?: string
+  displayName?: string
+  photoURL?: string
+}
+
+function slugifyUsername(base: string): string {
+  const cleaned = normalizeForSearch(base)
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return cleaned || 'friend'
+}
+
+const MAX_USERNAME_ATTEMPTS = 25
+
+// Idempotent — no-ops the instant profiles/{uid} already exists, so it's
+// safe to call on every load. This is the single code path that covers both
+// "brand-new signup" (called once auth resolves, before the user has ever
+// touched Edit Profile) AND "backfill for an account that predates this
+// searchable-profile system" (see useUserData.tsx's profile effect, which
+// calls this whenever a signed-in user's profile comes back missing) —
+// both cases reduce to the same fix: a signed-in user with no
+// profiles/{uid} doc yet is permanently unfindable by Friend Search no
+// matter how correct the query is, until one gets created. Prefers the
+// account's already-chosen private username (userDoc.username, if any)
+// over deriving a fresh one from the Google display name, so a returning
+// user keeps whatever they're already known as elsewhere.
+export async function ensureSearchableProfile(uid: string, hints: EnsureSearchableProfileHints): Promise<void> {
+  if (isMockAuthEnabled()) return
+
+  const existing = await getDoc(doc(db, 'profiles', uid))
+  if (existing.exists()) return
+
+  const base = slugifyUsername(hints.preferredUsername || hints.displayName || `friend_${uid.slice(0, 6)}`)
+  const displayName = hints.displayName
+  const normalizedDisplayName = displayName ? normalizeForSearch(displayName) : undefined
+
+  for (let attempt = 0; attempt < MAX_USERNAME_ATTEMPTS; attempt++) {
+    const candidate = attempt === 0 ? base : `${base}${attempt + 1}`
+    const usernameRef = doc(db, 'usernames', candidate)
+    try {
+      const usernameSnap = await getDoc(usernameRef)
+      if (usernameSnap.exists() && (usernameSnap.data() as UsernameRecord).uid !== uid) continue
+
+      await Promise.all([
+        setDoc(usernameRef, { uid, username: candidate }),
+        setDoc(
+          doc(db, 'profiles', uid),
+          {
+            username: candidate,
+            normalizedUsername: candidate,
+            ...(displayName ? { displayName, normalizedDisplayName } : {}),
+            ...(hints.photoURL ? { photoURL: hints.photoURL } : {}),
+          },
+          { merge: true },
+        ),
+      ])
+      return
+    } catch (err) {
+      console.error('ensureSearchableProfile: attempt failed', { uid, candidate, err })
+    }
+  }
+  console.error('ensureSearchableProfile: exhausted username attempts', { uid })
 }

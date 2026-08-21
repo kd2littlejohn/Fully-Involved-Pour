@@ -6,6 +6,7 @@ import type { UserDoc } from '../data/types'
 const mockUseAuth = vi.fn()
 const mockFetchUserDoc = vi.fn()
 const mockFetchProfile = vi.fn()
+const mockEnsureSearchableProfile = vi.fn()
 const mockReadCachedUserDoc = vi.fn()
 
 vi.mock('./useAuth', () => ({
@@ -36,6 +37,7 @@ vi.mock('../data/repositories/username', () => ({
 
 vi.mock('../data/repositories/profile', () => ({
   fetchProfile: (...args: unknown[]) => mockFetchProfile(...args),
+  ensureSearchableProfile: (...args: unknown[]) => mockEnsureSearchableProfile(...args),
   saveProfile: vi.fn(),
 }))
 
@@ -59,6 +61,7 @@ describe('useUserData — account switching', () => {
     vi.clearAllMocks()
     mockReadCachedUserDoc.mockReturnValue(undefined)
     mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockResolvedValue(undefined)
   })
 
   it('does not keep showing the previous account’s bottles while the newly signed-in account’s data is still loading', async () => {
@@ -112,6 +115,40 @@ describe('useUserData — account switching', () => {
 
     resolveUser2Profile({ username: 'user2' })
     await waitFor(() => expect(result.current.profile?.username).toBe('user2'))
+  })
+
+  it('backfills a searchable public profile when the signed-in user has none yet, then re-reads it', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { uid: 'user-1', displayName: 'Kevin Littlejohn', photoURL: 'https://example.com/p.jpg' },
+      loading: false,
+    })
+    mockFetchUserDoc.mockResolvedValue(docWithOneBottle('Eagle Rare'))
+    // First call (no profile exists yet) resolves undefined; the second
+    // call — after ensureSearchableProfile runs — returns the newly
+    // created profile.
+    mockFetchProfile.mockResolvedValueOnce(undefined).mockResolvedValueOnce({ username: 'kevin_littlejohn', displayName: 'Kevin Littlejohn' })
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+
+    await waitFor(() =>
+      expect(mockEnsureSearchableProfile).toHaveBeenCalledWith('user-1', {
+        preferredUsername: undefined,
+        displayName: 'Kevin Littlejohn',
+        photoURL: 'https://example.com/p.jpg',
+      }),
+    )
+    await waitFor(() => expect(result.current.profile?.username).toBe('kevin_littlejohn'))
+  })
+
+  it('does not attempt to backfill a profile that already exists', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(docWithOneBottle('Eagle Rare'))
+    mockFetchProfile.mockResolvedValueOnce({ username: 'already-set' })
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+
+    await waitFor(() => expect(result.current.profile?.username).toBe('already-set'))
+    expect(mockEnsureSearchableProfile).not.toHaveBeenCalled()
   })
 
   it('resets to empty on sign-out', async () => {

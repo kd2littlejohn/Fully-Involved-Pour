@@ -4,7 +4,7 @@ import { useAuth } from './useAuth'
 import { auth } from '../data/firebase'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { claimUsername as claimUsernameRepo } from '../data/repositories/username'
-import { fetchProfile, saveProfile as saveProfileRepo } from '../data/repositories/profile'
+import { ensureSearchableProfile, fetchProfile, saveProfile as saveProfileRepo } from '../data/repositories/profile'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
 import type { Bottle, GalleryPhoto, InfinityBottleAddition, Memory, Pour, Profile, UserDoc } from '../data/types'
@@ -78,6 +78,10 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(true)
   const previousUidRef = useRef<string | null>(null)
   const previousProfileUidRef = useRef<string | null>(null)
+  // Read by the profile-loading effect below without adding userDoc to its
+  // own dependency array (which would re-run it on every bottle/pour edit).
+  const userDocRef = useRef<UserDoc>(userDoc)
+  userDocRef.current = userDoc
 
   useEffect(() => {
     if (authLoading) return
@@ -160,7 +164,28 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false
     setProfileLoading(true)
-    fetchProfile(user.uid).then((p) => {
+    fetchProfile(user.uid).then(async (fetched) => {
+      if (cancelled) return
+      let p = fetched
+      if (!p) {
+        // No searchable public profile yet — either a brand-new signup or
+        // an account that predates this system. Create one now so this
+        // user becomes findable by Friend Search immediately, then re-read
+        // it. Failures are logged and simply retried the next time this
+        // effect runs (e.g. next app load) rather than blocking the rest
+        // of sign-in.
+        try {
+          await ensureSearchableProfile(user.uid, {
+            preferredUsername: userDocRef.current.username,
+            displayName: user.displayName ?? undefined,
+            photoURL: user.photoURL ?? undefined,
+          })
+          if (cancelled) return
+          p = await fetchProfile(user.uid)
+        } catch (err) {
+          console.error('ensureSearchableProfile failed', err)
+        }
+      }
       if (cancelled) return
       setProfile(p)
       setProfileLoading(false)

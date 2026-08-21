@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
-import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, endAt, getDoc, getDocs, orderBy, query, setDoc, startAt, updateDoc } from 'firebase/firestore'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 const RULES_PATH = resolve(__dirname, '../../../../firestore.rules')
@@ -96,6 +96,51 @@ describe('profiles/{uid}', () => {
 
     const b = testEnv.authenticatedContext(USER_B)
     await assertFails(setDoc(doc(b.firestore(), 'profiles', USER_A), { username: 'hijacked' }))
+  })
+
+  // Friend Search's actual query shape (searchProfiles in
+  // data/repositories/profile.ts) — a prefix-range LIST, not just a
+  // single-doc get. Collection-group queries need their own dedicated rule
+  // to be provable (see the long comment in firestore.rules), but this is a
+  // plain single-collection query under an unconditional `allow read: if
+  // true`, so it's provable and should just work — this test exists to
+  // confirm that in practice, not just in theory.
+  it('an authenticated user can run the prefix-range search query and find another user by normalized username or display name', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'profiles', USER_A), {
+        username: 'Pour_Teknique',
+        normalizedUsername: 'pour_teknique',
+        displayName: 'Kevin Littlejohn',
+        normalizedDisplayName: 'kevin littlejohn',
+      })
+    })
+    const b = testEnv.authenticatedContext(USER_B)
+
+    const byUsername = await getDocs(
+      query(collection(b.firestore(), 'profiles'), orderBy('normalizedUsername'), startAt('pour_tek'), endAt('pour_tek')),
+    )
+    expect(byUsername.docs.map((d) => d.id)).toEqual([USER_A])
+
+    const byDisplayName = await getDocs(
+      query(collection(b.firestore(), 'profiles'), orderBy('normalizedDisplayName'), startAt('kevin'), endAt('kevin')),
+    )
+    expect(byDisplayName.docs.map((d) => d.id)).toEqual([USER_A])
+  })
+
+  it('the prefix-range search query does not require signing in (matches the deliberate public-profile-preview design)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'profiles', USER_A), {
+        username: 'kevin',
+        normalizedUsername: 'kevin',
+        displayName: 'Kevin',
+        normalizedDisplayName: 'kevin',
+      })
+    })
+    const anon = testEnv.unauthenticatedContext()
+    const results = await getDocs(
+      query(collection(anon.firestore(), 'profiles'), orderBy('normalizedUsername'), startAt('kevin'), endAt('kevin')),
+    )
+    expect(results.docs.map((d) => d.id)).toEqual([USER_A])
   })
 })
 

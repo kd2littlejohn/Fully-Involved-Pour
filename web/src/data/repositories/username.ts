@@ -5,8 +5,12 @@ import type { UsernameRecord } from '../types'
 
 export class UsernameTakenError extends Error {}
 
+// Stripping a leading '@' here (not just in search — see profile.ts
+// normalizeForSearch) means a user who types "@kevin" as the username
+// they want to claim ends up with the same normalized form ("kevin") that
+// search will look for, rather than literally claiming "@kevin".
 function normalize(username: string): string {
-  return username.trim().toLowerCase()
+  return username.trim().replace(/^@+/, '').toLowerCase()
 }
 
 // Powers profile-by-username routes (e.g. /friends/u/:username, and "Share
