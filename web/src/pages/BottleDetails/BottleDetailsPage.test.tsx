@@ -187,12 +187,19 @@ describe('BottleDetailsPage', () => {
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: false })
   })
 
+  it('does not offer Change Status in the menu — the status pill itself is the shortcut', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await openBottleMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Change Status' })).not.toBeInTheDocument()
+  })
+
   it('changes a sealed bottle to Opened in one tap, without going through Edit', async () => {
     mockSignedInWith([wellerSpecial], [])
     renderPage('b2')
 
-    await openBottleMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sealed' }))
     await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b2', { status: 'open', openedDate: expect.any(String) })
@@ -202,8 +209,7 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    await openBottleMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
 
     const current = screen.getByText('Current').closest('button')
     expect(current).toHaveTextContent('Opened')
@@ -214,8 +220,7 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    await openBottleMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
     await userEvent.click(screen.getByRole('button', { name: 'Finished' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { status: 'finished', finishedDate: expect.any(String) })
@@ -227,8 +232,7 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([wellerSpecial], [])
     renderPage('b2')
 
-    await openBottleMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sealed' }))
     await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
 
     expect(screen.queryByText('🥃 Bottle Kill')).not.toBeInTheDocument()

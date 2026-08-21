@@ -63,13 +63,14 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   }
   menuItems.push(
     { label: 'View Bottle', onClick: () => navigate(`/collection/${currentBottleId}`) },
-    { label: 'Change Status', onClick: () => setShowStatusModal(true) },
     { label: currentFavorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
     { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
     { label: 'Edit', onClick: () => navigate(`/bottles/${currentBottleId}/edit`) },
   )
 
-  const content = (
+  const statusBadge = <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
+
+  const linkContent = (
     <>
       <div className={styles.imageWrap}>
         {bottle.imageUrl ? (
@@ -83,18 +84,31 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
         {subtitle ? <div className={styles.subtitle}>{subtitle}</div> : null}
         {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
       </div>
-      <div className={styles.footer}>
-        <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
-        {typeof bottle.rating === 'number' ? <FipScoreBadge score={bottle.rating} /> : null}
-      </div>
-      {journeyStage ? (
-        <div className={styles.journey} style={{ color: journeyStage.color }}>
-          <span className={styles.journeyDot} style={{ background: journeyStage.color }} />
-          {journeyStage.label}
-        </div>
-      ) : null}
     </>
   )
+
+  // Tapping the status pill itself opens the picker — no trip through the
+  // "⋯" menu needed. Kept as a plain Badge (not a button) when selectable,
+  // since the whole row's click already means "toggle selection" there.
+  const footer = (
+    <div className={styles.footer}>
+      {selectable ? (
+        statusBadge
+      ) : (
+        <button type="button" className={styles.statusButton} onClick={() => setShowStatusModal(true)}>
+          {statusBadge}
+        </button>
+      )}
+      {typeof bottle.rating === 'number' ? <FipScoreBadge score={bottle.rating} /> : null}
+    </div>
+  )
+
+  const journey = journeyStage ? (
+    <div className={styles.journey} style={{ color: journeyStage.color }}>
+      <span className={styles.journeyDot} style={{ background: journeyStage.color }} />
+      {journeyStage.label}
+    </div>
+  ) : null
 
   if (selectable) {
     return (
@@ -115,7 +129,11 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
         <span className={selected ? `${styles.checkbox} ${styles.checkboxChecked}` : styles.checkbox} aria-hidden="true">
           {selected ? '✓' : null}
         </span>
-        <div className={styles.body}>{content}</div>
+        <div className={styles.body}>
+          {linkContent}
+          {footer}
+          {journey}
+        </div>
       </div>
     )
   }
@@ -125,9 +143,13 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
       <div className={styles.menuOverlay}>
         <OverflowMenu items={menuItems} label={`${bottle.name} actions`} />
       </div>
-      <Link to={`/collection/${bottle.id}`} className={`${styles.body} ${styles.bodyLink}`}>
-        {content}
-      </Link>
+      <div className={styles.body}>
+        <Link to={`/collection/${bottle.id}`} className={styles.bodyLink}>
+          {linkContent}
+        </Link>
+        {footer}
+        {journey}
+      </div>
       {modals}
       {showRecommendModal ? <RecommendToFriendModal bottle={bottle} onClose={() => setShowRecommendModal(false)} /> : null}
       {showStatusModal ? (

@@ -104,24 +104,30 @@ describe('BottleCard', () => {
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: true })
   })
 
-  it('changes status from the menu without going through Edit', async () => {
+  it('does not offer Change Status in the menu — the status pill itself is the shortcut', async () => {
+    mockData([eagleRare])
+    renderCard(eagleRare)
+
+    await openMenu('Eagle Rare 10 Year')
+    expect(screen.queryByRole('menuitem', { name: 'Change Status' })).not.toBeInTheDocument()
+  })
+
+  it('changes status by tapping the status pill directly, without going through Edit', async () => {
     const sealed: Bottle = { id: 'b3', name: 'Weller 12', status: 'sealed' }
     mockData([sealed])
     renderCard(sealed)
 
-    await openMenu('Weller 12')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Sealed' }))
     await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b3', { status: 'open', openedDate: expect.any(String) })
   })
 
-  it('sets a finishedDate when changing status to Finished from the menu', async () => {
+  it('sets a finishedDate when changing status to Finished from the status pill', async () => {
     mockData([eagleRare])
     renderCard(eagleRare)
 
-    await openMenu('Eagle Rare 10 Year')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
     await userEvent.click(screen.getByRole('button', { name: 'Finished' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { status: 'finished', finishedDate: expect.any(String) })

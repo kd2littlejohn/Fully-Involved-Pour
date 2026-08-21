@@ -5,7 +5,6 @@ import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { useUserData } from '../../hooks/useUserData'
 import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
-import { OverflowMenu, type OverflowMenuItem } from '../ui/OverflowMenu'
 import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
 import styles from './BottleListRow.module.css'
 
@@ -37,7 +36,7 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
   const journeyStage = bottleJourneyStage(bottle)
   const [showStatusModal, setShowStatusModal] = useState(false)
 
-  const content = (
+  const mainContent = (
     <>
       {selectable ? (
         <span className={selected ? `${styles.checkbox} ${styles.checkboxChecked}` : styles.checkbox} aria-hidden="true">
@@ -52,17 +51,30 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
         <div className={styles.name}>{bottle.name}</div>
         {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
       </div>
-
-      <div className={styles.meta}>
-        {journeyStage ? (
-          <span className={styles.journey} style={{ color: journeyStage.color }}>
-            {journeyStage.label}
-          </span>
-        ) : null}
-        <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
-        {typeof bottle.rating === 'number' ? <span className={styles.score}>{bottle.rating.toFixed(1)}</span> : null}
-      </div>
     </>
+  )
+
+  const statusBadge = <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
+
+  // Tapping the status pill opens the picker directly — kept as a plain
+  // Badge (not a button) when selectable, since the whole row's click
+  // already means "toggle selection" there.
+  const meta = (
+    <div className={styles.meta}>
+      {journeyStage ? (
+        <span className={styles.journey} style={{ color: journeyStage.color }}>
+          {journeyStage.label}
+        </span>
+      ) : null}
+      {selectable ? (
+        statusBadge
+      ) : (
+        <button type="button" className={styles.statusButton} onClick={() => setShowStatusModal(true)}>
+          {statusBadge}
+        </button>
+      )}
+      {typeof bottle.rating === 'number' ? <span className={styles.score}>{bottle.rating.toFixed(1)}</span> : null}
+    </div>
   )
 
   if (selectable) {
@@ -81,19 +93,18 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
           }
         }}
       >
-        {content}
+        {mainContent}
+        {meta}
       </div>
     )
   }
 
-  const menuItems: OverflowMenuItem[] = [{ label: 'Change Status', onClick: () => setShowStatusModal(true) }]
-
   return (
     <div className={styles.row}>
       <Link to={`/collection/${bottle.id}`} className={styles.rowLink}>
-        {content}
+        {mainContent}
       </Link>
-      <OverflowMenu items={menuItems} label={`${bottle.name} actions`} />
+      {meta}
       {showStatusModal ? (
         <ChangeBottleStatusModal bottle={bottle} onUpdate={updateBottle} onClose={() => setShowStatusModal(false)} />
       ) : null}

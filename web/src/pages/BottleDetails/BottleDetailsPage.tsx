@@ -149,7 +149,6 @@ export function BottleDetailsPage() {
   }
 
   const menuItems: OverflowMenuItem[] = [
-    { label: 'Change Status', onClick: () => setShowStatusModal(true) },
     { label: 'Edit Bottle', onClick: () => navigate(`/bottles/${bottle.id}/edit`) },
     { label: bottle.favorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
     { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
@@ -188,11 +187,13 @@ export function BottleDetailsPage() {
           {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
           <div className={styles.badges}>
             {bottle.type ? <Badge>{bottle.type}</Badge> : null}
-            <Badge
-              tone={bottle.status === 'open' ? 'amber' : bottle.status === 'wishlist' || bottle.status === 'incoming' ? 'brass' : 'default'}
-            >
-              {STATUS_LABEL[bottle.status]}
-            </Badge>
+            <button type="button" className={styles.statusButton} onClick={() => setShowStatusModal(true)}>
+              <Badge
+                tone={bottle.status === 'open' ? 'amber' : bottle.status === 'wishlist' || bottle.status === 'incoming' ? 'brass' : 'default'}
+              >
+                {STATUS_LABEL[bottle.status]}
+              </Badge>
+            </button>
             {journeyStage ? (
               <span className={styles.journey} style={{ color: journeyStage.color }}>
                 <span className={styles.journeyDot} style={{ background: journeyStage.color }} />
