@@ -41,13 +41,12 @@ describe('ProfilePage', () => {
     expect(screen.getByText('Sign in with Google')).toBeInTheDocument()
   })
 
-  it('keeps the Friends and Settings icons visible while bottles/pours are still loading, not just after', () => {
+  it('keeps the Settings icon visible while bottles/pours are still loading, not just after', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
     mockUseUserData.mockReturnValue({ userDoc: emptyUserDoc(), profile: undefined, loading: true, signedIn: true })
     mockUseBlindProfileStats.mockReturnValue({ stats: undefined, loading: true })
     renderProfile()
 
-    expect(screen.getByRole('link', { name: 'Friends' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
   })
 

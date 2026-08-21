@@ -15,7 +15,13 @@
   color: var(--fip-cream);
 }
 
-.addButton {
+.headerActions {
+  display: flex;
+  gap: var(--fip-space-2);
+}
+
+.iconButton {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -26,6 +32,23 @@
   border: 1px solid var(--fip-border-subtle);
   color: var(--fip-cream);
   flex: 0 0 auto;
+}
+
+.iconBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-error);
+  color: var(--fip-cream);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .tabs {
@@ -83,4 +106,82 @@
   flex-direction: column;
   gap: var(--fip-space-3);
   align-items: center;
+}
+
+.sharedTab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-6);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 var(--fip-shell-x);
+}
+
+.sectionTitle {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+}
+
+.seeAll {
+  background: none;
+  border: none;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hScroll {
+  display: flex;
+  gap: var(--fip-space-3);
+  padding: 0 var(--fip-shell-x);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--fip-shell-x);
+}
+
+.requestsTab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+}
+
+.subTabs {
+  display: flex;
+  gap: var(--fip-space-2);
+  padding: 0 var(--fip-shell-x);
+}
+
+.subTab {
+  flex: 1;
+  min-height: 40px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.subTabActive {
+  background: var(--fip-amber);
+  border-color: var(--fip-amber);
+  color: var(--fip-black);
 }

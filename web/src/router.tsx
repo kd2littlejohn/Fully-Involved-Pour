@@ -15,6 +15,12 @@ const EditProfilePage = lazy(() => import('./pages/Profile/EditProfilePage').the
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const FriendsPage = lazy(() => import('./pages/Friends/FriendsPage').then((m) => ({ default: m.FriendsPage })))
 const FriendProfilePage = lazy(() => import('./pages/Friends/FriendProfilePage').then((m) => ({ default: m.FriendProfilePage })))
+const OurWhiskeyStoryPage = lazy(() =>
+  import('./pages/Friends/OurWhiskeyStoryPage').then((m) => ({ default: m.OurWhiskeyStoryPage })),
+)
+const SharedPourStoryPage = lazy(() =>
+  import('./pages/Friends/SharedPourStoryPage').then((m) => ({ default: m.SharedPourStoryPage })),
+)
 const AddFriendPage = lazy(() => import('./pages/Friends/AddFriendPage').then((m) => ({ default: m.AddFriendPage })))
 const AddBottlePage = lazy(() => import('./pages/AddBottle/AddBottlePage').then((m) => ({ default: m.AddBottlePage })))
 const BlindRoomLandingPage = lazy(() =>
@@ -62,6 +68,8 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
       // sixth bottom-nav item.
       { path: '/friends', element: <FriendsPage /> },
       { path: '/friends/u/:username', element: <FriendProfilePage /> },
+      { path: '/friends/u/:username/story', element: <OurWhiskeyStoryPage /> },
+      { path: '/friends/shared/:momentId', element: <SharedPourStoryPage /> },
       // Browsable like Collection/Discover — bottom nav stays visible while
       // deciding which Blind Room to open. Not itself a bottom-nav item; see
       // the "Blind Room" option in Start a Pour and the Journey "Blind

@@ -1,0 +1,157 @@
+.page {
+  padding-bottom: var(--fip-space-8);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-4) var(--fip-shell-x) var(--fip-space-3);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+  flex: 0 0 auto;
+}
+
+.eyebrow {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.date {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+}
+
+.memory {
+  margin: 0 var(--fip-shell-x) var(--fip-space-4);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-md);
+  line-height: var(--fip-leading-copy);
+}
+
+.peopleRow {
+  margin: 0 var(--fip-shell-x) var(--fip-space-4);
+}
+
+.peopleLabel {
+  display: block;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin-bottom: var(--fip-space-2);
+}
+
+.avatars {
+  display: flex;
+  gap: var(--fip-space-2);
+}
+
+.avatarLink {
+  display: block;
+}
+
+.avatarImage,
+.avatarFallback {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--fip-radius-round);
+  border: 2px solid var(--fip-border-strong);
+}
+
+.avatarImage {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
+  color: var(--fip-amber);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xs);
+}
+
+.bottleImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--fip-oak-deep);
+}
+
+.bottleInfo {
+  padding: var(--fip-space-4) var(--fip-shell-x) 0;
+}
+
+.bottleName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-cream);
+}
+
+.distillery {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.occasion {
+  margin-top: var(--fip-space-1);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+.scoreRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-3) var(--fip-shell-x) 0;
+}
+
+.score {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-amber);
+}
+
+.scoreLabel {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.acceptButton {
+  margin: var(--fip-space-4) var(--fip-shell-x) 0;
+}
+
+.reactionsRow {
+  margin: var(--fip-space-4) var(--fip-shell-x) 0;
+}
+
+.commentsSection {
+  margin: var(--fip-space-6) var(--fip-shell-x) 0;
+}
+
+.commentsHeading {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+  margin-bottom: var(--fip-space-3);
+}

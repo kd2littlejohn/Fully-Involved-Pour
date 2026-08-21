@@ -7,14 +7,19 @@ export interface NavItem {
 // a route — it opens the Pour hub modal (see PourNavButton/usePourHub) — so
 // it isn't listed here; TopNav/BottomNav splice PourNavButton in between
 // index 1 ("My Bar") and index 2 ("Journey") to get the required order:
-// Home | My Bar | Pour | Journey | Profile.
+// Home | My Bar | Pour | Journey | Friends.
 //
 // "Discover" was removed from this list per the 2026-08-15 nav redesign —
 // it's no longer a permanent bottom-nav destination, but the /discover
 // route and page are untouched and stay reachable from Home and My Bar.
+//
+// "Profile" was replaced by "Friends" per the 2026-08-21 Friends redesign —
+// Friends is now a primary destination, matching the attached spec. Profile
+// itself isn't gone: it's reached via the avatar button in the app header
+// (see TopNav.tsx / MobileTopBar.tsx) instead of a permanent nav slot.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Home', path: '/' },
   { label: 'My Bar', path: '/collection' },
   { label: 'Journey', path: '/journal' },
-  { label: 'Profile', path: '/profile' },
+  { label: 'Friends', path: '/friends' },
 ]

@@ -27,7 +27,7 @@ export function AddFriendPage() {
             <path d="M15 5 8 12l7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <h1 className={styles.title}>Add Friend</h1>
+        <h1 className={styles.title}>Find Friends</h1>
       </header>
 
       <div className={styles.searchWrap}>

@@ -1,0 +1,53 @@
+.card {
+  display: block;
+  flex: 0 0 auto;
+  width: 200px;
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  overflow: hidden;
+  text-decoration: none;
+  scroll-snap-align: start;
+}
+
+.imageWrap {
+  aspect-ratio: 16 / 10;
+  background: var(--fip-oak-deep);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.body {
+  padding: var(--fip-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  line-height: var(--fip-leading-copy);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bottleName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-cream);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time {
+  color: var(--fip-stone);
+  font-size: var(--fip-text-xs);
+}

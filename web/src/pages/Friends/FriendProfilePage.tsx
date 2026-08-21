@@ -1,4 +1,4 @@
-import { Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { StatTile } from '../../components/ui/StatTile'
@@ -113,6 +113,9 @@ export function FriendProfilePage() {
   const { profile, uid, sharedCollection, sharedMomentsWithViewer } = data
   const displayName = profile.displayName || profile.username || 'FIP User'
   const commonBottles = sharedCollection ? getBottlesInCommon(userDoc.bottles, sharedCollection.bottles) : []
+  const hasAnySharedStat = Boolean(
+    story?.poursTogetherCount || sharedCollection?.bottles.length || story?.blindTastingsTogetherCount || sharedMomentsWithViewer.length,
+  )
 
   return (
     <div className={styles.page}>
@@ -142,14 +145,20 @@ export function FriendProfilePage() {
         </div>
       ) : null}
 
-      {sharedCollection && (sharedCollection.bottles.length > 0 || sharedCollection.wishlist.length > 0) ? (
-        <div className={styles.statsRow}>
-          {sharedCollection.bottles.length > 0 ? <StatTile value={sharedCollection.bottles.length} label="Bottles Shared" /> : null}
-          {sharedCollection.wishlist.length > 0 ? <StatTile value={sharedCollection.wishlist.length} label="Wish List Items" /> : null}
+      {hasAnySharedStat ? (
+        <div className={styles.statsGrid}>
+          <StatTile value={story?.poursTogetherCount ?? 0} label="Pours Together" />
+          <StatTile value={sharedCollection?.bottles.length ?? 0} label="Bottles Shared" />
+          <StatTile value={story?.blindTastingsTogetherCount ?? 0} label="Blind Tastings" />
+          <StatTile value={sharedMomentsWithViewer.length} label="Shared Stories" />
         </div>
       ) : null}
 
-      {!storyLoading && story ? <OurWhiskeyStoryCard story={story} friendFirstName={displayName.split(' ')[0] ?? displayName} /> : null}
+      {!storyLoading && story ? (
+        <Link to={`/friends/u/${username}/story`} className={styles.storyLink}>
+          <OurWhiskeyStoryCard story={story} friendFirstName={displayName.split(' ')[0] ?? displayName} />
+        </Link>
+      ) : null}
 
       {sharedMomentsWithViewer.length > 0 ? (
         <section className={styles.section}>

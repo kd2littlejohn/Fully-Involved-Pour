@@ -76,6 +76,8 @@ describe('buildOurWhiskeyStory', () => {
     await joinBlindRoomByCode(room.code, 'friend-d', 'friend')
     const story = await buildOurWhiskeyStory('viewer-d', 'friend-d')
     expect(story.blindTastingsTogetherCount).toBe(1)
+    expect(story.sharedBlindRooms).toHaveLength(1)
+    expect(story.sharedBlindRooms[0]?.id).toBe(room.id)
   })
 
   it('ignores bottles or blinds shared with someone else entirely', async () => {

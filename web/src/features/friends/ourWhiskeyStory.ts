@@ -1,6 +1,6 @@
 import { getSharedMomentsForOwner } from '../../data/repositories/sharedMoments'
 import { getMyBlindRooms, getParticipant } from '../../data/repositories/blindRoom'
-import type { SharedMoment } from '../../data/types'
+import type { BlindRoom, SharedMoment } from '../../data/types'
 
 export interface SharedBottleCount {
   name: string
@@ -12,6 +12,11 @@ export interface OurWhiskeyStory {
   blindTastingsTogetherCount: number
   mostSharedBottle?: SharedBottleCount
   recentSharedMoments: SharedMoment[]
+  // Rooms the viewer hosted/joined where the friend was also a participant
+  // — same lookup blindTastingsTogetherCount already does, just keeping the
+  // room details instead of only the count, for the full Our Whiskey Story
+  // page's "Shared Blind Tastings" list.
+  sharedBlindRooms: BlindRoom[]
 }
 
 const RECENT_LIMIT = 5
@@ -40,19 +45,21 @@ export async function buildOurWhiskeyStory(viewerUid: string, friendUid: string)
     if (count >= MIN_COUNT_FOR_MOST_SHARED && (!mostSharedBottle || count > mostSharedBottle.count)) mostSharedBottle = { name, count }
   }
 
-  let blindTastingsTogetherCount = 0
+  let sharedBlindRooms: BlindRoom[] = []
   try {
     const myRooms = await getMyBlindRooms(viewerUid)
     const results = await Promise.all(myRooms.map(({ room }) => getParticipant(room.id, friendUid)))
-    blindTastingsTogetherCount = results.filter(Boolean).length
+    sharedBlindRooms = myRooms.filter((_, i) => Boolean(results[i])).map(({ room }) => room)
+    sharedBlindRooms.sort((a, b) => b.createdAt - a.createdAt)
   } catch (err) {
     console.error('buildOurWhiskeyStory: blind room lookup failed', err)
   }
 
   return {
     poursTogetherCount: momentsTogether.length,
-    blindTastingsTogetherCount,
+    blindTastingsTogetherCount: sharedBlindRooms.length,
     mostSharedBottle,
     recentSharedMoments: momentsTogether.slice(0, RECENT_LIMIT),
+    sharedBlindRooms,
   }
 }

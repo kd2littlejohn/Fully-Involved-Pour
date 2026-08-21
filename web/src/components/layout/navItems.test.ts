@@ -7,7 +7,7 @@ describe('NAV_ITEMS', () => {
       { label: 'Home', path: '/' },
       { label: 'My Bar', path: '/collection' },
       { label: 'Journey', path: '/journal' },
-      { label: 'Profile', path: '/profile' },
+      { label: 'Friends', path: '/friends' },
     ])
   })
 })
