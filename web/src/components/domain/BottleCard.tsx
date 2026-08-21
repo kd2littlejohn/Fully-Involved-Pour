@@ -10,6 +10,7 @@ import { BottlePlaceholder } from '../ui/BottlePlaceholder'
 import { FipScoreBadge } from '../ui/FipScoreBadge'
 import { OverflowMenu, type OverflowMenuItem } from '../ui/OverflowMenu'
 import { RecommendToFriendModal } from '../../features/friends/RecommendToFriendModal'
+import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
 import styles from './BottleCard.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -28,10 +29,6 @@ const STATUS_TONE: Record<BottleStatus, 'default' | 'amber' | 'brass'> = {
   incoming: 'brass',
 }
 
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 interface BottleCardProps {
   bottle: Bottle
   selectable?: boolean
@@ -45,22 +42,14 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   const journeyStage = bottleJourneyStage(bottle)
   const { title, subtitle } = splitBottleTitle(bottle.name)
   const { open: openPourFlow, modals } = useBottlePourFlow(bottle.id)
-  const [markingFinished, setMarkingFinished] = useState(false)
   const [showRecommendModal, setShowRecommendModal] = useState(false)
+  const [showStatusModal, setShowStatusModal] = useState(false)
 
   const currentBottleId = bottle.id
   const currentFavorite = bottle.favorite
-  const currentFinishedDate = bottle.finishedDate
-  const canMarkFinished = bottle.status === 'open'
   // A wishlist bottle isn't owned yet — nothing to pour. Matches the same
   // pourable filter StartAPourButton's own bottle picker already applies.
   const canStartAPour = bottle.status !== 'wishlist'
-
-  async function handleMarkFinished() {
-    setMarkingFinished(true)
-    await updateBottle(currentBottleId, { status: 'finished', finishedDate: currentFinishedDate ?? todayIsoDate() })
-    setMarkingFinished(false)
-  }
 
   async function handleToggleFavorite() {
     await updateBottle(currentBottleId, { favorite: !currentFavorite })
@@ -74,17 +63,11 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   }
   menuItems.push(
     { label: 'View Bottle', onClick: () => navigate(`/collection/${currentBottleId}`) },
+    { label: 'Change Status', onClick: () => setShowStatusModal(true) },
     { label: currentFavorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
     { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
     { label: 'Edit', onClick: () => navigate(`/bottles/${currentBottleId}/edit`) },
   )
-  if (canMarkFinished) {
-    menuItems.push({
-      label: markingFinished ? 'Marking Finished…' : 'Mark Finished',
-      onClick: () => void handleMarkFinished(),
-      disabled: markingFinished,
-    })
-  }
 
   const content = (
     <>
@@ -147,6 +130,9 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
       </Link>
       {modals}
       {showRecommendModal ? <RecommendToFriendModal bottle={bottle} onClose={() => setShowRecommendModal(false)} /> : null}
+      {showStatusModal ? (
+        <ChangeBottleStatusModal bottle={bottle} onUpdate={updateBottle} onClose={() => setShowStatusModal(false)} />
+      ) : null}
     </div>
   )
 }

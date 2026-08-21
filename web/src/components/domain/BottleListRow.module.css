@@ -1,16 +1,24 @@
 .row {
   display: flex;
   align-items: center;
-  gap: var(--fip-space-4);
+  gap: var(--fip-space-2);
   padding: var(--fip-space-3) 0;
   border-bottom: 1px solid var(--fip-border-subtle);
-  text-decoration: none;
-  color: inherit;
   min-height: 44px;
 }
 
 .row:hover {
   background: var(--fip-card);
+}
+
+.rowLink {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-4);
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
 }
 
 .checkbox {

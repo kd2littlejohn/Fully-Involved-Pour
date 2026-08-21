@@ -1,0 +1,42 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 var(--fip-space-4);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.option:not(:disabled):hover {
+  border-color: var(--fip-border-strong);
+}
+
+.option:disabled {
+  cursor: default;
+}
+
+.optionCurrent {
+  background: var(--fip-amber-soft);
+  border-color: var(--fip-border-strong);
+  color: var(--fip-amber);
+}
+
+.currentTag {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}

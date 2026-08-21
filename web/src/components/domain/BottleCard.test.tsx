@@ -104,21 +104,25 @@ describe('BottleCard', () => {
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: true })
   })
 
-  it('offers Mark Finished only for an open bottle', async () => {
+  it('changes status from the menu without going through Edit', async () => {
     const sealed: Bottle = { id: 'b3', name: 'Weller 12', status: 'sealed' }
     mockData([sealed])
     renderCard(sealed)
 
     await openMenu('Weller 12')
-    expect(screen.queryByRole('menuitem', { name: 'Mark Finished' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b3', { status: 'open', openedDate: expect.any(String) })
   })
 
-  it('marks an open bottle finished from the menu', async () => {
+  it('sets a finishedDate when changing status to Finished from the menu', async () => {
     mockData([eagleRare])
     renderCard(eagleRare)
 
     await openMenu('Eagle Rare 10 Year')
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Mark Finished' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Finished' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { status: 'finished', finishedDate: expect.any(String) })
   })

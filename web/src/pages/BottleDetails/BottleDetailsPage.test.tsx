@@ -187,58 +187,51 @@ describe('BottleDetailsPage', () => {
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: false })
   })
 
-  it('offers Mark as Opened for a sealed bottle and marks it opened in one tap', async () => {
+  it('changes a sealed bottle to Opened in one tap, without going through Edit', async () => {
     mockSignedInWith([wellerSpecial], [])
     renderPage('b2')
 
     await openBottleMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Mark as Opened' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b2', { status: 'open', openedDate: expect.any(String) })
   })
 
-  it('does not offer Mark as Opened for a bottle that is already open', async () => {
+  it('shows the bottle’s current status as disabled and already marked "Current" in the picker', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
     await openBottleMenu()
-    expect(screen.queryByRole('menuitem', { name: 'Mark as Opened' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+
+    const current = screen.getByText('Current').closest('button')
+    expect(current).toHaveTextContent('Opened')
+    expect(current).toBeDisabled()
   })
 
-  it('does not offer Mark as Opened for a finished bottle', async () => {
-    mockSignedInWith([{ ...eagleRare, status: 'finished' }], [pour])
-    renderPage('b1')
-
-    await openBottleMenu()
-    expect(screen.queryByRole('menuitem', { name: 'Mark as Opened' })).not.toBeInTheDocument()
-  })
-
-  it('offers Mark as Finished for an open bottle, marks it finished, and celebrates', async () => {
+  it('changes an open bottle to Finished, sets a finishedDate, and celebrates', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
     await openBottleMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Mark as Finished' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Finished' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { status: 'finished', finishedDate: expect.any(String) })
     expect(screen.getByText('🥃 Bottle Kill')).toBeInTheDocument()
     expect(screen.getByText(/You finished Eagle Rare after 1 pour/)).toBeInTheDocument()
   })
 
-  it('does not offer Mark as Finished for a sealed bottle', async () => {
+  it('does not celebrate when changing status to anything other than Finished', async () => {
     mockSignedInWith([wellerSpecial], [])
     renderPage('b2')
 
     await openBottleMenu()
-    expect(screen.queryByRole('menuitem', { name: 'Mark as Finished' })).not.toBeInTheDocument()
-  })
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Change Status' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Opened' }))
 
-  it('does not offer Mark as Finished for a bottle that is already finished', async () => {
-    mockSignedInWith([{ ...eagleRare, status: 'finished' }], [pour])
-    renderPage('b1')
-
-    await openBottleMenu()
-    expect(screen.queryByRole('menuitem', { name: 'Mark as Finished' })).not.toBeInTheDocument()
+    expect(screen.queryByText('🥃 Bottle Kill')).not.toBeInTheDocument()
   })
 
   it('opens a photo quick view when the bottle image is clicked', async () => {

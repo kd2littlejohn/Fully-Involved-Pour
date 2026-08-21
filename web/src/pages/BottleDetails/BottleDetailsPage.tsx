@@ -11,6 +11,7 @@ import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { StatTile } from '../../components/ui/StatTile'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
+import { ChangeBottleStatusModal } from '../../components/domain/ChangeBottleStatusModal'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData, type BottlePatch } from '../../hooks/useUserData'
 import type { BottleStatus } from '../../data/types'
@@ -35,10 +36,6 @@ const STATUS_LABEL: Record<BottleStatus, string> = {
   wishlist: 'Wishlist',
   finished: 'Finished',
   incoming: 'Incoming',
-}
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 const TABS = [
@@ -78,8 +75,7 @@ export function BottleDetailsPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
-  const [markingOpen, setMarkingOpen] = useState(false)
-  const [markingFinished, setMarkingFinished] = useState(false)
+  const [showStatusModal, setShowStatusModal] = useState(false)
   const [showBottleKillCelebration, setShowBottleKillCelebration] = useState(false)
   const [showRecommendModal, setShowRecommendModal] = useState(false)
 
@@ -126,33 +122,16 @@ export function BottleDetailsPage() {
   if (bottle.distillery) quickStats.push({ value: bottle.distillery, label: 'Distillery' })
 
   const currentBottleId = bottle.id
-  const currentOpenedDate = bottle.openedDate
-  const currentFinishedDate = bottle.finishedDate
   const currentFavorite = bottle.favorite
   const currentName = bottle.name
   const currentDistillery = bottle.distillery
   const currentType = bottle.type
-  const canQuickOpen = bottle.status !== 'open' && bottle.status !== 'finished'
-  const canMarkFinished = bottle.status === 'open'
 
   async function handleDelete() {
     setDeleting(true)
     await deleteBottle(currentBottleId)
     setDeleting(false)
     navigate('/collection')
-  }
-
-  async function handleMarkOpened() {
-    setMarkingOpen(true)
-    await updateBottle(currentBottleId, { status: 'open', openedDate: currentOpenedDate ?? todayIsoDate() })
-    setMarkingOpen(false)
-  }
-
-  async function handleMarkFinished() {
-    setMarkingFinished(true)
-    await updateBottle(currentBottleId, { status: 'finished', finishedDate: currentFinishedDate ?? todayIsoDate() })
-    setMarkingFinished(false)
-    setShowBottleKillCelebration(true)
   }
 
   async function handleToggleFavorite() {
@@ -169,24 +148,14 @@ export function BottleDetailsPage() {
     await updateBottle(currentBottleId, patch)
   }
 
-  const menuItems: OverflowMenuItem[] = []
-  if (canQuickOpen) {
-    menuItems.push({ label: markingOpen ? 'Marking Opened…' : 'Mark as Opened', onClick: () => void handleMarkOpened(), disabled: markingOpen })
-  }
-  if (canMarkFinished) {
-    menuItems.push({
-      label: markingFinished ? 'Marking Finished…' : 'Mark as Finished',
-      onClick: () => void handleMarkFinished(),
-      disabled: markingFinished,
-    })
-  }
-  menuItems.push(
+  const menuItems: OverflowMenuItem[] = [
+    { label: 'Change Status', onClick: () => setShowStatusModal(true) },
     { label: 'Edit Bottle', onClick: () => navigate(`/bottles/${bottle.id}/edit`) },
     { label: bottle.favorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
     { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
     { label: 'Replace Bottle', onClick: handleReplaceBottle },
     { label: 'Delete Bottle', onClick: () => setConfirmingDelete(true), tone: 'danger' },
-  )
+  ]
 
   return (
     <>
@@ -275,6 +244,17 @@ export function BottleDetailsPage() {
       ) : null}
 
       {showRecommendModal ? <RecommendToFriendModal bottle={bottle} onClose={() => setShowRecommendModal(false)} /> : null}
+
+      {showStatusModal ? (
+        <ChangeBottleStatusModal
+          bottle={bottle}
+          onUpdate={updateBottle}
+          onClose={() => setShowStatusModal(false)}
+          onStatusChanged={(status) => {
+            if (status === 'finished') setShowBottleKillCelebration(true)
+          }}
+        />
+      ) : null}
     </>
   )
 }

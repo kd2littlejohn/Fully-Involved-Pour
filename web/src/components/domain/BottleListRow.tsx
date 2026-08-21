@@ -1,8 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Bottle, BottleStatus } from '../../data/types'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
+import { useUserData } from '../../hooks/useUserData'
 import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
+import { OverflowMenu, type OverflowMenuItem } from '../ui/OverflowMenu'
+import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
 import styles from './BottleListRow.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -29,7 +33,9 @@ interface BottleListRowProps {
 }
 
 export function BottleListRow({ bottle, selectable = false, selected = false, onToggleSelect }: BottleListRowProps) {
+  const { updateBottle } = useUserData()
   const journeyStage = bottleJourneyStage(bottle)
+  const [showStatusModal, setShowStatusModal] = useState(false)
 
   const content = (
     <>
@@ -62,7 +68,7 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
   if (selectable) {
     return (
       <div
-        className={styles.row}
+        className={`${styles.row} ${styles.rowLink}`}
         role="checkbox"
         aria-checked={selected}
         aria-label={bottle.name}
@@ -80,9 +86,17 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
     )
   }
 
+  const menuItems: OverflowMenuItem[] = [{ label: 'Change Status', onClick: () => setShowStatusModal(true) }]
+
   return (
-    <Link to={`/collection/${bottle.id}`} className={styles.row}>
-      {content}
-    </Link>
+    <div className={styles.row}>
+      <Link to={`/collection/${bottle.id}`} className={styles.rowLink}>
+        {content}
+      </Link>
+      <OverflowMenu items={menuItems} label={`${bottle.name} actions`} />
+      {showStatusModal ? (
+        <ChangeBottleStatusModal bottle={bottle} onUpdate={updateBottle} onClose={() => setShowStatusModal(false)} />
+      ) : null}
+    </div>
   )
 }
