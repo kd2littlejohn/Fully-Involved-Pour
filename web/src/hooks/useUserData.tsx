@@ -166,25 +166,23 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     setProfileLoading(true)
     fetchProfile(user.uid).then(async (fetched) => {
       if (cancelled) return
+      // Creates a searchable public profile for a brand-new signup or an
+      // account that predates this system, OR repairs one that exists but
+      // is missing/stale on the normalized fields Friend Search actually
+      // queries — see ensureSearchableProfile's own comment for why "the
+      // profile exists" isn't the same as "it's findable." A no-op (returns
+      // fetched unchanged) in the common case where nothing needs fixing.
+      // Failures are logged and simply retried the next time this effect
+      // runs (e.g. next app load) rather than blocking the rest of sign-in.
       let p = fetched
-      if (!p) {
-        // No searchable public profile yet — either a brand-new signup or
-        // an account that predates this system. Create one now so this
-        // user becomes findable by Friend Search immediately, then re-read
-        // it. Failures are logged and simply retried the next time this
-        // effect runs (e.g. next app load) rather than blocking the rest
-        // of sign-in.
-        try {
-          await ensureSearchableProfile(user.uid, {
-            preferredUsername: userDocRef.current.username,
-            displayName: user.displayName ?? undefined,
-            photoURL: user.photoURL ?? undefined,
-          })
-          if (cancelled) return
-          p = await fetchProfile(user.uid)
-        } catch (err) {
-          console.error('ensureSearchableProfile failed', err)
-        }
+      try {
+        p = await ensureSearchableProfile(user.uid, fetched, {
+          preferredUsername: userDocRef.current.username,
+          displayName: user.displayName ?? undefined,
+          photoURL: user.photoURL ?? undefined,
+        })
+      } catch (err) {
+        console.error('ensureSearchableProfile failed', err)
       }
       if (cancelled) return
       setProfile(p)

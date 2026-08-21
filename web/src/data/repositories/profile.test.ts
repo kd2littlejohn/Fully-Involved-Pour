@@ -166,20 +166,55 @@ describe('ensureSearchableProfile', () => {
     return mockDoc.mock.calls.filter((call) => call[1] === 'usernames').map((call) => call[2] as string)
   }
 
-  it('no-ops if a searchable profile already exists', async () => {
-    mockGetDoc.mockResolvedValueOnce({ exists: () => true })
+  it('no-ops (no read, no write) when the existing profile is already fully searchable', async () => {
+    const profile = { username: 'kevin', normalizedUsername: 'kevin', displayName: 'Kevin', normalizedDisplayName: 'kevin' }
 
-    await ensureSearchableProfile('uid-1', { displayName: 'Kevin' })
+    const result = await ensureSearchableProfile('uid-1', profile, { displayName: 'Kevin' })
 
+    expect(result).toBe(profile)
+    expect(mockGetDoc).not.toHaveBeenCalled()
     expect(mockSetDoc).not.toHaveBeenCalled()
   })
 
-  it('creates usernames/{slug} and profiles/{uid} from the display name when no profile exists yet', async () => {
-    mockGetDoc
-      .mockResolvedValueOnce({ exists: () => false }) // profiles/{uid} check
-      .mockResolvedValueOnce({ exists: () => false }) // usernames/{candidate} check
+  // This is the actual bug reported in production: an account whose
+  // profiles/{uid} doc genuinely exists (username really is claimed) but
+  // predates normalizedUsername/normalizedDisplayName, or whose claim write
+  // only partially landed, was previously treated as "already has a
+  // profile, nothing to do" and stayed permanently unfindable.
+  it('repairs a profile that exists but is missing normalizedUsername, in place', async () => {
+    const profile = { username: 'captainpouralot', displayName: 'Captain Pour-a-lot' }
 
-    await ensureSearchableProfile('uid-1', { displayName: 'Kevin Littlejohn', photoURL: 'https://example.com/p.jpg' })
+    const result = await ensureSearchableProfile('uid-1', profile, {})
+
+    expect(mockSetDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      { normalizedUsername: 'captainpouralot', normalizedDisplayName: 'captain pour-a-lot' },
+      { merge: true },
+    )
+    expect(result).toEqual({
+      username: 'captainpouralot',
+      displayName: 'Captain Pour-a-lot',
+      normalizedUsername: 'captainpouralot',
+      normalizedDisplayName: 'captain pour-a-lot',
+    })
+  })
+
+  it('repairs a stale normalizedUsername that no longer matches username', async () => {
+    const profile = { username: 'newname', normalizedUsername: 'oldname' }
+
+    const result = await ensureSearchableProfile('uid-1', profile, {})
+
+    expect(mockSetDoc).toHaveBeenCalledWith(expect.anything(), { normalizedUsername: 'newname' }, { merge: true })
+    expect(result?.normalizedUsername).toBe('newname')
+  })
+
+  it('creates usernames/{slug} and profiles/{uid} from the display name when no profile exists yet', async () => {
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false }) // usernames/{candidate} check
+
+    const result = await ensureSearchableProfile('uid-1', undefined, {
+      displayName: 'Kevin Littlejohn',
+      photoURL: 'https://example.com/p.jpg',
+    })
 
     expect(usernameDocCandidates()).toEqual(['kevin_littlejohn'])
     expect(mockSetDoc).toHaveBeenCalledWith(expect.anything(), { uid: 'uid-1', username: 'kevin_littlejohn' })
@@ -194,61 +229,58 @@ describe('ensureSearchableProfile', () => {
       },
       { merge: true },
     )
+    expect(result?.username).toBe('kevin_littlejohn')
   })
 
   it('prefers an already-chosen private username over deriving one from the display name', async () => {
-    mockGetDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => false })
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false })
 
-    await ensureSearchableProfile('uid-1', { preferredUsername: '@Pour_Teknique', displayName: 'Kevin Littlejohn' })
+    await ensureSearchableProfile('uid-1', undefined, { preferredUsername: '@Pour_Teknique', displayName: 'Kevin Littlejohn' })
 
     expect(usernameDocCandidates()).toEqual(['pour_teknique'])
   })
 
   it('retries with a numeric suffix when the derived username is already claimed by someone else', async () => {
     mockGetDoc
-      .mockResolvedValueOnce({ exists: () => false }) // profiles/{uid} check
       .mockResolvedValueOnce({ exists: () => true, data: () => ({ uid: 'someone-else' }) }) // usernames/kevin taken
       .mockResolvedValueOnce({ exists: () => false }) // usernames/kevin2 free
 
-    await ensureSearchableProfile('uid-1', { displayName: 'Kevin' })
+    await ensureSearchableProfile('uid-1', undefined, { displayName: 'Kevin' })
 
     expect(usernameDocCandidates()).toEqual(['kevin', 'kevin2'])
   })
 
   it('reclaims a username it already owns from a previous partial attempt, instead of skipping it', async () => {
-    mockGetDoc
-      .mockResolvedValueOnce({ exists: () => false }) // profiles/{uid} check
-      .mockResolvedValueOnce({ exists: () => true, data: () => ({ uid: 'uid-1' }) }) // usernames/kevin already ours
+    mockGetDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ uid: 'uid-1' }) }) // usernames/kevin already ours
 
-    await ensureSearchableProfile('uid-1', { displayName: 'Kevin' })
+    await ensureSearchableProfile('uid-1', undefined, { displayName: 'Kevin' })
 
     expect(usernameDocCandidates()).toEqual(['kevin'])
     expect(mockSetDoc).toHaveBeenCalled()
   })
 
   it('falls back to a friend_{uid} slug when there is no display name or preferred username to derive from', async () => {
-    mockGetDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => false })
+    mockGetDoc.mockResolvedValueOnce({ exists: () => false })
 
-    await ensureSearchableProfile('abcdef123456', {})
+    await ensureSearchableProfile('abcdef123456', undefined, {})
 
     expect(usernameDocCandidates()).toEqual(['friend_abcdef'])
   })
 
   it('gives up after exhausting every attempt without throwing', async () => {
-    mockGetDoc.mockImplementation(async (ref: { args: unknown[] }) => {
-      if (ref.args[1] === 'profiles') return { exists: () => false }
-      return { exists: () => true, data: () => ({ uid: 'someone-else' }) }
-    })
+    mockGetDoc.mockResolvedValue({ exists: () => true, data: () => ({ uid: 'someone-else' }) })
 
-    await expect(ensureSearchableProfile('uid-1', { displayName: 'Kevin' })).resolves.toBeUndefined()
+    await expect(ensureSearchableProfile('uid-1', undefined, { displayName: 'Kevin' })).resolves.toBeUndefined()
     expect(mockSetDoc).not.toHaveBeenCalled()
   })
 
-  it('is a no-op in mock/dev-fixture mode', async () => {
+  it('is a no-op in mock/dev-fixture mode, returning the existing profile untouched', async () => {
     mockIsMockAuthEnabled.mockReturnValue(true)
+    const profile = { username: 'kevin' }
 
-    await ensureSearchableProfile('uid-1', { displayName: 'Kevin' })
+    const result = await ensureSearchableProfile('uid-1', profile, { displayName: 'Kevin' })
 
+    expect(result).toBe(profile)
     expect(mockGetDoc).not.toHaveBeenCalled()
     expect(mockSetDoc).not.toHaveBeenCalled()
   })

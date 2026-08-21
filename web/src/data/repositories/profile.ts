@@ -132,23 +132,45 @@ function slugifyUsername(base: string): string {
 
 const MAX_USERNAME_ATTEMPTS = 25
 
-// Idempotent — no-ops the instant profiles/{uid} already exists, so it's
-// safe to call on every load. This is the single code path that covers both
-// "brand-new signup" (called once auth resolves, before the user has ever
-// touched Edit Profile) AND "backfill for an account that predates this
-// searchable-profile system" (see useUserData.tsx's profile effect, which
-// calls this whenever a signed-in user's profile comes back missing) —
-// both cases reduce to the same fix: a signed-in user with no
-// profiles/{uid} doc yet is permanently unfindable by Friend Search no
-// matter how correct the query is, until one gets created. Prefers the
-// account's already-chosen private username (userDoc.username, if any)
-// over deriving a fresh one from the Google display name, so a returning
-// user keeps whatever they're already known as elsewhere.
-export async function ensureSearchableProfile(uid: string, hints: EnsureSearchableProfileHints): Promise<void> {
-  if (isMockAuthEnabled()) return
+// Idempotent, safe to call on every load. Takes the profile the caller
+// already fetched (avoids a second, redundant read of the same document)
+// and returns the profile to actually use — either the original, untouched,
+// or the newly created/repaired one. Handles two distinct cases, both of
+// which leave an account unfindable by Friend Search until fixed:
+// (1) no profile at all — "brand-new signup" (called once auth resolves,
+// before the user has ever touched Edit Profile) and "backfill for an
+// account that predates this searchable-profile system" are the same fix
+// here; and (2) a profile that exists but is missing or stale on
+// normalizedUsername/normalizedDisplayName specifically — an account whose
+// username/displayName predates those fields, or whose claim write only
+// partially succeeded, can have a perfectly real profile that search still
+// can't find them through. See useUserData.tsx's profile effect for where
+// this gets called from. For case (1), prefers the account's
+// already-chosen private username (userDoc.username, if any) over deriving
+// a fresh one from the Google display name, so a returning user keeps
+// whatever they're already known as elsewhere.
+export async function ensureSearchableProfile(
+  uid: string,
+  existingProfile: Profile | undefined,
+  hints: EnsureSearchableProfileHints,
+): Promise<Profile | undefined> {
+  if (isMockAuthEnabled()) return existingProfile
 
-  const existing = await getDoc(doc(db, 'profiles', uid))
-  if (existing.exists()) return
+  if (existingProfile) {
+    const patch: Partial<Profile> = {}
+    if (existingProfile.username && existingProfile.normalizedUsername !== normalizeForSearch(existingProfile.username)) {
+      patch.normalizedUsername = normalizeForSearch(existingProfile.username)
+    }
+    if (
+      existingProfile.displayName &&
+      existingProfile.normalizedDisplayName !== normalizeForSearch(existingProfile.displayName)
+    ) {
+      patch.normalizedDisplayName = normalizeForSearch(existingProfile.displayName)
+    }
+    if (Object.keys(patch).length === 0) return existingProfile
+    await setDoc(doc(db, 'profiles', uid), patch, { merge: true })
+    return { ...existingProfile, ...patch }
+  }
 
   const base = slugifyUsername(hints.preferredUsername || hints.displayName || `friend_${uid.slice(0, 6)}`)
   const displayName = hints.displayName
@@ -161,23 +183,18 @@ export async function ensureSearchableProfile(uid: string, hints: EnsureSearchab
       const usernameSnap = await getDoc(usernameRef)
       if (usernameSnap.exists() && (usernameSnap.data() as UsernameRecord).uid !== uid) continue
 
-      await Promise.all([
-        setDoc(usernameRef, { uid, username: candidate }),
-        setDoc(
-          doc(db, 'profiles', uid),
-          {
-            username: candidate,
-            normalizedUsername: candidate,
-            ...(displayName ? { displayName, normalizedDisplayName } : {}),
-            ...(hints.photoURL ? { photoURL: hints.photoURL } : {}),
-          },
-          { merge: true },
-        ),
-      ])
-      return
+      const newProfile: Profile = {
+        username: candidate,
+        normalizedUsername: candidate,
+        ...(displayName ? { displayName, normalizedDisplayName } : {}),
+        ...(hints.photoURL ? { photoURL: hints.photoURL } : {}),
+      }
+      await Promise.all([setDoc(usernameRef, { uid, username: candidate }), setDoc(doc(db, 'profiles', uid), newProfile, { merge: true })])
+      return newProfile
     } catch (err) {
       console.error('ensureSearchableProfile: attempt failed', { uid, candidate, err })
     }
   }
   console.error('ensureSearchableProfile: exhausted username attempts', { uid })
+  return undefined
 }
