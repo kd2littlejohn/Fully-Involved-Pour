@@ -87,6 +87,26 @@ describe('PourWizard', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('strips the trailing separator the friend Combobox leaves on the With field before saving', async () => {
+    const onClose = vi.fn()
+    render(<PourWizard bottleId="b4" bottleName="Weller 12" onClose={onClose} />)
+
+    // Mirrors what SessionStep's friend Combobox leaves behind after
+    // picking one or more friends (see SessionStep.tsx's
+    // handleCompanionSelect) — the trailing ", " should never reach saved
+    // pour data.
+    fireEvent.change(screen.getByLabelText('With'), { target: { value: 'Dad, Kevin Littlejohn, ' } })
+    await goNext() // Session -> Nose
+    await goNext() // Nose -> Palate
+    await goNext() // Palate -> Finish
+    await goNext() // Finish -> Complexity
+    await goNext() // Complexity -> Summary
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Story' }))
+
+    expect(mockAddPour).toHaveBeenCalledWith(expect.objectContaining({ companion: 'Dad, Kevin Littlejohn' }))
+  })
+
   it('persists a draft to localStorage so reopening the wizard resumes it', async () => {
     const onClose = vi.fn()
     const { unmount } = render(<PourWizard bottleId="b2" bottleName="Weller 12" onClose={onClose} />)

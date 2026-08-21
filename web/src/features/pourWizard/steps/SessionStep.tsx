@@ -10,28 +10,53 @@ export function SessionStep({ draft, updateDraft }: StepProps) {
   const { user } = useAuth()
   const { friends } = useFriends(user?.uid)
 
+  // When picking a second (or third) friend, only the text after the last
+  // comma is what the user is actively typing — the earlier picks
+  // ("Dad, ") shouldn't be re-matched against. Typing "Dad, Kev" should
+  // suggest Kevin, not re-search the whole string against every name.
+  function currentSegment(value: string): string {
+    const lastComma = value.lastIndexOf(',')
+    return lastComma === -1 ? value : value.slice(lastComma + 1)
+  }
+
   // Focusing the empty field (or typing a few letters) surfaces real
   // friends to pick from — "cycling through" the friends list — without
   // forcing every pour to have a real friend attached: typing your own
   // free text ("Dad, alone, firehouse crew…") and ignoring the list
   // entirely still works exactly as before, same as the Distillery
-  // combobox elsewhere in this wizard.
+  // combobox elsewhere in this wizard. Friends already picked drop out of
+  // the suggestions so the same person can't be added twice.
   function friendOptions(query: string): ComboboxOption[] {
-    const q = query.trim().toLowerCase()
+    const q = currentSegment(query).trim().toLowerCase()
+    const alreadyAdded = new Set(draft.sharedWithUids ?? [])
     return friends
+      .filter((friend) => !alreadyAdded.has(friend.uid))
       .filter((friend) => !q || (friend.displayName || friend.username || '').toLowerCase().includes(q))
       .map((friend) => ({ id: friend.uid, label: friend.displayName || friend.username || 'FIP Friend' }))
   }
 
-  // Picking a real friend from the suggestions also tags them (same
-  // sharedWithUids the chip picker below writes to — see
+  // Picking a real friend appends their name after the last comma rather
+  // than replacing the whole field, so selecting several friends in a row
+  // reads as "Dad, Kevin Littlejohn" instead of the field just showing
+  // whichever name was picked most recently. Leaves a trailing ", " so the
+  // suggestion list immediately shows the remaining friends (see
+  // currentSegment above) instead of requiring the user to type a comma
+  // themselves before picking the next one — the trailing separator is
+  // stripped when the pour is actually saved (see PourWizard.tsx). Also
+  // tags them (same sharedWithUids the chip picker below writes to — see
   // features/friends/TagFriendsField.tsx), so choosing "Dad" here doesn't
   // require separately tapping his chip too. Never touches companion's own
   // free-text meaning otherwise; typing without selecting a suggestion
   // still just sets plain text, same as before.
   function handleCompanionSelect(option: ComboboxOption) {
     const uids = draft.sharedWithUids ?? []
-    if (!uids.includes(option.id)) updateDraft({ sharedWithUids: [...uids, option.id] })
+    const nextUids = uids.includes(option.id) ? uids : [...uids, option.id]
+
+    const current = draft.companion ?? ''
+    const lastComma = current.lastIndexOf(',')
+    const prefix = lastComma === -1 ? '' : `${current.slice(0, lastComma)}, `
+
+    updateDraft({ companion: `${prefix}${option.label}, `, sharedWithUids: nextUids })
   }
 
   return (

@@ -46,8 +46,29 @@ describe('SessionStep — With field', () => {
     fireEvent.focus(screen.getByLabelText('With'))
     fireEvent.click(screen.getByRole('option', { name: 'Dad' }))
 
-    expect(updateDraft).toHaveBeenCalledWith({ companion: 'Dad' })
-    expect(updateDraft).toHaveBeenCalledWith({ sharedWithUids: ['friend-2', 'friend-1'] })
+    // A trailing ", " is left on purpose so the very next friendOptions
+    // call shows the remaining friends instead of re-searching for "dad" —
+    // see SessionStep.tsx's currentSegment. It's stripped when the pour is
+    // actually saved (PourWizard.tsx), not here in the editing field.
+    expect(updateDraft).toHaveBeenLastCalledWith({ companion: 'Dad, ', sharedWithUids: ['friend-2', 'friend-1'] })
+  })
+
+  it('selecting a second friend appends after the last comma instead of replacing the field', () => {
+    const updateDraft = vi.fn()
+    const draft = { ...blankDraft(), companion: 'Dad, ', sharedWithUids: ['friend-1'] }
+    render(<SessionStep draft={draft} updateDraft={updateDraft} />)
+
+    fireEvent.focus(screen.getByLabelText('With'))
+
+    // Dad is already added, so he no longer shows up as a suggestion —
+    // only Kevin, the friend not yet picked.
+    expect(screen.queryByRole('option', { name: 'Dad' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: 'Kevin Littlejohn' }))
+
+    expect(updateDraft).toHaveBeenLastCalledWith({
+      companion: 'Dad, Kevin Littlejohn, ',
+      sharedWithUids: ['friend-1', 'friend-2'],
+    })
   })
 
   it('still allows plain free-text companion entry, unaffected by the friends list', () => {

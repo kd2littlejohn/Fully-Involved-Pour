@@ -57,7 +57,10 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
       rating: total,
       occasion: draft.occasion,
       notes: draft.notes,
-      companion: draft.companion,
+      // Strips the trailing ", " SessionStep's friend Combobox leaves after
+      // the last pick (see SessionStep.tsx's handleCompanionSelect) so a
+      // pour never saves with a dangling separator.
+      companion: draft.companion?.replace(/,\s*$/, ''),
       sharedWithUids: draft.sharedWithUids,
       location: draft.location,
       mood: draft.mood,
