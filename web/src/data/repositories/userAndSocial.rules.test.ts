@@ -212,6 +212,18 @@ describe('relationships/{pairId}', () => {
       setDoc(doc(a.firestore(), 'relationships', pairId), { userIds: [USER_A, USER_B], status: 'friends', requestedBy: USER_A }),
     )
   })
+
+  // This is the actual bug that broke Friend Search end to end: with no
+  // !exists() branch, reading a relationship doc that doesn't exist yet
+  // (the normal case — you're searching for someone you've never
+  // interacted with) threw permission-denied instead of succeeding with
+  // "not found," which broke getFriendStatus for every search result
+  // against a stranger.
+  it('a get on a relationship that does not exist yet succeeds (not permission-denied), so getFriendStatus can resolve "none"', async () => {
+    const a = testEnv.authenticatedContext(USER_A)
+    const snap = await assertSucceeds(getDoc(doc(a.firestore(), 'relationships', pairId)))
+    expect(snap.exists()).toBe(false)
+  })
 })
 
 // --- friendRequests/{senderId}_{receiverId} ---------------------------------
@@ -246,6 +258,14 @@ describe('friendRequests/{requestId}', () => {
 
     const b = testEnv.authenticatedContext(USER_B)
     await assertSucceeds(updateDoc(doc(b.firestore(), 'friendRequests', requestId), { status: 'accepted' }))
+  })
+
+  // Same !exists() bug as relationships/{pairId} above — getFriendStatus
+  // does two of these (outgoing and incoming direction) per search result.
+  it('a get on a friend request that does not exist yet succeeds (not permission-denied)', async () => {
+    const a = testEnv.authenticatedContext(USER_A)
+    const snap = await assertSucceeds(getDoc(doc(a.firestore(), 'friendRequests', requestId)))
+    expect(snap.exists()).toBe(false)
   })
 })
 

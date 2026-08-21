@@ -263,7 +263,20 @@ service cloud.firestore {
     }
 
     match /relationships/{pairId} {
-      allow read: if request.auth != null && request.auth.uid in resource.data.userIds;
+      // The !exists() branch matters more than it looks: getFriendStatus
+      // (relationships.ts) does a plain get() on this exact path for every
+      // Friend Search result, and the common case is two people who have
+      // never interacted — no relationship doc exists yet. Firestore
+      // evaluates resource.data against a document that doesn't exist by
+      // throwing, which surfaces to the client as permission-denied, not
+      // "not found" — so without this branch, searching for literally any
+      // stranger (the normal case) broke the whole search result list.
+      // Allowing the read to succeed when the doc doesn't exist leaks
+      // nothing (there's no data to leak) and lets the client correctly
+      // see "not found" and derive status 'none', same as if there were no
+      // rule on this path at all for that one case.
+      allow read: if request.auth != null
+        && (!exists(/databases/$(database)/documents/relationships/$(pairId)) || request.auth.uid in resource.data.userIds);
       // 'friends' can only ever be created/overwritten by the RECEIVER of a
       // real, still-pending request from whoever `requestedBy` names — this
       // is what actually turns "accept" into a relationship, not a bare
@@ -288,8 +301,13 @@ service cloud.firestore {
     // friendRequests/{senderId}_{receiverId} — direction lives in the doc
     // id itself, unlike relationships.
     match /friendRequests/{requestId} {
+      // Same !exists() reasoning as relationships/{pairId} above —
+      // getFriendStatus does two of these get()s (outgoing and incoming)
+      // per search result, and "no request exists between these two
+      // people" is the common case, not the exception.
       allow read: if request.auth != null
-        && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+        && (!exists(/databases/$(database)/documents/friendRequests/$(requestId))
+            || request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
       allow create: if request.auth != null
         && request.auth.uid == request.resource.data.senderId
         && request.resource.data.status == 'pending'
