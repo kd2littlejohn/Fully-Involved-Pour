@@ -7,7 +7,6 @@ import type { Bottle, Pour } from '../../data/types'
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockUseBlindProfileStats = vi.fn()
-const mockSyncSharedCollection = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -19,12 +18,6 @@ vi.mock('../../hooks/useUserData', () => ({
 
 vi.mock('../../features/profile/useBlindProfileStats', () => ({
   useBlindProfileStats: () => mockUseBlindProfileStats(),
-}))
-
-// Real profile-page-visit sync (see ProfilePage.tsx) — never hit the real
-// network from a unit test.
-vi.mock('../../data/repositories/sharedCollections', () => ({
-  syncSharedCollection: (...args: unknown[]) => mockSyncSharedCollection(...args),
 }))
 
 function renderProfile() {

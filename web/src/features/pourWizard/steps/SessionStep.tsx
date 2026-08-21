@@ -1,11 +1,38 @@
 import { Field, controlClassName } from '../../../components/ui/Field'
+import { Combobox, type ComboboxOption } from '../../../components/ui/Combobox'
 import { useAuth } from '../../../hooks/useAuth'
+import { useFriends } from '../../friends/useFriends'
 import { TagFriendsField } from '../../friends/TagFriendsField'
 import type { StepProps } from './StepProps'
 import styles from './steps.module.css'
 
 export function SessionStep({ draft, updateDraft }: StepProps) {
   const { user } = useAuth()
+  const { friends } = useFriends(user?.uid)
+
+  // Focusing the empty field (or typing a few letters) surfaces real
+  // friends to pick from — "cycling through" the friends list — without
+  // forcing every pour to have a real friend attached: typing your own
+  // free text ("Dad, alone, firehouse crew…") and ignoring the list
+  // entirely still works exactly as before, same as the Distillery
+  // combobox elsewhere in this wizard.
+  function friendOptions(query: string): ComboboxOption[] {
+    const q = query.trim().toLowerCase()
+    return friends
+      .filter((friend) => !q || (friend.displayName || friend.username || '').toLowerCase().includes(q))
+      .map((friend) => ({ id: friend.uid, label: friend.displayName || friend.username || 'FIP Friend' }))
+  }
+
+  // Picking a real friend from the suggestions also tags them (same
+  // sharedWithUids the chip picker below writes to — see
+  // features/friends/TagFriendsField.tsx), so choosing "Dad" here doesn't
+  // require separately tapping his chip too. Never touches companion's own
+  // free-text meaning otherwise; typing without selecting a suggestion
+  // still just sets plain text, same as before.
+  function handleCompanionSelect(option: ComboboxOption) {
+    const uids = draft.sharedWithUids ?? []
+    if (!uids.includes(option.id)) updateDraft({ sharedWithUids: [...uids, option.id] })
+  }
 
   return (
     <div className={styles.grid}>
@@ -30,11 +57,12 @@ export function SessionStep({ draft, updateDraft }: StepProps) {
       </Field>
 
       <Field label="With" htmlFor="pw-companion">
-        <input
+        <Combobox
           id="pw-companion"
-          className={controlClassName}
           value={draft.companion ?? ''}
-          onChange={(e) => updateDraft({ companion: e.target.value })}
+          onChange={(value) => updateDraft({ companion: value })}
+          onSelect={handleCompanionSelect}
+          getOptions={friendOptions}
           placeholder="Dad, alone, firehouse crew…"
         />
       </Field>

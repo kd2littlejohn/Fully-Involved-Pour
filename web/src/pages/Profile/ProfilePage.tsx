@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -13,8 +12,6 @@ import { getCurrentScore } from '../../features/bottleDetails/selectors'
 import { getWhiskeyIdentity } from '../../features/profile/identity'
 import { getRecentMilestones } from '../../features/profile/milestones'
 import { useBlindProfileStats } from '../../features/profile/useBlindProfileStats'
-import { syncSharedCollection } from '../../data/repositories/sharedCollections'
-import { DEFAULT_PRIVACY_SETTINGS } from '../../data/types'
 import { ProfileHeader } from '../../features/profile/ProfileHeader'
 import { WhiskeyIdentityCard } from '../../features/profile/WhiskeyIdentityCard'
 import { FavoritesGrid } from '../../features/profile/FavoritesGrid'
@@ -28,17 +25,6 @@ export function ProfilePage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, profile, loading: dataLoading } = useUserData()
   const { stats: blindStats } = useBlindProfileStats(user?.uid)
-
-  // The shared-collection projection friends see (see
-  // data/repositories/sharedCollections.ts) is only ever refreshed by the
-  // owner's own client, never computed live — this is the one place that
-  // actually keeps it current with real bottle changes, since visiting My
-  // Journey is the natural "I just updated my bar" moment. Re-fires
-  // whenever userDoc changes while this page stays mounted, not just once.
-  useEffect(() => {
-    if (!user) return
-    void syncSharedCollection(user.uid, userDoc, profile?.privacy ?? DEFAULT_PRIVACY_SETTINGS)
-  }, [user, userDoc, profile?.privacy])
 
   if (authLoading || dataLoading) {
     return <PageHeader eyebrow="Profile" title="My Journey" />

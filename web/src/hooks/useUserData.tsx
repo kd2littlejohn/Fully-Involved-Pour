@@ -5,9 +5,10 @@ import { auth } from '../data/firebase'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { claimUsername as claimUsernameRepo } from '../data/repositories/username'
 import { ensureSearchableProfile, fetchProfile, saveProfile as saveProfileRepo } from '../data/repositories/profile'
+import { syncSharedCollection } from '../data/repositories/sharedCollections'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
-import type { Bottle, GalleryPhoto, InfinityBottleAddition, Memory, Pour, Profile, UserDoc } from '../data/types'
+import { DEFAULT_PRIVACY_SETTINGS, type Bottle, type GalleryPhoto, type InfinityBottleAddition, type Memory, type Pour, type Profile, type UserDoc } from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type BottlePatch = Partial<Omit<Bottle, 'id' | 'createdAt'>>
@@ -193,6 +194,19 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [user, authLoading, mockMode])
+
+  // The shared-collection projection friends see (see
+  // data/repositories/sharedCollections.ts) previously only refreshed when
+  // the owner changed a privacy setting, or visited their own Profile page
+  // — neither of which most signed-in sessions ever do, so it could sit
+  // permanently empty for an account that had already opted into sharing.
+  // This fires once per sign-in, as soon as both userDoc and profile have
+  // actually finished loading (not on every keystroke of a bottle edit —
+  // userDoc/profile only change reference when their real data changes).
+  useEffect(() => {
+    if (!user || mockMode || dataLoading || profileLoading) return
+    void syncSharedCollection(user.uid, userDoc, profile?.privacy ?? DEFAULT_PRIVACY_SETTINGS)
+  }, [user, mockMode, dataLoading, profileLoading, userDoc, profile?.privacy])
 
   const addBottle = useCallback(
     async (input: NewBottleInput) => {

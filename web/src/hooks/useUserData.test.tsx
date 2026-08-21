@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { UserDataProvider, useUserData } from './useUserData'
-import type { UserDoc } from '../data/types'
+import { DEFAULT_PRIVACY_SETTINGS, type UserDoc } from '../data/types'
 
 const mockUseAuth = vi.fn()
 const mockFetchUserDoc = vi.fn()
 const mockFetchProfile = vi.fn()
 const mockEnsureSearchableProfile = vi.fn()
 const mockReadCachedUserDoc = vi.fn()
+const mockSyncSharedCollection = vi.fn()
 
 vi.mock('./useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -41,6 +42,10 @@ vi.mock('../data/repositories/profile', () => ({
   saveProfile: vi.fn(),
 }))
 
+vi.mock('../data/repositories/sharedCollections', () => ({
+  syncSharedCollection: (...args: unknown[]) => mockSyncSharedCollection(...args),
+}))
+
 vi.mock('../data/localCache', () => ({
   readCachedUserDoc: (...args: unknown[]) => mockReadCachedUserDoc(...args),
   writeCachedUserDoc: vi.fn(),
@@ -65,6 +70,7 @@ describe('useUserData — account switching', () => {
     // needs creating or repairing — tests that care about an actual
     // creation/repair override this per-call.
     mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
   })
 
   it('does not keep showing the previous account’s bottles while the newly signed-in account’s data is still loading', async () => {
@@ -170,5 +176,29 @@ describe('useUserData — account switching', () => {
 
     expect(result.current.userDoc.bottles).toHaveLength(0)
     expect(result.current.profile).toBeUndefined()
+  })
+
+  it('syncs the shared-collection projection once both userDoc and profile have finished loading, not before', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = docWithOneBottle('Eagle Rare')
+
+    let resolveFetchUserDoc: (d: UserDoc) => void = () => {}
+    mockFetchUserDoc.mockReturnValueOnce(
+      new Promise<UserDoc>((resolve) => {
+        resolveFetchUserDoc = resolve
+      }),
+    )
+    mockFetchProfile.mockResolvedValueOnce({ username: 'user1', displayName: 'User One' })
+
+    renderHook(() => useUserData(), { wrapper: UserDataProvider })
+
+    // Profile has already resolved, but userDoc hasn't — the sync must wait
+    // for both, since it needs the real bottle list to project.
+    await waitFor(() => expect(mockEnsureSearchableProfile).toHaveBeenCalled())
+    expect(mockSyncSharedCollection).not.toHaveBeenCalled()
+
+    resolveFetchUserDoc(doc)
+
+    await waitFor(() => expect(mockSyncSharedCollection).toHaveBeenCalledWith('user-1', doc, DEFAULT_PRIVACY_SETTINGS))
   })
 })
