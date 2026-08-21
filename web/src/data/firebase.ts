@@ -25,3 +25,8 @@ export const db = initializeFirestore(firebaseApp, { ignoreUndefinedProperties: 
 export const storage = getStorage(firebaseApp)
 export const functions = getFunctions(firebaseApp)
 export const googleProvider = new GoogleAuthProvider()
+// Without this, signInWithPopup silently re-authenticates whichever Google
+// account is already active in the browser instead of showing the account
+// picker — so on a shared device a second person can't sign in as
+// themselves unless the first person signs out first.
+googleProvider.setCustomParameters({ prompt: 'select_account' })
