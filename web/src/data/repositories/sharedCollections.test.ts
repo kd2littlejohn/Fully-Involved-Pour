@@ -118,10 +118,14 @@ describe('buildSharedCollectionProjection', () => {
     expect(projection.wishlist).toEqual([])
   })
 
-  describe('friend bottle take (Friend Bottle Quick View)', () => {
+  describe('friend bottle take (Friend Bottle Quick View) — privacy wiring', () => {
+    // The aggregation logic itself (nose/palate/finish, top notes,
+    // evolution) is tested directly against buildBottleTastingSummary in
+    // data/bottleTastingSummary.test.ts — this only needs to confirm
+    // buildSharedCollectionProjection wires the privacy gate correctly.
     it('omits take entirely when pourStoryDefault is not "friends", even though the bottle itself is shared', () => {
       const doc = userDoc(
-        [bottle({ id: 'b1', name: 'Eagle Rare', status: 'open', buyAgain: 'absolutely', flavors: ['Caramel'] })],
+        [bottle({ id: 'b1', name: 'Eagle Rare', status: 'open', buyAgain: 'absolutely' })],
         [pour({ id: 'p1', bottleId: 'b1', date: '2026-01-01', rating: 9.3 })],
       )
 
@@ -132,62 +136,16 @@ describe('buildSharedCollectionProjection', () => {
       expect(selectedFriendsProjection.bottles[0]?.take).toBeUndefined()
     })
 
-    it('computes score, latest take, buy-again/replace, top flavors, pour count, and last pour date from real pours when pourStoryDefault is "friends"', () => {
+    it('includes a real take, never leaking price or private notes, when pourStoryDefault is "friends"', () => {
       const doc = userDoc(
-        [
-          bottle({
-            id: 'b1',
-            name: 'Eagle Rare',
-            status: 'open',
-            buyAgain: 'absolutely',
-            wouldReplace: 'yes',
-            flavors: ['Caramel', 'Cherry', 'Oak', 'Vanilla', 'Leather'],
-            price: 45,
-            notes: 'Private bottle note — never shared',
-          }),
-        ],
-        [
-          pour({ id: 'p1', bottleId: 'b1', date: '2026-01-01', rating: 8.9, memory: 'First pour, pretty good.' }),
-          pour({ id: 'p2', bottleId: 'b1', date: '2026-03-15', rating: 9.3, memory: 'Rich caramel, cherry and oak. Hot at first but opens up beautifully.' }),
-        ],
+        [bottle({ id: 'b1', name: 'Eagle Rare', status: 'open', buyAgain: 'absolutely', price: 45, notes: 'Private bottle note' })],
+        [pour({ id: 'p1', bottleId: 'b1', date: '2026-01-01', rating: 9.3, memory: 'Great pour.' })],
       )
-
-      const projection = buildSharedCollectionProjection('uid-1', doc, privacy({ pourStoryDefault: 'friends' }))
-      const take = projection.bottles[0]?.take
-
-      expect(take?.score).toBe(9.3)
-      expect(take?.latestTake).toBe('Rich caramel, cherry and oak. Hot at first but opens up beautifully.')
-      expect(take?.buyAgain).toBe('absolutely')
-      expect(take?.wouldReplace).toBe('yes')
-      expect(take?.topFlavors).toEqual(['Caramel', 'Cherry', 'Oak', 'Vanilla'])
-      expect(take?.pourCount).toBe(2)
-      expect(take?.lastPourDate).toBe('2026-03-15')
-    })
-
-    it('falls back to the bottle’s own settled rating when no pour has been logged yet', () => {
-      const doc = userDoc([bottle({ id: 'b1', name: 'Eagle Rare', status: 'sealed', rating: 8.0 })])
-
-      const projection = buildSharedCollectionProjection('uid-1', doc, privacy({ pourStoryDefault: 'friends' }))
-      const take = projection.bottles[0]?.take
-
-      expect(take?.score).toBe(8.0)
-      expect(take?.pourCount).toBe(0)
-      expect(take?.latestTake).toBeUndefined()
-    })
-
-    it('leaves take undefined for a bottle with no rating, take fields, or pours at all — never a hollow object', () => {
-      const doc = userDoc([bottle({ id: 'b1', name: 'Eagle Rare', status: 'sealed' })])
-
-      const projection = buildSharedCollectionProjection('uid-1', doc, privacy({ pourStoryDefault: 'friends' }))
-      expect(projection.bottles[0]?.take).toBeUndefined()
-    })
-
-    it('never leaks price or private notes through the take object', () => {
-      const doc = userDoc([bottle({ id: 'b1', name: 'Eagle Rare', status: 'sealed', rating: 8.0, price: 45, notes: 'Private note' })])
 
       const projection = buildSharedCollectionProjection('uid-1', doc, privacy({ pourStoryDefault: 'friends' }))
       const take = projection.bottles[0]?.take as unknown as Record<string, unknown>
 
+      expect(take.score).toBe(9.3)
       expect(take.price).toBeUndefined()
       expect(take.notes).toBeUndefined()
     })

@@ -642,13 +642,34 @@ export interface FriendBottleTake {
   // FIP total from the owner's most recent pour of this bottle, or the
   // bottle's own settled rating if they haven't logged a pour of it yet.
   score?: number
+  // Mean of every real pour rating for this bottle — only meaningful (and
+  // only ever set) once there are 2+ pours to average.
+  averageScore?: number
   // The most recent pour's memory (fallback: notes), trimmed — the same
   // kind of excerpt a SharedMoment already carries when explicitly tagged,
   // just surfaced here for every pour of this bottle rather than one.
   latestTake?: string
   buyAgain?: BottleBuyAgain
   wouldReplace?: WouldReplace
-  topFlavors?: string[]
+  // Structured tasting notes, weighted by repetition-across-pours and
+  // recency, then ranked — see data/bottleTastingSummary.ts. Nose/palate
+  // come from Pour.fip's real chip-selected vocabulary; finish is matched
+  // against a fixed descriptor list within the owner's own free-text
+  // finishNotes (still their real words, never invented). Undefined —
+  // never an empty array — whenever a category has no real data.
+  noseNotes?: string[]
+  palateNotes?: string[]
+  finishNotes?: string[]
+  // The same notes above, combined and re-ranked into one list (~4-6) for
+  // the compact "Top Notes" row.
+  topNotes?: string[]
+  // A real, computed frequency shift for one nose/palate term between the
+  // most recent 3 pours and everything before — the raw signal a "bottle
+  // evolution" insight is phrased from (see
+  // features/friends/describeFriendTake.ts). Deliberately not a
+  // pre-written sentence: the owner's client can't know the viewer's
+  // relationship framing, so phrasing happens at view time instead.
+  evolvingTerm?: string
   pourCount: number
   lastPourDate?: string
 }

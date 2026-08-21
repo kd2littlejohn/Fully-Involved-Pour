@@ -71,6 +71,13 @@
 
 .scoreRow {
   display: flex;
+  align-items: baseline;
+  gap: var(--fip-space-2);
+}
+
+.avgScore {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
 }
 
 .quote {
@@ -79,6 +86,63 @@
   font-size: var(--fip-text-sm);
   line-height: var(--fip-leading-copy);
   font-style: italic;
+}
+
+.tastingNotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+}
+
+.tastingHeading {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.tastingRow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tastingLabel {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+}
+
+.tastingChips {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+.summary {
+  margin: 0;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.evolution {
+  padding: var(--fip-space-2) var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-amber-soft);
+  border: 1px solid var(--fip-border-strong);
+}
+
+.evolutionTitle {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 700;
+}
+
+.evolutionDetail {
+  margin: 2px 0 0;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-xs);
 }
 
 .factRow {

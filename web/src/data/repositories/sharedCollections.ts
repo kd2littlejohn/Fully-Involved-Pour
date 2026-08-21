@@ -1,33 +1,10 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
-import type { Bottle, FriendBottleTake, Pour, PrivacySettings, SharedBottleSummary, SharedCollection, UserDoc } from '../types'
+import { buildBottleTastingSummary } from '../bottleTastingSummary'
+import type { PrivacySettings, SharedBottleSummary, SharedCollection, UserDoc } from '../types'
 
 const mockSharedCollections = new Map<string, SharedCollection>()
-
-const TOP_FLAVORS_LIMIT = 4
-
-// The owner's own opinion of one bottle, for Friend Bottle Quick View (see
-// features/friends/FriendBottleQuickView.tsx) — computed from their own
-// Pours, same as features/bottleDetails/selectors.ts's getCurrentScore
-// would, but kept local rather than imported: this is data/repositories/,
-// and that selector lives in features/ — importing a feature module from
-// the data layer would invert the app's dependency direction.
-function buildFriendBottleTake(bottle: Bottle, pours: Pour[]): FriendBottleTake | undefined {
-  const bottlePours = pours.filter((p) => p.bottleId === bottle.id).sort((a, b) => b.date.localeCompare(a.date))
-  const latest = bottlePours[0]
-  if (!latest && bottle.rating === undefined && !bottle.buyAgain && !bottle.wouldReplace && !bottle.flavors?.length) return undefined
-
-  return {
-    score: latest?.rating ?? bottle.rating,
-    latestTake: latest?.memory?.trim() || latest?.notes?.trim() || undefined,
-    buyAgain: bottle.buyAgain,
-    wouldReplace: bottle.wouldReplace,
-    topFlavors: bottle.flavors && bottle.flavors.length > 0 ? bottle.flavors.slice(0, TOP_FLAVORS_LIMIT) : undefined,
-    pourCount: bottlePours.length,
-    lastPourDate: latest?.date,
-  }
-}
 
 // Only what the owner's own privacy settings currently allow friends (or
 // all FIP users) to see — computed here and written by the owner's OWN
@@ -60,7 +37,7 @@ export function buildSharedCollectionProjection(uid: string, userDoc: UserDoc, p
     region: bottle.region,
     proof: bottle.proof,
     ageStatement: bottle.ageStatement,
-    take: includeTake ? buildFriendBottleTake(bottle, userDoc.pours) : undefined,
+    take: includeTake ? buildBottleTastingSummary(bottle, userDoc.pours) : undefined,
   })
 
   const bottles = privacy.collectionVisibility === 'private' ? [] : userDoc.bottles.filter((b) => b.status !== 'wishlist').map(toSummary)

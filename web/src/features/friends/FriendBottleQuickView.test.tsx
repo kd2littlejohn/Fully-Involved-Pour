@@ -44,10 +44,15 @@ const baseTarget: FriendBottleQuickViewTarget = {
   status: 'open',
   take: {
     score: 9.3,
+    averageScore: 9.1,
     latestTake: 'Rich caramel, cherry and oak. Hot at first but opens up beautifully.',
     buyAgain: 'absolutely',
     wouldReplace: 'yes',
-    topFlavors: ['Caramel', 'Cherry', 'Oak', 'Vanilla'],
+    noseNotes: ['Caramel', 'Vanilla', 'Dark Fruit'],
+    palateNotes: ['Cherry', 'Oak', 'Brown Sugar'],
+    finishNotes: ['Long', 'Warm', 'Spicy'],
+    topNotes: ['Caramel', 'Cherry', 'Oak', 'Vanilla'],
+    evolvingTerm: 'Oak',
     pourCount: 5,
     lastPourDate: '2026-03-15',
   },
@@ -88,18 +93,60 @@ describe('FriendBottleQuickView', () => {
     expect(screen.getByText('Bourbon · 128.1 proof')).toBeInTheDocument()
     expect(screen.getByText('Mike Johnson’s Take')).toBeInTheDocument()
     expect(screen.getByText('9.3')).toBeInTheDocument()
+    expect(screen.getByText('Avg 9.1')).toBeInTheDocument()
     expect(screen.getByText('“Rich caramel, cherry and oak. Hot at first but opens up beautifully.”')).toBeInTheDocument()
     expect(screen.getByText('Absolutely')).toBeInTheDocument()
     expect(screen.getByText('Yes')).toBeInTheDocument()
-    expect(screen.getByText('Caramel')).toBeInTheDocument()
-    expect(screen.getByText('Cherry')).toBeInTheDocument()
     expect(screen.getByText(/5 Pours Logged · Last poured Mar 1[45], 2026/)).toBeInTheDocument()
+  })
+
+  it('shows structured Tasting Notes by category, Top Notes, and a dynamic summary sentence', () => {
+    renderQuickView(baseTarget)
+
+    expect(screen.getByText('Tasting Notes')).toBeInTheDocument()
+    expect(screen.getByText('Nose')).toBeInTheDocument()
+    expect(screen.getByText('Caramel · Vanilla · Dark Fruit')).toBeInTheDocument()
+    expect(screen.getByText('Palate')).toBeInTheDocument()
+    expect(screen.getByText('Cherry · Oak · Brown Sugar')).toBeInTheDocument()
+    expect(screen.getByText('Finish')).toBeInTheDocument()
+    expect(screen.getByText('Long · Warm · Spicy')).toBeInTheDocument()
+
+    expect(screen.getByText('Top Notes')).toBeInTheDocument()
+    expect(screen.getAllByText('Caramel').length).toBeGreaterThan(0)
+
+    // The dynamic summary — generated from the same real data above, not a
+    // static stored sentence.
+    expect(
+      screen.getByText('Based on 5 pours, Mike Johnson consistently finds caramel, cherry, oak, and vanilla, with a long, warm, and spicy finish.'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows a bottle-evolution insight only when the underlying data supports one', () => {
+    renderQuickView(baseTarget)
+    expect(screen.getByText('More Oak')).toBeInTheDocument()
+    expect(screen.getByText('Oak has come up more consistently in the last few pours.')).toBeInTheDocument()
+  })
+
+  it('does not show an evolution insight when there is no evolving term', () => {
+    renderQuickView({ ...baseTarget, take: { ...baseTarget.take!, evolvingTerm: undefined } })
+    expect(screen.queryByText(/^More /)).not.toBeInTheDocument()
+  })
+
+  it('only shows tasting-note categories that have real data — never an empty "Finish" label', () => {
+    renderQuickView({
+      ...baseTarget,
+      take: { score: 9.0, noseNotes: ['Caramel'], pourCount: 1 },
+    })
+    expect(screen.getByText('Nose')).toBeInTheDocument()
+    expect(screen.queryByText('Palate')).not.toBeInTheDocument()
+    expect(screen.queryByText('Finish')).not.toBeInTheDocument()
   })
 
   it('respects privacy — shows no take at all when the friend has not opted pour stories into "friends"', () => {
     renderQuickView({ ...baseTarget, take: undefined })
     expect(screen.getByText('Mike Johnson hasn’t shared their take on this bottle yet.')).toBeInTheDocument()
     expect(screen.queryByText('Absolutely')).not.toBeInTheDocument()
+    expect(screen.queryByText('Tasting Notes')).not.toBeInTheDocument()
   })
 
   it('offers Add to Wish List when the viewer does not own the bottle, and calls addBottle', async () => {

@@ -9,6 +9,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { useFriendBottleQuickView } from './useFriendBottleQuickView'
 import { findMyMatchingBottle } from './friendProfileSelectors'
 import { whyYouMightLikeIt } from './whyYouMightLikeIt'
+import { friendTakeSummary, friendEvolutionInsight } from './describeFriendTake'
 import { RecommendToFriendModal } from './RecommendToFriendModal'
 import type { BottleBuyAgain, BottleStatus, FriendBottleTake, WouldReplace } from '../../data/types'
 import styles from './FriendBottleQuickView.module.css'
@@ -52,6 +53,16 @@ function metaLine(target: FriendBottleQuickViewTarget): string {
   return [target.type, target.proof != null ? `${target.proof} proof` : undefined, target.ageStatement].filter(Boolean).join(' · ')
 }
 
+function TastingCategoryRow({ label, notes }: { label: string; notes: string[] | undefined }) {
+  if (!notes || notes.length === 0) return null
+  return (
+    <div className={styles.tastingRow}>
+      <span className={styles.tastingLabel}>{label}</span>
+      <span className={styles.tastingChips}>{notes.join(' · ')}</span>
+    </div>
+  )
+}
+
 // A fast, tap-to-open bottom sheet (the shared Modal primitive already
 // becomes one at mobile widths — see Modal.module.css) answering "do I
 // want to try or add this bottle?" from six different entry points across
@@ -91,6 +102,8 @@ export function FriendBottleQuickView({ target, onClose }: FriendBottleQuickView
     status: target.status ?? bottleFacts?.status,
   }
   const take = target.take ?? bottleFacts?.take
+  const summary = take ? friendTakeSummary(take, bottle.friendName) : undefined
+  const evolution = take ? friendEvolutionInsight(take) : undefined
 
   const myBottle = findMyMatchingBottle(userDoc.bottles, bottle.bottleName, bottle.distillery)
   const reason = whyYouMightLikeIt(myProfile?.whiskeyIdentityTags, data?.friendProfile?.whiskeyIdentityTags, bottle.friendName)
@@ -142,9 +155,42 @@ export function FriendBottleQuickView({ target, onClose }: FriendBottleQuickView
               {typeof take.score === 'number' ? (
                 <div className={styles.scoreRow}>
                   <FipScoreBadge score={take.score} />
+                  {typeof take.averageScore === 'number' ? <span className={styles.avgScore}>Avg {take.averageScore.toFixed(1)}</span> : null}
                 </div>
               ) : null}
               {take.latestTake ? <p className={styles.quote}>&ldquo;{take.latestTake}&rdquo;</p> : null}
+
+              {take.noseNotes || take.palateNotes || take.finishNotes ? (
+                <div className={styles.tastingNotes}>
+                  <div className={styles.tastingHeading}>Tasting Notes</div>
+                  <TastingCategoryRow label="Nose" notes={take.noseNotes} />
+                  <TastingCategoryRow label="Palate" notes={take.palateNotes} />
+                  <TastingCategoryRow label="Finish" notes={take.finishNotes} />
+                </div>
+              ) : null}
+
+              {take.topNotes && take.topNotes.length > 0 ? (
+                <div>
+                  <div className={styles.tastingHeading}>Top Notes</div>
+                  <div className={styles.flavorRow}>
+                    {take.topNotes.map((note) => (
+                      <span key={note} className={styles.flavorChip}>
+                        {note}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {summary ? <p className={styles.summary}>{summary}</p> : null}
+
+              {evolution ? (
+                <div className={styles.evolution}>
+                  <div className={styles.evolutionTitle}>{evolution.title}</div>
+                  <p className={styles.evolutionDetail}>{evolution.detail}</p>
+                </div>
+              ) : null}
+
               <div className={styles.factRow}>
                 {take.buyAgain ? (
                   <div className={styles.fact}>
@@ -159,15 +205,7 @@ export function FriendBottleQuickView({ target, onClose }: FriendBottleQuickView
                   </div>
                 ) : null}
               </div>
-              {take.topFlavors && take.topFlavors.length > 0 ? (
-                <div className={styles.flavorRow}>
-                  {take.topFlavors.map((flavor) => (
-                    <span key={flavor} className={styles.flavorChip}>
-                      {flavor}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+
               <p className={styles.pourMeta}>
                 {take.pourCount > 0 ? `${take.pourCount} ${take.pourCount === 1 ? 'Pour' : 'Pours'} Logged` : 'No pours logged yet'}
                 {take.lastPourDate ? ` · Last poured ${formatDate(take.lastPourDate)}` : ''}
