@@ -115,8 +115,8 @@
   padding: var(--fip-space-4);
   min-height: 44px;
   border-radius: var(--fip-radius-lg);
-  background: rgba(169, 75, 59, 0.1);
-  border: 1px solid rgba(169, 75, 59, 0.35);
+  background: rgba(220, 107, 76, 0.1);
+  border: 1px solid rgba(220, 107, 76, 0.35);
   color: var(--fip-error);
   font-weight: 600;
   font-size: var(--fip-text-md);

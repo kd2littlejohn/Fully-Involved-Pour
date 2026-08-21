@@ -1,33 +1,43 @@
 /* Fully Involved Pour design tokens.
-   Ported verbatim from the live app's styles.css (:root block) — see
-   FIP_PRODUCT_VISION_AND_DESIGN_SYSTEM.md §15-18 for the source spec. */
+   Palette: midnight navy + copper + warm cream (see the approved FIP color
+   system reference). Four surface levels, lightest to darkest use:
+     0 --fip-black          page background
+     1 --fip-card           standard cards (the workhorse — most components)
+     2 --fip-card-elevated  featured cards / modals / bottom sheets
+     - --fip-charcoal       deep, recessed navy chrome (bottom nav, banners)
+     - --fip-card-soft      inset chips/pills/dropdowns, sit "below" a card
+     - --fip-oak / --fip-oak-deep  warm (non-navy) backdrops for bottle
+       photography and cinematic gradient headers — deliberately off-hue so
+       photos never look blue-tinted. */
 
 :root {
   color-scheme: dark;
 
   /* Color */
-  --fip-black: #080706;
-  --fip-charcoal: #11100e;
-  --fip-card: #14110d;
-  --fip-card-soft: #1a150f;
-  --fip-oak: #1b140f;
-  --fip-oak-deep: #120d09;
-  --fip-amber: #d88a14;
-  --fip-amber-soft: rgba(216, 138, 20, 0.16);
-  --fip-copper: #b86516;
-  --fip-copper-soft: rgba(184, 101, 22, 0.18);
-  --fip-brass: #b88a45;
-  --fip-brass-soft: rgba(184, 138, 69, 0.16);
-  --fip-cream: #f2e5cc;
+  --fip-black: #11161c;
+  --fip-charcoal: #0f1822;
+  --fip-card: #1b222a;
+  --fip-card-soft: #182330;
+  --fip-card-elevated: #232b34;
+  --fip-oak: #2a1d12;
+  --fip-oak-deep: #1d1712;
+  --fip-amber: #e49a3a;
+  --fip-amber-hover: #eeab54;
+  --fip-amber-soft: rgba(228, 154, 58, 0.16);
+  --fip-copper: #c8793f;
+  --fip-copper-soft: rgba(200, 121, 63, 0.18);
+  --fip-brass: #b87a3a;
+  --fip-brass-soft: rgba(184, 122, 58, 0.16);
+  --fip-cream: #f3e7d1;
   --fip-cream-soft: #dccbb0;
-  --fip-muted: #aaa094;
-  --fip-stone: #7f766c;
-  --fip-success: #6e8e38;
-  --fip-warning: #d48a20;
-  --fip-error: #a94b3b;
-  --fip-border: rgba(184, 138, 69, 0.28);
-  --fip-border-strong: rgba(216, 138, 20, 0.62);
-  --fip-border-subtle: rgba(242, 229, 204, 0.08);
+  --fip-muted: #afa79b;
+  --fip-stone: #8f8a82;
+  --fip-success: #74923f;
+  --fip-warning: #d4922e;
+  --fip-error: #dc6b4c;
+  --fip-border: rgba(200, 121, 63, 0.32);
+  --fip-border-strong: rgba(228, 154, 58, 0.65);
+  --fip-border-subtle: rgba(243, 231, 209, 0.1);
 
   /* Typography */
   --fip-font-display: "Fraunces", Georgia, "Times New Roman", "Iowan Old Style", serif;
@@ -67,9 +77,9 @@
 
   /* Shadow / focus / motion */
   --fip-shadow-soft: 0 18px 52px rgba(0, 0, 0, 0.32);
-  --fip-shadow-card: 0 20px 58px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(242, 229, 204, 0.045);
+  --fip-shadow-card: 0 20px 58px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(243, 231, 209, 0.045);
   --fip-shadow-lift: 0 28px 76px rgba(0, 0, 0, 0.52);
-  --fip-focus: 0 0 0 3px rgba(216, 138, 20, 0.34), 0 0 0 1px rgba(242, 229, 204, 0.72);
+  --fip-focus: 0 0 0 3px rgba(228, 154, 58, 0.34), 0 0 0 1px rgba(243, 231, 209, 0.72);
   --fip-motion-fast: 140ms;
   --fip-motion: 220ms;
   --fip-motion-slow: 360ms;

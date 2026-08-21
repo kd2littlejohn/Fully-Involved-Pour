@@ -32,7 +32,7 @@
 .photoOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(8, 7, 6, 0) 40%, rgba(8, 7, 6, 0.85) 100%);
+  background: linear-gradient(180deg, rgba(15, 24, 34, 0) 40%, rgba(15, 24, 34, 0.85) 100%);
 }
 
 .body {

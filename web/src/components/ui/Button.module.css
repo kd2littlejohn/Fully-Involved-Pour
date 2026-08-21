@@ -34,7 +34,7 @@
 }
 
 .primary:hover:not(:disabled) {
-  background: #e19a28;
+  background: var(--fip-amber-hover);
 }
 
 .secondary {
@@ -54,5 +54,5 @@
 
 .ghost:hover:not(:disabled) {
   color: var(--fip-cream);
-  background: rgba(242, 229, 204, 0.055);
+  background: rgba(243, 231, 209, 0.055);
 }

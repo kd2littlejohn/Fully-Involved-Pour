@@ -37,7 +37,7 @@
 
 .bottomButton:hover .bottomIcon,
 .bottomButton:active .bottomIcon {
-  background: #e19a28;
+  background: var(--fip-amber-hover);
 }
 
 /* Desktop header: an amber pill among the plain text nav links — still the
@@ -60,7 +60,7 @@
 }
 
 .topButton:hover {
-  background: #e19a28;
+  background: var(--fip-amber-hover);
 }
 
 .topIcon {

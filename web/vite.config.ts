@@ -33,8 +33,8 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#080706',
-        theme_color: '#080706',
+        background_color: '#11161C',
+        theme_color: '#11161C',
         icons: [
           { src: 'logo-badge-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'logo-badge-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
