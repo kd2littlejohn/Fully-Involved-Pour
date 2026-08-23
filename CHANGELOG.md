@@ -1,12 +1,14 @@
-## v0.4.2 - MSRP on Add Bottle
+## v0.4.2 - More Bottle Info on Add
 
 Added
 - MSRP (optional) field to the Add/Edit Bottle form, alongside Price paid.
+- Mash bill (optional): Corn %, Rye/Wheat %, and Malted Barley % fields on the Add/Edit Bottle form.
 
 Changed
 - Label scan and "Ask AI to fill in the rest" now carry MSRP through to the saved bottle instead of discarding it.
+- "Ask AI to fill in the rest" also fills in mash bill percentages when they're publicly known, so the Mash Bill shown on Bottle Details/Compare is no longer always blank for AI-assisted adds.
 
-No Firebase schema changes (the `msrp` field already existed on Bottle; it just wasn't reachable from Add Bottle before).
+No Firebase schema changes (the `msrp` and mash bill fields already existed on Bottle; they just weren't reachable from Add Bottle before).
 
 ## v0.4.1 - Journey Layout
 

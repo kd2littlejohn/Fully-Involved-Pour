@@ -12,6 +12,9 @@ export interface EssentialFieldsValues {
   proof: string
   ageStatement: string
   region: string
+  mashBillCorn: string
+  mashBillRyeWheat: string
+  mashBillMalted: string
 }
 
 interface EssentialFieldsCardProps {
@@ -44,6 +47,9 @@ export function EssentialFieldsCard({ values, onChange, nameError, onMsrpFound }
         type: values.type.trim() || info.type || values.type,
         region: values.region.trim() || info.region || values.region,
         proof: values.proof || (info.proof ? String(info.proof) : values.proof),
+        mashBillCorn: values.mashBillCorn || (info.mashBillCorn ? String(info.mashBillCorn) : values.mashBillCorn),
+        mashBillRyeWheat: values.mashBillRyeWheat || (info.mashBillRyeWheat ? String(info.mashBillRyeWheat) : values.mashBillRyeWheat),
+        mashBillMalted: values.mashBillMalted || (info.mashBillMalted ? String(info.mashBillMalted) : values.mashBillMalted),
       })
       if (info.msrp) onMsrpFound?.(info.msrp)
       setAiStatus(`✨ AI filled in ${info.distillery || 'details'} for this bottle.`)
@@ -139,6 +145,44 @@ export function EssentialFieldsCard({ values, onChange, nameError, onMsrpFound }
           />
         </Field>
       </div>
+
+      <div className={styles.row}>
+        <Field label="Mash bill: Corn % (optional)" htmlFor="ab-mashbill-corn">
+          <input
+            id="ab-mashbill-corn"
+            className={controlClassName}
+            type="number"
+            inputMode="decimal"
+            value={values.mashBillCorn}
+            onChange={(e) => onChange({ mashBillCorn: e.target.value })}
+            placeholder="75"
+          />
+        </Field>
+
+        <Field label="Mash bill: Rye/Wheat % (optional)" htmlFor="ab-mashbill-ryewheat">
+          <input
+            id="ab-mashbill-ryewheat"
+            className={controlClassName}
+            type="number"
+            inputMode="decimal"
+            value={values.mashBillRyeWheat}
+            onChange={(e) => onChange({ mashBillRyeWheat: e.target.value })}
+            placeholder="13"
+          />
+        </Field>
+      </div>
+
+      <Field label="Mash bill: Malted barley % (optional)" htmlFor="ab-mashbill-malted">
+        <input
+          id="ab-mashbill-malted"
+          className={controlClassName}
+          type="number"
+          inputMode="decimal"
+          value={values.mashBillMalted}
+          onChange={(e) => onChange({ mashBillMalted: e.target.value })}
+          placeholder="12"
+        />
+      </Field>
     </div>
   )
 }

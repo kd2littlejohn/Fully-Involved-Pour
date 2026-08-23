@@ -48,6 +48,9 @@ export function AddBottlePage() {
     proof: '',
     ageStatement: '',
     region: '',
+    mashBillCorn: '',
+    mashBillRyeWheat: '',
+    mashBillMalted: '',
   })
   const [ownership, setOwnership] = useState<OwnershipFieldsValues>({
     status: defaultStatus,
@@ -86,6 +89,9 @@ export function AddBottlePage() {
       proof: existingBottle.proof != null ? String(existingBottle.proof) : '',
       ageStatement: existingBottle.ageStatement ?? '',
       region: existingBottle.region ?? '',
+      mashBillCorn: existingBottle.mashBillCorn != null ? String(existingBottle.mashBillCorn) : '',
+      mashBillRyeWheat: existingBottle.mashBillRyeWheat != null ? String(existingBottle.mashBillRyeWheat) : '',
+      mashBillMalted: existingBottle.mashBillMalted != null ? String(existingBottle.mashBillMalted) : '',
     })
     setOwnership({
       status: existingBottle.status,
@@ -106,6 +112,7 @@ export function AddBottlePage() {
 
   function handleScanResult(info: LabelScanResult) {
     setEssential((prev) => ({
+      ...prev,
       name: prev.name.trim() || info.name || prev.name,
       distillery: prev.distillery.trim() || info.distillery || prev.distillery,
       type: info.type || prev.type,
@@ -138,6 +145,9 @@ export function AddBottlePage() {
         region: essential.region.trim() || undefined,
         proof: essential.proof ? Number(essential.proof) : undefined,
         ageStatement: essential.ageStatement.trim() || undefined,
+        mashBillCorn: essential.mashBillCorn ? Number(essential.mashBillCorn) : undefined,
+        mashBillRyeWheat: essential.mashBillRyeWheat ? Number(essential.mashBillRyeWheat) : undefined,
+        mashBillMalted: essential.mashBillMalted ? Number(essential.mashBillMalted) : undefined,
         imageUrl: photo.imageUrl,
         originalImageUrl: photo.originalImageUrl,
         imageProcessingStatus: photo.imageProcessingStatus,

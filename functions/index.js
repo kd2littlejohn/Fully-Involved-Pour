@@ -71,7 +71,7 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
     throw new HttpsError("invalid-argument", "A bottle name is required.");
   }
 
-  const system = `You are a whiskey/spirits database expert. Given a bottle name, identify its real-world distillery, spirit type, region, typical bottled proof, and typical MSRP in US dollars, ONLY if you genuinely recognize this as a real, existing product. If you do not recognize the bottle or are not confident, set "known" to false and leave the other fields empty -- never invent or guess plausible-sounding but unverified details. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:\n{"known": true or false, "distillery": "...", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "...", "proof": number or 0, "msrp": number or 0}`;
+  const system = `You are a whiskey/spirits database expert. Given a bottle name, identify its real-world distillery, spirit type, region, typical bottled proof, typical MSRP in US dollars, and (for bourbon/rye/whiskey where the mash bill is publicly known) its mash bill as percentages of corn, rye or wheat, and malted barley, ONLY if you genuinely recognize this as a real, existing product. If you do not recognize the bottle or are not confident, set "known" to false and leave the other fields empty. Leave the mash bill percentages at 0 if the spirit type doesn't have one (e.g. Scotch, Tequila, Rum) or the exact recipe isn't publicly disclosed -- never invent or guess plausible-sounding but unverified details. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:\n{"known": true or false, "distillery": "...", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "...", "proof": number or 0, "msrp": number or 0, "mashBillCorn": number or 0, "mashBillRyeWheat": number or 0, "mashBillMalted": number or 0}`;
 
   const prompt = `Bottle name: ${bottleName}`;
 
@@ -94,6 +94,9 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
     region: String(parsed.region || ""),
     proof: Number(parsed.proof || 0),
     msrp: Number(parsed.msrp || 0),
+    mashBillCorn: Number(parsed.mashBillCorn || 0),
+    mashBillRyeWheat: Number(parsed.mashBillRyeWheat || 0),
+    mashBillMalted: Number(parsed.mashBillMalted || 0),
   };
 });
 

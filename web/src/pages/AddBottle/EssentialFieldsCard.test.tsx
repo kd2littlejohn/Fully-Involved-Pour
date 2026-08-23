@@ -16,6 +16,9 @@ const baseValues: EssentialFieldsValues = {
   proof: '',
   ageStatement: '',
   region: '',
+  mashBillCorn: '',
+  mashBillRyeWheat: '',
+  mashBillMalted: '',
 }
 
 beforeEach(() => {
@@ -74,6 +77,28 @@ describe('EssentialFieldsCard', () => {
 
     expect(await screen.findByText(/AI filled in Buffalo Trace/)).toBeInTheDocument()
     expect(onMsrpFound).toHaveBeenCalledWith(40)
+  })
+
+  it('fills in mash bill percentages from a successful Ask AI lookup', async () => {
+    mockLookup.mockResolvedValue({
+      known: true,
+      distillery: 'Buffalo Trace',
+      type: 'Bourbon',
+      region: 'Kentucky',
+      proof: 90,
+      mashBillCorn: 75,
+      mashBillRyeWheat: 13,
+      mashBillMalted: 12,
+    })
+    const onChange = vi.fn()
+    render(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare' }} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Ask AI to fill in the rest/ }))
+
+    expect(await screen.findByText(/AI filled in Buffalo Trace/)).toBeInTheDocument()
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ mashBillCorn: '75', mashBillRyeWheat: '13', mashBillMalted: '12' }),
+    )
   })
 
   it('shows a status message when Ask AI has no match', async () => {
