@@ -1,12 +1,14 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFieldsCard'
 
 const mockLookup = vi.fn()
+const mockLookupDistillery = vi.fn().mockResolvedValue({ known: false })
 
 vi.mock('../../data/repositories/ai', () => ({
   lookupBottleInfo: (...args: unknown[]) => mockLookup(...args),
+  lookupDistillery: (...args: unknown[]) => mockLookupDistillery(...args),
 }))
 
 const baseValues: EssentialFieldsValues = {
@@ -23,6 +25,8 @@ const baseValues: EssentialFieldsValues = {
 
 beforeEach(() => {
   mockLookup.mockReset()
+  mockLookupDistillery.mockReset()
+  mockLookupDistillery.mockResolvedValue({ known: false })
 })
 
 describe('EssentialFieldsCard', () => {
@@ -105,6 +109,54 @@ describe('EssentialFieldsCard', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ mashBillCorn: '75', mashBillRyeWheat: '39', mashBillMalted: '10' }),
     )
+  })
+
+  it('fetches and shows a brief distillery bio right after AI fills in the distillery', async () => {
+    mockLookup.mockResolvedValue({ known: true, distillery: 'Buffalo Trace' })
+    mockLookupDistillery.mockResolvedValue({
+      known: true,
+      location: 'Frankfort, Kentucky',
+      founded: 1857,
+      parentCompany: 'Sazerac Company',
+      description: 'One of the oldest continuously operating distilleries in the US.',
+    })
+    const onChange = vi.fn()
+    const { rerender } = render(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare' }} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Ask AI to fill in the rest/ }))
+    expect(await screen.findByText(/AI filled in Buffalo Trace/)).toBeInTheDocument()
+    expect(mockLookupDistillery).toHaveBeenCalledWith('Buffalo Trace')
+
+    // The bio is keyed to the current distillery value — it only appears once
+    // the parent has applied the AI's patch, same as AddBottlePage's real onChange.
+    rerender(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare', distillery: 'Buffalo Trace' }} onChange={onChange} />)
+
+    expect(await screen.findByText(/One of the oldest continuously operating distilleries/)).toBeInTheDocument()
+    expect(screen.getByText('Frankfort, Kentucky · founded 1857 · owned by Sazerac Company')).toBeInTheDocument()
+  })
+
+  it('does not fetch a distillery bio when the distillery was already filled in before asking AI', async () => {
+    mockLookup.mockResolvedValue({ known: true, distillery: 'Buffalo Trace', type: 'Bourbon' })
+    render(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare', distillery: 'Buffalo Trace' }} onChange={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Ask AI to fill in the rest/ }))
+    await screen.findByText(/AI filled in/)
+
+    expect(mockLookupDistillery).not.toHaveBeenCalled()
+  })
+
+  it('shows nothing when the distillery bio lookup comes back unknown', async () => {
+    mockLookup.mockResolvedValue({ known: true, distillery: 'Some New Craft Distillery' })
+    mockLookupDistillery.mockResolvedValue({ known: false })
+    const onChange = vi.fn()
+    const { rerender } = render(<EssentialFieldsCard values={{ ...baseValues, name: 'Craft Bottle' }} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Ask AI to fill in the rest/ }))
+    await screen.findByText(/AI filled in Some New Craft Distillery/)
+    rerender(<EssentialFieldsCard values={{ ...baseValues, name: 'Craft Bottle', distillery: 'Some New Craft Distillery' }} onChange={onChange} />)
+
+    await waitFor(() => expect(mockLookupDistillery).toHaveBeenCalledWith('Some New Craft Distillery'))
+    expect(screen.queryByText(/founded/)).not.toBeInTheDocument()
   })
 
   describe('auto-run', () => {

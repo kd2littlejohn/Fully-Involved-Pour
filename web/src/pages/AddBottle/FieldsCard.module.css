@@ -64,6 +64,30 @@
   margin: calc(-1 * var(--fip-space-2)) 0 var(--fip-space-4);
 }
 
+.distilleryBio {
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-md);
+  padding: var(--fip-space-3);
+  margin: calc(-1 * var(--fip-space-2)) 0 var(--fip-space-4);
+}
+
+.distilleryBioMeta {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.distilleryBioText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  margin: var(--fip-space-2) 0 0;
+}
+
 .toggleButton {
   display: flex;
   align-items: center;

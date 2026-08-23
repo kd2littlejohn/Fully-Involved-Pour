@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { Combobox } from '../../components/ui/Combobox'
-import { lookupBottleInfo } from '../../data/repositories/ai'
+import { lookupBottleInfo, lookupDistillery, type DistilleryInfoResult } from '../../data/repositories/ai'
 import { distilleryToOption, searchDistilleries } from '../../data/distillery/search'
 import styles from './FieldsCard.module.css'
 
@@ -41,18 +41,41 @@ function hasBlankTarget(values: EssentialFieldsValues): boolean {
   )
 }
 
+interface DistilleryBioState {
+  name: string
+  loading: boolean
+  info: DistilleryInfoResult | null
+}
+
 export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFieldsCardProps) {
   const [lookingUp, setLookingUp] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
+  const [distilleryBio, setDistilleryBio] = useState<DistilleryBioState | null>(null)
   // The exact name we've already auto-looked-up, so typing elsewhere (or a
   // re-render) never re-fires the same query — only a genuinely new name does.
   const autoLookupDoneForRef = useRef<string | null>(null)
+
+  // Fires only right after AI supplies the distillery — not on every manual
+  // edit of the field, which would mean a lookup call on every keystroke.
+  // Ephemeral by design (never saved to the bottle), same as DistilleryList's
+  // own use of this same lookupDistillery call — a brief, disposable bio for
+  // "here's what AI just filled in," not a persisted distillery profile.
+  async function loadDistilleryBio(distilleryName: string) {
+    setDistilleryBio({ name: distilleryName, loading: true, info: null })
+    try {
+      const info = await lookupDistillery(distilleryName)
+      setDistilleryBio({ name: distilleryName, loading: false, info })
+    } catch {
+      setDistilleryBio({ name: distilleryName, loading: false, info: { known: false } })
+    }
+  }
 
   async function runLookup(auto: boolean) {
     const query = values.name.trim()
     if (query.length < 3 || lookingUp) return
     setLookingUp(true)
     if (!auto) setAiStatus(`✨ Asking AI about "${query}"...`)
+    const distilleryWasBlank = !values.distillery.trim()
     try {
       const info = await lookupBottleInfo(query)
       if (!info.known) {
@@ -76,6 +99,7 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
         mashBillMalted: values.mashBillMalted || (info.mashBillMalted ? String(info.mashBillMalted) : values.mashBillMalted),
       })
       setAiStatus(`✨ AI filled in ${info.distillery || 'details'} for this bottle.`)
+      if (distilleryWasBlank && info.distillery) void loadDistilleryBio(info.distillery)
     } catch {
       if (!auto) setAiStatus('No close match yet. Keep typing, or save it manually.')
     } finally {
@@ -145,6 +169,24 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
           placeholder="Buffalo Trace — or Unknown / Undisclosed Source"
         />
       </Field>
+
+      {distilleryBio && distilleryBio.name === values.distillery ? (
+        <div className={styles.distilleryBio}>
+          {distilleryBio.loading ? (
+            <p className={styles.aiStatus}>Looking up {distilleryBio.name}…</p>
+          ) : distilleryBio.info?.known ? (
+            <>
+              <p className={styles.distilleryBioMeta}>
+                {[distilleryBio.info.location, distilleryBio.info.founded ? `founded ${distilleryBio.info.founded}` : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {distilleryBio.info.parentCompany ? ` · owned by ${distilleryBio.info.parentCompany}` : ''}
+              </p>
+              {distilleryBio.info.description ? <p className={styles.distilleryBioText}>{distilleryBio.info.description}</p> : null}
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className={styles.row}>
         <Field label="Type" htmlFor="ab-type">
