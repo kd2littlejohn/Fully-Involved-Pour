@@ -81,3 +81,16 @@
   font-size: var(--fip-text-xs);
   margin: calc(-1 * var(--fip-space-2)) 0 var(--fip-space-4);
 }
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  margin: var(--fip-space-2) 0 var(--fip-space-4);
+}
+
+.checkboxRow input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--fip-amber);
+}

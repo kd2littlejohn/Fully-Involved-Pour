@@ -12,11 +12,14 @@ export interface OwnershipFieldsValues {
   shelf: string
   quantity: string
   fillLevel: FillLevel | ''
+  priority: string
   purchaseDate: string
   openedDate: string
   expectedDate: string
   finishedDate: string
   notes: string
+  legacyShelf: boolean
+  legacyShelfReason: string
 }
 
 const FILL_LEVEL_OPTIONS: { value: FillLevel; label: string }[] = [
@@ -121,6 +124,24 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               ))}
             </select>
           </Field>
+
+          {/* Priority only means anything for the Wishlist tab it sorts —
+              hidden the rest of the time instead of shown-but-meaningless. */}
+          {values.status === 'wishlist' ? (
+            <Field label="Wishlist priority (optional, lower = higher priority)" htmlFor="ab-priority">
+              <input
+                id="ab-priority"
+                className={controlClassName}
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                value={values.priority}
+                onChange={(e) => onChange({ priority: e.target.value })}
+                placeholder="1"
+              />
+            </Field>
+          ) : null}
 
           <div className={styles.row}>
             <Field label="Price paid (optional)" htmlFor="ab-price">
@@ -257,6 +278,28 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               placeholder="Anything worth remembering about this bottle."
             />
           </Field>
+
+          <div className={styles.checkboxRow}>
+            <input
+              id="ab-legacy-shelf"
+              type="checkbox"
+              checked={values.legacyShelf}
+              onChange={(e) => onChange({ legacyShelf: e.target.checked, legacyShelfReason: e.target.checked ? values.legacyShelfReason : '' })}
+            />
+            <label htmlFor="ab-legacy-shelf">This is a Legacy Shelf bottle</label>
+          </div>
+
+          {values.legacyShelf ? (
+            <Field label="Why it's on your Legacy Shelf (optional)" htmlFor="ab-legacy-shelf-reason">
+              <input
+                id="ab-legacy-shelf-reason"
+                className={controlClassName}
+                value={values.legacyShelfReason}
+                onChange={(e) => onChange({ legacyShelfReason: e.target.value })}
+                placeholder="First bourbon I ever loved"
+              />
+            </Field>
+          ) : null}
 
           <button
             type="button"

@@ -61,11 +61,14 @@ export function AddBottlePage() {
     shelf: '',
     quantity: '',
     fillLevel: '',
+    priority: '',
     purchaseDate: '',
     openedDate: '',
     expectedDate: '',
     finishedDate: '',
     notes: '',
+    legacyShelf: false,
+    legacyShelfReason: '',
   })
   const [nameError, setNameError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -105,6 +108,7 @@ export function AddBottlePage() {
       shelf: existingBottle.shelf ?? '',
       quantity: existingBottle.quantity != null ? String(existingBottle.quantity) : '',
       fillLevel: existingBottle.fillLevel ?? '',
+      priority: existingBottle.priority != null ? String(existingBottle.priority) : '',
       purchaseDate: existingBottle.purchaseDate ?? '',
       openedDate: existingBottle.openedDate ?? '',
       expectedDate: existingBottle.expectedDate ?? '',
@@ -113,6 +117,8 @@ export function AddBottlePage() {
       // real, deliberately-entered date here.
       finishedDate: existingBottle.finishedDate ?? '',
       notes: existingBottle.notes ?? '',
+      legacyShelf: existingBottle.legacyShelf ?? false,
+      legacyShelfReason: existingBottle.legacyShelfReason ?? '',
     })
   }, [isEditing, existingBottle])
 
@@ -165,6 +171,7 @@ export function AddBottlePage() {
         shelf: ownership.shelf.trim() || undefined,
         quantity: ownership.quantity ? Number(ownership.quantity) : undefined,
         fillLevel: ownership.fillLevel || undefined,
+        priority: ownership.priority ? Number(ownership.priority) : undefined,
         // Every date is saved as entered, independent of the current status —
         // a bottle's history (purchased/opened/expected/finished) stays
         // editable even after its status has since moved on.
@@ -173,6 +180,8 @@ export function AddBottlePage() {
         expectedDate: ownership.expectedDate.trim() || undefined,
         finishedDate: ownership.finishedDate.trim() || undefined,
         notes: ownership.notes.trim() || undefined,
+        legacyShelf: ownership.legacyShelf || undefined,
+        legacyShelfReason: ownership.legacyShelfReason.trim() || undefined,
       }
       if (isEditing && bottleId) {
         await updateBottle(bottleId, payload)

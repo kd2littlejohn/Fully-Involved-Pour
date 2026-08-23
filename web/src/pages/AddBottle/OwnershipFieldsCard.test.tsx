@@ -17,11 +17,14 @@ const baseValues: OwnershipFieldsValues = {
   shelf: '',
   quantity: '',
   fillLevel: '',
+  priority: '',
   purchaseDate: '',
   openedDate: '',
   expectedDate: '',
   finishedDate: '',
   notes: '',
+  legacyShelf: false,
+  legacyShelfReason: '',
 }
 
 const emptyContext: BottleContext = { name: '', distillery: '', type: '', proof: '' }
@@ -212,6 +215,70 @@ describe('OwnershipFieldsCard', () => {
     fireEvent.change(screen.getByLabelText('MSRP (optional)'), { target: { value: '40' } })
 
     expect(onChange).toHaveBeenCalledWith({ msrp: '40' })
+  })
+
+  it('only shows Wishlist priority when status is Wish List', async () => {
+    const { rerender } = render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
+    await openCard()
+
+    expect(screen.queryByLabelText(/Wishlist priority/)).not.toBeInTheDocument()
+
+    rerender(<OwnershipFieldsCard values={{ ...baseValues, status: 'wishlist' }} onChange={vi.fn()} bottleContext={emptyContext} />)
+
+    expect(screen.getByLabelText(/Wishlist priority/)).toBeInTheDocument()
+  })
+
+  it('reports a Wishlist priority change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={{ ...baseValues, status: 'wishlist' }} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    fireEvent.change(screen.getByLabelText(/Wishlist priority/), { target: { value: '1' } })
+
+    expect(onChange).toHaveBeenCalledWith({ priority: '1' })
+  })
+
+  it('reports a Legacy Shelf toggle via onChange and shows the reason field once checked', async () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    expect(screen.queryByLabelText(/Why it's on your Legacy Shelf/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText('This is a Legacy Shelf bottle'))
+
+    expect(onChange).toHaveBeenCalledWith({ legacyShelf: true, legacyShelfReason: '' })
+
+    rerender(<OwnershipFieldsCard values={{ ...baseValues, legacyShelf: true }} onChange={vi.fn()} bottleContext={emptyContext} />)
+    expect(screen.getByLabelText(/Why it's on your Legacy Shelf/)).toBeInTheDocument()
+  })
+
+  it('clears the Legacy Shelf reason when the checkbox is unchecked', async () => {
+    const onChange = vi.fn()
+    render(
+      <OwnershipFieldsCard
+        values={{ ...baseValues, legacyShelf: true, legacyShelfReason: 'First bourbon I ever loved' }}
+        onChange={onChange}
+        bottleContext={emptyContext}
+      />,
+    )
+    await openCard()
+
+    await userEvent.click(screen.getByLabelText('This is a Legacy Shelf bottle'))
+
+    expect(onChange).toHaveBeenCalledWith({ legacyShelf: false, legacyShelfReason: '' })
+  })
+
+  it('reports a Legacy Shelf reason change via onChange', async () => {
+    const onChange = vi.fn()
+    render(
+      <OwnershipFieldsCard values={{ ...baseValues, legacyShelf: true }} onChange={onChange} bottleContext={emptyContext} />,
+    )
+    await openCard()
+
+    await userEvent.type(screen.getByLabelText(/Why it's on your Legacy Shelf/), 'A')
+
+    expect(onChange).toHaveBeenCalledWith({ legacyShelfReason: 'A' })
   })
 
   it('disables the AI Tasting Note button until a bottle name is entered', async () => {
