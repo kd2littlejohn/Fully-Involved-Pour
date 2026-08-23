@@ -226,6 +226,23 @@ service cloud.firestore {
                     && get(/databases/$(database)/documents/blindRooms/$(roomId)).data.hostUid == request.auth.uid;
     }
 
+    // fipGuides/{bottleKey} — canonical, shared "FIP Guide" reference content
+    // for a bottle (web/src/data/repositories/fipGuide.ts), keyed by
+    // normalized name+distillery so every FIP user who owns the same bottle
+    // reads the same generated content instead of paying for a fresh AI call
+    // per view. Any signed-in user may create the doc (whoever's client
+    // resolves it first); update is intentionally blocked — this is shared
+    // content, not any one user's to edit, and "cache it once, never
+    // regenerate" only holds if it can't be silently rewritten later. No
+    // correction workflow exists yet; fixing bad content today means editing
+    // it by hand in the Firestore console.
+    match /fipGuides/{bottleKey} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ---------------------------------------------------------------------
     // Friends / social (web/src/data/repositories/{relationships,
     // sharedMoments,recommendations,notifications,sharedCollections}.ts).

@@ -168,6 +168,66 @@ exports.generateTastingProfile = onCall({ secrets: [anthropicApiKey], cors: true
   };
 });
 
+// The FIP Guide is canonical, shared reference content for a bottle (not
+// per-user) — generated once and cached in Firestore by the caller (see
+// web/src/data/repositories/fipGuide.ts), never regenerated on every view.
+// Every claim here has to be grounded in the real facts passed in or in
+// genuinely well-known public information about this exact product.
+exports.generateFipGuide = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to generate a FIP Guide.");
+  }
+
+  const { bottleName, distillery, type, proof, ageStatement, mashBill, msrp } = request.data || {};
+  const name = String(bottleName || "").trim();
+  if (name.length < 3) {
+    throw new HttpsError("invalid-argument", "A bottle name is required.");
+  }
+
+  const system = `You are the FIP Guide writer for a whiskey-journaling app called Fully Involved Pour. Given real facts about a bottle, write a short, honest, scannable buying guide -- confident but never promotional. A "good bottle" is not automatically "good value," and not every bottle is worth buying -- say so plainly when that's true. Ground every claim in the facts you're given, or in genuinely well-known, verifiable public information about this exact product. Never invent a mash bill, age statement, history, or a specific price you don't actually know, and never cite a specific current secondary-market price. If you do not recognize this bottle confidently, set "known" to false and leave the guide fields empty. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"known": true or false, "whySpecial": "one short sentence", "bestFor": "one short sentence", "value": "one short phrase or sentence", "buyIf": "one short sentence", "skipIf": "one short sentence", "verdict": "one short sentence", "story": "2-4 sentences of real background, or empty string if not confident", "availability": "one short phrase such as Limited, Widely Available, or Allocated, or empty string if unknown", "flavorProfile": ["3-5 single or two-word flavor tags"], "intensity": number from 0 (light) to 1 (bold), or null if unsure}`;
+
+  const facts = [
+    `Bottle: ${name}`,
+    distillery ? `Distillery: ${distillery}` : null,
+    type ? `Type: ${type}` : null,
+    proof ? `Proof: ${proof}` : null,
+    ageStatement ? `Age statement: ${ageStatement}` : null,
+    mashBill ? `Mash bill: ${mashBill}` : null,
+    msrp ? `MSRP: $${msrp}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt: facts, maxTokens: 600 });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    console.error("Failed to parse FIP Guide JSON", raw);
+    return { known: false };
+  }
+
+  if (!parsed.known) return { known: false };
+
+  const intensity = typeof parsed.intensity === "number" && parsed.intensity >= 0 && parsed.intensity <= 1 ? parsed.intensity : null;
+
+  return {
+    known: true,
+    whySpecial: String(parsed.whySpecial || ""),
+    bestFor: String(parsed.bestFor || ""),
+    value: String(parsed.value || ""),
+    buyIf: String(parsed.buyIf || ""),
+    skipIf: String(parsed.skipIf || ""),
+    verdict: String(parsed.verdict || ""),
+    story: String(parsed.story || ""),
+    availability: String(parsed.availability || ""),
+    flavorProfile: Array.isArray(parsed.flavorProfile) ? parsed.flavorProfile.map((f) => String(f)).slice(0, 5) : [],
+    intensity,
+  };
+});
+
 exports.scanBottleLabel = onCall(
   { secrets: [anthropicApiKey], cors: true, memory: "512MiB" },
   async (request) => {

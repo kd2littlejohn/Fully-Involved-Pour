@@ -1,0 +1,129 @@
+.card {
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  box-shadow: var(--fip-shadow-card);
+  padding: var(--fip-space-5);
+  margin-bottom: var(--fip-space-4);
+}
+
+.sectionLabel {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin: 0 0 var(--fip-space-4);
+}
+
+.referenceTag {
+  color: var(--fip-muted);
+  font-weight: 600;
+}
+
+.loading {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: 0;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: var(--fip-space-3);
+  align-items: baseline;
+}
+
+.rowLabel {
+  color: var(--fip-copper);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.rowValue {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.storyToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  min-height: 44px;
+  margin-top: var(--fip-space-4);
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.story {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  margin: var(--fip-space-2) 0 0;
+}
+
+.profileChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}
+
+.profileChip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--fip-space-1) var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+}
+
+.intensityRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}
+
+.intensityLabel {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.intensityTrack {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: var(--fip-radius-round);
+  background: linear-gradient(90deg, var(--fip-border-subtle), var(--fip-copper));
+}
+
+.intensityDot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-amber);
+  border: 2px solid var(--fip-card);
+  transform: translate(-50%, -50%);
+}

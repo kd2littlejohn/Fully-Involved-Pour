@@ -25,6 +25,10 @@ vi.mock('../../data/repositories/blindRoom', () => ({
   getBottleBlindHistory: vi.fn().mockResolvedValue([]),
 }))
 
+vi.mock('../../data/repositories/fipGuide', () => ({
+  getFipGuide: vi.fn().mockResolvedValue(undefined),
+}))
+
 function renderPage(bottleId: string) {
   return render(
     <MemoryRouter initialEntries={[`/collection/${bottleId}`]}>
@@ -258,6 +262,51 @@ describe('BottleDetailsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'View photo' }))
 
     expect(within(screen.getByRole('dialog', { hidden: true })).getByText('Replace Photo')).toBeInTheDocument()
+  })
+
+  it('toggles favorite status from the hero pill directly, not just the overflow menu', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: '☆ Favorite' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: true })
+  })
+
+  it('shows the hero favorite pill as active once the bottle is a favorite', () => {
+    mockSignedInWith([{ ...eagleRare, favorite: true }], [pour])
+    renderPage('b1')
+
+    expect(screen.getByRole('button', { name: '★ Favorite' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('resolves a known distillery to its real city/state for the hero location line', () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    expect(screen.getByText('Buffalo Trace · Frankfort, Kentucky')).toBeInTheDocument()
+  })
+
+  it('shows the fill level as a percentage next to the status pill', () => {
+    mockSignedInWith([{ ...eagleRare, fillLevel: 'three-quarter' }], [pour])
+    renderPage('b1')
+
+    expect(screen.getByText('75% Full')).toBeInTheDocument()
+  })
+
+  it('shows core facts as Proof (with its ABV equivalent), Age Statement, and Bottle Size', () => {
+    mockSignedInWith([{ ...eagleRare, ageStatement: '10 Year', bottleSize: 750 }], [pour])
+    renderPage('b1')
+
+    // "Proof" and "Bottle Size" are real labels in both the core-facts row
+    // and the canonical Bottle Info list below — just confirming the ABV
+    // sublabel (unique to the core-facts tile) is enough to prove the tile
+    // itself rendered correctly.
+    expect(screen.getAllByText('Proof').length).toBeGreaterThan(0)
+    expect(screen.getByText('45% ABV')).toBeInTheDocument()
+    expect(screen.getByText('Age Statement')).toBeInTheDocument()
+    expect(screen.getAllByText('Bottle Size').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('750ml').length).toBeGreaterThan(0)
   })
 
   it('shows a type badge and the FIP tier name next to the score', () => {

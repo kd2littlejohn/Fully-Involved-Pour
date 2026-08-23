@@ -5,7 +5,6 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { LinkButton } from '../../components/ui/LinkButton'
 import { Button } from '../../components/ui/Button'
 import { SignInButton } from '../../components/domain/SignInButton'
-import { Badge } from '../../components/ui/Badge'
 import { ScoreRing } from '../../components/ui/ScoreRing'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { StatTile } from '../../components/ui/StatTile'
@@ -16,8 +15,13 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserData, type BottlePatch } from '../../hooks/useUserData'
 import type { BottleStatus } from '../../data/types'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
-import { getCurrentScore } from '../../features/bottleDetails/selectors'
-import { fipTier } from '../../features/fip/tiers'
+import {
+  currentScoreDate,
+  distilleryLocation,
+  fillLevelPercent,
+  getCurrentScore,
+  pourHistorySummary,
+} from '../../features/bottleDetails/selectors'
 import { BottleKillCelebration } from '../../features/bottleKill/BottleKillCelebration'
 import { RecommendToFriendModal } from '../../features/friends/RecommendToFriendModal'
 import { YourTakeCard } from '../../features/bottleDetails/YourTakeCard'
@@ -36,6 +40,18 @@ const STATUS_LABEL: Record<BottleStatus, string> = {
   wishlist: 'Wishlist',
   finished: 'Finished',
   incoming: 'Incoming',
+}
+
+// A dedicated map rather than reusing fipTier/journeyStage colors — this dot
+// is purely "what state is this bottle in," open being the one genuinely
+// positive state worth calling out in green (see the FIP palette rule:
+// green only for positive semantic states).
+const STATUS_DOT_COLOR: Record<BottleStatus, string> = {
+  open: 'var(--fip-success)',
+  sealed: 'var(--fip-copper)',
+  incoming: 'var(--fip-brass)',
+  wishlist: 'var(--fip-brass)',
+  finished: 'var(--fip-muted)',
 }
 
 const TABS = [
@@ -113,13 +129,21 @@ export function BottleDetailsPage() {
 
   const journeyStage = bottleJourneyStage(bottle)
   const score = getCurrentScore(bottle, userDoc.pours)
+  const scoreDate = currentScoreDate(bottle, userDoc.pours)
+  const pourHistory = pourHistorySummary(bottle, userDoc.pours)
+  const bottleLocation = distilleryLocation(bottle)
+  const fillPercent = fillLevelPercent(bottle)
   const otherBottles = userDoc.bottles.filter((b) => b.id !== bottle.id)
 
-  const quickStats: { value: string; label: string }[] = []
-  if (bottle.proof) quickStats.push({ value: String(bottle.proof), label: 'Proof' })
-  if (bottle.ageStatement) quickStats.push({ value: bottle.ageStatement, label: 'Age' })
-  if (bottle.msrp) quickStats.push({ value: `$${bottle.msrp}`, label: 'MSRP' })
-  if (bottle.distillery) quickStats.push({ value: bottle.distillery, label: 'Distillery' })
+  // Just the three core facts the mockup calls for — Proof (with its ABV
+  // equivalent, exact since proof is always 2x ABV), Age, and Bottle Size.
+  // Price/MSRP/Distillery moved to Bottle Info / Your Bottle below, where
+  // they sit next to the rest of their own kind of fact instead of floating
+  // in this quick-glance row.
+  const quickStats: { value: string; label: string; sublabel?: string }[] = []
+  if (bottle.proof) quickStats.push({ value: String(bottle.proof), label: 'Proof', sublabel: `${Math.round(bottle.proof / 2)}% ABV` })
+  if (bottle.ageStatement) quickStats.push({ value: bottle.ageStatement, label: 'Age Statement' })
+  if (bottle.bottleSize) quickStats.push({ value: `${bottle.bottleSize}ml`, label: 'Bottle Size' })
 
   const currentBottleId = bottle.id
   const currentFavorite = bottle.favorite
@@ -179,43 +203,56 @@ export function BottleDetailsPage() {
       </div>
 
       <div className={styles.hero}>
-        <button type="button" className={styles.imageWrap} onClick={() => setShowPhotoLightbox(true)} aria-label="View photo">
-          {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
-        </button>
+        <div className={styles.heroImageArea}>
+          <button type="button" className={styles.imageWrap} onClick={() => setShowPhotoLightbox(true)} aria-label="View photo">
+            {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+          </button>
+          <button
+            type="button"
+            className={currentFavorite ? `${styles.favoritePill} ${styles.favoritePillActive}` : styles.favoritePill}
+            onClick={() => void handleToggleFavorite()}
+            aria-pressed={currentFavorite}
+          >
+            {currentFavorite ? '★ Favorite' : '☆ Favorite'}
+          </button>
+        </div>
+
         <div className={styles.info}>
           <h1 className={styles.name}>{bottle.name}</h1>
-          {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
-          <div className={styles.badges}>
-            {bottle.type ? <Badge>{bottle.type}</Badge> : null}
-            <button type="button" className={styles.statusButton} onClick={() => setShowStatusModal(true)}>
-              <Badge
-                tone={bottle.status === 'open' ? 'amber' : bottle.status === 'wishlist' || bottle.status === 'incoming' ? 'brass' : 'default'}
-              >
-                {STATUS_LABEL[bottle.status]}
-              </Badge>
-            </button>
-            {journeyStage ? (
-              <span className={styles.journey} style={{ color: journeyStage.color }}>
-                <span className={styles.journeyDot} style={{ background: journeyStage.color }} />
-                {journeyStage.label}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        {typeof score === 'number' ? (
-          <div className={styles.score}>
-            <ScoreRing score={score} />
-            <div className={styles.scoreTier} style={{ color: fipTier(score).color }}>
-              {fipTier(score).label}
+          {bottle.type ? <div className={styles.type}>{bottle.type}</div> : null}
+          {bottle.distillery || bottleLocation ? (
+            <div className={styles.distillery}>
+              {bottle.distillery}
+              {bottle.distillery && bottleLocation ? ' · ' : ''}
+              {bottleLocation}
             </div>
-          </div>
-        ) : null}
+          ) : null}
+          {journeyStage ? (
+            <span className={styles.journey} style={{ color: journeyStage.color }}>
+              <span className={styles.journeyDot} style={{ background: journeyStage.color }} />
+              {journeyStage.label}
+            </span>
+          ) : null}
+        </div>
+
+        <div className={styles.heroRight}>
+          <button type="button" className={styles.statusPill} onClick={() => setShowStatusModal(true)}>
+            <span className={styles.statusDot} style={{ background: STATUS_DOT_COLOR[bottle.status] }} aria-hidden="true" />
+            {STATUS_LABEL[bottle.status]}
+            {fillPercent != null ? <span className={styles.fillPercent}>{fillPercent}% Full</span> : null}
+          </button>
+          {typeof score === 'number' ? (
+            <div className={styles.score}>
+              <ScoreRing score={score} />
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {quickStats.length > 0 ? (
         <div className={styles.quickStats}>
           {quickStats.map((stat) => (
-            <StatTile key={stat.label} value={stat.value} label={stat.label} />
+            <StatTile key={stat.label} value={stat.value} label={stat.label} sublabel={stat.sublabel} />
           ))}
         </div>
       ) : null}
@@ -224,7 +261,14 @@ export function BottleDetailsPage() {
         <StartAPourButton bottleId={bottle.id} label="Start a Pour" />
       </div>
 
-      <YourTakeCard bottle={bottle} score={score} onUpdate={handleYourTakeUpdate} />
+      <YourTakeCard
+        bottle={bottle}
+        score={score}
+        scoreDate={scoreDate}
+        pourHistory={pourHistory}
+        onUpdate={handleYourTakeUpdate}
+        onViewJourney={() => setActiveTab('journey')}
+      />
 
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 

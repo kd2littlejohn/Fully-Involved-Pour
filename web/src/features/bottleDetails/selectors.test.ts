@@ -4,11 +4,16 @@ import {
   buildBottleStoryEvents,
   buildRatingProgression,
   buildScoreEvolution,
+  currentScoreDate,
+  distilleryLocation,
+  fillLevelPercent,
   getCurrentScore,
   getFinishedDate,
   getMemoriesForBottle,
   getPoursForBottle,
   mashBillSummary,
+  parseLocalDate,
+  pourHistorySummary,
 } from './selectors'
 
 function pour(overrides: Partial<Pour> & Pick<Pour, 'id' | 'bottleId' | 'date' | 'rating'>): Pour {
@@ -40,6 +45,79 @@ describe('getPoursForBottle / getCurrentScore', () => {
   it('current score is the latest pour rating, falling back to bottle.rating', () => {
     expect(getCurrentScore(bottle, pours)).toBe(9.2)
     expect(getCurrentScore({ ...bottle, rating: 7.5 }, [])).toBe(7.5)
+  })
+})
+
+describe('currentScoreDate', () => {
+  const pours = [pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6 }), pour({ id: 'p2', bottleId: 'b1', date: '2026-06-08', rating: 9.2 })]
+
+  it('is the latest pour’s date when a pour backs the current score', () => {
+    expect(currentScoreDate(bottle, pours)).toBe('2026-06-08')
+  })
+
+  it('is undefined when the score comes from bottle.rating with no real pour behind it', () => {
+    expect(currentScoreDate({ ...bottle, rating: 7.5 }, [])).toBeUndefined()
+  })
+})
+
+describe('pourHistorySummary', () => {
+  it('is all-undefined with a zero count when the bottle has no pours', () => {
+    expect(pourHistorySummary(bottle, [])).toEqual({ pourCount: 0 })
+  })
+
+  it('reports first/last poured dates and a real count across multiple pours', () => {
+    const pours = [
+      pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6 }),
+      pour({ id: 'p2', bottleId: 'b1', date: '2026-06-08', rating: 9.2 }),
+      pour({ id: 'p3', bottleId: 'b1', date: '2026-04-01', rating: 8.0 }),
+    ]
+    expect(pourHistorySummary(bottle, pours)).toEqual({ firstPouredDate: '2026-04-01', lastPouredDate: '2026-06-08', pourCount: 3 })
+  })
+
+  it('reports the same date for first and last with only one pour', () => {
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6 })]
+    expect(pourHistorySummary(bottle, pours)).toEqual({ firstPouredDate: '2026-05-17', lastPouredDate: '2026-05-17', pourCount: 1 })
+  })
+})
+
+describe('fillLevelPercent', () => {
+  it('maps every real fill level to its natural percentage', () => {
+    expect(fillLevelPercent({ ...bottle, fillLevel: 'full' })).toBe(100)
+    expect(fillLevelPercent({ ...bottle, fillLevel: 'three-quarter' })).toBe(75)
+    expect(fillLevelPercent({ ...bottle, fillLevel: 'half' })).toBe(50)
+    expect(fillLevelPercent({ ...bottle, fillLevel: 'quarter' })).toBe(25)
+    expect(fillLevelPercent({ ...bottle, fillLevel: 'empty' })).toBe(0)
+  })
+
+  it('is undefined when no fill level has been set', () => {
+    expect(fillLevelPercent(bottle)).toBeUndefined()
+  })
+})
+
+describe('parseLocalDate', () => {
+  it('reads the exact year/month/day as a local date, immune to UTC-parsing day-shift', () => {
+    const d = parseLocalDate('2026-06-14')
+    expect(d.getFullYear()).toBe(2026)
+    expect(d.getMonth()).toBe(5)
+    expect(d.getDate()).toBe(14)
+  })
+})
+
+describe('distilleryLocation', () => {
+  it('resolves a city + state from the verified static distillery database', () => {
+    expect(distilleryLocation({ ...bottle, distillery: 'Buffalo Trace Distillery' })).toBe('Frankfort, Kentucky')
+  })
+
+  it('resolves the same location from a known alias', () => {
+    expect(distilleryLocation({ ...bottle, distillery: 'BT' })).toBe('Frankfort, Kentucky')
+  })
+
+  it('falls back to the bottle’s own region when the distillery is not in the database', () => {
+    expect(distilleryLocation({ ...bottle, distillery: 'Some Unlisted Craft Distillery', region: 'Texas' })).toBe('Texas')
+  })
+
+  it('is undefined when neither a resolvable distillery nor a region is present', () => {
+    expect(distilleryLocation(bottle)).toBeUndefined()
   })
 })
 

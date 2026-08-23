@@ -15,23 +15,50 @@
 
 .scoreRow {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  gap: var(--fip-space-4);
   padding-bottom: var(--fip-space-4);
   margin-bottom: var(--fip-space-4);
   border-bottom: 1px solid var(--fip-border-subtle);
-}
-
-.scoreLabel {
-  color: var(--fip-muted);
-  font-size: var(--fip-text-sm);
-  font-weight: 600;
 }
 
 .scoreValue {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-2xl);
   color: var(--fip-amber);
+  line-height: 1;
+}
+
+.scoreTier {
+  margin-top: var(--fip-space-1);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.scoreMeta {
+  text-align: right;
+}
+
+.stars {
+  font-size: var(--fip-text-md);
+  letter-spacing: 1px;
+}
+
+.starFilled {
+  color: var(--fip-amber);
+}
+
+.starEmpty {
+  color: var(--fip-border-subtle);
+}
+
+.scoreDate {
+  margin-top: var(--fip-space-1);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
 }
 
 .section {
@@ -51,7 +78,14 @@
   gap: var(--fip-space-2);
 }
 
-.favoriteButton {
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-4);
+}
+
+.journeyButton {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -61,13 +95,12 @@
   border-radius: var(--fip-radius-round);
   border: 1px solid var(--fip-border);
   background: transparent;
-  color: var(--fip-cream-soft);
+  color: var(--fip-amber);
   font-size: var(--fip-text-sm);
   font-weight: 600;
   cursor: pointer;
 }
 
-.favoriteActive {
-  border-color: var(--fip-amber);
-  color: var(--fip-amber);
+.journeyButton:hover {
+  border-color: var(--fip-border-strong);
 }

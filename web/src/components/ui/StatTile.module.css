@@ -21,3 +21,9 @@
   letter-spacing: var(--fip-tracking-label);
   text-transform: uppercase;
 }
+
+.sublabel {
+  margin-top: var(--fip-space-1);
+  color: var(--fip-stone);
+  font-size: var(--fip-text-xs);
+}

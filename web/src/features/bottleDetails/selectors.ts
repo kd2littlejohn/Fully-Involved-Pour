@@ -1,4 +1,17 @@
-import type { Bottle, Memory, Pour } from '../../data/types'
+import type { Bottle, FillLevel, Memory, Pour } from '../../data/types'
+import { resolveDistillery } from '../../data/distillery/search'
+
+// A plain `new Date('2026-06-14')` parses as UTC midnight; formatting that
+// in a timezone behind UTC (most of North America) can display the day
+// *before* the one actually stored, since Intl formatters render in local
+// time. Every one of this bottle's own date-only fields (purchaseDate,
+// openedDate, ratings, pour dates) is a YYYY-MM-DD string with no time
+// component, so parsing the parts directly as a local date is the correct
+// read regardless of the viewer's timezone.
+export function parseLocalDate(isoDate: string): Date {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1)
+}
 
 export function mashBillSummary(bottle: Bottle): string | undefined {
   const parts: string[] = []
@@ -17,6 +30,60 @@ export function getCurrentScore(bottle: Bottle, pours: Pour[]): number | undefin
   const latest = bottlePours[0]
   if (latest) return latest.rating
   return bottle.rating
+}
+
+// The date behind the score getCurrentScore returns — undefined when that
+// score came from bottle.rating (a manually-set bottle-level score) rather
+// than an actual pour, since there's no real "when" to show for that case.
+export function currentScoreDate(bottle: Bottle, pours: Pour[]): string | undefined {
+  return getPoursForBottle(pours, bottle.id)[0]?.date
+}
+
+export interface PourHistorySummary {
+  firstPouredDate?: string
+  lastPouredDate?: string
+  pourCount: number
+}
+
+// Compact "how much history do I have with this bottle" facts for the Your
+// Take card — deliberately just the three raw numbers/dates, not the fuller
+// narrative BottleStorySummary builds for the Journey tab.
+export function pourHistorySummary(bottle: Bottle, pours: Pour[]): PourHistorySummary {
+  const bottlePours = getPoursForBottle(pours, bottle.id)
+  if (bottlePours.length === 0) return { pourCount: 0 }
+  const chronological = [...bottlePours].sort((a, b) => a.date.localeCompare(b.date))
+  return {
+    firstPouredDate: chronological[0]!.date,
+    lastPouredDate: chronological[chronological.length - 1]!.date,
+    pourCount: bottlePours.length,
+  }
+}
+
+const FILL_LEVEL_PERCENT: Record<FillLevel, number> = {
+  full: 100,
+  'three-quarter': 75,
+  half: 50,
+  quarter: 25,
+  empty: 0,
+}
+
+// A direct, non-fabricated transform of the fillLevel the user already
+// picked — never a fine-grained guess, just the enum's own natural percentage.
+export function fillLevelPercent(bottle: Bottle): number | undefined {
+  return bottle.fillLevel ? FILL_LEVEL_PERCENT[bottle.fillLevel] : undefined
+}
+
+// City-level location for the hero ("Frankfort, Kentucky") — resolved only
+// against the app's own verified static distillery database, never guessed;
+// falls back to the bottle's own (broader, user-entered) region rather than
+// showing nothing when the distillery isn't in that database yet.
+export function distilleryLocation(bottle: Bottle): string | undefined {
+  const resolved = resolveDistillery(bottle.distillery)
+  if (resolved) {
+    const parts = [resolved.city, resolved.stateProvince].filter(Boolean)
+    if (parts.length > 0) return parts.join(', ')
+  }
+  return bottle.region
 }
 
 const PROGRESSION_FULL_LIMIT = 6
