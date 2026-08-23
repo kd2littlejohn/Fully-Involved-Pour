@@ -12,6 +12,7 @@ export interface EssentialFieldsValues {
   proof: string
   ageStatement: string
   region: string
+  bottleSize: string
   mashBillCorn: string
   mashBillRyeWheat: string
   mashBillMalted: string
@@ -145,6 +146,20 @@ export function EssentialFieldsCard({ values, onChange, nameError, onMsrpFound }
           />
         </Field>
       </div>
+
+      <Field label="Bottle size in ml (optional)" htmlFor="ab-bottle-size">
+        <input
+          id="ab-bottle-size"
+          className={controlClassName}
+          type="number"
+          inputMode="numeric"
+          min="1"
+          step="1"
+          value={values.bottleSize}
+          onChange={(e) => onChange({ bottleSize: e.target.value })}
+          placeholder="750"
+        />
+      </Field>
 
       <div className={styles.row}>
         <Field label="Mash bill: Corn % (optional)" htmlFor="ab-mashbill-corn">

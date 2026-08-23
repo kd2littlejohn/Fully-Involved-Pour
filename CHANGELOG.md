@@ -3,12 +3,15 @@
 Added
 - MSRP (optional) field to the Add/Edit Bottle form, alongside Price paid.
 - Mash bill (optional): Corn %, Rye/Wheat %, and Malted Barley % fields on the Add/Edit Bottle form.
+- Bottle size in ml (optional) field on the Add/Edit Bottle form.
+- Shelf (optional) and Fill level (optional) fields on the Add/Edit Bottle form.
 
 Changed
 - Label scan and "Ask AI to fill in the rest" now carry MSRP through to the saved bottle instead of discarding it.
 - "Ask AI to fill in the rest" also fills in mash bill percentages when they're publicly known, so the Mash Bill shown on Bottle Details/Compare is no longer always blank for AI-assisted adds.
+- Fill level now defaults to Full the moment a bottle's status becomes Opened, and to Empty when it becomes Finished — same pattern as the existing Finished-date default — unless already set.
 
-No Firebase schema changes (the `msrp` and mash bill fields already existed on Bottle; they just weren't reachable from Add Bottle before).
+No Firebase schema changes (msrp, mash bill, bottleSize, shelf, and fillLevel all already existed on Bottle; they just weren't reachable from Add Bottle before). Every field the Bottle Details Overview tab already displays is now settable from Add/Edit Bottle.
 
 ## v0.4.1 - Journey Layout
 

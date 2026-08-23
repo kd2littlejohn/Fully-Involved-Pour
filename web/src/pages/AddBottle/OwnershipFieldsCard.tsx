@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
-import type { BottleStatus } from '../../data/types'
+import type { BottleStatus, FillLevel } from '../../data/types'
 import { generateTastingProfile } from '../../data/repositories/ai'
 import styles from './FieldsCard.module.css'
 
@@ -9,13 +9,23 @@ export interface OwnershipFieldsValues {
   price: string
   msrp: string
   storeLocation: string
+  shelf: string
   quantity: string
+  fillLevel: FillLevel | ''
   purchaseDate: string
   openedDate: string
   expectedDate: string
   finishedDate: string
   notes: string
 }
+
+const FILL_LEVEL_OPTIONS: { value: FillLevel; label: string }[] = [
+  { value: 'full', label: 'Full' },
+  { value: 'three-quarter', label: 'Three Quarter' },
+  { value: 'half', label: 'Half' },
+  { value: 'quarter', label: 'Quarter' },
+  { value: 'empty', label: 'Empty' },
+]
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10)
@@ -92,7 +102,16 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 // status back and forth) or one carried over from a legacy
                 // finished bottle that never had one — that stays blank
                 // until the user deliberately picks a real date.
-                onChange({ status, finishedDate: status === 'finished' && !values.finishedDate ? todayIsoDate() : values.finishedDate })
+                const finishedDate = status === 'finished' && !values.finishedDate ? todayIsoDate() : values.finishedDate
+                // Same idea for fill level: a freshly opened bottle starts
+                // full and a finished one is empty, unless the user already
+                // recorded something more specific.
+                let fillLevel = values.fillLevel
+                if (!fillLevel) {
+                  if (status === 'open') fillLevel = 'full'
+                  else if (status === 'finished') fillLevel = 'empty'
+                }
+                onChange({ status, finishedDate, fillLevel })
               }}
             >
               {STATUS_OPTIONS.map((option) => (
@@ -152,6 +171,34 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 onChange={(e) => onChange({ storeLocation: e.target.value })}
                 placeholder="ABC Liquor"
               />
+            </Field>
+          </div>
+
+          <div className={styles.row}>
+            <Field label="Shelf (optional)" htmlFor="ab-shelf">
+              <input
+                id="ab-shelf"
+                className={controlClassName}
+                value={values.shelf}
+                onChange={(e) => onChange({ shelf: e.target.value })}
+                placeholder="Top Shelf"
+              />
+            </Field>
+
+            <Field label="Fill level (optional)" htmlFor="ab-fill-level">
+              <select
+                id="ab-fill-level"
+                className={controlClassName}
+                value={values.fillLevel}
+                onChange={(e) => onChange({ fillLevel: e.target.value as FillLevel | '' })}
+              >
+                <option value="">—</option>
+                {FILL_LEVEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
 

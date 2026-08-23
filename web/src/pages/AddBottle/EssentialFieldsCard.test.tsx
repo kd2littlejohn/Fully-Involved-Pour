@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFieldsCard'
@@ -16,6 +16,7 @@ const baseValues: EssentialFieldsValues = {
   proof: '',
   ageStatement: '',
   region: '',
+  bottleSize: '',
   mashBillCorn: '',
   mashBillRyeWheat: '',
   mashBillMalted: '',
@@ -33,6 +34,15 @@ describe('EssentialFieldsCard', () => {
     await userEvent.type(screen.getByLabelText('Bottle name', { exact: false }), 'E')
 
     expect(onChange).toHaveBeenCalledWith({ name: 'E' })
+  })
+
+  it('reports a Bottle size change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<EssentialFieldsCard values={baseValues} onChange={onChange} />)
+
+    fireEvent.change(screen.getByLabelText('Bottle size in ml (optional)'), { target: { value: '750' } })
+
+    expect(onChange).toHaveBeenCalledWith({ bottleSize: '750' })
   })
 
   it('shows the name error when provided', () => {

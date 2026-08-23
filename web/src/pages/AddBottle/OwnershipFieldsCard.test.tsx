@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OwnershipFieldsCard, type OwnershipFieldsValues, type BottleContext } from './OwnershipFieldsCard'
@@ -14,7 +14,9 @@ const baseValues: OwnershipFieldsValues = {
   price: '',
   msrp: '',
   storeLocation: '',
+  shelf: '',
   quantity: '',
+  fillLevel: '',
   purchaseDate: '',
   openedDate: '',
   expectedDate: '',
@@ -48,7 +50,9 @@ describe('OwnershipFieldsCard', () => {
     render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
     await openCard()
 
-    const options = screen.getAllByRole('option').map((o) => o.textContent)
+    const options = within(screen.getByLabelText('Status'))
+      .getAllByRole('option')
+      .map((o) => o.textContent)
     expect(options).toEqual(['Sealed', 'Opened', 'Finished', 'Wish List', 'Incoming'])
   })
 
@@ -96,7 +100,49 @@ describe('OwnershipFieldsCard', () => {
     await userEvent.selectOptions(screen.getByLabelText('Status'), 'Finished')
 
     const today = new Date().toISOString().slice(0, 10)
-    expect(onChange).toHaveBeenCalledWith({ status: 'finished', finishedDate: today })
+    expect(onChange).toHaveBeenCalledWith({ status: 'finished', finishedDate: today, fillLevel: 'empty' })
+  })
+
+  it('defaults Fill level to Full when status changes to Opened', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'Opened')
+
+    expect(onChange).toHaveBeenCalledWith({ status: 'open', finishedDate: '', fillLevel: 'full' })
+  })
+
+  it('does not overwrite an already-set Fill level when status changes again', async () => {
+    const onChange = vi.fn()
+    render(
+      <OwnershipFieldsCard values={{ ...baseValues, status: 'open', fillLevel: 'quarter' }} onChange={onChange} bottleContext={emptyContext} />,
+    )
+    await openCard()
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'Finished')
+
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ fillLevel: 'quarter' }))
+  })
+
+  it('reports a Fill level change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    await userEvent.selectOptions(screen.getByLabelText('Fill level (optional)'), 'Half')
+
+    expect(onChange).toHaveBeenCalledWith({ fillLevel: 'half' })
+  })
+
+  it('reports a Shelf change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    await userEvent.type(screen.getByLabelText('Shelf (optional)'), 'A')
+
+    expect(onChange).toHaveBeenCalledWith({ shelf: 'A' })
   })
 
   it('does not overwrite an already-set Finished date when status changes again', async () => {
@@ -112,7 +158,7 @@ describe('OwnershipFieldsCard', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Status'), 'Sealed')
 
-    expect(onChange).toHaveBeenCalledWith({ status: 'sealed', finishedDate: '2026-01-05' })
+    expect(onChange).toHaveBeenCalledWith({ status: 'sealed', finishedDate: '2026-01-05', fillLevel: '' })
   })
 
   it('leaves Finished date blank for a legacy finished bottle with no stored date', async () => {
