@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFieldsCard'
 
 const mockLookup = vi.fn()
@@ -16,6 +16,9 @@ const baseValues: EssentialFieldsValues = {
   proof: '',
   ageStatement: '',
   region: '',
+  mashBillCorn: '',
+  mashBillRyeWheat: '',
+  mashBillMalted: '',
 }
 
 beforeEach(() => {
@@ -45,7 +48,17 @@ describe('EssentialFieldsCard', () => {
   })
 
   it('fills in empty fields from a successful Ask AI lookup, without overwriting existing values', async () => {
-    mockLookup.mockResolvedValue({ known: true, distillery: 'Buffalo Trace', type: 'Bourbon', region: 'Kentucky', proof: 90 })
+    mockLookup.mockResolvedValue({
+      known: true,
+      distillery: 'Buffalo Trace',
+      type: 'Bourbon',
+      region: 'Kentucky',
+      proof: 90,
+      ageStatement: '10 Year',
+      mashBillCorn: 75,
+      mashBillRyeWheat: 21,
+      mashBillMalted: 4,
+    })
     const onChange = vi.fn()
     render(
       <EssentialFieldsCard
@@ -59,7 +72,16 @@ describe('EssentialFieldsCard', () => {
     expect(mockLookup).toHaveBeenCalledWith('Eagle Rare')
     expect(await screen.findByText(/AI filled in Buffalo Trace/)).toBeInTheDocument()
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ distillery: 'Buffalo Trace', type: 'Rye', region: 'Kentucky', proof: '90' }),
+      expect.objectContaining({
+        distillery: 'Buffalo Trace',
+        type: 'Rye',
+        region: 'Kentucky',
+        proof: '90',
+        ageStatement: '10 Year',
+        mashBillCorn: '75',
+        mashBillRyeWheat: '21',
+        mashBillMalted: '4',
+      }),
     )
   })
 
@@ -70,5 +92,92 @@ describe('EssentialFieldsCard', () => {
     await userEvent.click(screen.getByRole('button', { name: /Ask AI to fill in the rest/ }))
 
     expect(await screen.findByText('No close match yet. Keep typing, or save it manually.')).toBeInTheDocument()
+  })
+
+  it('never overwrites an existing mash bill value, even when AI returns a different one', async () => {
+    mockLookup.mockResolvedValue({ known: true, mashBillCorn: 51, mashBillRyeWheat: 39, mashBillMalted: 10 })
+    const onChange = vi.fn()
+    render(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare', mashBillCorn: '75' }} onChange={onChange} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Ask AI to fill in the rest/ }))
+
+    expect(await screen.findByText(/AI filled in/)).toBeInTheDocument()
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ mashBillCorn: '75', mashBillRyeWheat: '39', mashBillMalted: '10' }),
+    )
+  })
+
+  describe('auto-run', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('fires the lookup on its own once the name settles, with no button click', async () => {
+      mockLookup.mockResolvedValue({ known: true, distillery: 'Buffalo Trace' })
+      const onChange = vi.fn()
+      const { rerender } = render(<EssentialFieldsCard values={baseValues} onChange={onChange} />)
+
+      // Simulates the name field settling on its final value, the way real
+      // typing eventually does — no button ever gets clicked in this test.
+      rerender(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare' }} onChange={onChange} />)
+      expect(mockLookup).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(900)
+
+      expect(mockLookup).toHaveBeenCalledWith('Eagle Rare')
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ distillery: 'Buffalo Trace' }))
+    })
+
+    it('stays silent (no "no match" message) when the auto-run finds nothing', async () => {
+      mockLookup.mockResolvedValue({ known: false })
+      render(<EssentialFieldsCard values={{ ...baseValues, name: 'Some Obscure Bottle' }} onChange={vi.fn()} />)
+
+      await vi.advanceTimersByTimeAsync(900)
+
+      expect(mockLookup).toHaveBeenCalledWith('Some Obscure Bottle')
+      expect(screen.queryByText('No close match yet. Keep typing, or save it manually.')).not.toBeInTheDocument()
+    })
+
+    it('does not re-run for a name it has already auto-looked-up', async () => {
+      mockLookup.mockResolvedValue({ known: true, distillery: 'Buffalo Trace' })
+      const { rerender } = render(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare' }} onChange={vi.fn()} />)
+
+      await vi.advanceTimersByTimeAsync(900)
+      expect(mockLookup).toHaveBeenCalledTimes(1)
+
+      // A patch fills in distillery but the name itself is unchanged — a
+      // parent re-render with the same name must not refire the lookup.
+      rerender(<EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare', distillery: 'Buffalo Trace' }} onChange={vi.fn()} />)
+      await vi.advanceTimersByTimeAsync(900)
+
+      expect(mockLookup).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not auto-run when every fillable field is already populated', async () => {
+      render(
+        <EssentialFieldsCard
+          values={{
+            name: 'Eagle Rare',
+            distillery: 'Buffalo Trace',
+            type: 'Bourbon',
+            proof: '90',
+            ageStatement: '10 Year',
+            region: 'Kentucky',
+            mashBillCorn: '75',
+            mashBillRyeWheat: '21',
+            mashBillMalted: '4',
+          }}
+          onChange={vi.fn()}
+        />,
+      )
+
+      await vi.advanceTimersByTimeAsync(900)
+
+      expect(mockLookup).not.toHaveBeenCalled()
+    })
   })
 })

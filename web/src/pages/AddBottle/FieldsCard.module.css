@@ -18,6 +18,21 @@
   gap: var(--fip-space-4);
 }
 
+.row3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--fip-space-4);
+}
+
+.groupLabel {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin: var(--fip-space-2) 0 var(--fip-space-2);
+}
+
 .fieldError {
   color: var(--fip-error);
   font-size: var(--fip-text-sm);

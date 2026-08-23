@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { Combobox } from '../../components/ui/Combobox'
 import { lookupBottleInfo } from '../../data/repositories/ai'
@@ -12,6 +12,9 @@ export interface EssentialFieldsValues {
   proof: string
   ageStatement: string
   region: string
+  mashBillCorn: string
+  mashBillRyeWheat: string
+  mashBillMalted: string
 }
 
 interface EssentialFieldsCardProps {
@@ -20,19 +23,45 @@ interface EssentialFieldsCardProps {
   nameError?: string
 }
 
+// How long to let typing settle before auto-firing the lookup — long enough
+// that mid-word keystrokes never trigger a call, short enough that it feels
+// immediate once you stop typing the name.
+const AUTO_LOOKUP_DEBOUNCE_MS = 900
+
+function hasBlankTarget(values: EssentialFieldsValues): boolean {
+  return (
+    !values.distillery.trim() ||
+    !values.type.trim() ||
+    !values.region.trim() ||
+    !values.proof ||
+    !values.ageStatement.trim() ||
+    !values.mashBillCorn ||
+    !values.mashBillRyeWheat ||
+    !values.mashBillMalted
+  )
+}
+
 export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFieldsCardProps) {
   const [lookingUp, setLookingUp] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
+  // The exact name we've already auto-looked-up, so typing elsewhere (or a
+  // re-render) never re-fires the same query — only a genuinely new name does.
+  const autoLookupDoneForRef = useRef<string | null>(null)
 
-  async function handleAskAi() {
+  async function runLookup(auto: boolean) {
     const query = values.name.trim()
     if (query.length < 3 || lookingUp) return
     setLookingUp(true)
-    setAiStatus(`✨ Asking AI about "${query}"...`)
+    if (!auto) setAiStatus(`✨ Asking AI about "${query}"...`)
     try {
       const info = await lookupBottleInfo(query)
       if (!info.known) {
-        setAiStatus('No close match yet. Keep typing, or save it manually.')
+        // A silent no-op for the background auto-run — most typed names
+        // simply won't match a known product, and surfacing that as
+        // unsolicited "no match" feedback while someone is still typing
+        // reads as an error rather than the non-event it is. The manual
+        // button still reports it, since that's an explicit ask.
+        if (!auto) setAiStatus('No close match yet. Keep typing, or save it manually.')
         return
       }
       onChange({
@@ -40,13 +69,41 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
         type: values.type.trim() || info.type || values.type,
         region: values.region.trim() || info.region || values.region,
         proof: values.proof || (info.proof ? String(info.proof) : values.proof),
+        ageStatement: values.ageStatement.trim() || info.ageStatement || values.ageStatement,
+        mashBillCorn: values.mashBillCorn || (info.mashBillCorn ? String(info.mashBillCorn) : values.mashBillCorn),
+        mashBillRyeWheat:
+          values.mashBillRyeWheat || (info.mashBillRyeWheat ? String(info.mashBillRyeWheat) : values.mashBillRyeWheat),
+        mashBillMalted: values.mashBillMalted || (info.mashBillMalted ? String(info.mashBillMalted) : values.mashBillMalted),
       })
       setAiStatus(`✨ AI filled in ${info.distillery || 'details'} for this bottle.`)
     } catch {
-      setAiStatus('No close match yet. Keep typing, or save it manually.')
+      if (!auto) setAiStatus('No close match yet. Keep typing, or save it manually.')
     } finally {
       setLookingUp(false)
     }
+  }
+
+  // Auto-fires once there's a real bottle name to search on — no click
+  // needed. Runs the same for a fresh Add Bottle (as soon as you finish
+  // typing the name) and for Edit Bottle on an existing bottle (fires right
+  // after the form hydrates, if that bottle is still missing any of these
+  // fields), since both just mean "the name changed and we haven't already
+  // looked this one up."
+  useEffect(() => {
+    const query = values.name.trim()
+    if (query.length < 3 || lookingUp) return
+    if (autoLookupDoneForRef.current === query) return
+    if (!hasBlankTarget(values)) return
+    const timer = setTimeout(() => {
+      autoLookupDoneForRef.current = query
+      void runLookup(true)
+    }, AUTO_LOOKUP_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the name should re-trigger this; re-running on every field edit would refire mid-fill
+  }, [values.name])
+
+  function handleAskAi() {
+    void runLookup(false)
   }
 
   return (
@@ -131,6 +188,51 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
             value={values.region}
             onChange={(e) => onChange({ region: e.target.value })}
             placeholder="Kentucky"
+          />
+        </Field>
+      </div>
+
+      <p className={styles.groupLabel}>Mash Bill (optional)</p>
+      <div className={styles.row3}>
+        <Field label="Corn %" htmlFor="ab-mashbill-corn">
+          <input
+            id="ab-mashbill-corn"
+            className={controlClassName}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            max="100"
+            value={values.mashBillCorn}
+            onChange={(e) => onChange({ mashBillCorn: e.target.value })}
+            placeholder="75"
+          />
+        </Field>
+
+        <Field label="Rye/Wheat %" htmlFor="ab-mashbill-ryewheat">
+          <input
+            id="ab-mashbill-ryewheat"
+            className={controlClassName}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            max="100"
+            value={values.mashBillRyeWheat}
+            onChange={(e) => onChange({ mashBillRyeWheat: e.target.value })}
+            placeholder="21"
+          />
+        </Field>
+
+        <Field label="Malted %" htmlFor="ab-mashbill-malted">
+          <input
+            id="ab-mashbill-malted"
+            className={controlClassName}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            max="100"
+            value={values.mashBillMalted}
+            onChange={(e) => onChange({ mashBillMalted: e.target.value })}
+            placeholder="4"
           />
         </Field>
       </div>

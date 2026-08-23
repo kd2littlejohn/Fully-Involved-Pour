@@ -31,6 +31,10 @@ export interface BottleLookupResult {
   type?: string
   region?: string
   proof?: number
+  ageStatement?: string
+  mashBillCorn?: number
+  mashBillRyeWheat?: number
+  mashBillMalted?: number
 }
 
 export async function lookupBottleInfo(bottleName: string): Promise<BottleLookupResult> {

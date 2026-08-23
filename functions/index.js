@@ -71,11 +71,11 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
     throw new HttpsError("invalid-argument", "A bottle name is required.");
   }
 
-  const system = `You are a whiskey/spirits database expert. Given a bottle name, identify its real-world distillery, spirit type, region, and typical bottled proof, ONLY if you genuinely recognize this as a real, existing product. If you do not recognize the bottle or are not confident, set "known" to false and leave the other fields empty -- never invent or guess plausible-sounding but unverified details. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:\n{"known": true or false, "distillery": "...", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "...", "proof": number or 0}`;
+  const system = `You are a whiskey/spirits database expert. Given a bottle name, identify its real-world distillery, spirit type, region, typical bottled proof, age statement, and mash bill, ONLY if you genuinely recognize this as a real, existing product. Mash bill is frequently proprietary or undisclosed even for well-known bottles -- only include it when you actually know the real published percentages, and set each unknown mash bill component to 0 rather than guessing a plausible split. If you do not recognize the bottle or are not confident, set "known" to false and leave the other fields empty -- never invent or guess plausible-sounding but unverified details. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:\n{"known": true or false, "distillery": "...", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "...", "proof": number or 0, "ageStatement": "..." or "", "mashBillCorn": number or 0, "mashBillRyeWheat": number or 0, "mashBillMalted": number or 0}`;
 
   const prompt = `Bottle name: ${bottleName}`;
 
-  const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 200 });
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 250 });
 
   let parsed;
   try {
@@ -93,6 +93,10 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
     type: String(parsed.type || ""),
     region: String(parsed.region || ""),
     proof: Number(parsed.proof || 0),
+    ageStatement: String(parsed.ageStatement || ""),
+    mashBillCorn: Number(parsed.mashBillCorn || 0),
+    mashBillRyeWheat: Number(parsed.mashBillRyeWheat || 0),
+    mashBillMalted: Number(parsed.mashBillMalted || 0),
   };
 });
 
