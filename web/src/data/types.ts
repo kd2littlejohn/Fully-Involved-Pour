@@ -132,6 +132,19 @@ export interface Pour {
   // larger cinematic treatment regardless of score/status, and un-pin it
   // later. Absent/false means the automatic rules alone decide.
   isFeatured?: boolean
+  // FIP's own reflection of this pour's tasting notes/tags, generated
+  // asynchronously after the pour is already saved (see
+  // data/repositories/tastingSummary.ts and features/pourWizard/
+  // tastingSummaryOnSave.ts) — never invents a flavor the user didn't
+  // tag/write. Absent until generated; sourceHash gates regeneration so it
+  // only runs again when the tasting-relevant fields actually change.
+  aiSummary?: PourAiSummary
+}
+
+export interface PourAiSummary {
+  text: string
+  sourceHash: string
+  generatedAt: number
 }
 
 export interface Memory {

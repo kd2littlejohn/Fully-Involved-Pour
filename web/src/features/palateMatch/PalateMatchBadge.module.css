@@ -1,0 +1,59 @@
+.card {
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  box-shadow: var(--fip-shadow-card);
+  padding: var(--fip-space-5);
+  margin-bottom: var(--fip-space-4);
+}
+
+.sectionLabel {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  margin: 0 0 var(--fip-space-3);
+}
+
+.stillLearning {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: 0;
+}
+
+.scoreLine {
+  color: var(--fip-cream);
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  margin: 0;
+}
+
+.confidenceTag {
+  color: var(--fip-muted);
+  font-family: inherit;
+  font-size: var(--fip-text-sm);
+  font-weight: 400;
+}
+
+.whyToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  min-height: 44px;
+  margin-top: var(--fip-space-3);
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.explanation {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  margin: var(--fip-space-3) 0 0;
+}

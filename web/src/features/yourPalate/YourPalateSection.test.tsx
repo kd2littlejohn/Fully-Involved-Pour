@@ -1,7 +1,23 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { YourPalateSection } from './YourPalateSection'
 import type { Bottle, Pour } from '../../data/types'
+
+const mockUseAuth = vi.fn()
+const mockUsePalateInterpretation = vi.fn()
+
+vi.mock('../../hooks/useAuth', () => ({
+  useAuth: () => mockUseAuth(),
+}))
+
+vi.mock('./usePalateInterpretation', () => ({
+  usePalateInterpretation: (...args: unknown[]) => mockUsePalateInterpretation(...args),
+}))
+
+beforeEach(() => {
+  mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+  mockUsePalateInterpretation.mockReturnValue({ state: 'none', interpretation: undefined })
+})
 
 function daysAgo(n: number): string {
   return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -116,5 +132,25 @@ describe('YourPalateSection', () => {
     ]
     render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
     expect(screen.getByText(/Bourbon is your most poured style so far\./)).toBeInTheDocument()
+  })
+
+  it('shows "What FIP Is Learning" once the interpretation is ready', () => {
+    mockUsePalateInterpretation.mockReturnValue({
+      state: 'ready',
+      interpretation: "You've been leaning into Bourbon, especially pours with real vanilla character.",
+    })
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: daysAgo(1), rating: 8 })]
+    render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
+
+    expect(screen.getByText('What FIP Is Learning')).toBeInTheDocument()
+    expect(screen.getByText("You've been leaning into Bourbon, especially pours with real vanilla character.")).toBeInTheDocument()
+  })
+
+  it('never shows "What FIP Is Learning" while loading or with no interpretation available', () => {
+    mockUsePalateInterpretation.mockReturnValue({ state: 'loading', interpretation: undefined })
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: daysAgo(1), rating: 8 })]
+    render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
+
+    expect(screen.queryByText('What FIP Is Learning')).not.toBeInTheDocument()
   })
 })

@@ -10,32 +10,35 @@ import type { Bottle } from '../types'
 // same already-generated guide instead of paying for a fresh AI call every
 // time the Overview tab opens. See firestore.rules for why this is
 // create-only (no update): shared content shouldn't be casually overwritten.
+//
+// v2 schema (bottleKey suffixed "::v2" — see fipGuideKey) replaces the v1
+// whySpecial/bestFor/value/skipIf shape. Old-shape cached docs are simply
+// never read again under the new key, so no migration is needed.
 export interface FipGuide {
   bottleKey: string
-  whySpecial: string
-  bestFor: string
-  value: string
-  buyIf: string
-  skipIf: string
+  confidence: 'high' | 'medium' | 'low'
+  story: string | null
+  special: string[]
+  expectSummary: string
+  expectFlavors: string[]
+  buyIf: string[]
+  passIf: string[]
   verdict: string
-  story: string
   availability: string
-  flavorProfile: string[]
   intensity: number | null
   generatedAt: number
 }
 
 interface GenerateFipGuideResult {
   known: boolean
-  whySpecial?: string
-  bestFor?: string
-  value?: string
-  buyIf?: string
-  skipIf?: string
+  story?: string | null
+  special?: string[]
+  expectSummary?: string
+  expectFlavors?: string[]
+  buyIf?: string[]
+  passIf?: string[]
   verdict?: string
-  story?: string
   availability?: string
-  flavorProfile?: string[]
   intensity?: number | null
 }
 
@@ -53,7 +56,8 @@ function fipGuideKey(name: string, distillery?: string): string {
       .replace(/^-+|-+$/g, '')
   const base = normalize(name)
   const distilleryPart = distillery?.trim() ? normalize(distillery) : ''
-  return distilleryPart ? `${base}__${distilleryPart}` : base
+  const identity = distilleryPart ? `${base}__${distilleryPart}` : base
+  return `${identity}::v2`
 }
 
 function mashBillText(bottle: Bottle): string | undefined {
@@ -64,20 +68,35 @@ function mashBillText(bottle: Bottle): string | undefined {
   return parts.length > 0 ? parts.join(', ') : undefined
 }
 
+// Deterministic "how much do we actually know about this bottle" signal —
+// computed purely from the bottle's own factual fields, never from the AI's
+// own self-reported confidence. The model never sees or influences this.
+export function computeFipGuideConfidence(bottle: Bottle): FipGuide['confidence'] {
+  const hasDistillery = Boolean(bottle.distillery?.trim())
+  const hasType = Boolean(bottle.type?.trim())
+  const supportingCount = [bottle.proof, bottle.ageStatement, mashBillText(bottle), bottle.msrp].filter(Boolean).length
+  if (hasDistillery && hasType && supportingCount >= 2) return 'high'
+  if (hasDistillery || hasType) return 'medium'
+  return 'low'
+}
+
 const mockGuides = new Map<string, FipGuide>()
 
 function mockGuideFor(key: string, bottle: Bottle): FipGuide {
   return {
     bottleKey: key,
-    whySpecial: `${bottle.ageStatement ? `${bottle.ageStatement} ` : ''}${bottle.distillery ? `from ${bottle.distillery}` : 'A well-regarded pour'}.`.trim(),
-    bestFor: 'Drinkers who enjoy a classic, well-balanced profile.',
-    value: bottle.msrp ? 'Fair at MSRP.' : 'Value depends on what you pay.',
-    buyIf: 'You want a dependable bottle for regular pours.',
-    skipIf: 'You are chasing something more experimental.',
-    verdict: 'Worth having in the rotation.',
+    confidence: computeFipGuideConfidence(bottle),
     story: 'A steady favorite among bourbon drinkers for its balance of price and pour-ability.',
+    special: [
+      bottle.ageStatement ? `${bottle.ageStatement} age statement` : 'A consistent, well-regarded release',
+      bottle.distillery ? `Produced by ${bottle.distillery}` : 'A dependable everyday pour',
+    ],
+    expectSummary: 'Balanced sweetness with classic oak and vanilla notes.',
+    expectFlavors: ['Caramel', 'Vanilla', 'Oak'],
+    buyIf: ['You want a dependable bottle for regular pours.'],
+    passIf: ['You are chasing something more experimental.'],
+    verdict: 'Worth having in the rotation.',
     availability: 'Widely Available',
-    flavorProfile: ['Caramel', 'Vanilla', 'Oak'],
     intensity: 0.5,
     generatedAt: Date.now(),
   }
@@ -122,15 +141,15 @@ export async function getFipGuide(bottle: Bottle): Promise<FipGuide | undefined>
 
   const guide: FipGuide = {
     bottleKey: key,
-    whySpecial: result.data.whySpecial ?? '',
-    bestFor: result.data.bestFor ?? '',
-    value: result.data.value ?? '',
-    buyIf: result.data.buyIf ?? '',
-    skipIf: result.data.skipIf ?? '',
+    confidence: computeFipGuideConfidence(bottle),
+    story: result.data.story ?? null,
+    special: result.data.special ?? [],
+    expectSummary: result.data.expectSummary ?? '',
+    expectFlavors: result.data.expectFlavors ?? [],
+    buyIf: result.data.buyIf ?? [],
+    passIf: result.data.passIf ?? [],
     verdict: result.data.verdict ?? '',
-    story: result.data.story ?? '',
     availability: result.data.availability ?? '',
-    flavorProfile: result.data.flavorProfile ?? [],
     intensity: result.data.intensity ?? null,
     generatedAt: Date.now(),
   }

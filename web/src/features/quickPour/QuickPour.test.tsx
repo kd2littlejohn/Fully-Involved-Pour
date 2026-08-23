@@ -4,9 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuickPour } from './QuickPour'
 
 const mockAddPour = vi.fn()
+const mockGenerateAndSaveTastingSummary = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ addPour: mockAddPour }),
+  useUserData: () => ({ addPour: mockAddPour, updatePourAiSummary: vi.fn() }),
+}))
+
+vi.mock('../pourWizard/tastingSummaryOnSave', () => ({
+  generateAndSaveTastingSummary: (...args: unknown[]) => mockGenerateAndSaveTastingSummary(...args),
 }))
 
 vi.mock('../../hooks/useAuth', () => ({
@@ -31,6 +36,7 @@ vi.mock('../pourWizard/PourWizard', () => ({
 beforeEach(() => {
   mockAddPour.mockReset()
   mockAddPour.mockResolvedValue(undefined)
+  mockGenerateAndSaveTastingSummary.mockClear()
 })
 
 describe('QuickPour', () => {
@@ -150,6 +156,32 @@ describe('QuickPour', () => {
     expect(screen.getByRole('button', { name: 'Tell the Full Story' })).toBeInTheDocument()
     // The confirmation view is shown in place of closing immediately.
     expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('fires the tasting summary generator in the background once a real saved pour comes back', async () => {
+    const saved = {
+      id: 'p1',
+      bottleId: 'b1',
+      date: '2026-08-14',
+      rating: 9.3,
+      fip: { nose: 0, palate: 0, finish: 0, complexity: 0, value: 0, total: 9.3, noseAromas: [], palateFlavors: ['Vanilla'] },
+    }
+    mockAddPour.mockResolvedValue(saved)
+    render(<QuickPour bottleId="b1" bottleName="Eagle Rare" onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Pour' }))
+
+    expect(mockGenerateAndSaveTastingSummary).toHaveBeenCalledWith(saved, expect.any(Function))
+  })
+
+  it('never fires the tasting summary generator when the fast path had no pour to save (addPour resolved undefined)', async () => {
+    render(<QuickPour bottleId="b1" bottleName="Eagle Rare" onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Love It/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Pour' }))
+
+    expect(mockGenerateAndSaveTastingSummary).not.toHaveBeenCalled()
   })
 
   it('opens the full wizard on the saved pour when Tell the Full Story is tapped', async () => {

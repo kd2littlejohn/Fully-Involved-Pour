@@ -30,6 +30,7 @@ const eagleRare: Bottle = {
   id: 'b1',
   name: 'Eagle Rare 10 Year',
   distillery: 'Buffalo Trace Distillery',
+  type: 'Bourbon',
   status: 'open',
   proof: 90,
   ageStatement: '10 Year',
@@ -41,15 +42,14 @@ const eagleRare: Bottle = {
 
 const knownResult = {
   known: true,
-  whySpecial: '10-year age statement with a classic profile.',
-  bestFor: 'Bourbon drinkers who enjoy caramel and oak.',
-  value: 'Strong near MSRP.',
-  buyIf: 'You want a balanced age-stated bourbon.',
-  skipIf: 'You prefer high proof.',
-  verdict: 'Worth buying near retail.',
   story: 'A long-running favorite.',
+  special: ['10-year age statement', 'Classic Buffalo Trace profile'],
+  expectSummary: 'Balanced caramel and oak with a smooth finish.',
+  expectFlavors: ['Caramel', 'Vanilla'],
+  buyIf: ['You want a balanced age-stated bourbon.'],
+  passIf: ['You prefer high proof.'],
+  verdict: 'Worth buying near retail.',
   availability: 'Limited',
-  flavorProfile: ['Caramel', 'Vanilla'],
   intensity: 0.6,
 }
 
@@ -84,7 +84,7 @@ describe('getFipGuide', () => {
 
   it('returns the cached guide from Firestore without calling the Cloud Function', async () => {
     mockIsMockAuthEnabled.mockReturnValue(false)
-    const cached = { bottleKey: 'eagle-rare-10-year__buffalo-trace-distillery', verdict: 'Cached verdict.' }
+    const cached = { bottleKey: 'eagle-rare-10-year__buffalo-trace-distillery::v2', verdict: 'Cached verdict.' }
     mockGetDoc.mockResolvedValue({ exists: () => true, data: () => cached })
     const { getFipGuide } = await importFipGuide()
 
@@ -95,7 +95,7 @@ describe('getFipGuide', () => {
     expect(mockSetDoc).not.toHaveBeenCalled()
   })
 
-  it('generates and caches a new guide when none exists yet, keyed by normalized name + distillery', async () => {
+  it('generates and caches a new v2 guide when none exists yet, keyed by normalized name + distillery + version', async () => {
     mockIsMockAuthEnabled.mockReturnValue(false)
     mockGetDoc.mockResolvedValue({ exists: () => false })
     mockCallable.mockResolvedValue({ data: knownResult })
@@ -106,16 +106,21 @@ describe('getFipGuide', () => {
     expect(mockCallable).toHaveBeenCalledWith({
       bottleName: 'Eagle Rare 10 Year',
       distillery: 'Buffalo Trace Distillery',
-      type: undefined,
+      type: 'Bourbon',
       proof: 90,
       ageStatement: '10 Year',
       mashBill: '75% corn, 10% rye/wheat, 4% malted barley',
       msrp: 40,
     })
-    expect(result).toMatchObject({ whySpecial: knownResult.whySpecial, verdict: knownResult.verdict, flavorProfile: ['Caramel', 'Vanilla'] })
+    expect(result).toMatchObject({
+      story: knownResult.story,
+      special: knownResult.special,
+      verdict: knownResult.verdict,
+      expectFlavors: ['Caramel', 'Vanilla'],
+    })
     expect(mockSetDoc).toHaveBeenCalledTimes(1)
     const [docArg] = mockGetDoc.mock.calls[0]!
-    expect(docArg.path).toBe('fipGuides/eagle-rare-10-year__buffalo-trace-distillery')
+    expect(docArg.path).toBe('fipGuides/eagle-rare-10-year__buffalo-trace-distillery::v2')
   })
 
   it('returns undefined and never caches when the AI does not confidently recognize the bottle', async () => {
@@ -154,5 +159,36 @@ describe('getFipGuide', () => {
     expect(second).toEqual(first)
     expect(mockGetDoc).not.toHaveBeenCalled()
     expect(mockHttpsCallable).not.toHaveBeenCalled()
+  })
+})
+
+describe('computeFipGuideConfidence', () => {
+  it('is high for a bottle with strong identity plus at least two supporting facts', async () => {
+    const { computeFipGuideConfidence } = await importFipGuide()
+
+    expect(computeFipGuideConfidence(eagleRare)).toBe('high')
+  })
+
+  it('is medium for an identified bottle missing most supporting facts', async () => {
+    const { computeFipGuideConfidence } = await importFipGuide()
+
+    expect(computeFipGuideConfidence({ id: 'b2', name: 'Mystery Bourbon', distillery: 'Some Distillery', status: 'sealed' })).toBe('medium')
+  })
+
+  it('is low for a bottle with no real identity signal', async () => {
+    const { computeFipGuideConfidence } = await importFipGuide()
+
+    expect(computeFipGuideConfidence({ id: 'b3', name: 'Nameless', status: 'wishlist' })).toBe('low')
+  })
+
+  it('never varies based on anything the AI returns — only the bottle record itself', async () => {
+    mockIsMockAuthEnabled.mockReturnValue(false)
+    mockGetDoc.mockResolvedValue({ exists: () => false })
+    mockCallable.mockResolvedValue({ data: knownResult })
+    const { getFipGuide, computeFipGuideConfidence } = await importFipGuide()
+
+    const result = await getFipGuide(eagleRare)
+
+    expect(result?.confidence).toBe(computeFipGuideConfidence(eagleRare))
   })
 })

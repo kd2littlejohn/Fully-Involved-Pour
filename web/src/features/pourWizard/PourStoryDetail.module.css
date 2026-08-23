@@ -36,6 +36,12 @@
   margin-top: var(--fip-space-2);
 }
 
+.aiSummaryCaption {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  margin-top: var(--fip-space-2);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

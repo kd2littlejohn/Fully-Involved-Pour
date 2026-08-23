@@ -116,6 +116,14 @@
   font-size: var(--fip-text-sm);
 }
 
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-3);
+}
+
 .why {
   max-width: 340px;
   margin-top: var(--fip-space-3);

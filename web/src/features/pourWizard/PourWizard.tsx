@@ -7,6 +7,7 @@ import { useUserData, type NewPourInput } from '../../hooks/useUserData'
 import { useAuth } from '../../hooks/useAuth'
 import { buyAgainToValueScore, computeFipTotal } from '../fip/scoring'
 import { shareStoryWithTaggedFriends } from '../friends/shareStoryOnSave'
+import { generateAndSaveTastingSummary } from './tastingSummaryOnSave'
 import type { Pour } from '../../data/types'
 import { SessionStep } from './steps/SessionStep'
 import { NoseStep } from './steps/NoseStep'
@@ -37,7 +38,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
   const isEditing = Boolean(existingPour)
   const { draft, updateDraft, clearDraft } = useWizardDraft(bottleId, existingPour)
   const { user } = useAuth()
-  const { userDoc, profile, addPour, updatePour } = useUserData()
+  const { userDoc, profile, addPour, updatePour, updatePourAiSummary } = useUserData()
   const bottle = userDoc?.bottles.find((b) => b.id === bottleId)
   const [stepIndex, setStepIndex] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -111,6 +112,12 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
     setSaving(false)
     onSaved?.()
     onClose()
+
+    // Fires only after the save + normal UI flow are already done — never
+    // awaited, so a slow or failed AI call can never delay finishing a pour.
+    if (savedPour) {
+      void generateAndSaveTastingSummary(savedPour, updatePourAiSummary)
+    }
   }
 
   function handleSaveDraft() {

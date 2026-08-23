@@ -2,7 +2,7 @@ import type { Bottle, Pour } from '../../data/types'
 import { buyAgainToValueScore } from '../fip/scoring'
 import { topFlavorTags, type FlavorTagRank } from '../flavorRadar/flavorCategories'
 
-function round1(n: number): number {
+export function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
@@ -90,8 +90,11 @@ export function getLoyaltySignal(bottles: Bottle[], pours: Pour[]): LoyaltyStat 
 // Category/type affinity — frequency does not automatically equal preference
 // ---------------------------------------------------------------------------
 
-const MIN_BUCKETS_FOR_COMPARISON = 2
-const MIN_POURS_PER_BUCKET = 2
+// Exported for reuse by palateProfile.ts's getCategoryScores, which applies
+// this exact same eligibility rule but returns every eligible category
+// ranked instead of just the single best one.
+export const MIN_BUCKETS_FOR_COMPARISON = 2
+export const MIN_POURS_PER_BUCKET = 2
 
 export interface CategoryAffinity {
   mode: 'rating-supported' | 'frequency-only'
@@ -136,7 +139,10 @@ const PROOF_BUCKETS: { label: string; min: number; max: number }[] = [
   { label: '110+ proof', min: 110, max: Infinity },
 ]
 
-function bucketForProof(proof: number): string {
+// Exported for reuse by palateMatch/scoring.ts, which needs to know which
+// bucket a *candidate* bottle's proof falls into, not just the user's own
+// winning bucket.
+export function bucketForProof(proof: number): string {
   return PROOF_BUCKETS.find((b) => proof >= b.min && proof < b.max)?.label ?? PROOF_BUCKETS[PROOF_BUCKETS.length - 1]!.label
 }
 
@@ -257,8 +263,11 @@ export function getProofEvolution(bottles: Bottle[], pours: Pour[]): ProofEvolut
 // than the overall "gravitate toward" tags (which cover every pour).
 // ---------------------------------------------------------------------------
 
-const TOP_RATED_THRESHOLD = 8.0 // Working Fire and above, see features/fip/tiers.ts
-const TOP_RATED_MIN_POURS = 3
+// Exported for reuse by palateMatch/scoring.ts, which applies this exact
+// same "high-rated" definition when comparing a candidate bottle against the
+// user's own best pours.
+export const TOP_RATED_THRESHOLD = 8.0 // Working Fire and above, see features/fip/tiers.ts
+export const TOP_RATED_MIN_POURS = 3
 
 export function getTopRatedFlavorTags(bottles: Bottle[], pours: Pour[], limit = 4): FlavorTagRank[] {
   const highRated = pours.filter((p) => p.rating >= TOP_RATED_THRESHOLD)

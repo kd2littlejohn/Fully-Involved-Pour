@@ -9,6 +9,12 @@ vi.mock('../../../features/bottleDetails/useFipGuide', () => ({
   useFipGuide: (...args: unknown[]) => mockUseFipGuide(...args),
 }))
 
+// PalateMatchBadge is exercised on its own in features/palateMatch/
+// PalateMatchBadge.test.tsx — here it just needs to not touch real Firebase.
+vi.mock('../../../hooks/useUserData', () => ({
+  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] } }),
+}))
+
 const eagleRare: Bottle = {
   id: 'b1',
   name: 'Eagle Rare 10 Year',
@@ -87,15 +93,15 @@ describe('OverviewTab', () => {
       state: 'ready',
       guide: {
         bottleKey: 'k',
-        whySpecial: '',
-        bestFor: '',
-        value: '',
-        buyIf: '',
-        skipIf: '',
+        confidence: 'high',
+        story: null,
+        special: [],
+        expectSummary: '',
+        expectFlavors: [],
+        buyIf: [],
+        passIf: [],
         verdict: '',
-        story: '',
         availability: 'Limited',
-        flavorProfile: [],
         intensity: null,
         generatedAt: Date.now(),
       },

@@ -9,6 +9,7 @@ const mockFetchProfile = vi.fn()
 const mockEnsureSearchableProfile = vi.fn()
 const mockReadCachedUserDoc = vi.fn()
 const mockSyncSharedCollection = vi.fn()
+const mockSaveUserDoc = vi.fn()
 
 vi.mock('./useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -29,7 +30,7 @@ vi.mock('firebase/auth', () => ({
 vi.mock('../data/repositories/userDoc', () => ({
   EMPTY_USER_DOC: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
   fetchUserDoc: (...args: unknown[]) => mockFetchUserDoc(...args),
-  saveUserDoc: vi.fn(),
+  saveUserDoc: (...args: unknown[]) => mockSaveUserDoc(...args),
 }))
 
 vi.mock('../data/repositories/username', () => ({
@@ -71,6 +72,7 @@ describe('useUserData — account switching', () => {
     // creation/repair override this per-call.
     mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
     mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
   })
 
   it('does not keep showing the previous account’s bottles while the newly signed-in account’s data is still loading', async () => {
@@ -200,5 +202,83 @@ describe('useUserData — account switching', () => {
     resolveFetchUserDoc(doc)
 
     await waitFor(() => expect(mockSyncSharedCollection).toHaveBeenCalledWith('user-1', doc, DEFAULT_PRIVACY_SETTINGS))
+  })
+})
+
+describe('useUserData — updatePourAiSummary', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+  })
+
+  function docWithPour(): UserDoc {
+    return {
+      bottles: [],
+      pours: [
+        {
+          id: 'p1',
+          bottleId: 'b1',
+          date: '2026-08-14',
+          rating: 8.6,
+          fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.8, value: 1, total: 8.6, noseAromas: [], palateFlavors: [] },
+        },
+      ],
+      memories: [],
+      infinityBottles: [],
+      customLibrary: [],
+    }
+  }
+
+  it('merges the AI summary onto the matching pour and persists only the pours field', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(docWithPour())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.pours).toHaveLength(1))
+
+    const aiSummary = { text: 'A bright, easy-drinking pour.', sourceHash: 'hash-1', generatedAt: 123 }
+    await result.current.updatePourAiSummary('p1', aiSummary)
+
+    await waitFor(() => expect(result.current.userDoc.pours[0]?.aiSummary).toEqual(aiSummary))
+    expect(mockSaveUserDoc).toHaveBeenCalledWith('user-1', { pours: expect.arrayContaining([expect.objectContaining({ id: 'p1', aiSummary })]) })
+  })
+
+  it('reads the freshest pours at call time even when the function reference was captured before a later pour was added', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(docWithPour())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.pours).toHaveLength(1))
+
+    // Captured "early" — mirrors PourWizard grabbing this from useUserData()
+    // well before its fire-and-forget AI call actually resolves.
+    const capturedUpdate = result.current.updatePourAiSummary
+
+    // A second pour lands in the meantime (e.g. the user logs another pour
+    // before the first one's AI summary comes back).
+    await result.current.addPour({
+      bottleId: 'b1',
+      date: '2026-08-15',
+      rating: 9.0,
+      fip: { nose: 2, palate: 3, finish: 2, complexity: 1, value: 1, total: 9, noseAromas: [], palateFlavors: [] },
+    })
+    await waitFor(() => expect(result.current.userDoc.pours).toHaveLength(2))
+
+    await capturedUpdate('p1', { text: 'Reflection.', sourceHash: 'hash-1', generatedAt: 1 })
+
+    // If this had used a stale closure over the pre-second-pour userDoc, the
+    // second pour would have been silently dropped from this write.
+    await waitFor(() =>
+      expect(mockSaveUserDoc).toHaveBeenLastCalledWith('user-1', {
+        pours: expect.arrayContaining([
+          expect.objectContaining({ id: 'p1', aiSummary: expect.objectContaining({ text: 'Reflection.' }) }),
+          expect.objectContaining({ bottleId: 'b1', rating: 9 }),
+        ]),
+      }),
+    )
   })
 })

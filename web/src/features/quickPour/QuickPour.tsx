@@ -13,6 +13,7 @@ import { fipTier } from '../fip/tiers'
 import { useAuth } from '../../hooks/useAuth'
 import { TagFriendsField } from '../friends/TagFriendsField'
 import { shareStoryWithTaggedFriends } from '../friends/shareStoryOnSave'
+import { generateAndSaveTastingSummary } from '../pourWizard/tastingSummaryOnSave'
 import type { Pour } from '../../data/types'
 import styles from './QuickPour.module.css'
 
@@ -34,7 +35,7 @@ interface QuickPourProps {
 // fast path is never blocked on making that choice up front.
 export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourProps) {
   const { user } = useAuth()
-  const { userDoc, profile, addPour } = useUserData()
+  const { userDoc, profile, addPour, updatePourAiSummary } = useUserData()
   const [reaction, setReaction] = useState<QuickPourReaction | null>(null)
   const [flavors, setFlavors] = useState<string[]>([])
   const [score, setScore] = useState<number | null>(null)
@@ -85,6 +86,9 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
         )
       }
       setSavedPour(pour)
+      // Fires only after the save is done — never awaited, so a slow or
+      // failed AI call can never delay the confirmation screen.
+      void generateAndSaveTastingSummary(pour, updatePourAiSummary)
     } else {
       onClose()
     }

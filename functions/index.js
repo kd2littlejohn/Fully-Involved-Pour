@@ -33,6 +33,29 @@ async function callClaude(apiKey, { system, prompt, maxTokens, content, messages
   return data.content?.[0]?.text || "";
 }
 
+const RATE_LIMIT_MAX_CALLS = 20;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+
+// Lightweight, best-effort per-user rate limit for the newer, more
+// expensive FIP Intelligence Layer endpoints. Backed by a small doc written
+// only via the Admin SDK, so it needs no client-facing Firestore rule.
+// Not perfectly race-proof under truly simultaneous calls from the same
+// user -- an acceptable trade-off for a soft cap, not a billing guardrail.
+async function assertNotRateLimited(uid, operation) {
+  const ref = admin.firestore().doc(`rateLimits/${uid}_${operation}`);
+  const snap = await ref.get();
+  const now = Date.now();
+  const data = snap.exists ? snap.data() : {};
+  const withinWindow = typeof data.windowStart === "number" && now - data.windowStart < RATE_LIMIT_WINDOW_MS;
+  const count = withinWindow ? data.count || 0 : 0;
+
+  if (withinWindow && count >= RATE_LIMIT_MAX_CALLS) {
+    throw new HttpsError("resource-exhausted", "You've hit the limit for this right now -- try again in a bit.");
+  }
+
+  await ref.set({ count: count + 1, windowStart: withinWindow ? data.windowStart : now });
+}
+
 const SOMMELIER_PERSONA = `You are a refined, knowledgeable whiskey sommelier helping someone manage their personal bourbon and whiskey collection in an app called "Fully Involved Pour" (tagline: "Where there's proof, there's fire."). Speak with warmth and expertise, like a trusted sommelier, not a chatbot. Be concise: 2-4 sentences. Reference their actual collection naturally when it's given to you. Never invent specific bottle data you weren't given.`;
 
 exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
@@ -184,8 +207,12 @@ exports.generateFipGuide = onCall({ secrets: [anthropicApiKey], cors: true }, as
     throw new HttpsError("invalid-argument", "A bottle name is required.");
   }
 
-  const system = `You are the FIP Guide writer for a whiskey-journaling app called Fully Involved Pour. Given real facts about a bottle, write a short, honest, scannable buying guide -- confident but never promotional. A "good bottle" is not automatically "good value," and not every bottle is worth buying -- say so plainly when that's true. Ground every claim in the facts you're given, or in genuinely well-known, verifiable public information about this exact product. Never invent a mash bill, age statement, history, or a specific price you don't actually know, and never cite a specific current secondary-market price. If you do not recognize this bottle confidently, set "known" to false and leave the guide fields empty. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
-{"known": true or false, "whySpecial": "one short sentence", "bestFor": "one short sentence", "value": "one short phrase or sentence", "buyIf": "one short sentence", "skipIf": "one short sentence", "verdict": "one short sentence", "story": "2-4 sentences of real background, or empty string if not confident", "availability": "one short phrase such as Limited, Widely Available, or Allocated, or empty string if unknown", "flavorProfile": ["3-5 single or two-word flavor tags"], "intensity": number from 0 (light) to 1 (bold), or null if unsure}`;
+  // v2 schema: story/special/expectSummary/expectFlavors/buyIf/passIf/verdict.
+  // Confidence is deliberately NOT part of this response -- it's computed
+  // client-side from factual bottle completeness (see fipGuide.ts), never
+  // from the model's own self-assessment.
+  const system = `You are the FIP Guide writer for a whiskey-journaling app called Fully Involved Pour. Given real facts about a bottle, write a short, honest, scannable guide -- confident but never promotional. A "good bottle" is not automatically "good value," and not every bottle is worth buying -- say so plainly when that's true. Ground every claim in the facts you're given, or in genuinely well-known, verifiable public information about this exact product. Never invent a mash bill, age statement, history, rarity claim, or a specific price you don't actually know, and never cite a specific current secondary-market price. If you do not recognize this bottle confidently, set "known" to false and leave the other fields empty or omitted. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"known": true or false, "story": "2-4 short sentences of real background, or empty string if not confident", "special": ["up to 3 short bullets on what makes this bottle interesting"], "expectSummary": "one concise sentence describing the overall tasting experience", "expectFlavors": ["3-5 single or two-word flavor tags"], "buyIf": ["up to 3 short bullets, each a reason to buy it"], "passIf": ["up to 2 short bullets, each a reason to pass on it"], "verdict": "one short closing sentence", "availability": "one short phrase such as Limited, Widely Available, or Allocated, or empty string if unknown", "intensity": number from 0 (light) to 1 (bold), or null if unsure}`;
 
   const facts = [
     `Bottle: ${name}`,
@@ -199,7 +226,7 @@ exports.generateFipGuide = onCall({ secrets: [anthropicApiKey], cors: true }, as
     .filter(Boolean)
     .join("\n");
 
-  const raw = await callClaude(anthropicApiKey.value(), { system, prompt: facts, maxTokens: 600 });
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt: facts, maxTokens: 700 });
 
   let parsed;
   try {
@@ -215,17 +242,217 @@ exports.generateFipGuide = onCall({ secrets: [anthropicApiKey], cors: true }, as
 
   return {
     known: true,
-    whySpecial: String(parsed.whySpecial || ""),
-    bestFor: String(parsed.bestFor || ""),
-    value: String(parsed.value || ""),
-    buyIf: String(parsed.buyIf || ""),
-    skipIf: String(parsed.skipIf || ""),
+    story: parsed.story ? String(parsed.story) : null,
+    special: Array.isArray(parsed.special) ? parsed.special.map((s) => String(s)).slice(0, 3) : [],
+    expectSummary: String(parsed.expectSummary || ""),
+    expectFlavors: Array.isArray(parsed.expectFlavors) ? parsed.expectFlavors.map((f) => String(f)).slice(0, 5) : [],
+    buyIf: Array.isArray(parsed.buyIf) ? parsed.buyIf.map((s) => String(s)).slice(0, 3) : [],
+    passIf: Array.isArray(parsed.passIf) ? parsed.passIf.map((s) => String(s)).slice(0, 2) : [],
     verdict: String(parsed.verdict || ""),
-    story: String(parsed.story || ""),
     availability: String(parsed.availability || ""),
-    flavorProfile: Array.isArray(parsed.flavorProfile) ? parsed.flavorProfile.map((f) => String(f)).slice(0, 5) : [],
     intensity,
   };
+});
+
+// Polishes a pour's OWN tasting notes/tags into one short, natural paragraph
+// -- the opposite job of generateTastingProfile (which invents a plausible
+// profile from bottle facts for a bottle with no notes yet). This never adds
+// a flavor, aroma, or judgment the user didn't already tag or write; if the
+// given notes are too sparse to honestly summarize, it declines via "known".
+exports.generateTastingSummary = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to generate a tasting summary.");
+  }
+  await assertNotRateLimited(request.auth.uid, "generateTastingSummary");
+
+  const { noseAromas, noseNotes, palateFlavors, palateNotes, finishNotes, rating } = request.data || {};
+  const aromas = Array.isArray(noseAromas) ? noseAromas.map((a) => String(a)).slice(0, 12) : [];
+  const flavors = Array.isArray(palateFlavors) ? palateFlavors.map((f) => String(f)).slice(0, 12) : [];
+  const nose = String(noseNotes || "").slice(0, 800).trim();
+  const palate = String(palateNotes || "").slice(0, 800).trim();
+  const finish = String(finishNotes || "").slice(0, 800).trim();
+  const ratingNum = typeof rating === "number" ? rating : null;
+
+  const hasContent = aromas.length > 0 || flavors.length > 0 || Boolean(nose) || Boolean(palate) || Boolean(finish);
+  if (!hasContent) return { known: false };
+
+  const system = `You polish a whiskey drinker's own tasting notes into a short, natural reflection (1-3 sentences) for a journaling app called Fully Involved Pour. Reflect ONLY what they actually tagged or wrote -- never introduce a flavor, aroma, descriptor, or judgment they didn't provide, and never add generic tasting-note filler. Write in a warm, knowledgeable second-person voice ("You picked up on..."), like a friend recapping what they noticed, not a formal review. If the given tags/notes are too sparse or contradictory to summarize honestly, set "known" to false. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"known": true or false, "summary": "1-3 sentences, or empty string if not confident"}`;
+
+  const facts = [
+    aromas.length > 0 ? `Nose tags: ${aromas.join(", ")}` : null,
+    nose ? `Nose notes: ${nose}` : null,
+    flavors.length > 0 ? `Palate tags: ${flavors.join(", ")}` : null,
+    palate ? `Palate notes: ${palate}` : null,
+    finish ? `Finish notes: ${finish}` : null,
+    ratingNum != null ? `Rating: ${ratingNum}/10` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt: facts, maxTokens: 300 });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    console.error("Failed to parse tasting summary JSON", raw);
+    return { known: false };
+  }
+
+  if (!parsed.known || !parsed.summary) return { known: false };
+
+  return { known: true, summary: String(parsed.summary) };
+});
+
+// Interprets a user's own DETERMINISTIC Palate Profile (already computed
+// client-side, see features/yourPalate/palateProfile.ts) into a short
+// natural-language reflection. Receives only a small, pre-summarized set of
+// facts -- never raw bottles/pours -- and must never invent a preference,
+// bottle, number, or trend beyond what it's given.
+exports.interpretPalateProfile = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to interpret your palate.");
+  }
+  await assertNotRateLimited(request.auth.uid, "interpretPalateProfile");
+
+  const {
+    qualifyingPourCount,
+    maturity,
+    topCategory,
+    topCategoryAverageRating,
+    proofBucket,
+    proofAverageRating,
+    topFlavors,
+    mostRepeatedBottleName,
+    mostRepeatedPourCount,
+  } = request.data || {};
+
+  const flavors = Array.isArray(topFlavors) ? topFlavors.map((f) => String(f)).slice(0, 6) : [];
+
+  const facts = [
+    typeof qualifyingPourCount === "number" ? `Qualifying pours logged: ${qualifyingPourCount}` : null,
+    maturity ? `Palate maturity stage: ${maturity}` : null,
+    topCategory
+      ? `Top category: ${topCategory}${typeof topCategoryAverageRating === "number" ? ` (avg ${topCategoryAverageRating}/10)` : ""}`
+      : null,
+    proofBucket ? `Proof affinity: ${proofBucket}${typeof proofAverageRating === "number" ? ` (avg ${proofAverageRating}/10)` : ""}` : null,
+    flavors.length > 0 ? `Top-rated flavor tags: ${flavors.join(", ")}` : null,
+    mostRepeatedBottleName ? `Most repeated bottle: ${mostRepeatedBottleName} (${mostRepeatedPourCount} pours)` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (!facts) return { known: false };
+
+  const system = `You interpret a whiskey drinker's own deterministic tasting statistics into a short, warm reflection (1-3 sentences) for a journaling app called Fully Involved Pour. You are given ONLY already-computed facts about their history -- never invent a preference, bottle, number, or trend beyond what's given, and never claim more certainty than the data supports. Speak like a knowledgeable friend, not a report: confident when the data is real, humble when it's thin. Avoid snobbery, marketing language, hedging filler like "As an AI," and excessive jargon. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"known": true or false, "interpretation": "1-3 sentences, or empty string if not confident"}`;
+
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt: facts, maxTokens: 300 });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    console.error("Failed to parse palate interpretation JSON", raw);
+    return { known: false };
+  }
+
+  if (!parsed.known || !parsed.interpretation) return { known: false };
+
+  return { known: true, interpretation: String(parsed.interpretation) };
+});
+
+// Explains an already-computed, deterministic Palate Match score (see
+// features/palateMatch/scoring.ts) -- the AI never computes or adjusts the
+// score itself, only narrates the specific reasons it's given. Called
+// on-demand (a "why it fits" expand action), not automatically per view.
+exports.explainPalateMatch = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to get a Palate Match explanation.");
+  }
+  await assertNotRateLimited(request.auth.uid, "explainPalateMatch");
+
+  const { bottleName, score, confidence, reasons } = request.data || {};
+  const name = String(bottleName || "").trim();
+  const scoreNum = typeof score === "number" ? score : null;
+  const reasonList = Array.isArray(reasons) ? reasons.map((r) => String(r)).slice(0, 6) : [];
+
+  if (!name || scoreNum == null || reasonList.length === 0) {
+    return { known: false };
+  }
+
+  const system = `You explain an already-computed Palate Match score for a whiskey-journaling app called Fully Involved Pour. You are given the score and the specific deterministic reasons behind it -- never invent a reason, fact, or number beyond what's given, and never change, recompute, or contradict the score. Write one short, warm sentence (two at most) explaining why this bottle scored the way it did, grounded only in the given reasons. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"known": true or false, "explanation": "1-2 sentences, or empty string if not confident"}`;
+
+  const facts = [
+    `Bottle: ${name}`,
+    `Match score: ${scoreNum}%`,
+    `Confidence: ${String(confidence || "low")}`,
+    `Reasons: ${reasonList.join("; ")}`,
+  ].join("\n");
+
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt: facts, maxTokens: 200 });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    console.error("Failed to parse palate match explanation JSON", raw);
+    return { known: false };
+  }
+
+  if (!parsed.known || !parsed.explanation) return { known: false };
+
+  return { known: true, explanation: String(parsed.explanation) };
+});
+
+// Narrates an already-chosen "What Should I Pour" recommendation. The AI
+// never chooses the bottle -- it only explains the winning candidate's real
+// facts and the deterministic reasons/signals it's given. Called only when
+// a recommendation is actually revealed, never proactively.
+exports.explainPourRecommendation = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to get a pour recommendation explanation.");
+  }
+  await assertNotRateLimited(request.auth.uid, "explainPourRecommendation");
+
+  const { bottleName, distillery, type, moodLabel, reasons, tags } = request.data || {};
+  const name = String(bottleName || "").trim();
+  const reasonList = Array.isArray(reasons) ? reasons.map((r) => String(r)).slice(0, 6) : [];
+  const tagList = Array.isArray(tags) ? tags.map((t) => String(t)).slice(0, 6) : [];
+
+  if (!name || reasonList.length === 0) {
+    return { known: false };
+  }
+
+  const system = `You explain an already-chosen "what should I pour tonight" recommendation for a whiskey-journaling app called Fully Involved Pour. You are given the bottle, the mood the drinker picked, and the specific deterministic reasons this bottle was chosen -- never invent a reason, fact, or bottle detail beyond what's given, and never suggest a different bottle. Write one short, warm paragraph (2-3 sentences) explaining why this pour fits tonight. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"known": true or false, "explanation": "2-3 sentences, or empty string if not confident"}`;
+
+  const facts = [
+    `Bottle: ${name}`,
+    distillery ? `Distillery: ${distillery}` : null,
+    type ? `Type: ${type}` : null,
+    moodLabel ? `Mood: ${moodLabel}` : null,
+    `Reasons: ${reasonList.join("; ")}`,
+    tagList.length > 0 ? `Signals: ${tagList.join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const raw = await callClaude(anthropicApiKey.value(), { system, prompt: facts, maxTokens: 250 });
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().replace(/^```json\s*|\s*```$/g, ""));
+  } catch (error) {
+    console.error("Failed to parse pour recommendation explanation JSON", raw);
+    return { known: false };
+  }
+
+  if (!parsed.known || !parsed.explanation) return { known: false };
+
+  return { known: true, explanation: String(parsed.explanation) };
 });
 
 exports.scanBottleLabel = onCall(

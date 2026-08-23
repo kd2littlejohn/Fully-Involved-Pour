@@ -52,6 +52,28 @@ describe('PourStoryDetail', () => {
     expect(screen.getByText('Sweet and warm.')).toBeInTheDocument()
   })
 
+  it('shows no "Your Pour" section when no AI summary has been generated yet', () => {
+    render(<PourStoryDetail pour={pour} bottle={bottle} onClose={vi.fn()} />)
+
+    expect(screen.queryByText('Your Pour')).not.toBeInTheDocument()
+  })
+
+  it('shows the AI summary under "Your Pour" once generated, alongside the untouched original notes', () => {
+    const withSummary: Pour = {
+      ...pour,
+      aiSummary: { text: 'You picked up on vanilla and oak, a warm and easy pour.', sourceHash: 'h1', generatedAt: Date.now() },
+    }
+    render(<PourStoryDetail pour={withSummary} bottle={bottle} onClose={vi.fn()} />)
+
+    expect(screen.getByText('Your Pour')).toBeInTheDocument()
+    expect(screen.getByText('You picked up on vanilla and oak, a warm and easy pour.')).toBeInTheDocument()
+    expect(screen.getByText('FIP summarized this from your tasting notes.')).toBeInTheDocument()
+
+    // The user's own original notes still render completely unchanged.
+    expect(screen.getByText('Sweet and warm.')).toBeInTheDocument()
+    expect(screen.getAllByText('Vanilla').length).toBeGreaterThan(0)
+  })
+
   it('requires confirmation before deleting, then calls deletePour and closes', async () => {
     const onClose = vi.fn()
     render(<PourStoryDetail pour={pour} bottle={bottle} onClose={onClose} />)

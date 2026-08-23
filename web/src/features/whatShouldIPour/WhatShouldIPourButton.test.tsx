@@ -1,13 +1,18 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { WhatShouldIPourButton } from './WhatShouldIPourButton'
 import type { Bottle, Pour } from '../../data/types'
 
 const mockUseUserData = vi.fn()
+const mockExplainPourRecommendation = vi.fn()
 
 vi.mock('../../hooks/useUserData', () => ({
   useUserData: () => mockUseUserData(),
+}))
+
+vi.mock('../../data/repositories/pourRecommendationExplanation', () => ({
+  explainPourRecommendation: (...args: unknown[]) => mockExplainPourRecommendation(...args),
 }))
 
 function minFip(rating: number) {
@@ -29,6 +34,11 @@ function mockData(bottles: Bottle[], pourList: Pour[] = []) {
     userDoc: { bottles, pours: pourList, memories: [], infinityBottles: [], customLibrary: [] },
   })
 }
+
+beforeEach(() => {
+  mockExplainPourRecommendation.mockReset()
+  mockExplainPourRecommendation.mockResolvedValue(null)
+})
 
 describe('WhatShouldIPourButton', () => {
   it('shows an empty state when there are no open or sealed bottles', async () => {
@@ -107,6 +117,50 @@ describe('WhatShouldIPourButton', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Pour This' }))
 
     expect(screen.getByText('Add a Pour Story — Bookers Bourbon')).toBeInTheDocument()
+  })
+
+  it('reveals instantly with the deterministic reasons, then swaps in the AI explanation once it resolves — never blocking the reveal', async () => {
+    mockData([bold, mild, vault], pours)
+    mockExplainPourRecommendation.mockResolvedValue('High Proof calls for Bookers Bourbon tonight — a bold, cask-strength pour.')
+    render(<WhatShouldIPourButton />)
+
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
+
+    // Reveals immediately with the real deterministic text — no spinner gate.
+    expect(screen.getByText('Bookers Bourbon')).toBeInTheDocument()
+    expect(screen.getByText(/proof/i)).toBeInTheDocument()
+
+    expect(await screen.findByText('High Proof calls for Bookers Bourbon tonight — a bold, cask-strength pour.')).toBeInTheDocument()
+  })
+
+  it('keeps showing the deterministic reasons, unchanged, if the AI explanation call fails', async () => {
+    mockData([bold, mild, vault], pours)
+    mockExplainPourRecommendation.mockRejectedValue(new Error('network error'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<WhatShouldIPourButton />)
+
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
+
+    expect(screen.getByText('Why this one?')).toBeInTheDocument()
+    expect(mockExplainPourRecommendation).toHaveBeenCalled()
+    consoleSpy.mockRestore()
+  })
+
+  it('resets the explanation when a new recommendation is revealed via Show Me Another', async () => {
+    mockData([bold, mild], pours)
+    mockExplainPourRecommendation.mockResolvedValueOnce('Bookers explanation.').mockResolvedValueOnce('Weller explanation.')
+    render(<WhatShouldIPourButton />)
+
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
+    expect(await screen.findByText('Bookers explanation.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show Me Another' }))
+
+    expect(screen.queryByText('Bookers explanation.')).not.toBeInTheDocument()
+    expect(await screen.findByText('Weller explanation.')).toBeInTheDocument()
   })
 
   it('Surprise Me rolls a die animation before revealing a recommendation', async () => {

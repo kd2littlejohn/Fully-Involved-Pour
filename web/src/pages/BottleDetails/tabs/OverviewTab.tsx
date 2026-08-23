@@ -2,6 +2,7 @@ import type { Bottle, BottleStatus, Pour } from '../../../data/types'
 import { mashBillSummary, parseLocalDate } from '../../../features/bottleDetails/selectors'
 import { useFipGuide } from '../../../features/bottleDetails/useFipGuide'
 import { FipGuideSection } from '../../../features/bottleDetails/FipGuideSection'
+import { PalateMatchBadge } from '../../../features/palateMatch/PalateMatchBadge'
 import { bottleJourneyStage } from '../../../features/collection/journeyStage'
 import { SpecList, type SpecRow } from '../../../components/ui/SpecList'
 import { Badge } from '../../../components/ui/Badge'
@@ -69,6 +70,7 @@ export function OverviewTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }
   return (
     <>
       <FipGuideSection state={guideState} guide={guide} />
+      <PalateMatchBadge bottle={bottle} />
 
       {bottleInfoRows.length > 0 ? (
         <div className={styles.section}>

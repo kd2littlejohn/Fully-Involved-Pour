@@ -2,6 +2,8 @@ import type { Bottle, Pour } from '../../data/types'
 import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
 import { computeCoreBarScore } from '../coreBar/selectors'
 import { FLAVOR_AXES, flavorRadarValues, type FlavorAxis } from '../flavorRadar/flavorCategories'
+import { buildPalateProfile } from '../yourPalate/palateProfile'
+import { computePalateMatch } from '../palateMatch/scoring'
 import { MOODS, type MoodId } from './moods'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -36,6 +38,8 @@ export interface RecommendationResult {
   bottle: Bottle
   moodId: MoodId
   reasons: string[]
+  /** Compact, chip-style labels derived directly from real signals — never AI-generated. */
+  tags: string[]
 }
 
 interface MoodContext {
@@ -133,6 +137,16 @@ function neglectNorm(c: Candidate, daysMax: number): number {
   return normalize(c.daysSinceLastPour, 0, daysMax)
 }
 
+// "Worth rediscovering": an already-open bottle that's both rarely poured
+// and hasn't been reached for in a while. Sealed bottles are excluded here
+// — "never opened" is already its own strong signal via havent-had-lately's
+// own pourCount===0 term, and rediscovery is specifically about something
+// already on the shelf being overlooked, not something never tried at all.
+function rediscoveryBoost(c: Candidate, ctx: MoodContext, daysMax: number): number {
+  if (!c.isOpen) return 0
+  return 0.6 * (1 - pourCountNorm(c, ctx)) + 0.4 * neglectNorm(c, daysMax)
+}
+
 type DeterministicMoodId = Exclude<MoodId, 'surprise-me'>
 
 const MOOD_SCORERS: Record<DeterministicMoodId, (c: Candidate, ctx: MoodContext, daysMax: number) => number> = {
@@ -148,10 +162,49 @@ const MOOD_SCORERS: Record<DeterministicMoodId, (c: Candidate, ctx: MoodContext,
   'high-proof': (c, ctx) => 0.75 * proofNorm(c, ctx) + 0.25 * ratingNorm(c, ctx),
 }
 
-export function scoreCandidate(candidate: Candidate, moodId: DeterministicMoodId, ctx: MoodContext, daysMax: number): number {
-  const base = MOOD_SCORERS[moodId](candidate, ctx, daysMax)
+export interface PalateBlend {
+  fitValue: number // 0-1, from a computed Palate Match score
+  rediscoveryValue: number // 0-1
+}
+
+// Mood stays the dominant signal (75%) — palate fit and rediscovery are a
+// modest personalization layer on top (15% + 10%), not a replacement for the
+// mood system. `palate` is only ever passed once profile.maturity has
+// cleared the "learning" floor and a real Palate Match score exists (see
+// getRecommendation) — omitting it here falls back to pure mood scoring
+// exactly as before this phase.
+export function scoreCandidate(
+  candidate: Candidate,
+  moodId: DeterministicMoodId,
+  ctx: MoodContext,
+  daysMax: number,
+  palate?: PalateBlend,
+): number {
+  const moodScore = MOOD_SCORERS[moodId](candidate, ctx, daysMax)
+  const blended = palate ? 0.75 * moodScore + 0.15 * palate.fitValue + 0.1 * palate.rediscoveryValue : moodScore
   const sealedPenalty = !candidate.isOpen && !SEALED_PENALTY_EXEMPT.has(moodId) ? SEALED_PENALTY : 1
-  return base * sealedPenalty
+  return blended * sealedPenalty
+}
+
+// Compact, chip-style labels for the UI — derived directly from the same
+// real values the scoring/explanation logic already computed, never from AI
+// and never invented. Each one only appears when its underlying signal is
+// genuinely strong, not just present.
+function deriveTags(opts: { daysSinceLastPour?: number; moodScore?: number; palateFitValue?: number; rediscoveryValue?: number }): string[] {
+  const tags: string[] = []
+  if (opts.daysSinceLastPour !== undefined && opts.daysSinceLastPour >= 21) {
+    tags.push('Not poured recently')
+  }
+  if (opts.palateFitValue !== undefined && opts.palateFitValue >= 0.75) {
+    tags.push('Strong palate fit')
+  }
+  if (opts.moodScore !== undefined && opts.moodScore >= 0.6) {
+    tags.push('Matches tonight’s mood')
+  }
+  if (opts.rediscoveryValue !== undefined && opts.rediscoveryValue >= 0.7) {
+    tags.push('Worth rediscovering')
+  }
+  return tags
 }
 
 function compareCandidatesDesc(a: Candidate, b: Candidate): number {
@@ -244,6 +297,7 @@ export function getRecommendation(
   }
 
   const ctx = buildContext(allCandidates)
+  const daysMax = Math.max(0, ...allCandidates.map((c) => c.daysSinceLastPour ?? 0))
 
   if (moodId === 'surprise-me') {
     const weighted = getSurpriseMeCandidates(pool).map((c) => ({
@@ -252,15 +306,45 @@ export function getRecommendation(
     }))
     const picked = pickWeightedRandom(weighted, random)
     if (!picked) return undefined
-    return { bottle: picked.bottle, moodId, reasons: explainRecommendation(picked, moodId, ctx) }
+    return {
+      bottle: picked.bottle,
+      moodId,
+      reasons: explainRecommendation(picked, moodId, ctx),
+      tags: deriveTags({ daysSinceLastPour: picked.daysSinceLastPour }),
+    }
   }
 
-  const daysMax = Math.max(0, ...allCandidates.map((c) => c.daysSinceLastPour ?? 0))
+  // Palate fit and "worth rediscovering" only ever enter the blend once
+  // there's a real established profile to draw on (see PalateBlend/
+  // scoreCandidate above) — below that floor, this is a no-op and scoring
+  // behaves exactly as it did before this phase.
+  const profile = buildPalateProfile(bottles, pours)
 
-  const [top] = pool
-    .map((candidate) => ({ candidate, score: scoreCandidate(candidate, moodId, ctx, daysMax) }))
-    .sort((a, b) => b.score - a.score || compareCandidatesDesc(a.candidate, b.candidate))
+  const scored = pool.map((candidate) => {
+    let palate: PalateBlend | undefined
+    if (profile.maturity !== 'learning') {
+      const match = computePalateMatch(candidate.bottle, bottles, pours, profile)
+      if (match.score !== null) {
+        palate = { fitValue: match.score / 100, rediscoveryValue: rediscoveryBoost(candidate, ctx, daysMax) }
+      }
+    }
+    const moodScore = MOOD_SCORERS[moodId](candidate, ctx, daysMax)
+    const score = scoreCandidate(candidate, moodId, ctx, daysMax, palate)
+    return { candidate, score, moodScore, palate }
+  })
+
+  const [top] = scored.sort((a, b) => b.score - a.score || compareCandidatesDesc(a.candidate, b.candidate))
 
   if (!top) return undefined
-  return { bottle: top.candidate.bottle, moodId, reasons: explainRecommendation(top.candidate, moodId, ctx) }
+  return {
+    bottle: top.candidate.bottle,
+    moodId,
+    reasons: explainRecommendation(top.candidate, moodId, ctx),
+    tags: deriveTags({
+      daysSinceLastPour: top.candidate.daysSinceLastPour,
+      moodScore: top.moodScore,
+      palateFitValue: top.palate?.fitValue,
+      rediscoveryValue: top.palate?.rediscoveryValue,
+    }),
+  }
 }

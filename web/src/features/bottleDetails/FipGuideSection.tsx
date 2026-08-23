@@ -3,11 +3,6 @@ import type { FipGuide } from '../../data/repositories/fipGuide'
 import type { FipGuideLoadState } from './useFipGuide'
 import styles from './FipGuideSection.module.css'
 
-interface GuideRow {
-  label: string
-  value: string
-}
-
 interface FipGuideSectionProps {
   state: FipGuideLoadState
   guide: FipGuide | undefined
@@ -32,44 +27,93 @@ export function FipGuideSection({ state, guide }: FipGuideSectionProps) {
 
   if (state === 'none' || !guide) return null
 
-  const rows: GuideRow[] = [
-    { label: "Why It's Special", value: guide.whySpecial },
-    { label: 'Best For', value: guide.bestFor },
-    { label: 'Value', value: guide.value },
-    { label: 'Buy If', value: guide.buyIf },
-    { label: 'Skip If', value: guide.skipIf },
-    { label: 'Verdict', value: guide.verdict },
-  ].filter((row) => row.value.trim().length > 0)
+  const special = guide.special.filter((item) => item.trim().length > 0)
+  const buyIf = guide.buyIf.filter((item) => item.trim().length > 0)
+  const passIf = guide.passIf.filter((item) => item.trim().length > 0)
+  const hasStory = Boolean(guide.story && guide.story.trim().length > 0)
+  const hasExpect = guide.expectSummary.trim().length > 0 || guide.expectFlavors.length > 0
+  const hasVerdict = guide.verdict.trim().length > 0
+  const hasProfile = guide.expectFlavors.length > 0
+  const hasGuideContent = hasStory || special.length > 0 || hasExpect || buyIf.length > 0 || passIf.length > 0 || hasVerdict
 
-  const hasProfile = guide.flavorProfile.length > 0
-
-  if (rows.length === 0 && !guide.story.trim() && !hasProfile) return null
+  if (!hasGuideContent && !hasProfile) return null
 
   return (
     <>
-      {rows.length > 0 || guide.story.trim() ? (
+      {hasGuideContent ? (
         <div className={styles.card}>
           <p className={styles.sectionLabel}>FIP Guide</p>
 
-          {rows.length > 0 ? (
-            <div className={styles.rows}>
-              {rows.map((row) => (
-                <div className={styles.row} key={row.label}>
-                  <span className={styles.rowLabel}>{row.label}</span>
-                  <span className={styles.rowValue}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {guide.story.trim() ? (
-            <>
+          {hasStory ? (
+            <div className={styles.section}>
               <button type="button" className={styles.storyToggle} onClick={() => setStoryOpen((v) => !v)} aria-expanded={storyOpen}>
                 {storyOpen ? 'Hide the Story' : 'Read the Story'}
                 <span aria-hidden="true">{storyOpen ? '↑' : '→'}</span>
               </button>
               {storyOpen ? <p className={styles.story}>{guide.story}</p> : null}
-            </>
+            </div>
+          ) : null}
+
+          {special.length > 0 ? (
+            <div className={styles.section}>
+              <p className={styles.subheading}>What Makes It Special</p>
+              <ul className={styles.bulletList}>
+                {special.map((item, index) => (
+                  <li className={styles.bulletItem} key={index}>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {hasExpect ? (
+            <div className={styles.section}>
+              <p className={styles.subheading}>What to Expect</p>
+              {guide.expectSummary.trim() ? <p className={styles.expectSummary}>{guide.expectSummary}</p> : null}
+              {guide.expectFlavors.length > 0 ? (
+                <div className={styles.profileChips}>
+                  {guide.expectFlavors.map((flavor) => (
+                    <span className={styles.profileChip} key={flavor}>
+                      {flavor}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {buyIf.length > 0 ? (
+            <div className={styles.section}>
+              <p className={styles.subheading}>Buy If</p>
+              <ul className={styles.bulletList}>
+                {buyIf.map((item, index) => (
+                  <li className={styles.bulletItem} key={index}>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {passIf.length > 0 ? (
+            <div className={styles.section}>
+              <p className={styles.subheading}>Pass If</p>
+              <ul className={styles.bulletList}>
+                {passIf.map((item, index) => (
+                  <li className={styles.bulletItem} key={index}>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {hasVerdict ? (
+            <div className={styles.section}>
+              <p className={styles.subheading}>FIP Verdict</p>
+              <p className={styles.verdict}>{guide.verdict}</p>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -80,7 +124,7 @@ export function FipGuideSection({ state, guide }: FipGuideSectionProps) {
             Typical Profile <span className={styles.referenceTag}>(General Reference)</span>
           </p>
           <div className={styles.profileChips}>
-            {guide.flavorProfile.map((flavor) => (
+            {guide.expectFlavors.map((flavor) => (
               <span className={styles.profileChip} key={flavor}>
                 {flavor}
               </span>

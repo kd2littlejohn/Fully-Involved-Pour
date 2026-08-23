@@ -4,9 +4,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PourWizard } from './PourWizard'
 
 const mockAddPour = vi.fn().mockResolvedValue(undefined)
+const mockGenerateAndSaveTastingSummary = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] }, addPour: mockAddPour }),
+  useUserData: () => ({
+    userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+    addPour: mockAddPour,
+    updatePourAiSummary: vi.fn(),
+  }),
+}))
+
+vi.mock('./tastingSummaryOnSave', () => ({
+  generateAndSaveTastingSummary: (...args: unknown[]) => mockGenerateAndSaveTastingSummary(...args),
 }))
 
 vi.mock('../../hooks/useAuth', () => ({
@@ -23,6 +32,7 @@ vi.mock('../../data/repositories/relationships', () => ({
 beforeEach(() => {
   localStorage.clear()
   mockAddPour.mockClear()
+  mockGenerateAndSaveTastingSummary.mockClear()
 })
 
 async function goNext() {
@@ -85,6 +95,32 @@ describe('PourWizard', () => {
     )
     expect(onSaved).toHaveBeenCalled()
     expect(onClose).toHaveBeenCalled()
+    // addPour resolved undefined in this test, so there's no saved pour to
+    // generate a tasting summary for.
+    expect(mockGenerateAndSaveTastingSummary).not.toHaveBeenCalled()
+  })
+
+  it('fires the tasting summary generator in the background once a real saved pour comes back, after onSaved/onClose', async () => {
+    const saved = {
+      id: 'p-new',
+      bottleId: 'b1',
+      date: '2026-08-14',
+      rating: 8.3,
+      fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.8, value: 1, total: 8.3, noseAromas: ['Vanilla'], palateFlavors: ['Oak'] },
+    }
+    mockAddPour.mockResolvedValueOnce(saved)
+    const onClose = vi.fn()
+    const onSaved = vi.fn()
+    render(<PourWizard bottleId="b1" bottleName="Eagle Rare" onClose={onClose} onSaved={onSaved} />)
+
+    for (let i = 0; i < 5; i++) {
+      await goNext()
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Save Story' }))
+
+    expect(onSaved).toHaveBeenCalled()
+    expect(onClose).toHaveBeenCalled()
+    expect(mockGenerateAndSaveTastingSummary).toHaveBeenCalledWith(saved, expect.any(Function))
   })
 
   it('strips the trailing separator the friend Combobox leaves on the With field before saving', async () => {

@@ -8,7 +8,17 @@ import { ensureSearchableProfile, fetchProfile, saveProfile as saveProfileRepo }
 import { syncSharedCollection } from '../data/repositories/sharedCollections'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
-import { DEFAULT_PRIVACY_SETTINGS, type Bottle, type GalleryPhoto, type InfinityBottleAddition, type Memory, type Pour, type Profile, type UserDoc } from '../data/types'
+import {
+  DEFAULT_PRIVACY_SETTINGS,
+  type Bottle,
+  type GalleryPhoto,
+  type InfinityBottleAddition,
+  type Memory,
+  type Pour,
+  type PourAiSummary,
+  type Profile,
+  type UserDoc,
+} from '../data/types'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type BottlePatch = Partial<Omit<Bottle, 'id' | 'createdAt'>>
@@ -32,6 +42,7 @@ interface UserDataState {
   deleteBottles: (bottleIds: string[]) => Promise<void>
   addPour: (input: NewPourInput) => Promise<Pour | undefined>
   updatePour: (pourId: string, patch: PourPatch) => Promise<void>
+  updatePourAiSummary: (pourId: string, aiSummary: PourAiSummary) => Promise<void>
   deletePour: (pourId: string) => Promise<void>
   addMemory: (input: NewMemoryInput) => Promise<void>
   updateMemory: (memoryId: string, patch: MemoryPatch) => Promise<void>
@@ -55,6 +66,7 @@ const UserDataContext = createContext<UserDataState>({
   deleteBottles: async () => {},
   addPour: async () => undefined,
   updatePour: async () => {},
+  updatePourAiSummary: async () => {},
   deletePour: async () => {},
   addMemory: async () => {},
   updateMemory: async () => {},
@@ -294,6 +306,27 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
+  // Merges in a background-generated AI tasting summary once it resolves —
+  // deliberately reads userDocRef.current (not the closed-over `userDoc`)
+  // because this fires from a fire-and-forget call kicked off at pour-save
+  // time (see features/pourWizard/tastingSummaryOnSave.ts) that may resolve
+  // well after the triggering component has unmounted; using the ref keeps
+  // this correct against whatever the freshest pours array is by then,
+  // instead of silently reverting other edits made in the meantime.
+  const updatePourAiSummary = useCallback(
+    async (pourId: string, aiSummary: PourAiSummary) => {
+      if (!user) return
+      const current = userDocRef.current
+      const nextPours = current.pours.map((p) => (p.id === pourId ? { ...p, aiSummary } : p))
+      const nextDoc: UserDoc = { ...current, pours: nextPours }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { pours: nextPours })
+    },
+    [user, mockMode],
+  )
+
   const deletePour = useCallback(
     async (pourId: string) => {
       if (!user) return
@@ -452,6 +485,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       deleteBottles,
       addPour,
       updatePour,
+      updatePourAiSummary,
       deletePour,
       addMemory,
       updateMemory,
@@ -475,6 +509,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       deleteBottles,
       addPour,
       updatePour,
+      updatePourAiSummary,
       deletePour,
       addMemory,
       updateMemory,

@@ -243,6 +243,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // palateInterpretations/{uid} — cached AI interpretation of one user's
+    // own deterministic Palate Profile (web/src/data/repositories/
+    // palateInterpretation.ts). Unlike fipGuides this is private, per-user
+    // data, not shared canonical content, and it's expected to be
+    // regenerated (overwritten) as the profile evolves — same owner-only
+    // read/write shape as users/{uid} above, not the shared create-only
+    // shape fipGuides uses.
+    match /palateInterpretations/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     // ---------------------------------------------------------------------
     // Friends / social (web/src/data/repositories/{relationships,
     // sharedMoments,recommendations,notifications,sharedCollections}.ts).

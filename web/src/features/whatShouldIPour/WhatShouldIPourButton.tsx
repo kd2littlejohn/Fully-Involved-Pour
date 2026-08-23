@@ -9,6 +9,7 @@ import { StartPourStoryButton } from '../pourWizard/StartPourStoryButton'
 import { SecondaryActionCard } from '../../components/ui/SecondaryActionCard'
 import { useUserData } from '../../hooks/useUserData'
 import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
+import { explainPourRecommendation } from '../../data/repositories/pourRecommendationExplanation'
 import { getRecommendation, type RecommendationResult } from './scoring'
 import { MOODS, type MoodId } from './moods'
 import { DiceFace } from '../diceRoll/DiceFace'
@@ -53,6 +54,7 @@ export function WhatShouldIPourButton() {
   const [shown, setShown] = useState<string[]>([])
   const [rolling, setRolling] = useState(false)
   const [dieValue, setDieValue] = useState(1)
+  const [explanation, setExplanation] = useState<string | undefined>(undefined)
   const rollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const hasEligibleBottles = userDoc.bottles.some((b) => b.status === 'open' || b.status === 'sealed')
@@ -62,6 +64,35 @@ export function WhatShouldIPourButton() {
       if (rollTimer.current) clearInterval(rollTimer.current)
     }
   }, [])
+
+  // Fires only once a recommendation is actually revealed — never
+  // proactively, never blocking the reveal itself. The deterministic
+  // reasons already render immediately below; this just swaps in a warmer
+  // explanation if/when it resolves, and silently leaves the deterministic
+  // text in place on failure.
+  useEffect(() => {
+    setExplanation(undefined)
+    if (!result) return
+    let cancelled = false
+    const moodMeta = MOODS.find((m) => m.id === result.moodId)
+    explainPourRecommendation({
+      bottleName: result.bottle.name,
+      distillery: result.bottle.distillery,
+      type: result.bottle.type,
+      moodLabel: moodMeta?.label ?? 'tonight',
+      reasons: result.reasons,
+      tags: result.tags,
+    })
+      .then((text) => {
+        if (!cancelled && text) setExplanation(text)
+      })
+      .catch((err: unknown) => {
+        console.error('[WhatShouldIPourButton] explainPourRecommendation failed', { bottleId: result.bottle.id, err })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [result])
 
   function handleOpen() {
     if (rollTimer.current) clearInterval(rollTimer.current)
@@ -177,9 +208,19 @@ export function WhatShouldIPourButton() {
                 </div>
               </div>
 
+              {result.tags.length > 0 ? (
+                <div className={styles.tags}>
+                  {result.tags.map((tag) => (
+                    <Badge key={tag} tone="brass">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+
               <div className={styles.why}>
                 <div className={styles.whyLabel}>Why this one?</div>
-                <p className={styles.whyText}>{result.reasons.join(' ')}</p>
+                <p className={styles.whyText}>{explanation ?? result.reasons.join(' ')}</p>
               </div>
 
               <div className={styles.actions}>

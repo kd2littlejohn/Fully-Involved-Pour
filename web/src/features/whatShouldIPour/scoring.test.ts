@@ -245,3 +245,74 @@ describe('getRecommendation — explanations reference only real signals', () =>
     expect(result?.reasons).toEqual(['A strong fit for a Sweet pour right now.'])
   })
 })
+
+describe('getRecommendation — palate-fit and rediscovery personalization', () => {
+  it('is a no-op below the maturity floor — none of this shared fixture\'s pours carry tags/notes, so palate fit never enters the blend', () => {
+    // The shared `pours` fixture above is bare ratings only (see the shared
+    // `pour()` helper's defaults) — buildPalateProfile(bottles, pours) stays
+    // at 'learning' maturity for it, so every mood's winner here is decided
+    // by mood score alone, exactly as before this feature existed.
+    const result = getRecommendation(bottles, pours, 'something-familiar')
+    expect(result?.tags).not.toContain('Strong palate fit')
+    expect(result?.tags).not.toContain('Worth rediscovering')
+  })
+
+  it('applies once the palate is established: a mood-score tie is decided by which bottle actually matches the established flavor profile', () => {
+    const matchy: Bottle = { id: 'matchy', name: 'Matchy Bourbon', status: 'open', type: 'Bourbon', proof: 100 }
+    const mismatchy: Bottle = { id: 'mismatchy', name: 'Mismatchy Bourbon', status: 'open', type: 'Bourbon', proof: 100 }
+    // Present in the pool purely to establish a Sweet-leaning profile
+    // without threatening the top spot (pourCount 1 keeps its own mood
+    // score far below the tied contenders').
+    const thirdBottle: Bottle = { id: 'third', name: 'Third Bottle', status: 'open', type: 'Bourbon', proof: 100 }
+
+    const tastePours: Pour[] = [
+      // matchy: 3 pours, tied rating/pourCount with mismatchy, tagged Sweet.
+      pour({ id: 'm1', bottleId: 'matchy', date: daysAgo(5), rating: 8.0 }),
+      pour({ id: 'm2', bottleId: 'matchy', date: daysAgo(15), rating: 8.0 }),
+      pour({ id: 'm3', bottleId: 'matchy', date: daysAgo(25), rating: 8.0 }),
+      // mismatchy: same rating/pourCount/recency shape, tagged Smoky instead.
+      pour({ id: 'x1', bottleId: 'mismatchy', date: daysAgo(5), rating: 8.0 }),
+      pour({ id: 'x2', bottleId: 'mismatchy', date: daysAgo(15), rating: 8.0 }),
+      pour({ id: 'x3', bottleId: 'mismatchy', date: daysAgo(25), rating: 8.0 }),
+      // thirdBottle: one Sweet-tagged high-rated pour, tips the established
+      // profile toward Sweet without being pourCount-competitive itself.
+      pour({ id: 't1', bottleId: 'third', date: daysAgo(5), rating: 8.0 }),
+    ]
+    tastePours[0]!.fip.palateFlavors = ['Vanilla', 'Caramel']
+    tastePours[1]!.fip.palateFlavors = ['Vanilla', 'Caramel']
+    tastePours[2]!.fip.palateFlavors = ['Vanilla', 'Caramel']
+    tastePours[3]!.fip.palateFlavors = ['Leather']
+    tastePours[4]!.fip.palateFlavors = ['Leather']
+    tastePours[5]!.fip.palateFlavors = ['Leather']
+    tastePours[6]!.fip.palateFlavors = ['Vanilla', 'Caramel']
+
+    const result = getRecommendation([matchy, mismatchy, thirdBottle], tastePours, 'something-familiar')
+
+    expect(result?.bottle.id).toBe('matchy')
+    expect(result?.tags).toContain('Strong palate fit')
+  })
+
+  it('lets an underexplored bottle surface over a frequently-poured favorite once rediscovery and palate fit are blended in', () => {
+    const favorite: Bottle = { id: 'favorite', name: 'Old Favorite', status: 'open', type: 'Bourbon', proof: 100 }
+    const underdog: Bottle = { id: 'underdog', name: 'Overlooked Bottle', status: 'open', type: 'Bourbon', proof: 100 }
+
+    const tastePours: Pour[] = [
+      pour({ id: 'f1', bottleId: 'favorite', date: daysAgo(2), rating: 8.0 }),
+      pour({ id: 'f2', bottleId: 'favorite', date: daysAgo(12), rating: 8.0 }),
+      pour({ id: 'f3', bottleId: 'favorite', date: daysAgo(22), rating: 8.0 }),
+      pour({ id: 'f4', bottleId: 'favorite', date: daysAgo(32), rating: 8.0 }),
+      pour({ id: 'f5', bottleId: 'favorite', date: daysAgo(42), rating: 8.0 }),
+      // Same rating, same flavor tag, but poured only once and long ago.
+      pour({ id: 'u1', bottleId: 'underdog', date: daysAgo(90), rating: 8.0 }),
+    ]
+    for (const p of tastePours) p.fip.palateFlavors = ['Vanilla']
+
+    // 'sweet' scores purely on flavor + rating — both bottles tie on both,
+    // so pourCount/recency (via rediscoveryBoost) is the only thing that can
+    // possibly separate them here.
+    const result = getRecommendation([favorite, underdog], tastePours, 'sweet')
+
+    expect(result?.bottle.id).toBe('underdog')
+    expect(result?.tags).toContain('Worth rediscovering')
+  })
+})

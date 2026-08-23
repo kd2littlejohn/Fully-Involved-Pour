@@ -68,6 +68,14 @@ export function PourStoryDetail({ pour, bottle, onClose }: PourStoryDetailProps)
         </div>
       </div>
 
+      {pour.aiSummary?.text ? (
+        <div className={styles.section}>
+          <h3 className={styles.heading}>Your Pour</h3>
+          <p className={styles.notes}>{pour.aiSummary.text}</p>
+          <p className={styles.aiSummaryCaption}>FIP summarized this from your tasting notes.</p>
+        </div>
+      ) : null}
+
       {tastingTags.length > 0 ? (
         <div className={styles.section}>
           <h3 className={styles.heading}>Tasting Notes</h3>

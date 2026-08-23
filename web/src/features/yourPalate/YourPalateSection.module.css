@@ -72,3 +72,15 @@
   font-size: var(--fip-text-sm);
   font-style: italic;
 }
+
+.learning {
+  margin-top: var(--fip-space-6);
+  padding-top: var(--fip-space-5);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.learningText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: 1.5;
+}

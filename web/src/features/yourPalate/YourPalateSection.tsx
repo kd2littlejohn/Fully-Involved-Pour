@@ -5,6 +5,9 @@ import { RadarChart } from '../../components/ui/RadarChart'
 import { fipTier } from '../fip/tiers'
 import { collectionFlavorRadarValues, topFlavorTags, FLAVOR_AXES } from '../flavorRadar/flavorCategories'
 import { getAverageProof } from '../profile/selectors'
+import { useAuth } from '../../hooks/useAuth'
+import { buildPalateProfile } from './palateProfile'
+import { usePalateInterpretation } from './usePalateInterpretation'
 import {
   getPalateStats,
   getBuyAgainRate,
@@ -29,6 +32,9 @@ interface YourPalateSectionProps {
 export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
   const stats = getPalateStats(pours)
   const averageProof = getAverageProof(bottles)
+  const { user } = useAuth()
+  const palateProfile = buildPalateProfile(bottles, pours)
+  const { state: interpretationState, interpretation } = usePalateInterpretation(user?.uid, palateProfile)
 
   if (!stats) {
     return (
@@ -146,6 +152,13 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
           <div className={styles.patternsLabel}>Palate Evolution</div>
           {evolutionText ? <p className={styles.evolutionText}>{evolutionText}</p> : null}
           {proofEvolutionText ? <p className={styles.evolutionText}>{proofEvolutionText}</p> : null}
+        </div>
+      ) : null}
+
+      {interpretationState === 'ready' && interpretation ? (
+        <div className={styles.learning}>
+          <div className={styles.patternsLabel}>What FIP Is Learning</div>
+          <p className={styles.learningText}>{interpretation}</p>
         </div>
       ) : null}
     </Section>
