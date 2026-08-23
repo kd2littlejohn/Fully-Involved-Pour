@@ -1,3 +1,13 @@
+## v0.4.2 - MSRP on Add Bottle
+
+Added
+- MSRP (optional) field to the Add/Edit Bottle form, alongside Price paid.
+
+Changed
+- Label scan and "Ask AI to fill in the rest" now carry MSRP through to the saved bottle instead of discarding it.
+
+No Firebase schema changes (the `msrp` field already existed on Bottle; it just wasn't reachable from Add Bottle before).
+
 ## v0.4.1 - Journey Layout
 
 Changed

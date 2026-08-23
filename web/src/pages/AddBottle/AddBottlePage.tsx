@@ -52,6 +52,7 @@ export function AddBottlePage() {
   const [ownership, setOwnership] = useState<OwnershipFieldsValues>({
     status: defaultStatus,
     price: '',
+    msrp: '',
     storeLocation: '',
     quantity: '',
     purchaseDate: '',
@@ -89,6 +90,7 @@ export function AddBottlePage() {
     setOwnership({
       status: existingBottle.status,
       price: existingBottle.price != null ? String(existingBottle.price) : '',
+      msrp: existingBottle.msrp != null ? String(existingBottle.msrp) : '',
       storeLocation: existingBottle.storeLocation ?? '',
       quantity: existingBottle.quantity != null ? String(existingBottle.quantity) : '',
       purchaseDate: existingBottle.purchaseDate ?? '',
@@ -111,6 +113,11 @@ export function AddBottlePage() {
       proof: prev.proof || (info.proof ? String(info.proof) : prev.proof),
       ageStatement: prev.ageStatement.trim() || info.ageStatement || prev.ageStatement,
     }))
+    if (info.msrp) setOwnership((prev) => ({ ...prev, msrp: prev.msrp || String(info.msrp) }))
+  }
+
+  function handleMsrpFound(msrp: number) {
+    setOwnership((prev) => ({ ...prev, msrp: prev.msrp || String(msrp) }))
   }
 
   async function handleSubmit() {
@@ -136,6 +143,7 @@ export function AddBottlePage() {
         imageProcessingStatus: photo.imageProcessingStatus,
         status: ownership.status,
         price: ownership.price ? Number(ownership.price) : undefined,
+        msrp: ownership.msrp ? Number(ownership.msrp) : undefined,
         storeLocation: ownership.storeLocation.trim() || undefined,
         quantity: ownership.quantity ? Number(ownership.quantity) : undefined,
         // Every date is saved as entered, independent of the current status —
@@ -238,6 +246,7 @@ export function AddBottlePage() {
                   if (patch.name?.trim()) setNameError(null)
                 }}
                 nameError={nameError ?? undefined}
+                onMsrpFound={handleMsrpFound}
               />
               <OwnershipFieldsCard
                 values={ownership}

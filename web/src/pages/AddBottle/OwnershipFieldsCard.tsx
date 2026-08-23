@@ -7,6 +7,7 @@ import styles from './FieldsCard.module.css'
 export interface OwnershipFieldsValues {
   status: BottleStatus
   price: string
+  msrp: string
   storeLocation: string
   quantity: string
   purchaseDate: string
@@ -115,6 +116,20 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               />
             </Field>
 
+            <Field label="MSRP (optional)" htmlFor="ab-msrp">
+              <input
+                id="ab-msrp"
+                className={controlClassName}
+                type="number"
+                inputMode="decimal"
+                value={values.msrp}
+                onChange={(e) => onChange({ msrp: e.target.value })}
+                placeholder="40.00"
+              />
+            </Field>
+          </div>
+
+          <div className={styles.row}>
             <Field label="Quantity (optional)" htmlFor="ab-quantity">
               <input
                 id="ab-quantity"
@@ -126,18 +141,6 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 value={values.quantity}
                 onChange={(e) => onChange({ quantity: e.target.value })}
                 placeholder="1"
-              />
-            </Field>
-          </div>
-
-          <div className={styles.row}>
-            <Field label="Purchase date (optional)" htmlFor="ab-purchase-date">
-              <input
-                id="ab-purchase-date"
-                className={controlClassName}
-                type="date"
-                value={values.purchaseDate}
-                onChange={(e) => onChange({ purchaseDate: e.target.value })}
               />
             </Field>
 
@@ -156,6 +159,16 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               bottle's history (when it was opened, expected, finished) is
               worth correcting even after the status has since moved on. */}
           <div className={styles.row}>
+            <Field label="Purchase date (optional)" htmlFor="ab-purchase-date">
+              <input
+                id="ab-purchase-date"
+                className={controlClassName}
+                type="date"
+                value={values.purchaseDate}
+                onChange={(e) => onChange({ purchaseDate: e.target.value })}
+              />
+            </Field>
+
             <Field label="Opened date (optional)" htmlFor="ab-opened-date">
               <input
                 id="ab-opened-date"
@@ -165,17 +178,17 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 onChange={(e) => onChange({ openedDate: e.target.value })}
               />
             </Field>
-
-            <Field label="Finished date (optional)" htmlFor="ab-finished-date">
-              <input
-                id="ab-finished-date"
-                className={controlClassName}
-                type="date"
-                value={values.finishedDate}
-                onChange={(e) => onChange({ finishedDate: e.target.value })}
-              />
-            </Field>
           </div>
+
+          <Field label="Finished date (optional)" htmlFor="ab-finished-date">
+            <input
+              id="ab-finished-date"
+              className={controlClassName}
+              type="date"
+              value={values.finishedDate}
+              onChange={(e) => onChange({ finishedDate: e.target.value })}
+            />
+          </Field>
 
           <Field label="Expected arrival (optional)" htmlFor="ab-expected-date">
             <input

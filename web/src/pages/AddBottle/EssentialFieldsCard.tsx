@@ -18,9 +18,13 @@ interface EssentialFieldsCardProps {
   values: EssentialFieldsValues
   onChange: (patch: Partial<EssentialFieldsValues>) => void
   nameError?: string
+  // MSRP isn't an "essential" field itself (it lives with the ownership/price
+  // fields), but the same AI lookup that fills in distillery/type/etc. often
+  // finds it too — this hands it back up rather than throwing it away.
+  onMsrpFound?: (msrp: number) => void
 }
 
-export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFieldsCardProps) {
+export function EssentialFieldsCard({ values, onChange, nameError, onMsrpFound }: EssentialFieldsCardProps) {
   const [lookingUp, setLookingUp] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
 
@@ -41,6 +45,7 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
         region: values.region.trim() || info.region || values.region,
         proof: values.proof || (info.proof ? String(info.proof) : values.proof),
       })
+      if (info.msrp) onMsrpFound?.(info.msrp)
       setAiStatus(`✨ AI filled in ${info.distillery || 'details'} for this bottle.`)
     } catch {
       setAiStatus('No close match yet. Keep typing, or save it manually.')

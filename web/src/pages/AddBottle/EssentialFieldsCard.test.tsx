@@ -63,6 +63,19 @@ describe('EssentialFieldsCard', () => {
     )
   })
 
+  it('reports a found MSRP via onMsrpFound without touching essential fields', async () => {
+    mockLookup.mockResolvedValue({ known: true, distillery: 'Buffalo Trace', type: 'Bourbon', region: 'Kentucky', proof: 90, msrp: 40 })
+    const onMsrpFound = vi.fn()
+    render(
+      <EssentialFieldsCard values={{ ...baseValues, name: 'Eagle Rare' }} onChange={vi.fn()} onMsrpFound={onMsrpFound} />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: /Ask AI to fill in the rest/ }))
+
+    expect(await screen.findByText(/AI filled in Buffalo Trace/)).toBeInTheDocument()
+    expect(onMsrpFound).toHaveBeenCalledWith(40)
+  })
+
   it('shows a status message when Ask AI has no match', async () => {
     mockLookup.mockResolvedValue({ known: false })
     render(<EssentialFieldsCard values={{ ...baseValues, name: 'Made Up Bottle' }} onChange={vi.fn()} />)

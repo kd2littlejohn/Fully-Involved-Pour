@@ -71,7 +71,7 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
     throw new HttpsError("invalid-argument", "A bottle name is required.");
   }
 
-  const system = `You are a whiskey/spirits database expert. Given a bottle name, identify its real-world distillery, spirit type, region, and typical bottled proof, ONLY if you genuinely recognize this as a real, existing product. If you do not recognize the bottle or are not confident, set "known" to false and leave the other fields empty -- never invent or guess plausible-sounding but unverified details. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:\n{"known": true or false, "distillery": "...", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "...", "proof": number or 0}`;
+  const system = `You are a whiskey/spirits database expert. Given a bottle name, identify its real-world distillery, spirit type, region, typical bottled proof, and typical MSRP in US dollars, ONLY if you genuinely recognize this as a real, existing product. If you do not recognize the bottle or are not confident, set "known" to false and leave the other fields empty -- never invent or guess plausible-sounding but unverified details. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:\n{"known": true or false, "distillery": "...", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "...", "proof": number or 0, "msrp": number or 0}`;
 
   const prompt = `Bottle name: ${bottleName}`;
 
@@ -93,6 +93,7 @@ exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, as
     type: String(parsed.type || ""),
     region: String(parsed.region || ""),
     proof: Number(parsed.proof || 0),
+    msrp: Number(parsed.msrp || 0),
   };
 });
 

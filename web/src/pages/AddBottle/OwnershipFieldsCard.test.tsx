@@ -12,6 +12,7 @@ vi.mock('../../data/repositories/ai', () => ({
 const baseValues: OwnershipFieldsValues = {
   status: 'sealed',
   price: '',
+  msrp: '',
   storeLocation: '',
   quantity: '',
   purchaseDate: '',
@@ -155,6 +156,16 @@ describe('OwnershipFieldsCard', () => {
     await userEvent.type(screen.getByLabelText('Store (optional)'), 'A')
 
     expect(onChange).toHaveBeenCalledWith({ storeLocation: 'A' })
+  })
+
+  it('reports an MSRP change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    fireEvent.change(screen.getByLabelText('MSRP (optional)'), { target: { value: '40' } })
+
+    expect(onChange).toHaveBeenCalledWith({ msrp: '40' })
   })
 
   it('disables the AI Tasting Note button until a bottle name is entered', async () => {
