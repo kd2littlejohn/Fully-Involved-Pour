@@ -41,10 +41,17 @@ button.body {
   cursor: pointer;
 }
 
+/* Enlarged from the original 64x80 accent thumbnail so the bottle photo
+   reads as prominent rather than a small floating icon, while staying an
+   inline element beside the sender/message/actions text (not a full-bleed
+   card hero — this card's job is the recommendation, not the photo). Same
+   4:5 ratio as BottleCard for visual consistency. */
 .image {
-  width: 64px;
-  height: 80px;
+  width: 96px;
+  height: 120px;
   object-fit: cover;
+  object-position: center;
+  display: block;
   border-radius: var(--fip-radius-md);
   background: var(--fip-oak-deep);
   flex: 0 0 auto;

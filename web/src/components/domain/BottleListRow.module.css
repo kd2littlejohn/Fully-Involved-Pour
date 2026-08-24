@@ -53,10 +53,18 @@
   overflow: hidden;
 }
 
+/* Fills the 56x56 thumbnail edge to edge instead of floating centered with
+   visible oak-deep gutters. Cropping a 4:5 standardized bottle photo
+   (standardizeBottlePhoto.ts) down to this 1:1 box trims at most ~10% off
+   the top and bottom -- safely inside the asset's own guaranteed 12% margin
+   in every case, so the bottle itself is never cut off, even at this
+   thumbnail's worst-case (height-constrained, narrow/tall bottle) shape. */
 .image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
 }
 
 .info {

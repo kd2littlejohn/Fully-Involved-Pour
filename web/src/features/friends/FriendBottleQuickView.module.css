@@ -4,10 +4,22 @@
   gap: var(--fip-space-4);
 }
 
+/* The old width:100%/max-height:220px box was landscape-ish while every
+   real bottle.imageUrl is the standardized portrait 4:5 canvas from
+   standardizeBottlePhoto.ts, so object-fit:contain was letterboxing the
+   photo down to a narrow strip with dark-oak bars on either side. Matching
+   the container to that same 4:5 ratio lets object-fit:cover fill the
+   frame with zero crop risk (cover and contain render identically once the
+   ratios match exactly) instead of trying to force a wider box, which would
+   risk cropping a tall/thin bottle's neck or base. This does make the hero
+   taller than before — an intentional trade-off, since not cropping the
+   bottle takes priority. */
 .image {
+  display: block;
   width: 100%;
-  max-height: 220px;
-  object-fit: contain;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  object-position: center;
   border-radius: var(--fip-radius-lg);
   background: var(--fip-oak-deep);
 }

@@ -78,26 +78,34 @@
 
 /* Bottle photography is the dominant element here — roughly 60-70% of the
    card's height goes to it, matching the "premium bottle library" ratio in
-   the approved mockup. object-fit:contain never crops the neck or base;
-   the padding keeps a full bottle from touching the frame edge. 4:5 matches
-   the standardized display image's own canvas ratio exactly (see
-   features/photoUpload/standardizeBottlePhoto.ts) so a freshly standardized
-   photo fills this frame with no extra letterboxing. */
+   the approved mockup. Full-bleed: every bottle.imageUrl is the standardized
+   4:5 canvas from standardizeBottlePhoto.ts (a fixed 960x1200 composite with
+   the real bottle already centered/scaled with its own margin against a
+   dark-oak backdrop, never touching that canvas's own edges) — since this
+   container matches that exact 4:5 ratio, object-fit:cover here never crops
+   the bottle itself, it only fills the frame exactly as contain already did.
+   The negative margin bleeds the image out past .body's own padding to
+   reach the card's real left/right/top edges; overflow:hidden plus matching
+   the card's own border-radius on the top corners keeps it clipped
+   correctly. flex-centering is kept for the no-photo BottlePlaceholder
+   fallback, which sizes/centers itself. */
 .imageWrap {
   aspect-ratio: 4 / 5;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--fip-space-3);
+  margin: calc(-1 * var(--fip-space-4)) calc(-1 * var(--fip-space-4)) 0;
   background: var(--fip-oak-deep);
-  border-radius: var(--fip-radius-md);
+  border-radius: var(--fip-radius-lg) var(--fip-radius-lg) 0 0;
   overflow: hidden;
 }
 
 .image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
+  display: block;
 }
 
 .titleBlock {
