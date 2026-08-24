@@ -19,6 +19,34 @@
   font-size: var(--fip-text-sm);
 }
 
+.memoryPhoto {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--fip-radius-lg);
+  object-fit: cover;
+  object-position: center;
+  margin-bottom: var(--fip-space-5);
+}
+
+.peopleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-3);
+}
+
+.personChip {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
+.personName {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
 .section {
   margin-bottom: var(--fip-space-6);
 }

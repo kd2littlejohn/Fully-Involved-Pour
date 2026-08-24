@@ -238,6 +238,10 @@ export function buildBottleStoryEvents(bottle: Bottle, pours: Pour[], memories: 
       detail: pour.memory?.trim() || pour.notes?.trim() || undefined,
       pourId: pour.id,
       bottleId: bottle.id,
+      // The richer wizard-captured memory photo takes priority over Quick
+      // Pour's simpler photoUrl when both somehow exist — same preference
+      // order as PourStoryCard.
+      photoUrl: pour.memoryPhoto?.url ?? pour.photoUrl,
       tags: tags.length > 0 ? tags : undefined,
     })
   }

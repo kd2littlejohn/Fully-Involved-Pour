@@ -2,18 +2,36 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PourStoryDetail } from './PourStoryDetail'
-import type { Bottle, Pour } from '../../data/types'
+import type { Bottle, Pour, PourPerson } from '../../data/types'
 
 const mockUpdatePour = vi.fn().mockResolvedValue(undefined)
 const mockDeletePour = vi.fn().mockResolvedValue(undefined)
+let mockPeople: PourPerson[] = []
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ updatePour: mockUpdatePour, deletePour: mockDeletePour, addPour: vi.fn() }),
+  useUserData: () => ({
+    userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], get people() { return mockPeople } },
+    updatePour: mockUpdatePour,
+    deletePour: mockDeletePour,
+    addPour: vi.fn(),
+    updatePourAiSummary: vi.fn(),
+    updatePourMemoryPhoto: vi.fn(),
+    addOrReusePerson: vi.fn(),
+    updatePersonPhoto: vi.fn(),
+  }),
+}))
+
+// The Session step's friend-tagging field (see features/friends/
+// TagFriendsField) reads this repository — mocked so it never attempts a
+// real Firestore call in tests.
+vi.mock('../../data/repositories/relationships', () => ({
+  getFriendIds: () => Promise.resolve([]),
 }))
 
 beforeEach(() => {
   mockUpdatePour.mockClear()
   mockDeletePour.mockClear()
+  mockPeople = []
 })
 
 const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open' }
@@ -50,6 +68,26 @@ describe('PourStoryDetail', () => {
     expect(screen.getByText('Great catch-up.')).toBeInTheDocument()
     expect(screen.getAllByText('Vanilla').length).toBeGreaterThan(0)
     expect(screen.getByText('Sweet and warm.')).toBeInTheDocument()
+  })
+
+  it('shows the memory photo prominently near the top when the pour has one', () => {
+    const withPhoto: Pour = { ...pour, memoryPhoto: { url: 'https://example.com/moment.jpg', createdAt: 1 } }
+    const { container } = render(<PourStoryDetail pour={withPhoto} bottle={bottle} onClose={vi.fn()} />)
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/moment.jpg')
+  })
+
+  it('renders no memory photo element when the pour has none', () => {
+    const { container } = render(<PourStoryDetail pour={pour} bottle={bottle} onClose={vi.fn()} />)
+    expect(container.querySelector('img')).not.toBeInTheDocument()
+  })
+
+  it('shows a Poured With avatar for a structured person, using their real avatar', () => {
+    mockPeople.push({ id: 'pp1', name: 'Dad', normalizedName: 'dad', photoUrl: 'https://example.com/dad.jpg', createdAt: 1 })
+    const withPerson: Pour = { ...pour, companion: undefined, pouredWith: [{ personId: 'pp1', name: 'Dad' }] }
+    const { container } = render(<PourStoryDetail pour={withPerson} bottle={bottle} onClose={vi.fn()} />)
+
+    expect(screen.getByText('Dad')).toBeInTheDocument()
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/dad.jpg')
   })
 
   it('shows no "Your Pour" section when no AI summary has been generated yet', () => {
@@ -94,7 +132,10 @@ describe('PourStoryDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Edit' }))
 
     expect(screen.getByText('Edit Pour Story — Eagle Rare')).toBeInTheDocument()
-    expect(screen.getByLabelText('With')).toHaveValue('Dad')
+    // The legacy `companion: 'Dad'` string resolves into a Poured With chip
+    // (no linked contact yet, since none exists in this test's empty people
+    // list — see pourPeople.ts's resolvePouredWith).
+    expect(screen.getByText('Dad')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Next' })) // -> Nose
     expect(screen.getByLabelText('Nose')).toHaveValue('2.1')

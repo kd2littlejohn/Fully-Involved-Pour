@@ -28,7 +28,7 @@ vi.mock('firebase/auth', () => ({
 }))
 
 vi.mock('../data/repositories/userDoc', () => ({
-  EMPTY_USER_DOC: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+  EMPTY_USER_DOC: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
   fetchUserDoc: (...args: unknown[]) => mockFetchUserDoc(...args),
   saveUserDoc: (...args: unknown[]) => mockSaveUserDoc(...args),
 }))
@@ -58,7 +58,7 @@ function docWithOneBottle(name: string): UserDoc {
     pours: [],
     memories: [],
     infinityBottles: [],
-    customLibrary: [],
+    customLibrary: [], people: [],
   }
 }
 
@@ -229,7 +229,7 @@ describe('useUserData — updatePourAiSummary', () => {
       ],
       memories: [],
       infinityBottles: [],
-      customLibrary: [],
+      customLibrary: [], people: [],
     }
   }
 
@@ -280,5 +280,164 @@ describe('useUserData — updatePourAiSummary', () => {
         ]),
       }),
     )
+  })
+})
+
+describe('useUserData — updatePourMemoryPhoto', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+  })
+
+  function docWithPour(): UserDoc {
+    return {
+      bottles: [],
+      pours: [
+        {
+          id: 'p1',
+          bottleId: 'b1',
+          date: '2026-08-14',
+          rating: 8.6,
+          fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.8, value: 1, total: 8.6, noseAromas: [], palateFlavors: [] },
+        },
+      ],
+      memories: [],
+      infinityBottles: [],
+      customLibrary: [],
+      people: [],
+    }
+  }
+
+  it('merges the memory photo onto the matching pour', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(docWithPour())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.pours).toHaveLength(1))
+
+    const memoryPhoto = { url: 'https://example.com/photo.jpg', storagePath: 'memory-photos/user-1/1-photo.jpg', createdAt: 123 }
+    await result.current.updatePourMemoryPhoto('p1', memoryPhoto)
+
+    await waitFor(() => expect(result.current.userDoc.pours[0]?.memoryPhoto).toEqual(memoryPhoto))
+  })
+
+  it('clears the memory photo when given undefined, without touching anything else on the pour', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const withPhoto = docWithPour()
+    withPhoto.pours[0]!.memoryPhoto = { url: 'https://example.com/old.jpg', createdAt: 1 }
+    mockFetchUserDoc.mockResolvedValue(withPhoto)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.pours[0]?.memoryPhoto).toBeDefined())
+
+    await result.current.updatePourMemoryPhoto('p1', undefined)
+
+    await waitFor(() => expect(result.current.userDoc.pours[0]?.memoryPhoto).toBeUndefined())
+    expect(result.current.userDoc.pours[0]?.id).toBe('p1')
+  })
+
+  it('reads the freshest pours at call time, not a stale snapshot from before the wizard unmounted', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(docWithPour())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.pours).toHaveLength(1))
+
+    const capturedUpdate = result.current.updatePourMemoryPhoto
+
+    await result.current.addPour({
+      bottleId: 'b1',
+      date: '2026-08-15',
+      rating: 9.0,
+      fip: { nose: 2, palate: 3, finish: 2, complexity: 1, value: 1, total: 9, noseAromas: [], palateFlavors: [] },
+    })
+    await waitFor(() => expect(result.current.userDoc.pours).toHaveLength(2))
+
+    await capturedUpdate('p1', { url: 'https://example.com/photo.jpg', createdAt: 1 })
+
+    await waitFor(() =>
+      expect(mockSaveUserDoc).toHaveBeenLastCalledWith('user-1', {
+        pours: expect.arrayContaining([
+          expect.objectContaining({ id: 'p1', memoryPhoto: expect.objectContaining({ url: 'https://example.com/photo.jpg' }) }),
+          expect.objectContaining({ bottleId: 'b1', rating: 9 }),
+        ]),
+      }),
+    )
+  })
+})
+
+describe('useUserData — addOrReusePerson / updatePersonPhoto', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+  })
+
+  function emptyDoc(): UserDoc {
+    return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
+  }
+
+  it('creates a new person when no existing one matches', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(emptyDoc())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const person = await result.current.addOrReusePerson('Marcus')
+
+    expect(person?.name).toBe('Marcus')
+    await waitFor(() => expect(result.current.userDoc.people).toHaveLength(1))
+  })
+
+  it('reuses an existing person for a normalized-equal name instead of creating a duplicate', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.people = [{ id: 'p1', name: 'Marcus', normalizedName: 'marcus', createdAt: 1 }]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.people).toHaveLength(1))
+
+    const person = await result.current.addOrReusePerson('  MARCUS ')
+
+    expect(person?.id).toBe('p1')
+    expect(result.current.userDoc.people).toHaveLength(1)
+    expect(mockSaveUserDoc).not.toHaveBeenCalled()
+  })
+
+  it('updatePersonPhoto sets an avatar that is then reused by every future lookup of that person', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.people = [{ id: 'p1', name: 'Marcus', normalizedName: 'marcus', createdAt: 1 }]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.people).toHaveLength(1))
+
+    await result.current.updatePersonPhoto('p1', { photoUrl: 'https://example.com/marcus.jpg', photoStoragePath: 'person-photos/user-1/1-marcus.jpg' })
+
+    await waitFor(() => expect(result.current.userDoc.people[0]?.photoUrl).toBe('https://example.com/marcus.jpg'))
+  })
+
+  it('updatePersonPhoto clears the avatar when given undefined', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.people = [{ id: 'p1', name: 'Marcus', normalizedName: 'marcus', photoUrl: 'https://example.com/old.jpg', createdAt: 1 }]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.people[0]?.photoUrl).toBeDefined())
+
+    await result.current.updatePersonPhoto('p1', undefined)
+
+    await waitFor(() => expect(result.current.userDoc.people[0]?.photoUrl).toBeUndefined())
   })
 })

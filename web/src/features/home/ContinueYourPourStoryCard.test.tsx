@@ -17,7 +17,7 @@ function minFip(rating: number) {
 }
 
 function renderCard(pours: Pour[]) {
-  mockUseUserData.mockReturnValue({ userDoc: { bottles: [bottle], pours, memories: [], infinityBottles: [], customLibrary: [] } })
+  mockUseUserData.mockReturnValue({ userDoc: { bottles: [bottle], pours, memories: [], infinityBottles: [], customLibrary: [], people: [] } })
   return render(
     <MemoryRouter>
       <ContinueYourPourStoryCard bottle={bottle} pours={pours} />

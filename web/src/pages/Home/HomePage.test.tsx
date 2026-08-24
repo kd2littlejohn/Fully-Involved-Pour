@@ -31,7 +31,7 @@ function renderHome() {
 function signIn(bottles: Bottle[], pours: Pour[] = []) {
   mockUseAuth.mockReturnValue({ user: { uid: 'u1', displayName: 'Kevin' }, loading: false })
   mockUseUserData.mockReturnValue({
-    userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+    userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
     loading: false,
     signedIn: true,
   })
@@ -42,7 +42,7 @@ describe('HomePage', () => {
   it('shows a sign-in prompt when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: false,
     })

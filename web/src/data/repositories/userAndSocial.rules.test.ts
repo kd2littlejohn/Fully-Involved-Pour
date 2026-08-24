@@ -19,7 +19,7 @@ function baseUserDoc(overrides: Record<string, unknown> = {}) {
     pours: [{ id: 'p1', bottleId: 'b1', date: '2026-01-01', rating: 8.6, notes: 'Great porch pour with Dad.' }],
     memories: [],
     infinityBottles: [],
-    customLibrary: [],
+    customLibrary: [], people: [],
     ...overrides,
   }
 }

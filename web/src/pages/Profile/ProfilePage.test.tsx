@@ -29,7 +29,7 @@ function renderProfile() {
 }
 
 function emptyUserDoc() {
-  return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] }
+  return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
 }
 
 describe('ProfilePage', () => {
@@ -95,7 +95,7 @@ describe('ProfilePage', () => {
         pours,
         memories: [{ id: 'm1', title: 'A memory', date: '2026-01-01', people: [], story: 'A story.' }],
         infinityBottles: [],
-        customLibrary: [],
+        customLibrary: [], people: [],
         username: 'kevin_pours',
       },
       profile: { username: 'kevin_pours', bio: 'Bourbon first.', location: 'Nashville, TN' },

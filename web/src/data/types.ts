@@ -118,12 +118,27 @@ export interface Pour {
   // SharedMoment they can view/react/comment on; it never touches or
   // replaces `companion`.
   sharedWithUids?: string[]
+  // Structured "Poured With" contacts (see features/pourWizard/pourPeople.ts)
+  // — the source of truth going forward, distinct from both `companion`
+  // (kept in sync as a mirrored comma-joined string so every existing
+  // reader keeps working unchanged) and `sharedWithUids` (real FIP friend
+  // accounts, for social sharing — a different concept entirely, untouched
+  // by this field). Absent on pours saved before this feature existed.
+  pouredWith?: PourPersonRef[]
   location?: string
   mood?: string
   glass?: string
   weather?: string
   memory?: string
   photoUrl?: string
+  // A single richer "moment" photo for this specific pour (see
+  // data/repositories/pourMemoryPhoto.ts and features/pourWizard/
+  // MemoryPhotoField.tsx) — distinct from the plain `photoUrl` above, which
+  // stays exactly as Quick Pour's own simpler fast-path field. Prefer
+  // `memoryPhoto?.url ?? photoUrl` wherever a pour's photo is displayed, so
+  // both old and new pours render through one path. Never used as anyone's
+  // contact avatar, and never replaced by one.
+  memoryPhoto?: PourMemoryPhoto
   buyAgain?: BuyAgain
   wouldBuyAgain?: boolean
   fip: FipBreakdown
@@ -145,6 +160,46 @@ export interface PourAiSummary {
   text: string
   sourceHash: string
   generatedAt: number
+}
+
+// A lightweight reference to a PourPerson on one specific pour — a name
+// snapshot (so a pour's "With" row never goes blank if a person is later
+// renamed or somehow removed) plus an optional link back to the reusable
+// contact record. `personId` is absent for a still-unlinked legacy name
+// parsed from an old pour's `companion` string that doesn't (yet) match any
+// saved PourPerson.
+export interface PourPersonRef {
+  personId?: string
+  name: string
+}
+
+// A single event-specific photo attached to one pour — never reused as
+// anyone's avatar, and never overwritten by one. See features/pourWizard/
+// MemoryPhotoField.tsx.
+export interface PourMemoryPhoto {
+  url: string
+  storagePath?: string
+  createdAt: number
+}
+
+// A reusable "Poured With" contact — informal, not a real FIP account (that
+// concept is `sharedWithUids`/Friends, entirely separate). The same person
+// record is referenced by every pour they're tagged on, so their avatar
+// only ever needs to be uploaded once. See features/pourWizard/
+// pourPeople.ts.
+export interface PourPerson {
+  id: string
+  name: string
+  // Precomputed once at create/rename time (trim + lowercase + collapsed
+  // whitespace) so duplicate-detection never has to re-derive it from every
+  // existing person on every keystroke.
+  normalizedName: string
+  photoUrl?: string
+  // The Storage object path behind photoUrl, kept so a later replace/remove
+  // can delete the exact old file (see features/photoUpload/uploadPhoto.ts's
+  // deletePhotoIfSafe) instead of just orphaning it.
+  photoStoragePath?: string
+  createdAt: number
 }
 
 export interface Memory {
@@ -189,6 +244,7 @@ export interface UserDoc {
   memories: Memory[]
   infinityBottles: InfinityBottle[]
   customLibrary: CustomLibraryEntry[]
+  people: PourPerson[]
 }
 
 export interface UsernameRecord {

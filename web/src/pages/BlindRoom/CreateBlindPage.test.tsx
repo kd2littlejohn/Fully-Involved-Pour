@@ -21,7 +21,7 @@ const bottles: Bottle[] = [
 ]
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], username: 'kevin' } }),
+  useUserData: () => ({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [], username: 'kevin' } }),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {

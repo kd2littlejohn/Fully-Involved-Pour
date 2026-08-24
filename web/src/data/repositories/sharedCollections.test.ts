@@ -11,7 +11,7 @@ function pour(overrides: Partial<Pour> & Pick<Pour, 'id' | 'bottleId' | 'date' |
 }
 
 function userDoc(bottles: Bottle[], pours: Pour[] = []): UserDoc {
-  return { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] }
+  return { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] }
 }
 
 function privacy(overrides: Partial<PrivacySettings> = {}): PrivacySettings {

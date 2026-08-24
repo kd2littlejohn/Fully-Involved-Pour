@@ -232,6 +232,28 @@ describe('buildBottleStoryEvents — milestone tagging', () => {
   })
 })
 
+describe('buildBottleStoryEvents — pour photos', () => {
+  it('prefers the memory photo over photoUrl for a pour event', () => {
+    const pours = [
+      pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6, photoUrl: 'https://x/quick.jpg', memoryPhoto: { url: 'https://x/moment.jpg', createdAt: 1 } }),
+    ]
+    const story = buildBottleStoryEvents(bottle, pours, [])
+    expect(story.events.find((e) => e.pourId === 'p1')).toMatchObject({ photoUrl: 'https://x/moment.jpg' })
+  })
+
+  it('falls back to photoUrl when there is no memory photo', () => {
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6, photoUrl: 'https://x/quick.jpg' })]
+    const story = buildBottleStoryEvents(bottle, pours, [])
+    expect(story.events.find((e) => e.pourId === 'p1')).toMatchObject({ photoUrl: 'https://x/quick.jpg' })
+  })
+
+  it('leaves photoUrl undefined for a pour with neither photo', () => {
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: '2026-05-17', rating: 8.6 })]
+    const story = buildBottleStoryEvents(bottle, pours, [])
+    expect(story.events.find((e) => e.pourId === 'p1')?.photoUrl).toBeUndefined()
+  })
+})
+
 describe('buildBottleStoryEvents — memories', () => {
   it('includes a bottle-linked memory with its photo, dated in context', () => {
     const memories: Memory[] = [

@@ -1,4 +1,4 @@
-import type { Bottle, Memory, Pour, UserDoc } from './types'
+import type { Bottle, Memory, Pour, PourPerson, UserDoc } from './types'
 
 // Dev-only fixture collection — lets every page be exercised against
 // realistic populated data (multiple statuses, companions, FIP tiers,
@@ -120,6 +120,15 @@ const elmerTLee: Bottle = {
   createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
 }
 
+const dad: PourPerson = { id: 'mock-person-dad', name: 'Dad', normalizedName: 'dad', createdAt: Date.now() - 300 * 24 * 60 * 60 * 1000 }
+const mike: PourPerson = { id: 'mock-person-mike', name: 'Mike', normalizedName: 'mike', createdAt: Date.now() - 100 * 24 * 60 * 60 * 1000 }
+const sarah: PourPerson = { id: 'mock-person-sarah', name: 'Sarah', normalizedName: 'sarah', createdAt: Date.now() - 200 * 24 * 60 * 60 * 1000 }
+
+// Deliberately no photoUrl on any of these — exercises the initials-fallback
+// avatar state by default, same convention as bottles having no imageUrl in
+// this fixture set.
+const people: PourPerson[] = [dad, mike, sarah]
+
 const pours: Pour[] = [
   {
     id: 'mock-pour-1',
@@ -129,6 +138,7 @@ const pours: Pour[] = [
     rating: 9.2,
     occasion: 'Porch time',
     companion: 'Dad',
+    pouredWith: [{ personId: dad.id, name: dad.name }],
     location: 'Back porch',
     mood: 'Relaxed',
     memory: 'Caught up with Dad after a long week. This bottle never disappoints.',
@@ -151,6 +161,7 @@ const pours: Pour[] = [
     rating: 8.5,
     occasion: 'Firehouse gathering',
     companion: 'Mike',
+    pouredWith: [{ personId: mike.id, name: mike.name }],
     fip: {
       nose: 2.1,
       palate: 3.0,
@@ -253,4 +264,5 @@ export const MOCK_USER_DOC: UserDoc = {
   memories,
   infinityBottles: [],
   customLibrary: [],
+  people,
 }

@@ -47,7 +47,7 @@ describe('FriendCard', () => {
         pours: [],
         memories: [],
         infinityBottles: [],
-        customLibrary: [],
+        customLibrary: [], people: [],
       },
       profile: { displayName: 'Me' },
     })

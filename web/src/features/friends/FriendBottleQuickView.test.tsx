@@ -61,7 +61,7 @@ const baseTarget: FriendBottleQuickViewTarget = {
 function renderQuickView(target: FriendBottleQuickViewTarget | undefined, myBottles: unknown[] = []) {
   mockUseAuth.mockReturnValue({ user: { uid: 'me' }, loading: false })
   mockUseUserData.mockReturnValue({
-    userDoc: { bottles: myBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+    userDoc: { bottles: myBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
     profile: { whiskeyIdentityTags: [] },
     addBottle: mockAddBottle,
   })
@@ -174,7 +174,7 @@ describe('FriendBottleQuickView', () => {
   it('shows and filters See Pour Stories to only this bottle’s shared stories', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'me' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
       profile: { whiskeyIdentityTags: [] },
       addBottle: mockAddBottle,
     })

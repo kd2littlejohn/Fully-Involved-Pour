@@ -6,10 +6,11 @@ import { Button } from '../../../components/ui/Button'
 import { FIP_MAX, buyAgainToValueScore, computeFipTotal } from '../../fip/scoring'
 import { fipTier } from '../../fip/tiers'
 import { generateTastingProfile } from '../../../data/repositories/ai'
+import { MemoryPhotoField } from '../MemoryPhotoField'
 import type { StepProps } from './StepProps'
 import styles from './SummaryStep.module.css'
 
-export function SummaryStep({ draft, updateDraft, bottle }: StepProps) {
+export function SummaryStep({ draft, updateDraft, bottle, memoryPhoto }: StepProps) {
   const value = buyAgainToValueScore(draft.buyAgain)
   const total = computeFipTotal({ nose: draft.nose, palate: draft.palate, finish: draft.finish, complexity: draft.complexity, value })
   const tier = fipTier(total)
@@ -89,6 +90,8 @@ export function SummaryStep({ draft, updateDraft, bottle }: StepProps) {
           placeholder="What made this pour worth remembering?"
         />
       </Field>
+
+      {memoryPhoto ? <MemoryPhotoField {...memoryPhoto} /> : null}
     </>
   )
 }

@@ -12,7 +12,7 @@ vi.mock('../../../features/bottleDetails/useFipGuide', () => ({
 // PalateMatchBadge is exercised on its own in features/palateMatch/
 // PalateMatchBadge.test.tsx — here it just needs to not touch real Firebase.
 vi.mock('../../../hooks/useUserData', () => ({
-  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] } }),
+  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } }),
 }))
 
 const eagleRare: Bottle = {

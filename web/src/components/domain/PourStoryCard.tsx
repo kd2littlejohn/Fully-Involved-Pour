@@ -28,8 +28,10 @@ export function PourStoryCard({ pour, bottle, variant = 'standard', reason }: Po
   const note = pour.memory?.trim() || pour.notes?.trim()
   // Pour/memory photos are lifestyle shots — cover fills the frame naturally.
   // A bottle photo fallback is product photography — contain keeps the
-  // whole bottle in frame instead of cropping the neck or base.
-  const photoUrl = pour.photoUrl
+  // whole bottle in frame instead of cropping the neck or base. The richer
+  // wizard-captured memoryPhoto takes priority over Quick Pour's simpler
+  // photoUrl when both somehow exist.
+  const photoUrl = pour.memoryPhoto?.url ?? pour.photoUrl
   const isLifestylePhoto = Boolean(photoUrl)
   const fallbackImage = photoUrl ?? bottle.imageUrl
   const featured = variant === 'featured'

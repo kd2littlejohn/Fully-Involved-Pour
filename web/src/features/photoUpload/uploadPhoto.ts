@@ -1,7 +1,16 @@
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
 import { storage } from '../../data/firebase'
 import { isMockAuthEnabled } from '../../data/devMode'
 import { resizeImageFile } from '../ai/imageToBase64'
+
+export interface UploadedPhoto {
+  url: string
+  // The Storage object path (folder/uid/filename) — kept alongside the
+  // download URL so a later replace/remove can delete the exact underlying
+  // file, not just stop referencing its URL. Absent under mock auth, where
+  // nothing was actually written to Storage.
+  path?: string
+}
 
 const MAX_BYTES = 10 * 1024 * 1024
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
@@ -41,9 +50,9 @@ function messageForStorageError(err: unknown): string {
 export async function uploadPhoto(
   uid: string | undefined,
   file: File,
-  folder: 'bottle-photos' | 'memory-photos' | 'pour-photos' | 'profile-photos',
+  folder: 'bottle-photos' | 'memory-photos' | 'pour-photos' | 'profile-photos' | 'person-photos',
   onProgress?: (fraction: number) => void,
-): Promise<string> {
+): Promise<UploadedPhoto> {
   if (!uid) {
     throw new NotAuthenticatedError('You must be signed in to upload a bottle photo.')
   }
@@ -57,7 +66,8 @@ export async function uploadPhoto(
   if (isMockAuthEnabled()) {
     // Dev fixture session has no real authenticated Storage session to
     // write to — use a local object URL so the UI flow is still testable.
-    return URL.createObjectURL(file)
+    // No real Storage path exists to report back.
+    return { url: URL.createObjectURL(file) }
   }
 
   // Shrink large camera photos before upload — but leave PNGs alone, since
@@ -67,6 +77,9 @@ export async function uploadPhoto(
   // mobile browsers can't decode into a canvas) — that's not a reason to
   // abort the whole upload, so fall back to the original file rather than
   // letting an unclassified decode error bubble up as "the upload failed."
+  // The same canvas round-trip also strips any EXIF orientation tag after
+  // already rendering the image upright, so mobile photo orientation comes
+  // out correct with no extra handling needed.
   let fileToUpload = file
   if (file.type !== 'image/png') {
     try {
@@ -80,7 +93,7 @@ export async function uploadPhoto(
   const storageRef = ref(storage, path)
 
   try {
-    return await new Promise<string>((resolve, reject) => {
+    const url = await new Promise<string>((resolve, reject) => {
       const task = uploadBytesResumable(storageRef, fileToUpload, { contentType: fileToUpload.type || 'image/jpeg' })
       task.on(
         'state_changed',
@@ -91,7 +104,22 @@ export async function uploadPhoto(
         },
       )
     })
+    return { url, path }
   } catch (err) {
     throw new Error(messageForStorageError(err))
+  }
+}
+
+// Best-effort cleanup for a replaced/removed photo — never throws, since a
+// leftover orphaned file in Storage is a much smaller problem than losing
+// user data over a cleanup failure. No-ops under mock auth (nothing was
+// really written) or when there's no path to delete (e.g. a legacy photo
+// with only a URL, or one uploaded before this field existed).
+export async function deletePhotoIfSafe(path: string | undefined): Promise<void> {
+  if (!path || isMockAuthEnabled()) return
+  try {
+    await deleteObject(ref(storage, path))
+  } catch (err) {
+    console.error('[uploadPhoto] deletePhotoIfSafe failed', { path, err })
   }
 }

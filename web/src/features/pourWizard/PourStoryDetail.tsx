@@ -5,9 +5,11 @@ import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { ScoreRing } from '../../components/ui/ScoreRing'
 import { SpecList, type SpecRow } from '../../components/ui/SpecList'
+import { PersonAvatar } from '../../components/ui/PersonAvatar'
 import { useUserData } from '../../hooks/useUserData'
 import { BUY_AGAIN_OPTIONS, FIP_MAX } from '../fip/scoring'
 import { fipTier } from '../fip/tiers'
+import { resolvePouredWith } from './pourPeople'
 import { PourWizard } from './PourWizard'
 import { TastingGradient } from './TastingGradient'
 import styles from './PourStoryDetail.module.css'
@@ -24,7 +26,7 @@ export function PourStoryDetail({ pour, bottle, onClose }: PourStoryDetailProps)
   const [editing, setEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const { deletePour } = useUserData()
+  const { userDoc, deletePour } = useUserData()
 
   if (editing) {
     return <PourWizard bottleId={bottle.id} bottleName={bottle.name} existingPour={pour} onClose={onClose} onSaved={onClose} />
@@ -41,9 +43,12 @@ export function PourStoryDetail({ pour, bottle, onClose }: PourStoryDetailProps)
   const buyAgainLabel = BUY_AGAIN_OPTIONS.find((o) => o.value === pour.buyAgain)?.label
   const tastingTags = Array.from(new Set([...pour.fip.noseAromas, ...pour.fip.palateFlavors]))
 
+  // "Poured With" gets its own avatar+name row below, not a plain text
+  // SpecList row — see the pouredWith section.
+  const pouredWith = resolvePouredWith(pour, userDoc.people)
+
   const sessionRows: SpecRow[] = []
   if (pour.location) sessionRows.push({ label: 'Location', value: pour.location })
-  if (pour.companion) sessionRows.push({ label: 'With', value: pour.companion })
   if (pour.occasion) sessionRows.push({ label: 'Occasion', value: pour.occasion })
   if (pour.glass) sessionRows.push({ label: 'Glass', value: pour.glass })
   if (pour.weather) sessionRows.push({ label: 'Weather', value: pour.weather })
@@ -67,6 +72,25 @@ export function PourStoryDetail({ pour, bottle, onClose }: PourStoryDetailProps)
           <div className={styles.date}>{dateFormatter.format(new Date(pour.date))}</div>
         </div>
       </div>
+
+      {pour.memoryPhoto?.url ? <img className={styles.memoryPhoto} src={pour.memoryPhoto.url} alt="" /> : null}
+
+      {pouredWith.length > 0 ? (
+        <div className={styles.section}>
+          <h3 className={styles.heading}>Poured With</h3>
+          <div className={styles.peopleRow}>
+            {pouredWith.map((ref, index) => {
+              const person = ref.personId ? userDoc.people.find((p) => p.id === ref.personId) : undefined
+              return (
+                <div className={styles.personChip} key={`${ref.personId ?? ref.name}-${index}`}>
+                  <PersonAvatar name={ref.name} photoUrl={person?.photoUrl} size={40} />
+                  <span className={styles.personName}>{ref.name}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {pour.aiSummary?.text ? (
         <div className={styles.section}>

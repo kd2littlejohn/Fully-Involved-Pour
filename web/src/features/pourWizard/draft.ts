@@ -1,10 +1,15 @@
-import type { BuyAgain, Pour } from '../../data/types'
+import { resolvePouredWith } from './pourPeople'
+import type { BuyAgain, Pour, PourPerson, PourPersonRef } from '../../data/types'
 
 export interface PourDraft {
   date: string
   ounces?: number
   occasion?: string
   companion?: string
+  // Structured "Poured With" selections — plain serializable objects, safe
+  // to persist alongside the rest of the draft (unlike the pending memory
+  // photo File, see steps/StepProps.ts and PourWizard.tsx).
+  pouredWith?: PourPersonRef[]
   sharedWithUids?: string[]
   location?: string
   mood?: string
@@ -38,12 +43,13 @@ export function blankDraft(): PourDraft {
   }
 }
 
-export function pourToDraft(pour: Pour): PourDraft {
+export function pourToDraft(pour: Pour, people: PourPerson[]): PourDraft {
   return {
     date: pour.date,
     ounces: pour.ounces,
     occasion: pour.occasion,
     companion: pour.companion,
+    pouredWith: resolvePouredWith(pour, people),
     sharedWithUids: pour.sharedWithUids,
     location: pour.location,
     mood: pour.mood,

@@ -86,7 +86,7 @@ describe('JournalPage', () => {
   it('shows a sign-in prompt when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: false,
       addBottle: vi.fn(),
@@ -98,7 +98,7 @@ describe('JournalPage', () => {
   it('shows the empty state when signed in with no pours', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -110,7 +110,7 @@ describe('JournalPage', () => {
   it('shows the Stories tab by default with pour cards', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -123,7 +123,7 @@ describe('JournalPage', () => {
   it('computes the favorite companion from real pour.companion data', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -138,7 +138,7 @@ describe('JournalPage', () => {
   it('shows only opened/finished bottles on the Bottles tab', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -152,7 +152,7 @@ describe('JournalPage', () => {
   it('shows a real score-evolution row on the Bottles tab once a bottle has 2+ pours', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -168,7 +168,7 @@ describe('JournalPage', () => {
   it('does not offer an Ask Assistant tab anymore', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -180,7 +180,7 @@ describe('JournalPage', () => {
   it('shows the verbatim empty state on the Memories tab when there are none', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -193,7 +193,7 @@ describe('JournalPage', () => {
   it('opens a Pour Story quick view when a Timeline event is clicked', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -209,7 +209,7 @@ describe('JournalPage', () => {
   it('shows saved memories with their linked bottle name', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories, infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories, infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -223,7 +223,7 @@ describe('JournalPage', () => {
   it('shows the plain Blind History link when there are no revealed Blinds', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -250,7 +250,7 @@ describe('JournalPage', () => {
     }
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -281,7 +281,7 @@ describe('JournalPage', () => {
     }
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -312,7 +312,7 @@ describe('JournalPage', () => {
     }
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),
@@ -345,7 +345,7 @@ describe('JournalPage', () => {
     }
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: vi.fn(),

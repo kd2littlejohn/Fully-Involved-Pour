@@ -40,7 +40,7 @@ function renderWithRoute(ui: ReactElement) {
 
 describe('StartAPourButton', () => {
   it('jumps straight to the pour-type chooser when a bottleId is already known', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     renderWithRoute(<StartAPourButton bottleId="b1" label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
@@ -50,7 +50,7 @@ describe('StartAPourButton', () => {
   })
 
   it('shows the pour-type chooser first when no bottleId is given, then the bottle picker', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     renderWithRoute(<StartAPourButton label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
@@ -65,7 +65,7 @@ describe('StartAPourButton', () => {
   })
 
   it('skips the bottle picker entirely and goes straight to Blind Room when no bottleId is given', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     renderWithRoute(<StartAPourButton label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
@@ -76,7 +76,7 @@ describe('StartAPourButton', () => {
   })
 
   it('opens Quick Pour when that pour type is chosen', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     renderWithRoute(<StartAPourButton bottleId="b1" label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
@@ -86,7 +86,7 @@ describe('StartAPourButton', () => {
   })
 
   it('opens the full wizard when Pour Story is chosen', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     renderWithRoute(<StartAPourButton bottleId="b1" label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
@@ -96,7 +96,7 @@ describe('StartAPourButton', () => {
   })
 
   it('navigates to the Create Blind flow when Blind Room is chosen', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     renderWithRoute(<StartAPourButton bottleId="b1" label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))
@@ -106,7 +106,7 @@ describe('StartAPourButton', () => {
   })
 
   it('routes to the Compare tab on the bottle details route when Compare is chosen', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     renderWithRoute(<StartAPourButton bottleId="b1" label="Start a Pour" />)
 
     await userEvent.click(screen.getByRole('button', { name: 'Start a Pour' }))

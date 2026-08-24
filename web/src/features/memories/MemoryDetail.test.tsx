@@ -9,7 +9,7 @@ const mockDeleteMemory = vi.fn().mockResolvedValue(undefined)
 const bottles: Bottle[] = [{ id: 'b1', name: 'Eagle Rare', status: 'open' }]
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] }, updateMemory: mockUpdateMemory, deleteMemory: mockDeleteMemory }),
+  useUserData: () => ({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }, updateMemory: mockUpdateMemory, deleteMemory: mockDeleteMemory }),
 }))
 
 beforeEach(() => {

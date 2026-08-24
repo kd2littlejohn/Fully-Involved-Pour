@@ -31,7 +31,7 @@ const pours: Pour[] = [
 
 function mockData(bottles: Bottle[], pourList: Pour[] = []) {
   mockUseUserData.mockReturnValue({
-    userDoc: { bottles, pours: pourList, memories: [], infinityBottles: [], customLibrary: [] },
+    userDoc: { bottles, pours: pourList, memories: [], infinityBottles: [], customLibrary: [], people: [] },
   })
 }
 

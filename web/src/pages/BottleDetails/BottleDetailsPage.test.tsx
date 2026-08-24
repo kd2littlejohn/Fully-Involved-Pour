@@ -79,7 +79,7 @@ const mockUpdateBottle = vi.fn().mockResolvedValue(undefined)
 function mockSignedInWith(bottles: Bottle[], pours: Pour[] = []) {
   mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
   mockUseUserData.mockReturnValue({
-    userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+    userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
     loading: false,
     signedIn: true,
     addBottle: vi.fn(),

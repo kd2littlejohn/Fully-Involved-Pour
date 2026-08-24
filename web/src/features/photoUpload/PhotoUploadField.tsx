@@ -46,7 +46,7 @@ export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: Phot
       // Bottle photos get a clean server-side background cutout; personal
       // memory snapshots stay as-is.
       const fileToUpload = folder === 'bottle-photos' ? await cutoutBottlePhoto(file) : file
-      const url = await uploadPhoto(user?.uid, fileToUpload, folder, setProgress)
+      const { url } = await uploadPhoto(user?.uid, fileToUpload, folder, setProgress)
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current)
         objectUrlRef.current = null

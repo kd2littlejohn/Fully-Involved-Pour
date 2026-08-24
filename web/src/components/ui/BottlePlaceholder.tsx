@@ -7,7 +7,9 @@ interface BottlePlaceholderProps {
   name?: string
 }
 
-function getInitials(name: string): string {
+// Exported for reuse by PersonAvatar.tsx, which needs the exact same
+// letters-over-digits initials logic for "Poured With" contact avatars.
+export function getInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
   // Prefer words with letters (skips age statements like "12" or "10") so
   // "Redbreast 12" reads as "RE", not "R1".

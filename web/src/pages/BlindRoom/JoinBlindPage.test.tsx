@@ -15,7 +15,7 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], username: 'marcus' } }),
+  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [], username: 'marcus' } }),
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {

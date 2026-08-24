@@ -98,7 +98,7 @@ describe('FriendsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUseAuth.mockReturnValue({ user: { uid: 'me' }, loading: false })
-    mockUseUserData.mockReturnValue({ userDoc: { username: 'me', bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] }, profile: undefined })
+    mockUseUserData.mockReturnValue({ userDoc: { username: 'me', bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }, profile: undefined })
     mockUseFriends.mockReturnValue({ friends: [], loading: false, reload: vi.fn() })
     mockUseFriendRequests.mockReturnValue({ incoming: [], outgoing: [], loading: false, reload: vi.fn() })
     mockUseSharedWithYou.mockReturnValue({ items: [], loading: false, reload: vi.fn() })

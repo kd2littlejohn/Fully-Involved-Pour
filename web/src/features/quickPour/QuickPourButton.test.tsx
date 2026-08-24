@@ -18,7 +18,7 @@ const bottles: Bottle[] = [
 
 describe('QuickPourButton', () => {
   it('opens Quick Pour directly when a bottleId is already known', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     render(<QuickPourButton bottleId="b1" />)
 
     await userEvent.click(screen.getByRole('button', { name: '⚡ Quick Pour' }))
@@ -28,7 +28,7 @@ describe('QuickPourButton', () => {
   })
 
   it('shows a bottle picker excluding wishlist bottles when no bottleId is given', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     render(<QuickPourButton />)
 
     await userEvent.click(screen.getByRole('button', { name: '⚡ Quick Pour' }))
@@ -39,7 +39,7 @@ describe('QuickPourButton', () => {
   })
 
   it('opens Quick Pour for the picked bottle', async () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
     render(<QuickPourButton />)
 
     await userEvent.click(screen.getByRole('button', { name: '⚡ Quick Pour' }))

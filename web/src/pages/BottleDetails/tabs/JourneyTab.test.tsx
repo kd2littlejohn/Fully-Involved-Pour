@@ -37,7 +37,7 @@ function pour(overrides: Partial<Pour> & Pick<Pour, 'id' | 'bottleId' | 'date' |
 
 function setUserDoc(bottles: Bottle[], pours: Pour[] = [], memories: Memory[] = []) {
   mockUseUserData.mockReturnValue({
-    userDoc: { bottles, pours, memories, infinityBottles: [], customLibrary: [] },
+    userDoc: { bottles, pours, memories, infinityBottles: [], customLibrary: [], people: [] },
     loading: false,
     signedIn: true,
   })

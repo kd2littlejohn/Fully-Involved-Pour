@@ -21,10 +21,10 @@ export async function standardizeAndUploadBottlePhoto(
 ): Promise<BottlePhotoUploadResult> {
   const { displayFile, originalFile, status } = await standardizeBottlePhoto(file)
 
-  const [imageUrl, originalImageUrl] = await Promise.all([
+  const [display, original] = await Promise.all([
     uploadPhoto(uid, displayFile, 'bottle-photos', onProgress),
     uploadPhoto(uid, originalFile, 'bottle-photos'),
   ])
 
-  return { imageUrl, originalImageUrl, imageProcessingStatus: status }
+  return { imageUrl: display.url, originalImageUrl: original.url, imageProcessingStatus: status }
 }

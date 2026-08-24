@@ -50,7 +50,7 @@ function renderPage(
 ) {
   mockUseAuth.mockReturnValue({ user: { uid: 'viewer-uid' }, loading: false })
   mockUseUserData.mockReturnValue({
-    userDoc: { bottles: myBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+    userDoc: { bottles: myBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
     profile: { whiskeyIdentityTags: [] },
     addBottle: vi.fn(),
   })

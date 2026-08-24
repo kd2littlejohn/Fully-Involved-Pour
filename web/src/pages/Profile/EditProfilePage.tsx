@@ -39,7 +39,7 @@ export function EditProfilePage() {
     setPhotoError(null)
     setPhotoUploading(true)
     try {
-      const url = await uploadPhoto(user?.uid, file, 'profile-photos')
+      const { url } = await uploadPhoto(user?.uid, file, 'profile-photos')
       setPhotoURL(url)
     } catch (err) {
       if (err instanceof NotAuthenticatedError || err instanceof PhotoTooLargeError || err instanceof UnsupportedFileTypeError) {

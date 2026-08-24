@@ -11,7 +11,7 @@ vi.mock('../../hooks/useAuth', () => ({
 }))
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] } }),
+  useUserData: () => ({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } }),
 }))
 
 vi.mock('../../data/repositories/ai', () => ({

@@ -42,7 +42,7 @@ describe('DiscoverPage', () => {
   it('shows a sign-in prompt when signed out', () => {
     mockUseAuth.mockReturnValue({ user: null, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: false,
     })
@@ -53,7 +53,7 @@ describe('DiscoverPage', () => {
   it('shows the empty state when signed in with no bottles', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
     })
@@ -64,7 +64,7 @@ describe('DiscoverPage', () => {
   it('shows Buy Next, Top Rated, and Your Distilleries from real data, and honest deferred states for the rest', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: mockAddBottle,
@@ -83,7 +83,7 @@ describe('DiscoverPage', () => {
   it('navigates to the Add Bottle page with wishlist status preselected via Add to Wishlist', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
-      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [] },
+      userDoc: { bottles, pours, memories: [], infinityBottles: [], customLibrary: [], people: [] },
       loading: false,
       signedIn: true,
       addBottle: mockAddBottle,

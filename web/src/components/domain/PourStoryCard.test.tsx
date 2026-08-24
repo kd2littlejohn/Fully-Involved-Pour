@@ -7,7 +7,23 @@ import type { Bottle, Pour } from '../../data/types'
 const mockUpdatePour = vi.fn()
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ updatePour: mockUpdatePour, deletePour: vi.fn(), addPour: vi.fn() }),
+  useUserData: () => ({
+    userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+    updatePour: mockUpdatePour,
+    deletePour: vi.fn(),
+    addPour: vi.fn(),
+    updatePourAiSummary: vi.fn(),
+    updatePourMemoryPhoto: vi.fn(),
+    addOrReusePerson: vi.fn(),
+    updatePersonPhoto: vi.fn(),
+  }),
+}))
+
+// The Session step's friend-tagging field (see features/friends/
+// TagFriendsField) reads this repository — mocked so it never attempts a
+// real Firestore call in tests.
+vi.mock('../../data/repositories/relationships', () => ({
+  getFriendIds: () => Promise.resolve([]),
 }))
 
 const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open' }
@@ -36,6 +52,13 @@ describe('PourStoryCard', () => {
   it('shows the pour photo when the pour has one', () => {
     const { container } = render(<PourStoryCard pour={{ ...pour, photoUrl: 'https://x/pour.jpg' }} bottle={bottle} />)
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://x/pour.jpg')
+  })
+
+  it('prefers the memory photo over the legacy photoUrl when both exist', () => {
+    const { container } = render(
+      <PourStoryCard pour={{ ...pour, photoUrl: 'https://x/pour.jpg', memoryPhoto: { url: 'https://x/moment.jpg', createdAt: 1 } }} bottle={bottle} />,
+    )
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://x/moment.jpg')
   })
 
   it('falls back to the bottle photo when the pour has none', () => {

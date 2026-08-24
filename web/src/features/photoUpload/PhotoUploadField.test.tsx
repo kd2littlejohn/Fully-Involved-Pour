@@ -25,7 +25,7 @@ beforeEach(() => {
 
 describe('PhotoUploadField', () => {
   it('shows an instant local preview, then swaps to the uploaded URL', async () => {
-    mockUpload.mockResolvedValue('https://example.com/photo.jpg')
+    mockUpload.mockResolvedValue({ url: 'https://example.com/photo.jpg', path: 'memory-photos/u1/123-photo.jpg' })
     const onUploaded = vi.fn()
     render(<PhotoUploadField label="Photo" folder="memory-photos" onUploaded={onUploaded} />)
 

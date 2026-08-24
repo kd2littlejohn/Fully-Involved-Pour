@@ -24,7 +24,7 @@ vi.mock('../../features/friends/useFriendRequests', () => ({
 const bottles: Bottle[] = [{ id: 'b1', name: 'Eagle Rare', status: 'open' }]
 
 function renderNav(initialEntry = '/') {
-  mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] }, profile: undefined })
+  mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }, profile: undefined })
   mockUseAuth.mockReturnValue({ user: { uid: 'test-uid', displayName: 'Kevin' }, loading: false })
   mockUseFriendRequests.mockReturnValue({ incoming: [], outgoing: [], loading: false, reload: vi.fn() })
   return render(
@@ -60,7 +60,7 @@ describe('TopNav', () => {
   })
 
   it('shows a badge next to Friends when there are incoming requests', () => {
-    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] }, profile: undefined })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }, profile: undefined })
     mockUseAuth.mockReturnValue({ user: { uid: 'test-uid', displayName: 'Kevin' }, loading: false })
     mockUseFriendRequests.mockReturnValue({ incoming: [{ id: 'r1' }], outgoing: [], loading: false, reload: vi.fn() })
     render(

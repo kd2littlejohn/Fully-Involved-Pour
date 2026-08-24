@@ -22,7 +22,9 @@ describe('standardizeAndUploadBottlePhoto', () => {
     const original = new File(['orig'], 'IMG_1234.jpg', { type: 'image/jpeg' })
     const display = new File(['display'], 'IMG_1234-fip.jpg', { type: 'image/jpeg' })
     mockStandardize.mockResolvedValue({ displayFile: display, originalFile: original, status: 'ready' })
-    mockUpload.mockResolvedValueOnce('https://example.com/display.jpg').mockResolvedValueOnce('https://example.com/original.jpg')
+    mockUpload
+      .mockResolvedValueOnce({ url: 'https://example.com/display.jpg', path: 'bottle-photos/u1/1-display.jpg' })
+      .mockResolvedValueOnce({ url: 'https://example.com/original.jpg', path: 'bottle-photos/u1/1-original.jpg' })
 
     const onProgress = vi.fn()
     const result = await standardizeAndUploadBottlePhoto('u1', original, onProgress)
@@ -40,7 +42,7 @@ describe('standardizeAndUploadBottlePhoto', () => {
   it('carries a "failed" status through when standardization fell back to the plain original', async () => {
     const original = new File(['orig'], 'photo.jpg', { type: 'image/jpeg' })
     mockStandardize.mockResolvedValue({ displayFile: original, originalFile: original, status: 'failed' })
-    mockUpload.mockResolvedValue('https://example.com/photo.jpg')
+    mockUpload.mockResolvedValue({ url: 'https://example.com/photo.jpg', path: 'bottle-photos/u1/1-photo.jpg' })
 
     const result = await standardizeAndUploadBottlePhoto('u1', original)
 

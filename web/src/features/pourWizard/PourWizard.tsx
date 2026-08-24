@@ -8,6 +8,9 @@ import { useAuth } from '../../hooks/useAuth'
 import { buyAgainToValueScore, computeFipTotal } from '../fip/scoring'
 import { shareStoryWithTaggedFriends } from '../friends/shareStoryOnSave'
 import { generateAndSaveTastingSummary } from './tastingSummaryOnSave'
+import { uploadAndSaveMemoryPhoto } from './memoryPhotoOnSave'
+import { deletePhotoIfSafe } from '../photoUpload/uploadPhoto'
+import { companionStringFromPouredWith } from './pourPeople'
 import type { Pour } from '../../data/types'
 import { SessionStep } from './steps/SessionStep'
 import { NoseStep } from './steps/NoseStep'
@@ -36,12 +39,19 @@ interface PourWizardProps {
 
 export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSaved }: PourWizardProps) {
   const isEditing = Boolean(existingPour)
-  const { draft, updateDraft, clearDraft } = useWizardDraft(bottleId, existingPour)
+  const { userDoc, profile, addPour, updatePour, updatePourAiSummary, updatePourMemoryPhoto } = useUserData()
+  const { draft, updateDraft, clearDraft } = useWizardDraft(bottleId, existingPour, userDoc.people)
   const { user } = useAuth()
-  const { userDoc, profile, addPour, updatePour, updatePourAiSummary } = useUserData()
   const bottle = userDoc?.bottles.find((b) => b.id === bottleId)
   const [stepIndex, setStepIndex] = useState(0)
   const [saving, setSaving] = useState(false)
+
+  // The memory photo's pending File (or a removal request) lives outside the
+  // draft entirely — a File can't survive PourDraft's localStorage
+  // round-trip (see draft.ts / useWizardDraft.ts), and nothing here needs
+  // resuming across a closed tab the way the rest of the draft does.
+  const [memoryPhotoFile, setMemoryPhotoFile] = useState<File | undefined>(undefined)
+  const [memoryPhotoRemoved, setMemoryPhotoRemoved] = useState(false)
 
   const isLastStep = stepIndex === STEPS.length - 1
   const Step = STEPS[stepIndex]?.Component ?? SessionStep
@@ -58,11 +68,17 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
       rating: total,
       occasion: draft.occasion,
       notes: draft.notes,
-      // Strips the trailing ", " SessionStep's friend Combobox leaves after
-      // the last pick (see SessionStep.tsx's handleCompanionSelect) so a
-      // pour never saves with a dangling separator.
-      companion: draft.companion?.replace(/,\s*$/, ''),
+      pouredWith: draft.pouredWith,
+      // Mirrors the structured picker back into the legacy string field so
+      // every existing companion-reading selector/screen (getCompanionStats,
+      // the Bottle Story "Shared Pour" tag, Journal, etc.) keeps working
+      // unchanged — see pourPeople.ts.
+      companion: companionStringFromPouredWith(draft.pouredWith ?? []),
       sharedWithUids: draft.sharedWithUids,
+      // Preserves whatever memory photo already exists unless the user just
+      // removed it — a newly picked replacement isn't uploaded yet at this
+      // point, so it's attached afterward (see the background upload below).
+      memoryPhoto: memoryPhotoRemoved ? undefined : existingPour?.memoryPhoto,
       location: draft.location,
       mood: draft.mood,
       glass: draft.glass,
@@ -109,14 +125,26 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
       )
     }
 
+    // The pour itself is already saved above regardless of what happens to
+    // its memory photo — a removal just deletes the now-orphaned file
+    // (best-effort, never awaited), and a replacement upload is deferred
+    // entirely until after the normal flow finishes below.
+    if (memoryPhotoRemoved && existingPour?.memoryPhoto?.storagePath) {
+      void deletePhotoIfSafe(existingPour.memoryPhoto.storagePath)
+    }
+
     setSaving(false)
     onSaved?.()
     onClose()
 
-    // Fires only after the save + normal UI flow are already done — never
-    // awaited, so a slow or failed AI call can never delay finishing a pour.
+    // Both fire only after the save + normal UI flow are already done —
+    // never awaited, so a slow or failed AI call or photo upload can never
+    // delay finishing a pour or lose any of its other data.
     if (savedPour) {
       void generateAndSaveTastingSummary(savedPour, updatePourAiSummary)
+      if (user && memoryPhotoFile) {
+        void uploadAndSaveMemoryPhoto(user.uid, savedPour, memoryPhotoFile, updatePourMemoryPhoto)
+      }
     }
   }
 
@@ -130,7 +158,24 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
     <Modal title={`${isEditing ? 'Edit' : 'Add a'} Pour Story — ${bottleName}`} onClose={onClose}>
       <ProgressStepper labels={STEPS.map((s) => s.label)} activeIndex={stepIndex} />
 
-      <Step draft={draft} updateDraft={updateDraft} bottle={bottle} />
+      <Step
+        draft={draft}
+        updateDraft={updateDraft}
+        bottle={bottle}
+        memoryPhoto={{
+          existingUrl: existingPour?.memoryPhoto?.url,
+          pendingFile: memoryPhotoFile,
+          removed: memoryPhotoRemoved,
+          onPick: (file) => {
+            setMemoryPhotoFile(file)
+            setMemoryPhotoRemoved(false)
+          },
+          onRemove: () => {
+            setMemoryPhotoFile(undefined)
+            setMemoryPhotoRemoved(true)
+          },
+        }}
+      />
 
       <div className={styles.actions}>
         {isEditing ? (

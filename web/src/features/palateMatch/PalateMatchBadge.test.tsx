@@ -28,7 +28,7 @@ function match(overrides: Partial<PalateMatchResult> = {}): PalateMatchResult {
 }
 
 beforeEach(() => {
-  mockUseUserData.mockReturnValue({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+  mockUseUserData.mockReturnValue({ userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
   mockComputePalateMatch.mockReset()
   mockExplainPalateMatch.mockReset()
 })

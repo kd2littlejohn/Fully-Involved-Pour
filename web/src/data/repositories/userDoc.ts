@@ -8,6 +8,7 @@ export const EMPTY_USER_DOC: UserDoc = {
   memories: [],
   infinityBottles: [],
   customLibrary: [],
+  people: [],
 }
 
 export function userDocRef(uid: string) {
@@ -26,6 +27,7 @@ export async function fetchUserDoc(uid: string): Promise<UserDoc> {
     memories: data.memories ?? [],
     infinityBottles: data.infinityBottles ?? [],
     customLibrary: data.customLibrary ?? [],
+    people: data.people ?? [],
   }
 }
 

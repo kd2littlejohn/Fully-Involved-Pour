@@ -22,7 +22,7 @@ vi.mock('../../features/pourWizard/PourWizard', () => ({
 
 function mockData(bottles: Bottle[]) {
   mockUseUserData.mockReturnValue({
-    userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [] },
+    userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
     updateBottle: mockUpdateBottle,
   })
 }

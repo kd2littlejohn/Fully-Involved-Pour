@@ -8,6 +8,7 @@ import { ensureSearchableProfile, fetchProfile, saveProfile as saveProfileRepo }
 import { syncSharedCollection } from '../data/repositories/sharedCollections'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
+import { findMatchingPerson, normalizePersonName } from '../features/pourWizard/pourPeople'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type Bottle,
@@ -16,6 +17,8 @@ import {
   type Memory,
   type Pour,
   type PourAiSummary,
+  type PourMemoryPhoto,
+  type PourPerson,
   type Profile,
   type UserDoc,
 } from '../data/types'
@@ -43,7 +46,10 @@ interface UserDataState {
   addPour: (input: NewPourInput) => Promise<Pour | undefined>
   updatePour: (pourId: string, patch: PourPatch) => Promise<void>
   updatePourAiSummary: (pourId: string, aiSummary: PourAiSummary) => Promise<void>
+  updatePourMemoryPhoto: (pourId: string, memoryPhoto: PourMemoryPhoto | undefined) => Promise<void>
   deletePour: (pourId: string) => Promise<void>
+  addOrReusePerson: (name: string) => Promise<PourPerson | undefined>
+  updatePersonPhoto: (personId: string, photo: { photoUrl: string; photoStoragePath?: string } | undefined) => Promise<void>
   addMemory: (input: NewMemoryInput) => Promise<void>
   updateMemory: (memoryId: string, patch: MemoryPatch) => Promise<void>
   deleteMemory: (memoryId: string) => Promise<void>
@@ -67,7 +73,10 @@ const UserDataContext = createContext<UserDataState>({
   addPour: async () => undefined,
   updatePour: async () => {},
   updatePourAiSummary: async () => {},
+  updatePourMemoryPhoto: async () => {},
   deletePour: async () => {},
+  addOrReusePerson: async () => undefined,
+  updatePersonPhoto: async () => {},
   addMemory: async () => {},
   updateMemory: async () => {},
   deleteMemory: async () => {},
@@ -327,6 +336,25 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, mockMode],
   )
 
+  // Merges in a background-uploaded memory photo (or clears one) once it
+  // resolves — same userDocRef.current freshness fix as updatePourAiSummary
+  // above, for the same reason: this fires from a fire-and-forget upload
+  // kicked off at pour-save time (see PourWizard.tsx) that may resolve
+  // after the wizard has already unmounted.
+  const updatePourMemoryPhoto = useCallback(
+    async (pourId: string, memoryPhoto: PourMemoryPhoto | undefined) => {
+      if (!user) return
+      const current = userDocRef.current
+      const nextPours = current.pours.map((p) => (p.id === pourId ? { ...p, memoryPhoto } : p))
+      const nextDoc: UserDoc = { ...current, pours: nextPours }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { pours: nextPours })
+    },
+    [user, mockMode],
+  )
+
   const deletePour = useCallback(
     async (pourId: string) => {
       if (!user) return
@@ -336,6 +364,45 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       if (mockMode) return
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { pours: nextPours })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  // Reuses an existing "Poured With" contact by normalized-name match
+  // (see features/pourWizard/pourPeople.ts) so "Marcus" and " marcus " never
+  // create two records; only creates a new one when nothing matches.
+  const addOrReusePerson = useCallback(
+    async (name: string) => {
+      if (!user) return undefined
+      const existing = findMatchingPerson(userDoc.people, name)
+      if (existing) return existing
+
+      const trimmed = name.trim()
+      if (!trimmed) return undefined
+
+      const person: PourPerson = { id: generateId(), name: trimmed, normalizedName: normalizePersonName(trimmed), createdAt: Date.now() }
+      const nextPeople = [...userDoc.people, person]
+      const nextDoc: UserDoc = { ...userDoc, people: nextPeople }
+      setUserDoc(nextDoc)
+      if (mockMode) return person // dev fixture data — never touches Firestore
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { people: nextPeople })
+      return person
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const updatePersonPhoto = useCallback(
+    async (personId: string, photo: { photoUrl: string; photoStoragePath?: string } | undefined) => {
+      if (!user) return
+      const nextPeople = userDoc.people.map((p) =>
+        p.id === personId ? { ...p, photoUrl: photo?.photoUrl, photoStoragePath: photo?.photoStoragePath } : p,
+      )
+      const nextDoc: UserDoc = { ...userDoc, people: nextPeople }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { people: nextPeople })
     },
     [user, userDoc, mockMode],
   )
@@ -486,7 +553,10 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addPour,
       updatePour,
       updatePourAiSummary,
+      updatePourMemoryPhoto,
       deletePour,
+      addOrReusePerson,
+      updatePersonPhoto,
       addMemory,
       updateMemory,
       deleteMemory,
@@ -510,7 +580,10 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addPour,
       updatePour,
       updatePourAiSummary,
+      updatePourMemoryPhoto,
       deletePour,
+      addOrReusePerson,
+      updatePersonPhoto,
       addMemory,
       updateMemory,
       deleteMemory,

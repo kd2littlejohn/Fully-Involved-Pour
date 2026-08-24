@@ -13,7 +13,7 @@ vi.mock('../../hooks/useUserData', () => ({
 const bottle: Bottle = { id: 'b1', name: 'Stagg Barrel Proof 25A', distillery: 'Buffalo Trace', status: 'sealed' }
 
 function renderCard() {
-  mockUseUserData.mockReturnValue({ userDoc: { bottles: [bottle], pours: [], memories: [], infinityBottles: [], customLibrary: [] } })
+  mockUseUserData.mockReturnValue({ userDoc: { bottles: [bottle], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] } })
   return render(
     <MemoryRouter>
       <MaybeTonightCard candidate={{ bottle, reason: 'Still sealed.' }} />
