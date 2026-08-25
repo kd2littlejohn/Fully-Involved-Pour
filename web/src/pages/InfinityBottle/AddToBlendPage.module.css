@@ -18,6 +18,28 @@
   margin-top: var(--fip-space-2);
 }
 
+.selectionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.selectionCount {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.selectionBarActions {
+  display: flex;
+  gap: var(--fip-space-2);
+}
+
 .bottleList {
   display: flex;
   flex-direction: column;
@@ -76,17 +98,26 @@
   font-size: var(--fip-text-xs);
 }
 
-.radio {
+.checkbox {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--fip-radius-round);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--fip-radius-sm);
   border: 2px solid var(--fip-border-strong);
+  color: var(--fip-black);
 }
 
-.radioSelected {
+.checkboxSelected {
   border-color: var(--fip-amber);
-  background: radial-gradient(circle, var(--fip-amber) 0 40%, transparent 44%);
+  background: var(--fip-amber);
+}
+
+.backToSelect {
+  align-self: flex-start;
+  padding-left: 0;
 }
 
 .unitToggle {
@@ -114,6 +145,53 @@
   color: var(--fip-black);
 }
 
+.applyAllRow {
+  display: flex;
+  gap: var(--fip-space-2);
+  align-items: center;
+}
+
+.applyAllRow > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.amountList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+}
+
+.amountCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.amountCardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+}
+
+.removeButton {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-muted);
+  cursor: pointer;
+}
+
 .quickAmounts {
   display: flex;
   flex-wrap: wrap;
@@ -123,7 +201,7 @@
 .quickButton {
   padding: var(--fip-space-2) var(--fip-space-4);
   border-radius: var(--fip-radius-round);
-  background: var(--fip-card);
+  background: var(--fip-card-soft);
   border: 1px solid var(--fip-border-subtle);
   color: var(--fip-cream);
   font-size: var(--fip-text-sm);
@@ -135,6 +213,79 @@
   border-color: var(--fip-amber);
   color: var(--fip-black);
   font-weight: 600;
+}
+
+.totalsCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.totalsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+.totalsRow:last-of-type {
+  color: var(--fip-amber);
+  font-weight: 600;
+}
+
+.error {
+  margin: var(--fip-space-2) 0 0;
+  color: var(--fip-error);
+  font-size: var(--fip-text-xs);
+}
+
+.confirmText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  margin-bottom: var(--fip-space-4);
+}
+
+.reviewList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  margin-bottom: var(--fip-space-4);
+}
+
+.reviewRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--fip-text-sm);
+}
+
+.reviewName {
+  color: var(--fip-cream);
+}
+
+.reviewAmount {
+  color: var(--fip-muted);
+}
+
+.reviewTotals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  padding-top: var(--fip-space-3);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-4);
 }
 
 .submit {

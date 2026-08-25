@@ -774,7 +774,7 @@ describe('useUserData — Infinity Bottle', () => {
     expect(mockDeletePhotoIfSafe).not.toHaveBeenCalled()
   })
 
-  it('addBlendAddition appends a snapshot addition to the given batch', async () => {
+  it('addBlendAdditions appends a snapshot addition to the given batch (single-item array)', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
     const doc = emptyDoc()
     doc.infinityBottles = [
@@ -785,14 +785,16 @@ describe('useUserData — Infinity Bottle', () => {
     const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
     await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
 
-    await result.current.addBlendAddition('ib1', 'b1', {
-      sourceBottleId: 'src1',
-      bottleName: 'Eagle Rare',
-      proof: 90,
-      amountMl: 60,
-      date: '2026-01-01',
-      note: 'Finishing the bottle.',
-    })
+    await result.current.addBlendAdditions('ib1', 'b1', [
+      {
+        sourceBottleId: 'src1',
+        bottleName: 'Eagle Rare',
+        proof: 90,
+        amountMl: 60,
+        date: '2026-01-01',
+        note: 'Finishing the bottle.',
+      },
+    ])
 
     await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toHaveLength(1))
     expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions[0]).toMatchObject({
@@ -800,6 +802,78 @@ describe('useUserData — Infinity Bottle', () => {
       amountMl: 60,
       note: 'Finishing the bottle.',
     })
+  })
+
+  it('addBlendAdditions saves several additions in exactly one Firestore write, each keeping its own record', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await result.current.addBlendAdditions('ib1', 'b1', [
+      { sourceBottleId: 'src1', bottleName: 'Weller 107', proof: 107, amountMl: 60, date: '2026-08-25', note: 'Add sweetness and proof' },
+      { sourceBottleId: 'src2', bottleName: 'Old Grand-Dad 114', proof: 114, amountMl: 30, date: '2026-08-25', note: 'Add spice' },
+      { sourceBottleId: 'src3', bottleName: 'Buffalo Trace', proof: 90, amountMl: 90, date: '2026-08-25', note: 'Soften the blend' },
+    ])
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toHaveLength(3))
+    const additions = result.current.userDoc.infinityBottles[0]!.batches[0]!.additions
+    expect(additions.map((a) => a.bottleName)).toEqual(['Weller 107', 'Old Grand-Dad 114', 'Buffalo Trace'])
+    // Never combined into one record — each keeps its own id, amount, and note.
+    expect(new Set(additions.map((a) => a.id)).size).toBe(3)
+    expect(additions.map((a) => a.amountMl)).toEqual([60, 30, 90])
+    expect(additions.map((a) => a.note)).toEqual(['Add sweetness and proof', 'Add spice', 'Soften the blend'])
+
+    // Exactly one saveUserDoc call carried all three — never three separate writes.
+    const infinityWrites = mockSaveUserDoc.mock.calls.filter(([, patch]) => (patch as Partial<UserDoc>).infinityBottles)
+    expect(infinityWrites).toHaveLength(1)
+    expect(infinityWrites[0]![1].infinityBottles[0].batches[0].additions).toHaveLength(3)
+  })
+
+  it('addBlendAdditions writes to Firestore before committing local state — a failed save leaves userDoc unchanged', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+    mockSaveUserDoc.mockRejectedValueOnce(new Error('write failed'))
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await expect(
+      result.current.addBlendAdditions('ib1', 'b1', [
+        { sourceBottleId: 'src1', bottleName: 'Weller 107', amountMl: 60, date: '2026-08-25' },
+        { sourceBottleId: 'src2', bottleName: 'Old Grand-Dad 114', amountMl: 30, date: '2026-08-25' },
+      ]),
+    ).rejects.toThrow('write failed')
+
+    // Local state was never optimistically updated — no partial-looking success.
+    expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toEqual([])
+  })
+
+  it('addBlendAdditions is a no-op with an empty input array', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await result.current.addBlendAdditions('ib1', 'b1', [])
+
+    expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toEqual([])
+    const infinityWrites = mockSaveUserDoc.mock.calls.filter(([, patch]) => (patch as Partial<UserDoc>).infinityBottles)
+    expect(infinityWrites).toHaveLength(0)
   })
 
   it('deleteBlendAddition removes only the targeted addition, waiting for the write before updating local state', async () => {
@@ -1234,7 +1308,7 @@ describe('useUserData — multiple simultaneous active Infinity Bottles', () => 
     expect(result.current.userDoc.infinityBottles[2]?.name).toBe('Rye Project')
   })
 
-  it('6: Add to Blend (addBlendAddition) on bottle A does not change bottle B or C', async () => {
+  it('6: Add to Blend (addBlendAdditions) on bottle A does not change bottle B or C', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
     const doc = threeBottleDoc()
     mockFetchUserDoc.mockResolvedValue(doc)
@@ -1243,12 +1317,14 @@ describe('useUserData — multiple simultaneous active Infinity Bottles', () => 
     await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
     const before = result.current.userDoc.infinityBottles
 
-    await result.current.addBlendAddition('ib-a', 'batch-a', {
-      sourceBottleId: 'src-weller107',
-      bottleName: 'Weller 107',
-      amountMl: 60,
-      date: '2026-02-01',
-    })
+    await result.current.addBlendAdditions('ib-a', 'batch-a', [
+      {
+        sourceBottleId: 'src-weller107',
+        bottleName: 'Weller 107',
+        amountMl: 60,
+        date: '2026-02-01',
+      },
+    ])
 
     await waitFor(() => expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')?.batches[0]?.additions).toHaveLength(2))
     const afterA = result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')!

@@ -76,7 +76,7 @@ interface UserDataState {
   updateInfinityBottle: (id: string, patch: InfinityBottlePatch) => Promise<void>
   deleteInfinityBottle: (id: string) => Promise<void>
   archiveInfinityBottle: (id: string, archived: boolean) => Promise<void>
-  addBlendAddition: (infinityBottleId: string, batchId: string, input: NewBlendAdditionInput) => Promise<void>
+  addBlendAdditions: (infinityBottleId: string, batchId: string, inputs: NewBlendAdditionInput[]) => Promise<void>
   deleteBlendAddition: (infinityBottleId: string, batchId: string, additionId: string) => Promise<void>
   addTasting: (infinityBottleId: string, batchId: string, input: NewTastingInput) => Promise<void>
   updateTasting: (infinityBottleId: string, batchId: string, tastingId: string, patch: TastingPatch) => Promise<void>
@@ -113,7 +113,7 @@ const UserDataContext = createContext<UserDataState>({
   updateInfinityBottle: async () => {},
   deleteInfinityBottle: async () => {},
   archiveInfinityBottle: async () => {},
-  addBlendAddition: async () => {},
+  addBlendAdditions: async () => {},
   deleteBlendAddition: async () => {},
   addTasting: async () => {},
   updateTasting: async () => {},
@@ -657,20 +657,36 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
-  const addBlendAddition = useCallback(
-    async (infinityBottleId: string, batchId: string, input: NewBlendAdditionInput) => {
-      if (!user) return
-      const addition: BlendAddition = { ...input, id: generateId(), createdAt: Date.now() }
+  // Adds every input as its own BlendAddition in ONE saveUserDoc write — the
+  // atomic multi-select "Add to Blend" needs N separate source-bottle
+  // records without N separate writes that could partially succeed.
+  // createdAt is staggered by index so same-day additions keep their
+  // selection order in the (date, createdAt) timeline/composition sort,
+  // without needing any changes to those selectors.
+  //
+  // Write-before-commit (opposite of most create mutators in this file, but
+  // matching the delete-mutator convention already used elsewhere): a failed
+  // write must never leave local state showing additions that were never
+  // persisted, which matters more here than for a single create since a
+  // failed 5-bottle save silently "sticking" locally would be confusing.
+  const addBlendAdditions = useCallback(
+    async (infinityBottleId: string, batchId: string, inputs: NewBlendAdditionInput[]) => {
+      if (!user || inputs.length === 0) return
+      const now = Date.now()
+      const additions: BlendAddition[] = inputs.map((input, i) => ({ ...input, id: generateId(), createdAt: now + i }))
       const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
         ib.id === infinityBottleId
-          ? { ...ib, batches: ib.batches.map((b) => (b.id === batchId ? { ...b, additions: [...b.additions, addition] } : b)) }
+          ? { ...ib, batches: ib.batches.map((b) => (b.id === batchId ? { ...b, additions: [...b.additions, ...additions] } : b)) }
           : ib,
       )
       const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
-      setUserDoc(nextDoc)
-      if (mockMode) return
-      writeCachedUserDoc(user.uid, nextDoc)
+      if (mockMode) {
+        setUserDoc(nextDoc) // dev fixture data — never touches Firestore, safe to commit immediately
+        return
+      }
       await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+      setUserDoc(nextDoc)
+      writeCachedUserDoc(user.uid, nextDoc)
     },
     [user, userDoc, mockMode],
   )
@@ -911,7 +927,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateInfinityBottle,
       deleteInfinityBottle,
       archiveInfinityBottle,
-      addBlendAddition,
+      addBlendAdditions,
       deleteBlendAddition,
       addTasting,
       updateTasting,
@@ -948,7 +964,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateInfinityBottle,
       deleteInfinityBottle,
       archiveInfinityBottle,
-      addBlendAddition,
+      addBlendAdditions,
       deleteBlendAddition,
       addTasting,
       updateTasting,

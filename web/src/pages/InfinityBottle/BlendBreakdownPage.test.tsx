@@ -241,4 +241,45 @@ describe('BlendBreakdownPage', () => {
     expect(screen.queryByText('Also Not This One')).not.toBeInTheDocument()
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
   })
+
+  // Simulates what addBlendAdditions (the multi-select Add to Blend save)
+  // actually produces: several BlendAddition records sharing one date but
+  // with staggered createdAt values and their own independent notes —
+  // confirms they render as separate timeline rows (never merged into one)
+  // and that composition recalculates correctly from all of them.
+  it('a multi-add-shaped batch renders every addition as its own timeline row with correct composition percentages', () => {
+    const sameDate = '2026-08-25'
+    mockInfinityBottles = [
+      ib({
+        batches: [
+          {
+            id: 'b1',
+            name: 'First Due',
+            status: 'active',
+            startedAt: 1,
+            additions: [
+              { id: 'a1', sourceBottleId: 'src1', bottleName: 'Weller 107', amountMl: 60, proof: 107, date: sameDate, note: 'Add sweetness and proof', createdAt: 1000 },
+              { id: 'a2', sourceBottleId: 'src2', bottleName: 'Old Grand-Dad 114', amountMl: 30, proof: 114, date: sameDate, note: 'Add spice', createdAt: 1001 },
+              { id: 'a3', sourceBottleId: 'src3', bottleName: 'Buffalo Trace', amountMl: 90, proof: 90, date: sameDate, note: 'Soften the blend', createdAt: 1002 },
+            ],
+            tastings: [],
+          },
+        ],
+      }),
+    ]
+    render(<BlendBreakdownPage />)
+
+    // Timeline: three independent rows, never combined into one entry.
+    expect(screen.getByText((_, el) => el?.textContent === 'Added 60ml Weller 107')).toBeInTheDocument()
+    expect(screen.getByText((_, el) => el?.textContent === 'Added 30ml Old Grand-Dad 114')).toBeInTheDocument()
+    expect(screen.getByText((_, el) => el?.textContent === 'Added 90ml Buffalo Trace')).toBeInTheDocument()
+    expect(screen.getByText('Why I Added It: Add sweetness and proof')).toBeInTheDocument()
+    expect(screen.getByText('Why I Added It: Add spice')).toBeInTheDocument()
+    expect(screen.getByText('Why I Added It: Soften the blend')).toBeInTheDocument()
+
+    // Composition: 180ml total — 60/180=33%, 30/180=17%, 90/180=50%.
+    expect(screen.getByText('33%')).toBeInTheDocument()
+    expect(screen.getByText('17%')).toBeInTheDocument()
+    expect(screen.getByText('50%')).toBeInTheDocument()
+  })
 })
