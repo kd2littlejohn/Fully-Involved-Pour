@@ -226,18 +226,74 @@ export interface Memory {
   createdAt?: number
 }
 
-export interface InfinityBottleAddition {
-  bottleId?: string
-  name: string
-  amount?: string
-  date?: string
+// A single pour-in event. Snapshots the source bottle's name/proof at the
+// moment it was added so the blend's own history stays accurate even if
+// that bottle is later renamed, re-proofed, or deleted from My Bar —
+// sourceBottleId is only ever used to link back to the live bottle (see
+// selectors.ts resolveAdditionSourceBottle) and is never assumed valid.
+export interface BlendAddition {
+  id: string
+  sourceBottleId?: string
+  canonicalBottleId?: string
+  bottleName: string
+  proof?: number
+  amountMl: number
+  date: string
+  // Shown in the Blend Timeline as "Why I Added It".
+  note?: string
+  createdAt: number
+}
+
+export interface InfinityTasting {
+  id: string
+  date: string
+  // A single direct 0-10 score — same convention as Quick Pour, not the
+  // full 5-component FIP breakdown (see LogTastingPage for why).
+  score: number
+  noseAromas: string[]
+  noseNotes?: string
+  palateFlavors: string[]
+  palateNotes?: string
+  finishNotes?: string
+  overallNotes?: string
+  photoUrl?: string
+  photoStoragePath?: string
+  companion?: string
+  createdAt: number
+}
+
+export type BatchStatus = 'active' | 'complete'
+
+export type BlendGoal = 'sweeter' | 'more-oak' | 'more-spice' | 'higher-proof' | 'smoother' | 'more-complexity' | 'experimenting'
+
+// A batch is what "Start New Batch" rotates — the vessel (InfinityBottle)
+// is the long-lived named thing; each batch is one blend-and-taste cycle
+// within it. Completed batches are never edited or overwritten once a new
+// one starts (see startNewBatch in useUserData.tsx).
+export interface InfinityBatch {
+  id: string
+  name?: string
+  goal?: BlendGoal
+  status: BatchStatus
+  startedAt: number
+  completedAt?: number
+  additions: BlendAddition[]
+  tastings: InfinityTasting[]
 }
 
 export interface InfinityBottle {
   id: string
   name: string
-  notes?: string
-  additions: InfinityBottleAddition[]
+  photoUrl?: string
+  photoStoragePath?: string
+  capacityMl?: number
+  // The whole vessel, not a single batch — drives the Active/Archived tabs
+  // on the Infinity Bottles home screen.
+  archived: boolean
+  createdAt: number
+  // Newest last; the current batch (if the vessel isn't archived) is
+  // batches[batches.length - 1].
+  batches: InfinityBatch[]
 }
 
 export interface CustomLibraryEntry {

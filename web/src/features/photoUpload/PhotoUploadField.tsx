@@ -7,7 +7,7 @@ import styles from './PhotoUploadField.module.css'
 
 interface PhotoUploadFieldProps {
   label: string
-  folder: 'bottle-photos' | 'memory-photos' | 'pour-photos'
+  folder: 'bottle-photos' | 'memory-photos' | 'pour-photos' | 'infinity-bottle-photos'
   currentUrl?: string
   // path is the Storage object path behind url — passed through so callers
   // can track it for later cleanup (delete/replace); optional because a

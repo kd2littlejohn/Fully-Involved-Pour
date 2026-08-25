@@ -1,0 +1,9 @@
+.page {
+  min-height: 100dvh;
+  background: var(--fip-black);
+  padding-bottom: max(var(--fip-space-8), env(safe-area-inset-bottom));
+}
+
+.body {
+  padding: 0 var(--fip-shell-x);
+}

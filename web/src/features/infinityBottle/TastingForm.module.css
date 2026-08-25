@@ -1,0 +1,49 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+}
+
+.scoreLabel {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.scoreSlider {
+  flex: 1 1 auto;
+  accent-color: var(--fip-amber);
+}
+
+.scoreValue {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  flex: 0 0 auto;
+  min-width: 3ch;
+  text-align: right;
+}
+
+.tierLabel {
+  margin-top: calc(-1 * var(--fip-space-3));
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-bottom: var(--fip-space-2);
+}
+
+.submit {
+  width: 100%;
+  margin-top: var(--fip-space-2);
+}

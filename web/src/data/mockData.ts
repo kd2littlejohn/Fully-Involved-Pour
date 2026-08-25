@@ -1,4 +1,4 @@
-import type { Bottle, Memory, Pour, PourPerson, UserDoc } from './types'
+import type { Bottle, InfinityBottle, Memory, Pour, PourPerson, UserDoc } from './types'
 
 // Dev-only fixture collection — lets every page be exercised against
 // realistic populated data (multiple statuses, companions, FIP tiers,
@@ -256,13 +256,129 @@ const memories: Memory[] = [
   },
 ]
 
+const backdraftBatch: InfinityBottle = {
+  id: 'mock-infinity-backdraft',
+  name: 'Backdraft Batch',
+  capacityMl: 1000,
+  archived: false,
+  createdAt: Date.now() - 55 * 24 * 60 * 60 * 1000,
+  batches: [
+    {
+      id: 'mock-infinity-backdraft-batch-1',
+      name: 'First Due',
+      goal: 'smoother',
+      status: 'active',
+      startedAt: Date.now() - 24 * 24 * 60 * 60 * 1000,
+      additions: [
+        {
+          id: 'mock-addition-1',
+          sourceBottleId: elmerTLee.id,
+          bottleName: elmerTLee.name,
+          proof: elmerTLee.proof,
+          amountMl: 120,
+          date: daysAgo(24),
+          note: 'Started the blend with what was left of this one.',
+          createdAt: Date.now() - 24 * 24 * 60 * 60 * 1000,
+        },
+        {
+          id: 'mock-addition-2',
+          sourceBottleId: oldGrandDad.id,
+          bottleName: oldGrandDad.name,
+          proof: oldGrandDad.proof,
+          amountMl: 90,
+          date: daysAgo(16),
+          note: 'Wanted a little more spice.',
+          createdAt: Date.now() - 16 * 24 * 60 * 60 * 1000,
+        },
+        {
+          id: 'mock-addition-3',
+          sourceBottleId: wellerSpecial.id,
+          bottleName: wellerSpecial.name,
+          proof: wellerSpecial.proof,
+          amountMl: 60,
+          date: daysAgo(8),
+          note: 'Softening it back out.',
+          createdAt: Date.now() - 8 * 24 * 60 * 60 * 1000,
+        },
+        {
+          id: 'mock-addition-4',
+          sourceBottleId: eagleRare.id,
+          bottleName: eagleRare.name,
+          proof: eagleRare.proof,
+          amountMl: 45,
+          date: daysAgo(1),
+          createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+        },
+      ],
+      tastings: [
+        {
+          id: 'mock-ib-tasting-1',
+          date: daysAgo(15),
+          score: 8.2,
+          noseAromas: ['Caramel', 'Vanilla', 'Oak'],
+          palateFlavors: ['Caramel', 'Cinnamon'],
+          overallNotes: 'Off to a good start — needs a bit more spice to round it out.',
+          createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+        },
+        {
+          id: 'mock-ib-tasting-2',
+          date: daysAgo(7),
+          score: 8.7,
+          noseAromas: ['Caramel', 'Vanilla', 'Oak', 'Toast'],
+          palateFlavors: ['Caramel', 'Baking Spice', 'Cherry'],
+          finishNotes: 'Medium-long, warm, oak, butterscotch.',
+          overallNotes: 'Really liking where this is headed. Well balanced with great depth.',
+          companion: 'Dad',
+          createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+        },
+      ],
+    },
+  ],
+}
+
+const houseBlend1: InfinityBottle = {
+  id: 'mock-infinity-house-blend',
+  name: 'House Blend #1',
+  capacityMl: 900,
+  archived: false,
+  createdAt: Date.now() - 200 * 24 * 60 * 60 * 1000,
+  batches: [
+    {
+      id: 'mock-infinity-house-blend-batch-1',
+      status: 'complete',
+      startedAt: Date.now() - 200 * 24 * 60 * 60 * 1000,
+      completedAt: Date.now() - 40 * 24 * 60 * 60 * 1000,
+      additions: [
+        {
+          id: 'mock-addition-5',
+          bottleName: 'Buffalo Trace',
+          amountMl: 900,
+          date: daysAgo(180),
+          createdAt: Date.now() - 180 * 24 * 60 * 60 * 1000,
+        },
+      ],
+      tastings: [
+        {
+          id: 'mock-ib-tasting-3',
+          date: daysAgo(41),
+          score: 9.0,
+          noseAromas: ['Caramel'],
+          palateFlavors: ['Vanilla'],
+          overallNotes: 'Bottle finished — a good house pour the whole way through.',
+          createdAt: Date.now() - 41 * 24 * 60 * 60 * 1000,
+        },
+      ],
+    },
+  ],
+}
+
 export const MOCK_USER_DOC: UserDoc = {
   username: 'devpreview',
   greetingName: 'Dev',
   bottles: [eagleRare, wellerSpecial, blantons, pappy15, fourRoses, oldGrandDad, elmerTLee],
   pours,
   memories,
-  infinityBottles: [],
+  infinityBottles: [backdraftBatch, houseBlend1],
   customLibrary: [],
   people,
 }

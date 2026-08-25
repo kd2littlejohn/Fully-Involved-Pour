@@ -1,0 +1,27 @@
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.gridline {
+  stroke: var(--fip-border-subtle);
+  stroke-width: 1;
+}
+
+.line {
+  stroke: var(--fip-amber);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: var(--fip-amber);
+}
+
+.xLabel {
+  fill: var(--fip-muted);
+  font-size: 9px;
+  font-family: var(--fip-font-body);
+}

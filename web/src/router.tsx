@@ -8,6 +8,24 @@ const CollectionPage = lazy(() => import('./pages/Collection/CollectionPage').th
 const BottleDetailsPage = lazy(() =>
   import('./pages/BottleDetails/BottleDetailsPage').then((m) => ({ default: m.BottleDetailsPage })),
 )
+const InfinityBottlesHomePage = lazy(() =>
+  import('./pages/InfinityBottle/InfinityBottlesHomePage').then((m) => ({ default: m.InfinityBottlesHomePage })),
+)
+const BlendBreakdownPage = lazy(() =>
+  import('./pages/InfinityBottle/BlendBreakdownPage').then((m) => ({ default: m.BlendBreakdownPage })),
+)
+const AddToBlendPage = lazy(() =>
+  import('./pages/InfinityBottle/AddToBlendPage').then((m) => ({ default: m.AddToBlendPage })),
+)
+const TastingsPage = lazy(() =>
+  import('./pages/InfinityBottle/TastingsPage').then((m) => ({ default: m.TastingsPage })),
+)
+const LogTastingPage = lazy(() =>
+  import('./pages/InfinityBottle/LogTastingPage').then((m) => ({ default: m.LogTastingPage })),
+)
+const BatchManagementPage = lazy(() =>
+  import('./pages/InfinityBottle/BatchManagementPage').then((m) => ({ default: m.BatchManagementPage })),
+)
 const JournalPage = lazy(() => import('./pages/Journal/JournalPage').then((m) => ({ default: m.JournalPage })))
 const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage').then((m) => ({ default: m.DiscoverPage })))
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage').then((m) => ({ default: m.ProfilePage })))
@@ -54,6 +72,16 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
       { path: '/', element: <HomePage /> },
       { path: '/collection', element: <CollectionPage /> },
       { path: '/collection/:bottleId', element: <BottleDetailsPage /> },
+      // Infinity Bottle lives under My Bar — browsable with the bottom nav
+      // visible throughout, same as Bottle Details above. :id refers to the
+      // vessel (InfinityBottle.id); the current batch is derived from it,
+      // not addressed separately in the URL.
+      { path: '/collection/infinity', element: <InfinityBottlesHomePage /> },
+      { path: '/collection/infinity/:id', element: <BlendBreakdownPage /> },
+      { path: '/collection/infinity/:id/add', element: <AddToBlendPage /> },
+      { path: '/collection/infinity/:id/tastings', element: <TastingsPage /> },
+      { path: '/collection/infinity/:id/tastings/new', element: <LogTastingPage /> },
+      { path: '/collection/infinity/:id/manage', element: <BatchManagementPage /> },
       { path: '/journal', element: <JournalPage /> },
       // "Journey" is the current label for this page (see navItems.ts), but
       // /journal stays the canonical URL — it's what's linked throughout the

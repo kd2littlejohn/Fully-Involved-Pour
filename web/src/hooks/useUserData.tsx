@@ -11,11 +11,16 @@ import { isMockAuthEnabled } from '../data/devMode'
 import { findMatchingPerson, normalizePersonName } from '../features/pourWizard/pourPeople'
 import { deletePhotoIfSafe } from '../features/photoUpload/uploadPhoto'
 import { deleteSharedMomentsForStory } from '../data/repositories/sharedMoments'
+import { estimatedProof } from '../features/infinityBottle/selectors'
 import {
   DEFAULT_PRIVACY_SETTINGS,
+  type BlendAddition,
+  type BlendGoal,
   type Bottle,
   type GalleryPhoto,
-  type InfinityBottleAddition,
+  type InfinityBatch,
+  type InfinityBottle,
+  type InfinityTasting,
   type Memory,
   type Pour,
   type PourAiSummary,
@@ -31,6 +36,12 @@ export type NewPourInput = Omit<Pour, 'id'>
 export type PourPatch = Omit<Pour, 'id' | 'bottleId'>
 export type NewMemoryInput = Omit<Memory, 'id' | 'createdAt'>
 export type MemoryPatch = Omit<Memory, 'id' | 'createdAt'>
+export type NewInfinityBottleInput = { name: string; capacityMl?: number; batchName?: string; batchGoal?: BlendGoal }
+export type InfinityBottlePatch = Partial<Pick<InfinityBottle, 'name' | 'capacityMl' | 'photoUrl' | 'photoStoragePath'>>
+export type NewBlendAdditionInput = Omit<BlendAddition, 'id' | 'createdAt'>
+export type NewTastingInput = Omit<InfinityTasting, 'id' | 'createdAt'>
+export type TastingPatch = Omit<InfinityTasting, 'id' | 'createdAt'>
+export type StartNewBatchInput = { name?: string; goal?: BlendGoal; carryForwardMl?: number }
 export type ProfilePatch = Partial<
   Pick<
     Profile,
@@ -60,8 +71,17 @@ interface UserDataState {
   deleteMemory: (memoryId: string) => Promise<void>
   addGalleryPhoto: (bottleId: string, photo: GalleryPhoto) => Promise<void>
   deleteGalleryPhoto: (bottleId: string, photoUrl: string) => Promise<void>
-  createInfinityBottle: (name: string) => Promise<void>
-  addInfinityAddition: (infinityBottleId: string, addition: InfinityBottleAddition) => Promise<void>
+  createInfinityBottle: (input: NewInfinityBottleInput) => Promise<string | undefined>
+  updateInfinityBottle: (id: string, patch: InfinityBottlePatch) => Promise<void>
+  deleteInfinityBottle: (id: string) => Promise<void>
+  archiveInfinityBottle: (id: string, archived: boolean) => Promise<void>
+  addBlendAddition: (infinityBottleId: string, batchId: string, input: NewBlendAdditionInput) => Promise<void>
+  deleteBlendAddition: (infinityBottleId: string, batchId: string, additionId: string) => Promise<void>
+  addTasting: (infinityBottleId: string, batchId: string, input: NewTastingInput) => Promise<void>
+  updateTasting: (infinityBottleId: string, batchId: string, tastingId: string, patch: TastingPatch) => Promise<void>
+  deleteTasting: (infinityBottleId: string, batchId: string, tastingId: string) => Promise<void>
+  completeBatch: (infinityBottleId: string, batchId: string) => Promise<void>
+  startNewBatch: (infinityBottleId: string, input: StartNewBatchInput) => Promise<void>
   claimUsername: (username: string) => Promise<void>
   updateProfile: (patch: ProfilePatch) => Promise<void>
 }
@@ -88,8 +108,17 @@ const UserDataContext = createContext<UserDataState>({
   deleteMemory: async () => {},
   addGalleryPhoto: async () => {},
   deleteGalleryPhoto: async () => {},
-  createInfinityBottle: async () => {},
-  addInfinityAddition: async () => {},
+  createInfinityBottle: async () => undefined,
+  updateInfinityBottle: async () => {},
+  deleteInfinityBottle: async () => {},
+  archiveInfinityBottle: async () => {},
+  addBlendAddition: async () => {},
+  deleteBlendAddition: async () => {},
+  addTasting: async () => {},
+  updateTasting: async () => {},
+  deleteTasting: async () => {},
+  completeBatch: async () => {},
+  startNewBatch: async () => {},
   claimUsername: async () => {},
   updateProfile: async () => {},
 })
@@ -518,10 +547,41 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   )
 
   const createInfinityBottle = useCallback(
-    async (name: string) => {
-      if (!user) return
-      const infinityBottle = { id: generateId(), name, additions: [] }
+    async (input: NewInfinityBottleInput) => {
+      if (!user) return undefined
+      const now = Date.now()
+      const batch: InfinityBatch = {
+        id: generateId(),
+        name: input.batchName,
+        goal: input.batchGoal,
+        status: 'active',
+        startedAt: now,
+        additions: [],
+        tastings: [],
+      }
+      const infinityBottle: InfinityBottle = {
+        id: generateId(),
+        name: input.name,
+        capacityMl: input.capacityMl,
+        archived: false,
+        createdAt: now,
+        batches: [batch],
+      }
       const nextInfinityBottles = [...userDoc.infinityBottles, infinityBottle]
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return infinityBottle.id // dev fixture data — never touches Firestore
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+      return infinityBottle.id
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const updateInfinityBottle = useCallback(
+    async (id: string, patch: InfinityBottlePatch) => {
+      if (!user) return
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) => (ib.id === id ? { ...ib, ...patch } : ib))
       const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
       setUserDoc(nextDoc)
       if (mockMode) return
@@ -531,12 +591,211 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     [user, userDoc, mockMode],
   )
 
-  const addInfinityAddition = useCallback(
-    async (infinityBottleId: string, addition: InfinityBottleAddition) => {
+  const archiveInfinityBottle = useCallback(
+    async (id: string, archived: boolean) => {
+      if (!user) return
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) => (ib.id === id ? { ...ib, archived } : ib))
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  // Deletes never touch bottles[] — additions only ever snapshot a source
+  // bottle, they don't own it — and, like deleteGalleryPhoto, wait for the
+  // write to succeed before touching local state so a failed save can never
+  // leave something looking deleted until a refresh brings it back.
+  const deleteInfinityBottle = useCallback(
+    async (id: string) => {
+      if (!user) return
+      const removed = userDoc.infinityBottles.find((ib) => ib.id === id)
+      const nextInfinityBottles = userDoc.infinityBottles.filter((ib) => ib.id !== id)
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      if (!mockMode) {
+        await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+        writeCachedUserDoc(user.uid, nextDoc)
+      }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      void deletePhotoIfSafe(removed?.photoStoragePath)
+      for (const batch of removed?.batches ?? []) {
+        for (const tasting of batch.tastings) void deletePhotoIfSafe(tasting.photoStoragePath)
+      }
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const addBlendAddition = useCallback(
+    async (infinityBottleId: string, batchId: string, input: NewBlendAdditionInput) => {
+      if (!user) return
+      const addition: BlendAddition = { ...input, id: generateId(), createdAt: Date.now() }
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
+        ib.id === infinityBottleId
+          ? { ...ib, batches: ib.batches.map((b) => (b.id === batchId ? { ...b, additions: [...b.additions, addition] } : b)) }
+          : ib,
+      )
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const deleteBlendAddition = useCallback(
+    async (infinityBottleId: string, batchId: string, additionId: string) => {
       if (!user) return
       const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
-        ib.id === infinityBottleId ? { ...ib, additions: [...ib.additions, addition] } : ib,
+        ib.id === infinityBottleId
+          ? {
+              ...ib,
+              batches: ib.batches.map((b) =>
+                b.id === batchId ? { ...b, additions: b.additions.filter((a) => a.id !== additionId) } : b,
+              ),
+            }
+          : ib,
       )
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      if (!mockMode) {
+        await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+        writeCachedUserDoc(user.uid, nextDoc)
+      }
+      setUserDoc(nextDoc)
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const addTasting = useCallback(
+    async (infinityBottleId: string, batchId: string, input: NewTastingInput) => {
+      if (!user) return
+      const tasting: InfinityTasting = { ...input, id: generateId(), createdAt: Date.now() }
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
+        ib.id === infinityBottleId
+          ? { ...ib, batches: ib.batches.map((b) => (b.id === batchId ? { ...b, tastings: [...b.tastings, tasting] } : b)) }
+          : ib,
+      )
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const updateTasting = useCallback(
+    async (infinityBottleId: string, batchId: string, tastingId: string, patch: TastingPatch) => {
+      if (!user) return
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
+        ib.id === infinityBottleId
+          ? {
+              ...ib,
+              batches: ib.batches.map((b) =>
+                b.id === batchId ? { ...b, tastings: b.tastings.map((t) => (t.id === tastingId ? { ...t, ...patch } : t)) } : b,
+              ),
+            }
+          : ib,
+      )
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const deleteTasting = useCallback(
+    async (infinityBottleId: string, batchId: string, tastingId: string) => {
+      if (!user) return
+      const batch = userDoc.infinityBottles.find((ib) => ib.id === infinityBottleId)?.batches.find((b) => b.id === batchId)
+      const removedTasting = batch?.tastings.find((t) => t.id === tastingId)
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
+        ib.id === infinityBottleId
+          ? {
+              ...ib,
+              batches: ib.batches.map((b) =>
+                b.id === batchId ? { ...b, tastings: b.tastings.filter((t) => t.id !== tastingId) } : b,
+              ),
+            }
+          : ib,
+      )
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      if (!mockMode) {
+        await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+        writeCachedUserDoc(user.uid, nextDoc)
+      }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      void deletePhotoIfSafe(removedTasting?.photoStoragePath)
+    },
+    [user, userDoc, mockMode],
+  )
+
+  // Archives the current batch (status: 'complete', never edited again) and
+  // starts a fresh active one. An optional carry-forward amount is recorded
+  // as the new batch's own first BlendAddition — its proof snapshot reuses
+  // the old batch's estimatedProof, which is itself undefined whenever that
+  // batch's own proof data was incomplete, so "unknown" honestly propagates
+  // forward instead of being silently invented.
+  // "Archive This Batch" — retires the current batch (status: 'complete')
+  // without starting a replacement, unlike startNewBatch below. The vessel
+  // itself stays whatever archived state it already had.
+  const completeBatch = useCallback(
+    async (infinityBottleId: string, batchId: string) => {
+      if (!user) return
+      const nextInfinityBottles = userDoc.infinityBottles.map((ib) =>
+        ib.id === infinityBottleId
+          ? {
+              ...ib,
+              batches: ib.batches.map((b) => (b.id === batchId ? { ...b, status: 'complete' as const, completedAt: Date.now() } : b)),
+            }
+          : ib,
+      )
+      const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { infinityBottles: nextInfinityBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const startNewBatch = useCallback(
+    async (infinityBottleId: string, input: StartNewBatchInput) => {
+      if (!user) return
+      const ib = userDoc.infinityBottles.find((b) => b.id === infinityBottleId)
+      const current = ib?.batches[ib.batches.length - 1]
+      if (!ib || !current) return
+      const now = Date.now()
+      const completedCurrent: InfinityBatch = { ...current, status: 'complete', completedAt: now }
+      const carryForwardMl = input.carryForwardMl
+      const carryAddition: BlendAddition | undefined =
+        carryForwardMl && carryForwardMl > 0
+          ? {
+              id: generateId(),
+              bottleName: `Carried forward from ${current.name ?? 'the previous batch'}`,
+              proof: estimatedProof(current),
+              amountMl: carryForwardMl,
+              date: new Date().toISOString().slice(0, 10),
+              createdAt: now,
+            }
+          : undefined
+      const newBatch: InfinityBatch = {
+        id: generateId(),
+        name: input.name,
+        goal: input.goal,
+        status: 'active',
+        startedAt: now,
+        additions: carryAddition ? [carryAddition] : [],
+        tastings: [],
+      }
+      const nextBatches = [...ib.batches.slice(0, -1), completedCurrent, newBatch]
+      const nextInfinityBottles = userDoc.infinityBottles.map((b) => (b.id === infinityBottleId ? { ...b, batches: nextBatches } : b))
       const nextDoc: UserDoc = { ...userDoc, infinityBottles: nextInfinityBottles }
       setUserDoc(nextDoc)
       if (mockMode) return
@@ -620,7 +879,16 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addGalleryPhoto,
       deleteGalleryPhoto,
       createInfinityBottle,
-      addInfinityAddition,
+      updateInfinityBottle,
+      deleteInfinityBottle,
+      archiveInfinityBottle,
+      addBlendAddition,
+      deleteBlendAddition,
+      addTasting,
+      updateTasting,
+      deleteTasting,
+      completeBatch,
+      startNewBatch,
       claimUsername,
       updateProfile,
     }),
@@ -648,7 +916,16 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addGalleryPhoto,
       deleteGalleryPhoto,
       createInfinityBottle,
-      addInfinityAddition,
+      updateInfinityBottle,
+      deleteInfinityBottle,
+      archiveInfinityBottle,
+      addBlendAddition,
+      deleteBlendAddition,
+      addTasting,
+      updateTasting,
+      deleteTasting,
+      completeBatch,
+      startNewBatch,
       claimUsername,
       updateProfile,
     ],

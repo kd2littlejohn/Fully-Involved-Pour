@@ -1,0 +1,143 @@
+.page {
+  min-height: 100dvh;
+  background: var(--fip-black);
+  padding-bottom: max(var(--fip-space-8), env(safe-area-inset-bottom));
+}
+
+.body {
+  padding: 0 var(--fip-shell-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+}
+
+.heading {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-cream);
+  margin-top: var(--fip-space-2);
+}
+
+.bottleList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.bottleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  width: 100%;
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.bottleThumb {
+  width: 44px;
+  height: 55px;
+  flex: 0 0 auto;
+  border-radius: var(--fip-radius-sm);
+  overflow: hidden;
+  background: var(--fip-oak-deep);
+}
+
+.bottleImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bottleInfo {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bottleName {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.bottleMeta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.bottleFill {
+  color: var(--fip-brass);
+  font-size: var(--fip-text-xs);
+}
+
+.radio {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--fip-radius-round);
+  border: 2px solid var(--fip-border-strong);
+}
+
+.radioSelected {
+  border-color: var(--fip-amber);
+  background: radial-gradient(circle, var(--fip-amber) 0 40%, transparent 44%);
+}
+
+.unitToggle {
+  display: inline-flex;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  padding: 2px;
+  width: fit-content;
+}
+
+.unitButton {
+  padding: var(--fip-space-1) var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  background: none;
+  border: none;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.unitButtonActive {
+  background: var(--fip-amber);
+  color: var(--fip-black);
+}
+
+.quickAmounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}
+
+.quickButton {
+  padding: var(--fip-space-2) var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  cursor: pointer;
+}
+
+.quickButtonActive {
+  background: var(--fip-amber);
+  border-color: var(--fip-amber);
+  color: var(--fip-black);
+  font-weight: 600;
+}
+
+.submit {
+  width: 100%;
+  margin-top: var(--fip-space-2);
+}

@@ -1,0 +1,95 @@
+.page {
+  min-height: 100dvh;
+  background: var(--fip-black);
+  padding-bottom: max(var(--fip-space-8), env(safe-area-inset-bottom));
+}
+
+.body {
+  padding: 0 var(--fip-shell-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+}
+
+.batchName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+}
+
+.statsRow {
+  display: flex;
+  gap: var(--fip-space-8);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.statValue {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-amber);
+}
+
+.statLabel {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+}
+
+.logButton {
+  width: 100%;
+}
+
+.heading {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  color: var(--fip-cream);
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.historyRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  width: 100%;
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.historyScore {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  flex: 0 0 auto;
+  min-width: 3ch;
+}
+
+.historyBody {
+  min-width: 0;
+}
+
+.historyDate {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.historySummary {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -639,3 +639,384 @@ describe('useUserData — Storage cleanup on delete', () => {
     expect(mockDeletePhotoIfSafe).not.toHaveBeenCalled()
   })
 })
+
+describe('useUserData — Infinity Bottle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+    mockDeletePhotoIfSafe.mockResolvedValue(undefined)
+  })
+
+  function emptyDoc(): UserDoc {
+    return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
+  }
+
+  it('createInfinityBottle creates a vessel with one initial active batch and returns its id', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(emptyDoc())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const id = await result.current.createInfinityBottle({ name: 'Backdraft Batch', capacityMl: 1000, batchName: 'First Due' })
+
+    expect(id).toBeDefined()
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+    const ib = result.current.userDoc.infinityBottles[0]!
+    expect(ib.name).toBe('Backdraft Batch')
+    expect(ib.capacityMl).toBe(1000)
+    expect(ib.archived).toBe(false)
+    expect(ib.batches).toHaveLength(1)
+    expect(ib.batches[0]?.status).toBe('active')
+    expect(ib.batches[0]?.name).toBe('First Due')
+    expect(ib.batches[0]?.additions).toEqual([])
+  })
+
+  it('updateInfinityBottle patches only the given fields', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Old Name', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await result.current.updateInfinityBottle('ib1', { name: 'New Name', capacityMl: 750 })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.name).toBe('New Name'))
+    expect(result.current.userDoc.infinityBottles[0]?.capacityMl).toBe(750)
+  })
+
+  it('archiveInfinityBottle toggles the vessel-level archived flag', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await result.current.archiveInfinityBottle('ib1', true)
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.archived).toBe(true))
+  })
+
+  it('deleteInfinityBottle removes the vessel, cleans up its photo and every tasting photo, and never touches bottles[]', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [{ id: 'src1', name: 'Eagle Rare', status: 'open' }]
+    doc.infinityBottles = [
+      {
+        id: 'ib1',
+        name: 'Vessel',
+        photoUrl: 'https://x/ib.jpg',
+        photoStoragePath: 'infinity-bottle-photos/user-1/1-ib.jpg',
+        archived: false,
+        createdAt: 1,
+        batches: [
+          {
+            id: 'b1',
+            status: 'active',
+            startedAt: 1,
+            additions: [],
+            tastings: [
+              {
+                id: 't1',
+                date: '2026-01-01',
+                score: 8,
+                noseAromas: [],
+                palateFlavors: [],
+                photoUrl: 'https://x/t1.jpg',
+                photoStoragePath: 'infinity-bottle-photos/user-1/1-t1.jpg',
+                createdAt: 1,
+              },
+            ],
+          },
+        ],
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await result.current.deleteInfinityBottle('ib1')
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(0))
+    expect(result.current.userDoc.bottles).toHaveLength(1)
+    expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('infinity-bottle-photos/user-1/1-ib.jpg')
+    expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('infinity-bottle-photos/user-1/1-t1.jpg')
+  })
+
+  it('deleteInfinityBottle leaves the vessel in place and never touches Storage if the Firestore write fails', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+    mockSaveUserDoc.mockRejectedValueOnce(new Error('write failed'))
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await expect(result.current.deleteInfinityBottle('ib1')).rejects.toThrow('write failed')
+
+    expect(result.current.userDoc.infinityBottles).toHaveLength(1)
+    expect(mockDeletePhotoIfSafe).not.toHaveBeenCalled()
+  })
+
+  it('addBlendAddition appends a snapshot addition to the given batch', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await result.current.addBlendAddition('ib1', 'b1', {
+      sourceBottleId: 'src1',
+      bottleName: 'Eagle Rare',
+      proof: 90,
+      amountMl: 60,
+      date: '2026-01-01',
+      note: 'Finishing the bottle.',
+    })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toHaveLength(1))
+    expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions[0]).toMatchObject({
+      bottleName: 'Eagle Rare',
+      amountMl: 60,
+      note: 'Finishing the bottle.',
+    })
+  })
+
+  it('deleteBlendAddition removes only the targeted addition, waiting for the write before updating local state', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      {
+        id: 'ib1',
+        name: 'Vessel',
+        archived: false,
+        createdAt: 1,
+        batches: [
+          {
+            id: 'b1',
+            status: 'active',
+            startedAt: 1,
+            additions: [
+              { id: 'a1', bottleName: 'Eagle Rare', amountMl: 60, date: '2026-01-01', createdAt: 1 },
+              { id: 'a2', bottleName: 'Weller 12', amountMl: 40, date: '2026-01-02', createdAt: 2 },
+            ],
+            tastings: [],
+          },
+        ],
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toHaveLength(2))
+
+    await result.current.deleteBlendAddition('ib1', 'b1', 'a1')
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toHaveLength(1))
+    expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions[0]?.id).toBe('a2')
+  })
+
+  it('deleteBlendAddition leaves the addition in place if the Firestore write fails', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      {
+        id: 'ib1',
+        name: 'Vessel',
+        archived: false,
+        createdAt: 1,
+        batches: [
+          { id: 'b1', status: 'active', startedAt: 1, additions: [{ id: 'a1', bottleName: 'Eagle Rare', amountMl: 60, date: '2026-01-01', createdAt: 1 }], tastings: [] },
+        ],
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+    mockSaveUserDoc.mockRejectedValueOnce(new Error('write failed'))
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toHaveLength(1))
+
+    await expect(result.current.deleteBlendAddition('ib1', 'b1', 'a1')).rejects.toThrow('write failed')
+    expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.additions).toHaveLength(1)
+  })
+
+  it('addTasting / updateTasting / deleteTasting manage tastings on the given batch, cleaning up the photo on delete', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await result.current.addTasting('ib1', 'b1', {
+      date: '2026-01-01',
+      score: 8,
+      noseAromas: ['Caramel'],
+      palateFlavors: [],
+      photoUrl: 'https://x/t.jpg',
+      photoStoragePath: 'infinity-bottle-photos/user-1/1-t.jpg',
+    })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.tastings).toHaveLength(1))
+    const tastingId = result.current.userDoc.infinityBottles[0]!.batches[0]!.tastings[0]!.id
+
+    await result.current.updateTasting('ib1', 'b1', tastingId, {
+      date: '2026-01-01',
+      score: 9,
+      noseAromas: ['Caramel'],
+      palateFlavors: [],
+      photoUrl: 'https://x/t.jpg',
+      photoStoragePath: 'infinity-bottle-photos/user-1/1-t.jpg',
+    })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.tastings[0]?.score).toBe(9))
+
+    await result.current.deleteTasting('ib1', 'b1', tastingId)
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.tastings).toHaveLength(0))
+    expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('infinity-bottle-photos/user-1/1-t.jpg')
+  })
+
+  it('completeBatch marks the given batch complete without creating a new one', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'Vessel', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    await result.current.completeBatch('ib1', 'b1')
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
+    expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.status).toBe('complete')
+  })
+
+  it('startNewBatch archives the current batch and starts a fresh empty active one when no carry-forward is given', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      {
+        id: 'ib1',
+        name: 'Vessel',
+        archived: false,
+        createdAt: 1,
+        batches: [
+          {
+            id: 'b1',
+            name: 'First Due',
+            status: 'active',
+            startedAt: 1,
+            additions: [{ id: 'a1', bottleName: 'Eagle Rare', proof: 90, amountMl: 100, date: '2026-01-01', createdAt: 1 }],
+            tastings: [],
+          },
+        ],
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
+
+    await result.current.startNewBatch('ib1', { name: 'Second Alarm' })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(2))
+    const [oldBatch, newBatch] = result.current.userDoc.infinityBottles[0]!.batches
+    expect(oldBatch?.status).toBe('complete')
+    // Never overwritten — its own additions are untouched.
+    expect(oldBatch?.additions).toHaveLength(1)
+    expect(newBatch?.status).toBe('active')
+    expect(newBatch?.name).toBe('Second Alarm')
+    expect(newBatch?.additions).toEqual([])
+  })
+
+  it('startNewBatch with a carry-forward amount seeds the new batch with one addition snapshotting the old batch’s estimated proof', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      {
+        id: 'ib1',
+        name: 'Vessel',
+        archived: false,
+        createdAt: 1,
+        batches: [
+          {
+            id: 'b1',
+            name: 'First Due',
+            status: 'active',
+            startedAt: 1,
+            additions: [{ id: 'a1', bottleName: 'Eagle Rare', proof: 90, amountMl: 100, date: '2026-01-01', createdAt: 1 }],
+            tastings: [],
+          },
+        ],
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
+
+    await result.current.startNewBatch('ib1', { carryForwardMl: 30 })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(2))
+    const newBatch = result.current.userDoc.infinityBottles[0]!.batches[1]!
+    expect(newBatch.additions).toHaveLength(1)
+    expect(newBatch.additions[0]?.amountMl).toBe(30)
+    expect(newBatch.additions[0]?.proof).toBe(90)
+    expect(newBatch.additions[0]?.bottleName).toContain('Carried forward')
+  })
+
+  it('startNewBatch carries forward an undefined proof (never fabricated) when the old batch’s own estimate was incomplete', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      {
+        id: 'ib1',
+        name: 'Vessel',
+        archived: false,
+        createdAt: 1,
+        batches: [
+          {
+            id: 'b1',
+            status: 'active',
+            startedAt: 1,
+            // No proof snapshot — the old batch's own estimate is incomplete.
+            additions: [{ id: 'a1', bottleName: 'Eagle Rare', amountMl: 100, date: '2026-01-01', createdAt: 1 }],
+            tastings: [],
+          },
+        ],
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
+
+    await result.current.startNewBatch('ib1', { carryForwardMl: 30 })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(2))
+    expect(result.current.userDoc.infinityBottles[0]?.batches[1]?.additions[0]?.proof).toBeUndefined()
+  })
+})
