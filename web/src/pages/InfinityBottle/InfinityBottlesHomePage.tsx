@@ -14,6 +14,7 @@ import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Field, controlClassName } from '../../components/ui/Field'
+import { OverflowMenu } from '../../components/ui/OverflowMenu'
 import { fipTier } from '../../features/fip/tiers'
 import { useUserData } from '../../hooks/useUserData'
 import type { InfinityBottle } from '../../data/types'
@@ -35,17 +36,23 @@ function lastTastingDate(ib: InfinityBottle): string | undefined {
 
 export function InfinityBottlesHomePage() {
   const navigate = useNavigate()
-  const { userDoc, createInfinityBottle } = useUserData()
+  const { userDoc, createInfinityBottle, archiveInfinityBottle, deleteInfinityBottle } = useUserData()
   const [tab, setTab] = useState<'active' | 'archived'>('active')
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [capacityMl, setCapacityMl] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<InfinityBottle | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
+  // Every Infinity Bottle in userDoc.infinityBottles is independent — the
+  // Active/Archived tabs are just a filter over the full list, never a
+  // "pick one" selection. No card here is treated as more "primary" than
+  // any other; each one gets identical layout and identical actions.
   const active = userDoc.infinityBottles.filter((ib) => !ib.archived)
-  const archived = userDoc.infinityBottles.filter((ib) => ib.archived)
-  const featured = tab === 'active' ? active[0] : undefined
-  const others = tab === 'active' ? active.slice(1) : archived
+  const archivedList = userDoc.infinityBottles.filter((ib) => ib.archived)
+  const visible = tab === 'active' ? active : archivedList
 
   async function handleCreate() {
     if (!name.trim() || saving) return
@@ -61,7 +68,25 @@ export function InfinityBottlesHomePage() {
     }
   }
 
-  function renderCard(ib: InfinityBottle, isFeatured: boolean) {
+  async function handleUnarchive(ib: InfinityBottle) {
+    await archiveInfinityBottle(ib.id, false)
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget || deleting) return
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteInfinityBottle(deleteTarget.id)
+      setDeleteTarget(null)
+    } catch {
+      setDeleteError('Could not delete this Infinity Bottle. Try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function renderCard(ib: InfinityBottle) {
     const batch = displayBatch(ib)
     if (!batch) return null
     const volumeMl = batchVolumeMl(batch)
@@ -69,75 +94,82 @@ export function InfinityBottlesHomePage() {
     const score = currentScore(batch)
     const sourceCount = batchComposition(batch).length
     const displayName = batchDisplayName(ib, batch)
-
-    if (isFeatured) {
-      return (
-        <div className={styles.featuredCard} key={ib.id}>
-          <div className={styles.photoWrap}>
-            {ib.photoUrl ? <img className={styles.photo} src={ib.photoUrl} alt="" /> : <div className={styles.photoPlaceholder} />}
-          </div>
-          <div className={styles.featuredBody}>
-            <h2 className={styles.featuredName}>{displayName}</h2>
-            <span className={batch.status === 'active' ? styles.statusActive : styles.statusComplete}>
-              {batch.status === 'active' ? 'Current Batch' : 'Batch Complete'}
-            </span>
-
-            <div className={styles.statsRow}>
-              <div className={styles.stat}>
-                <div className={styles.statValue}>
-                  {volumeMl}ml{ib.capacityMl ? ` / ${ib.capacityMl}ml` : ''}
-                </div>
-                <div className={styles.statLabel}>Total Volume{ib.capacityMl ? ' / Capacity' : ''}</div>
-              </div>
-              <div className={styles.stat}>
-                <div className={styles.statValue}>{proof != null ? proof.toFixed(1) : 'Unavailable'}</div>
-                <div className={styles.statLabel}>Est. Proof</div>
-              </div>
-            </div>
-
-            {ib.capacityMl ? (
-              <div className={styles.fillTrack}>
-                <div className={styles.fillBar} style={{ width: `${Math.min(100, (volumeMl / ib.capacityMl) * 100)}%` }} />
-              </div>
-            ) : null}
-
-            <div className={styles.metaRow}>
-              {score != null ? (
-                <span className={styles.metaItem} style={{ color: fipTier(score).color }}>
-                  {score.toFixed(1)} ★
-                </span>
-              ) : null}
-              <span className={styles.metaItem}>{sourceCount} source bottles</span>
-            </div>
-            <div className={styles.metaRow}>
-              {lastAdditionDate(ib) ? <span className={styles.metaItem}>Last addition {dateFormatter.format(new Date(lastAdditionDate(ib)!))}</span> : null}
-              {lastTastingDate(ib) ? <span className={styles.metaItem}>Last tasting {dateFormatter.format(new Date(lastTastingDate(ib)!))}</span> : null}
-            </div>
-
-            <div className={styles.actions}>
-              <Button onClick={() => navigate(`/collection/infinity/${ib.id}/add`)}>Add to Blend</Button>
-              <Button variant="secondary" onClick={() => navigate(`/collection/infinity/${ib.id}/tastings/new`)}>
-                Log a Tasting
-              </Button>
-              <Button variant="ghost" onClick={() => navigate(`/collection/infinity/${ib.id}`)}>
-                View Blend
-              </Button>
-            </div>
-          </div>
-        </div>
-      )
-    }
+    const fillPercent = ib.capacityMl ? Math.min(100, Math.round((volumeMl / ib.capacityMl) * 100)) : undefined
 
     return (
-      <button type="button" className={styles.otherCard} key={ib.id} onClick={() => navigate(`/collection/infinity/${ib.id}`)}>
-        <div className={styles.otherPhotoWrap}>
-          {ib.photoUrl ? <img className={styles.otherPhoto} src={ib.photoUrl} alt="" /> : <div className={styles.photoPlaceholder} />}
+      <div className={styles.card} key={ib.id}>
+        <div className={styles.photoWrap}>
+          {ib.photoUrl ? <img className={styles.photo} src={ib.photoUrl} alt="" /> : <div className={styles.photoPlaceholder} />}
         </div>
-        <div className={styles.otherName}>{displayName}</div>
-        <div className={batch.status === 'active' ? styles.statusActiveSmall : styles.statusCompleteSmall}>
-          {batch.status === 'active' ? 'Current Batch' : 'Batch Complete'}
+        <div className={styles.cardBody}>
+          <div className={styles.cardHeaderRow}>
+            <h2 className={styles.cardName}>{displayName}</h2>
+            {ib.archived ? (
+              <OverflowMenu
+                label={`${displayName} actions`}
+                items={[
+                  { label: 'View History', onClick: () => navigate(`/collection/infinity/${ib.id}`) },
+                  { label: 'Unarchive', onClick: () => void handleUnarchive(ib) },
+                  { label: 'Delete', tone: 'danger', onClick: () => setDeleteTarget(ib) },
+                ]}
+              />
+            ) : (
+              <OverflowMenu
+                label={`${displayName} actions`}
+                items={[{ label: 'Manage', onClick: () => navigate(`/collection/infinity/${ib.id}/manage`) }]}
+              />
+            )}
+          </div>
+          <span className={batch.status === 'active' ? styles.statusActive : styles.statusComplete}>
+            {batch.status === 'active' ? 'Current Batch' : 'Batch Complete'}
+          </span>
+
+          <div className={styles.statsRow}>
+            <div className={styles.stat}>
+              <div className={styles.statValue}>
+                {volumeMl}ml{ib.capacityMl ? ` / ${ib.capacityMl}ml` : ''}
+              </div>
+              <div className={styles.statLabel}>Total Volume{ib.capacityMl ? ' / Capacity' : ''}</div>
+            </div>
+            <div className={styles.stat}>
+              <div className={styles.statValue}>{proof != null ? proof.toFixed(1) : 'Unavailable'}</div>
+              <div className={styles.statLabel}>Est. Proof</div>
+            </div>
+          </div>
+
+          {fillPercent != null ? (
+            <div className={styles.fillRow}>
+              <div className={styles.fillTrack}>
+                <div className={styles.fillBar} style={{ width: `${fillPercent}%` }} />
+              </div>
+              <span className={styles.fillLabel}>{fillPercent}% full</span>
+            </div>
+          ) : null}
+
+          <div className={styles.metaRow}>
+            {score != null ? (
+              <span className={styles.metaItem} style={{ color: fipTier(score).color }}>
+                {score.toFixed(1)} ★
+              </span>
+            ) : null}
+            <span className={styles.metaItem}>{sourceCount} source bottles</span>
+          </div>
+          <div className={styles.metaRow}>
+            {lastAdditionDate(ib) ? <span className={styles.metaItem}>Last addition {dateFormatter.format(new Date(lastAdditionDate(ib)!))}</span> : null}
+            {lastTastingDate(ib) ? <span className={styles.metaItem}>Last tasting {dateFormatter.format(new Date(lastTastingDate(ib)!))}</span> : null}
+          </div>
+
+          <div className={styles.actions}>
+            <Button onClick={() => navigate(`/collection/infinity/${ib.id}/add`)}>Add to Blend</Button>
+            <Button variant="secondary" onClick={() => navigate(`/collection/infinity/${ib.id}/tastings/new`)}>
+              Log a Tasting
+            </Button>
+            <Button variant="ghost" onClick={() => navigate(`/collection/infinity/${ib.id}`)}>
+              View Blend
+            </Button>
+          </div>
         </div>
-      </button>
+      </div>
     )
   }
 
@@ -146,6 +178,10 @@ export function InfinityBottlesHomePage() {
       <InfinityBottleHeader backTo="/collection" title="Infinity Bottles" />
 
       <div className={styles.body}>
+        <Button className={styles.newButton} onClick={() => setCreating(true)}>
+          + New Infinity Bottle
+        </Button>
+
         <Tabs
           tabs={[
             { id: 'active', label: 'Active' },
@@ -156,29 +192,24 @@ export function InfinityBottlesHomePage() {
         />
 
         <TabPanel>
-          {tab === 'active' && !featured ? (
-            <EmptyState
-              title="Create Your Infinity Bottle"
-              message="Build a blend over time from bottles you already own."
-              action={<Button onClick={() => setCreating(true)}>Create Infinity Bottle</Button>}
-            />
+          {visible.length > 0 ? (
+            <div className={styles.cardList}>{visible.map((ib) => renderCard(ib))}</div>
+          ) : tab === 'active' ? (
+            userDoc.infinityBottles.length === 0 ? (
+              <EmptyState
+                title="Create Your First Infinity Bottle."
+                message="Build a blend over time from bottles you already own."
+                action={<Button onClick={() => setCreating(true)}>Create Infinity Bottle</Button>}
+              />
+            ) : (
+              <EmptyState
+                title="No active Infinity Bottles."
+                message="Every Infinity Bottle you have is archived right now."
+                action={<Button onClick={() => setCreating(true)}>Create New Infinity Bottle</Button>}
+              />
+            )
           ) : (
-            <>
-              {featured ? renderCard(featured, true) : null}
-
-              {others.length > 0 ? (
-                <div className={styles.otherSection}>
-                  <h3 className={styles.otherHeading}>{tab === 'active' ? 'Other Infinity Bottles' : 'Archived'}</h3>
-                  <div className={styles.otherGrid}>{others.map((ib) => renderCard(ib, false))}</div>
-                </div>
-              ) : null}
-
-              {tab === 'active' ? (
-                <Button variant="ghost" onClick={() => setCreating(true)}>
-                  + Start Another Infinity Bottle
-                </Button>
-              ) : null}
-            </>
+            <EmptyState title="No archived Infinity Bottles." message="Archived Infinity Bottles will show up here." />
           )}
         </TabPanel>
       </div>
@@ -211,6 +242,28 @@ export function InfinityBottlesHomePage() {
             </Button>
             <Button onClick={() => void handleCreate()} disabled={!name.trim() || saving}>
               {saving ? 'Creating…' : 'Create Infinity Bottle'}
+            </Button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {deleteTarget ? (
+        <Modal title="Delete this Infinity Bottle?" onClose={() => (deleting ? null : setDeleteTarget(null))}>
+          <p className={styles.confirmText}>
+            This removes the blend, every batch, tasting, and photo, and cannot be undone. Your source bottles in My Bar are not
+            affected.
+          </p>
+          {deleteError ? (
+            <p className={styles.error} role="alert">
+              {deleteError}
+            </p>
+          ) : null}
+          <div className={styles.modalActions}>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={() => void handleConfirmDelete()} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete Infinity Bottle'}
             </Button>
           </div>
         </Modal>

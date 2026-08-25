@@ -11,7 +11,17 @@
   gap: var(--fip-space-5);
 }
 
-.featuredCard {
+.newButton {
+  align-self: flex-start;
+}
+
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-5);
+}
+
+.card {
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
@@ -37,14 +47,21 @@
   background: linear-gradient(160deg, var(--fip-oak), var(--fip-oak-deep));
 }
 
-.featuredBody {
+.cardBody {
   padding: var(--fip-space-5);
   display: flex;
   flex-direction: column;
   gap: var(--fip-space-2);
 }
 
-.featuredName {
+.cardHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--fip-space-2);
+}
+
+.cardName {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-xl);
   color: var(--fip-cream);
@@ -86,8 +103,15 @@
   color: var(--fip-muted);
 }
 
-.fillTrack {
+.fillRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
   margin-top: var(--fip-space-2);
+}
+
+.fillTrack {
+  flex: 1;
   height: 6px;
   border-radius: var(--fip-radius-round);
   background: var(--fip-card-soft);
@@ -98,6 +122,12 @@
   height: 100%;
   background: var(--fip-amber);
   border-radius: var(--fip-radius-round);
+}
+
+.fillLabel {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+  white-space: nowrap;
 }
 
 .metaRow {
@@ -119,70 +149,17 @@
   margin-top: var(--fip-space-3);
 }
 
-.otherSection {
-  display: flex;
-  flex-direction: column;
-  gap: var(--fip-space-3);
-}
-
-.otherHeading {
-  font-family: var(--fip-font-display);
-  font-size: var(--fip-text-md);
-  color: var(--fip-cream);
-}
-
-.otherGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--fip-space-3);
-}
-
-.otherCard {
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--fip-radius-lg);
-  background: var(--fip-card);
-  border: 1px solid var(--fip-border-subtle);
-  overflow: hidden;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-  color: inherit;
-  font: inherit;
-}
-
-.otherPhotoWrap {
-  aspect-ratio: 4 / 5;
-  background: var(--fip-oak-deep);
-}
-
-.otherPhoto {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  display: block;
-}
-
-.otherName {
-  padding: var(--fip-space-3) var(--fip-space-3) 0;
-  font-family: var(--fip-font-display);
+.confirmText {
+  color: var(--fip-cream-soft);
   font-size: var(--fip-text-sm);
-  color: var(--fip-cream);
+  line-height: var(--fip-leading-copy);
+  margin-bottom: var(--fip-space-4);
 }
 
-.statusActiveSmall {
-  padding: 0 var(--fip-space-3) var(--fip-space-3);
-  color: var(--fip-success);
+.error {
+  margin: 0 0 var(--fip-space-3);
+  color: var(--fip-error);
   font-size: var(--fip-text-xs);
-  font-weight: 600;
-}
-
-.statusCompleteSmall {
-  padding: 0 var(--fip-space-3) var(--fip-space-3);
-  color: var(--fip-muted);
-  font-size: var(--fip-text-xs);
-  font-weight: 600;
 }
 
 .modalActions {

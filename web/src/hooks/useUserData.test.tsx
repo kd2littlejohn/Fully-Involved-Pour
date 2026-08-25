@@ -1142,3 +1142,223 @@ describe('useUserData — legacy Infinity Bottle migration on load', () => {
     expect(mockSaveUserDoc).not.toHaveBeenCalled()
   })
 })
+
+// A user must be able to run multiple Infinity Bottles at once — this
+// describe block is the regression suite for that guarantee. Every
+// mutator here is expected to touch only the Infinity Bottle (and batch)
+// it was given, leaving every sibling record byte-for-byte untouched.
+describe('useUserData — multiple simultaneous active Infinity Bottles', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+    mockDeletePhotoIfSafe.mockResolvedValue(undefined)
+  })
+
+  function emptyDoc(): UserDoc {
+    return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
+  }
+
+  function threeBottleDoc(): UserDoc {
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      {
+        id: 'ib-a',
+        name: 'Backdraft Batch',
+        capacityMl: 1000,
+        archived: false,
+        createdAt: 1,
+        batches: [{ id: 'batch-a', status: 'active', startedAt: 1, additions: [{ id: 'add-a1', bottleName: 'Eagle Rare', amountMl: 100, date: '2026-01-01', createdAt: 1 }], tastings: [] }],
+      },
+      {
+        id: 'ib-b',
+        name: 'House Blend #1',
+        capacityMl: 750,
+        archived: false,
+        createdAt: 2,
+        batches: [{ id: 'batch-b', status: 'active', startedAt: 2, additions: [{ id: 'add-b1', bottleName: 'Weller 12', amountMl: 200, date: '2026-01-01', createdAt: 1 }], tastings: [] }],
+      },
+      {
+        id: 'ib-c',
+        name: 'Rye Project',
+        capacityMl: 750,
+        archived: false,
+        createdAt: 3,
+        batches: [{ id: 'batch-c', status: 'active', startedAt: 3, additions: [{ id: 'add-c1', bottleName: 'Rittenhouse', amountMl: 150, date: '2026-01-01', createdAt: 1 }], tastings: [] }],
+      },
+    ]
+    return doc
+  }
+
+  it('1-2-3: creating a first, second, and third Infinity Bottle appends each one, never replacing the array', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(emptyDoc())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    const idA = await result.current.createInfinityBottle({ name: 'Backdraft Batch' })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    const idB = await result.current.createInfinityBottle({ name: 'House Blend #1' })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(2))
+
+    const idC = await result.current.createInfinityBottle({ name: 'Rye Project' })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+
+    const ids = result.current.userDoc.infinityBottles.map((ib) => ib.id)
+    expect(ids).toEqual([idA, idB, idC])
+    expect(result.current.userDoc.infinityBottles.map((ib) => ib.name)).toEqual(['Backdraft Batch', 'House Blend #1', 'Rye Project'])
+    // Every one of the three stays active — creating C never archived A or B.
+    expect(result.current.userDoc.infinityBottles.every((ib) => !ib.archived)).toBe(true)
+  })
+
+  it('4-5: a third Infinity Bottle can be added on top of two existing ones without disturbing them', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    const [a, b] = doc.infinityBottles
+    doc.infinityBottles = [a!, b!]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(2))
+
+    await result.current.createInfinityBottle({ name: 'Rye Project' })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+    expect(result.current.userDoc.infinityBottles[0]).toEqual(a)
+    expect(result.current.userDoc.infinityBottles[1]).toEqual(b)
+    expect(result.current.userDoc.infinityBottles[2]?.name).toBe('Rye Project')
+  })
+
+  it('6: Add to Blend (addBlendAddition) on bottle A does not change bottle B or C', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+    const before = result.current.userDoc.infinityBottles
+
+    await result.current.addBlendAddition('ib-a', 'batch-a', {
+      sourceBottleId: 'src-weller107',
+      bottleName: 'Weller 107',
+      amountMl: 60,
+      date: '2026-02-01',
+    })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')?.batches[0]?.additions).toHaveLength(2))
+    const afterA = result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')!
+    expect(afterA.batches[0]?.additions.some((a) => a.bottleName === 'Weller 107')).toBe(true)
+
+    const afterB = result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-b')!
+    const afterC = result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-c')!
+    expect(afterB).toEqual(before.find((ib) => ib.id === 'ib-b'))
+    expect(afterC).toEqual(before.find((ib) => ib.id === 'ib-c'))
+  })
+
+  it('7: a tasting logged on bottle B does not appear under bottle A or C', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+
+    await result.current.addTasting('ib-b', 'batch-b', {
+      date: '2026-02-01',
+      score: 8,
+      noseAromas: [],
+      palateFlavors: [],
+    })
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-b')?.batches[0]?.tastings).toHaveLength(1))
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')?.batches[0]?.tastings).toEqual([])
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-c')?.batches[0]?.tastings).toEqual([])
+  })
+
+  it('8: archiving bottle A does not archive B or C', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+
+    await result.current.archiveInfinityBottle('ib-a', true)
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')?.archived).toBe(true))
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-b')?.archived).toBe(false)
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-c')?.archived).toBe(false)
+  })
+
+  it('9: starting a new batch on A does not modify B or C in any way', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+    const before = result.current.userDoc.infinityBottles
+
+    await result.current.startNewBatch('ib-a', {})
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')?.batches).toHaveLength(2))
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-b')).toEqual(before.find((ib) => ib.id === 'ib-b'))
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-c')).toEqual(before.find((ib) => ib.id === 'ib-c'))
+  })
+
+  it('10: deleting bottle A leaves B and C completely untouched', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+    const before = result.current.userDoc.infinityBottles
+
+    await result.current.deleteInfinityBottle('ib-a')
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(2))
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')).toBeUndefined()
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-b')).toEqual(before.find((ib) => ib.id === 'ib-b'))
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-c')).toEqual(before.find((ib) => ib.id === 'ib-c'))
+  })
+
+  it('11: refetching (simulating a refresh) preserves all three Infinity Bottles exactly', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    mockFetchUserDoc.mockResolvedValueOnce(doc)
+
+    const { result, rerender } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-2' }, loading: false })
+    mockFetchUserDoc.mockResolvedValueOnce(threeBottleDoc())
+    rerender()
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+    expect(result.current.userDoc.infinityBottles.map((ib) => ib.id)).toEqual(['ib-a', 'ib-b', 'ib-c'])
+  })
+
+  it('13: no mutator reaches into infinityBottles[0] — every mutation is scoped strictly by the id argument passed in', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = threeBottleDoc()
+    // Reorder so ib-c is at index 0 — if any mutator secretly used
+    // infinityBottles[0] instead of the id argument, this would catch it.
+    doc.infinityBottles = [doc.infinityBottles[2]!, doc.infinityBottles[0]!, doc.infinityBottles[1]!]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(3))
+
+    await result.current.updateInfinityBottle('ib-b', { name: 'Renamed Blend' })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-b')?.name).toBe('Renamed Blend'))
+
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')?.name).toBe('Backdraft Batch')
+    expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-c')?.name).toBe('Rye Project')
+  })
+})

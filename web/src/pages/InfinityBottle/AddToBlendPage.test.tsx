@@ -118,4 +118,23 @@ describe('AddToBlendPage', () => {
     render(<AddToBlendPage />)
     expect(screen.getByText("We couldn't find that Infinity Bottle.")).toBeInTheDocument()
   })
+
+  it('resolves the Infinity Bottle by route id — adding to it never touches a sibling Infinity Bottle', async () => {
+    mockInfinityBottles = [
+      ib({ id: 'ib-a', name: 'Not This One', batches: [{ id: 'batch-a', status: 'active', startedAt: 1, additions: [], tastings: [] }] }),
+      ib({ id: 'ib1', name: 'Backdraft Batch', batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] }),
+      ib({ id: 'ib-c', name: 'Also Not This One', batches: [{ id: 'batch-c', status: 'active', startedAt: 1, additions: [], tastings: [] }] }),
+    ]
+
+    render(<AddToBlendPage />)
+    await userEvent.click(screen.getByText('Eagle Rare').closest('button')!)
+    await userEvent.click(screen.getByRole('button', { name: '60ml' }))
+    await userEvent.click(screen.getByRole('button', { name: /Add 60ml to Blend/ }))
+
+    // mockParams.id is 'ib1' — the mutation must target that exact
+    // Infinity Bottle and batch, not whichever one happens to sit first
+    // in userDoc.infinityBottles.
+    expect(mockAddBlendAddition).toHaveBeenCalledWith('ib1', 'b1', expect.any(Object))
+    expect(mockNavigate).toHaveBeenCalledWith('/collection/infinity/ib1')
+  })
 })

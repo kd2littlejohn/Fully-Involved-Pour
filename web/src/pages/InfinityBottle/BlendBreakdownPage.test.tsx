@@ -213,4 +213,32 @@ describe('BlendBreakdownPage', () => {
     // No proof was ever captured on the legacy record — never fabricated.
     expect(screen.getByText('Unavailable')).toBeInTheDocument()
   })
+
+  it('resolves the Infinity Bottle by route id among several — never falls back to whichever is first in the array', () => {
+    mockInfinityBottles = [
+      ib({ id: 'ib-a', name: 'Not This One', batches: [{ id: 'batch-a', status: 'active', startedAt: 1, additions: [], tastings: [] }] }),
+      ib({
+        id: 'ib1',
+        name: 'Backdraft Batch',
+        batches: [
+          {
+            id: 'b1',
+            name: 'First Due',
+            status: 'active',
+            startedAt: 1,
+            additions: [{ id: 'a1', bottleName: 'Eagle Rare', amountMl: 100, date: '2026-01-01', createdAt: 1 }],
+            tastings: [],
+          },
+        ],
+      }),
+      ib({ id: 'ib-c', name: 'Also Not This One', batches: [{ id: 'batch-c', status: 'active', startedAt: 1, additions: [], tastings: [] }] }),
+    ]
+    render(<BlendBreakdownPage />)
+
+    // mockParams.id is 'ib1' — only that vessel's batch/data should render.
+    expect(screen.getByText('Backdraft Batch - First Due')).toBeInTheDocument()
+    expect(screen.queryByText('Not This One')).not.toBeInTheDocument()
+    expect(screen.queryByText('Also Not This One')).not.toBeInTheDocument()
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+  })
 })
