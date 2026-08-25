@@ -44,27 +44,22 @@
   background: var(--fip-error);
 }
 
-.confirmOverlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--fip-space-2);
-  padding: var(--fip-space-3);
-  background: rgba(0, 0, 0, 0.8);
-  text-align: center;
-}
-
 .confirmText {
-  color: var(--fip-cream);
-  font-size: var(--fip-text-xs);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  margin-bottom: var(--fip-space-4);
 }
 
 .confirmActions {
   display: flex;
+  justify-content: flex-end;
   gap: var(--fip-space-2);
+}
+
+.error {
+  margin: 0 0 var(--fip-space-3);
+  color: var(--fip-error);
+  font-size: var(--fip-text-xs);
 }
 
 .caption {

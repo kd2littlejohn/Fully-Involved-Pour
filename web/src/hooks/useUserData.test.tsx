@@ -595,7 +595,47 @@ describe('useUserData — Storage cleanup on delete', () => {
 
     await waitFor(() => expect(result.current.userDoc.bottles[0]?.gallery).toHaveLength(1))
     expect(result.current.userDoc.bottles[0]?.gallery?.[0]?.url).toBe('https://x/g2.jpg')
+    expect(mockSaveUserDoc).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ bottles: [expect.objectContaining({ gallery: [expect.objectContaining({ url: 'https://x/g2.jpg' })] })] }),
+    )
     expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('bottle-photos/user-1/1-g1.jpg')
     expect(mockDeletePhotoIfSafe).not.toHaveBeenCalledWith('bottle-photos/user-1/1-g2.jpg')
+  })
+
+  // Regression test for a real bug: deleteGalleryPhoto used to update local
+  // state optimistically before the Firestore write resolved, so a failed
+  // save still showed the photo as gone — surviving only until the next
+  // fetch (e.g. a refresh) brought the old data right back. It must now wait
+  // for the write to actually succeed before touching local state at all.
+  it('leaves the photo in place and never touches Storage if the Firestore write fails', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue({
+      bottles: [
+        {
+          id: 'b1',
+          name: 'Eagle Rare',
+          status: 'open',
+          gallery: [{ url: 'https://x/g1.jpg', storagePath: 'bottle-photos/user-1/1-g1.jpg' }],
+        },
+      ],
+      pours: [],
+      memories: [],
+      infinityBottles: [],
+      customLibrary: [],
+      people: [],
+    })
+    mockSaveUserDoc.mockRejectedValueOnce(new Error('simulated Firestore write failure'))
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.gallery).toHaveLength(1))
+
+    await expect(result.current.deleteGalleryPhoto('b1', 'https://x/g1.jpg')).rejects.toThrow(
+      'simulated Firestore write failure',
+    )
+
+    expect(result.current.userDoc.bottles[0]?.gallery).toHaveLength(1)
+    expect(result.current.userDoc.bottles[0]?.gallery?.[0]?.url).toBe('https://x/g1.jpg')
+    expect(mockDeletePhotoIfSafe).not.toHaveBeenCalled()
   })
 })

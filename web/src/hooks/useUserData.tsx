@@ -498,10 +498,20 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
         b.id === bottleId ? { ...b, gallery: (b.gallery ?? []).filter((p) => p.url !== photoUrl) } : b,
       )
       const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      // Deliberately NOT optimistic, unlike most other mutators here: the
+      // Firestore write is awaited FIRST, and local state only updates once
+      // it actually succeeds. A delete is exactly the case where showing
+      // "gone" before it's actually persisted is worse than a brief wait —
+      // if the write fails, the photo must still be there after a refresh,
+      // not just missing from a stale local render (see GalleryTab.tsx,
+      // which surfaces a retryable error on failure instead of silently
+      // leaving the UI ahead of Firestore).
+      if (!mockMode) {
+        await saveUserDoc(user.uid, { bottles: nextBottles })
+        writeCachedUserDoc(user.uid, nextDoc)
+      }
       setUserDoc(nextDoc)
       if (mockMode) return
-      writeCachedUserDoc(user.uid, nextDoc)
-      await saveUserDoc(user.uid, { bottles: nextBottles })
       void deletePhotoIfSafe(removedPhoto?.storagePath)
     },
     [user, userDoc, mockMode],
