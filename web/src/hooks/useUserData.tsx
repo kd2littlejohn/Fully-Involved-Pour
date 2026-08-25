@@ -12,6 +12,7 @@ import { findMatchingPerson, normalizePersonName } from '../features/pourWizard/
 import { deletePhotoIfSafe } from '../features/photoUpload/uploadPhoto'
 import { deleteSharedMomentsForStory } from '../data/repositories/sharedMoments'
 import { estimatedProof } from '../features/infinityBottle/selectors'
+import { normalizeInfinityBottles } from '../features/infinityBottle/migrateInfinityBottle'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type BlendAddition,
@@ -127,6 +128,20 @@ function generateId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
+// Every load path (mock fixture, local-storage bootstrap cache, and the
+// real Firestore fetch) runs through here before the doc ever reaches
+// setUserDoc/rendering — guarantees no page ever sees an Infinity Bottle
+// record without a real `batches` array, whether it's the pre-batch legacy
+// shape or just missing an optional field. `migrated` tells the caller
+// whether the *raw* record needed a real one-time conversion (legacy
+// shape) — never true for an already-batches-shaped record that only had
+// a sparse field filled in — so callers know when a Firestore write-back
+// is actually warranted.
+function withNormalizedInfinityBottles(doc: UserDoc): { doc: UserDoc; migrated: boolean } {
+  const { infinityBottles, migrated } = normalizeInfinityBottles(doc.infinityBottles)
+  return { doc: { ...doc, infinityBottles }, migrated }
+}
+
 export function UserDataProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth()
   const mockMode = isMockAuthEnabled()
@@ -165,7 +180,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       let cancelled = false
       import('../data/mockData').then(({ MOCK_USER_DOC }) => {
         if (cancelled) return
-        setUserDoc(MOCK_USER_DOC)
+        setUserDoc(withNormalizedInfinityBottles(MOCK_USER_DOC).doc)
         setDataLoading(false)
       })
       return () => {
@@ -175,7 +190,10 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
 
     const cached = readCachedUserDoc(user.uid)
     if (cached) {
-      setUserDoc(cached)
+      // Defensive-only here — never persisted. The cache is a fast bootstrap
+      // paint; the real Firestore fetch below is the one that decides
+      // whether a migration write-back is actually needed.
+      setUserDoc(withNormalizedInfinityBottles(cached).doc)
       setDataLoading(false)
     } else {
       setDataLoading(true)
@@ -184,9 +202,20 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     fetchUserDoc(user.uid).then((doc) => {
       if (cancelled) return
-      setUserDoc(doc)
+      const { doc: normalized, migrated } = withNormalizedInfinityBottles(doc)
+      setUserDoc(normalized)
       setDataLoading(false)
-      writeCachedUserDoc(user.uid, doc)
+      writeCachedUserDoc(user.uid, normalized)
+      // One-time, idempotent migration write-back for legacy Infinity
+      // Bottle records — fire-and-forget (same best-effort convention as
+      // deletePhotoIfSafe elsewhere) so a slow/failed write never blocks
+      // the page; if it fails, normalization still protects rendering and
+      // the next load simply retries.
+      if (migrated) {
+        void saveUserDoc(user.uid, { infinityBottles: normalized.infinityBottles }).catch((err) => {
+          console.error('Infinity Bottle migration write failed', err)
+        })
+      }
     })
 
     return () => {

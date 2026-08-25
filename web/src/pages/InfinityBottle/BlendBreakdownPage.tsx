@@ -4,6 +4,7 @@ import {
   batchComposition,
   batchDisplayName,
   batchVolumeMl,
+  displayBatch,
   estimatedProof,
   latestTasting,
   resolveAdditionSourceBottle,
@@ -24,7 +25,7 @@ export function BlendBreakdownPage() {
   const { userDoc } = useUserData()
 
   const ib = userDoc.infinityBottles.find((b) => b.id === id)
-  const batch = ib ? ib.batches[ib.batches.length - 1] : undefined
+  const batch = ib ? displayBatch(ib) : undefined
 
   if (!ib || !batch) {
     return (

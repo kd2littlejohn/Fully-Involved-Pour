@@ -1,0 +1,6 @@
+.actions {
+  display: flex;
+  gap: var(--fip-space-3);
+  flex-wrap: wrap;
+  justify-content: center;
+}

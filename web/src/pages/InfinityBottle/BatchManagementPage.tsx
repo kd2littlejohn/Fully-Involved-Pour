@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { InfinityBottleHeader } from '../../features/infinityBottle/InfinityBottleHeader'
-import { batchDisplayName, batchVolumeMl, BLEND_GOAL_LABELS } from '../../features/infinityBottle/selectors'
+import { batchDisplayName, batchVolumeMl, displayBatch, BLEND_GOAL_LABELS } from '../../features/infinityBottle/selectors'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { Field, controlClassName } from '../../components/ui/Field'
@@ -47,7 +47,7 @@ export function BatchManagementPage() {
   const { userDoc, updateInfinityBottle, completeBatch, startNewBatch, deleteInfinityBottle } = useUserData()
 
   const ib = userDoc.infinityBottles.find((b) => b.id === id)
-  const batch = ib?.batches[ib.batches.length - 1]
+  const batch = ib ? displayBatch(ib) : undefined
 
   const [mode, setMode] = useState<Mode>('none')
   const [busy, setBusy] = useState(false)

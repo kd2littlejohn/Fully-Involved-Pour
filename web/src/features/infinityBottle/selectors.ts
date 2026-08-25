@@ -2,15 +2,20 @@ import type { Bottle, InfinityBatch, InfinityBottle, InfinityTasting } from '../
 
 export function currentBatch(ib: InfinityBottle): InfinityBatch | undefined {
   if (ib.archived) return undefined
-  return ib.batches[ib.batches.length - 1]
+  return displayBatch(ib)
 }
 
 // The batch a screen should actually show — the current one if the vessel
 // is active, otherwise its own most recent (now-complete) batch, so an
 // archived Infinity Bottle's detail pages still render its last blend
 // instead of nothing.
+//
+// Defensive against `batches` being missing/empty even though every record
+// is normalized on load (see migrateInfinityBottle.ts) — a second layer so
+// a gap in that normalization never turns into a hard crash here.
 export function displayBatch(ib: InfinityBottle): InfinityBatch | undefined {
-  return ib.batches[ib.batches.length - 1]
+  const batches = ib.batches ?? []
+  return batches.length > 0 ? batches[batches.length - 1] : undefined
 }
 
 // "Backdraft Batch - First Due" — the batch is the primary user-facing

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlendBreakdownPage } from './BlendBreakdownPage'
+import { normalizeInfinityBottle } from '../../features/infinityBottle/migrateInfinityBottle'
 import type { Bottle, InfinityBottle } from '../../data/types'
 
 const mockNavigate = vi.fn()
@@ -189,5 +190,27 @@ describe('BlendBreakdownPage', () => {
     render(<BlendBreakdownPage />)
     await userEvent.click(screen.getByRole('button', { name: 'Batch management' }))
     expect(mockNavigate).toHaveBeenCalledWith('/collection/infinity/ib1/manage')
+  })
+
+  // Regression coverage for the legacy-schema production crash: render the
+  // actual output of the migration helper (not a hand-authored new-format
+  // fixture) to prove a real migrated record renders correctly end to end.
+  it('renders a batch produced by migrating a legacy flat-additions record', () => {
+    const { bottle } = normalizeInfinityBottle({
+      id: 'ib1',
+      name: 'Backdraft Batch',
+      additions: [
+        { bottleId: 'src1', name: 'Eagle Rare 10 Year', amount: '2 oz', date: '2025-01-01' },
+        { name: 'A splash from a friend', amount: 'a splash' },
+      ],
+    })
+    mockInfinityBottles = [bottle]
+    render(<BlendBreakdownPage />)
+
+    expect(screen.getByText('Backdraft Batch - Batch 1')).toBeInTheDocument()
+    expect(screen.getByText((_, element) => element?.textContent === 'Added 59ml Eagle Rare 10 Year')).toBeInTheDocument()
+    expect(screen.getByText('Why I Added It: Legacy amount: a splash')).toBeInTheDocument()
+    // No proof was ever captured on the legacy record — never fabricated.
+    expect(screen.getByText('Unavailable')).toBeInTheDocument()
   })
 })

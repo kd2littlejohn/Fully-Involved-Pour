@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { InfinityBottleHeader } from '../../features/infinityBottle/InfinityBottleHeader'
 import { TastingForm, blankTastingValue, tastingValueToInput, type TastingFormValue } from '../../features/infinityBottle/TastingForm'
+import { displayBatch } from '../../features/infinityBottle/selectors'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { useUserData } from '../../hooks/useUserData'
 import styles from './LogTastingPage.module.css'
@@ -14,7 +15,7 @@ export function LogTastingPage() {
   const [saving, setSaving] = useState(false)
 
   const ib = userDoc.infinityBottles.find((b) => b.id === id)
-  const batch = ib?.batches[ib.batches.length - 1]
+  const batch = ib ? displayBatch(ib) : undefined
 
   if (!ib || !batch) {
     return (

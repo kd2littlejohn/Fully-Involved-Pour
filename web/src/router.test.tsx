@@ -37,4 +37,20 @@ describe('router', () => {
       expect(matchPath(pathname), `expected ${pathname} to still resolve`).not.toBeNull()
     }
   })
+
+  it('every Infinity Bottle route still resolves and carries an errorElement so a page crash cannot blank the whole app', () => {
+    for (const pathname of [
+      '/collection/infinity',
+      '/collection/infinity/abc123',
+      '/collection/infinity/abc123/add',
+      '/collection/infinity/abc123/tastings',
+      '/collection/infinity/abc123/tastings/new',
+      '/collection/infinity/abc123/manage',
+    ]) {
+      const match = matchPath(pathname)
+      expect(match, `expected ${pathname} to still resolve`).not.toBeNull()
+      const hasErrorBoundary = match!.some((m) => m.route.errorElement != null)
+      expect(hasErrorBoundary, `expected ${pathname} to have an errorElement in its route chain`).toBe(true)
+    }
+  })
 })

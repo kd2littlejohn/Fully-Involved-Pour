@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { InfinityBottleHeader } from '../../features/infinityBottle/InfinityBottleHeader'
+import { displayBatch } from '../../features/infinityBottle/selectors'
 import { Button } from '../../components/ui/Button'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -32,7 +33,7 @@ export function AddToBlendPage() {
   const [saving, setSaving] = useState(false)
 
   const ib = userDoc.infinityBottles.find((b) => b.id === id)
-  const batch = ib?.batches[ib.batches.length - 1]
+  const batch = ib ? displayBatch(ib) : undefined
 
   const availableBottles = userDoc.bottles
     .filter((b) => b.status === 'open')

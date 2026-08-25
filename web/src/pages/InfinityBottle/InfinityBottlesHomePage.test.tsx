@@ -116,4 +116,17 @@ describe('InfinityBottlesHomePage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'View Blend' }))
     expect(mockNavigate).toHaveBeenCalledWith('/collection/infinity/ib1')
   })
+
+  // Regression test for the production crash this page's rendering used to
+  // throw ("undefined is not an object (evaluating 'e.batches.length')")
+  // when a record still had the legacy flat-additions shape and no
+  // `batches` at all. useUserData normalizes on load in the real app, but
+  // this asserts the page itself is defense-in-depth safe even if a record
+  // somehow reaches it un-normalized.
+  it('does not crash when an Infinity Bottle record has no batches array at all (legacy shape)', () => {
+    mockInfinityBottles = [
+      { id: 'legacy-1', name: 'Old Blend', additions: [{ name: 'Eagle Rare', amount: '2 oz' }] } as unknown as InfinityBottle,
+    ]
+    expect(() => render(<InfinityBottlesHomePage />)).not.toThrow()
+  })
 })

@@ -1020,3 +1020,125 @@ describe('useUserData — Infinity Bottle', () => {
     expect(result.current.userDoc.infinityBottles[0]?.batches[1]?.additions[0]?.proof).toBeUndefined()
   })
 })
+
+describe('useUserData — legacy Infinity Bottle migration on load', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+  })
+
+  function emptyDoc(): UserDoc {
+    return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
+  }
+
+  // A legacy, pre-batch record shaped exactly like production data written
+  // by the old InfinityBottleButton — no `batches`, no `archived`, no
+  // `createdAt`, a flat `additions` array with free-text `amount`.
+  function legacyDocFixture(): UserDoc {
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      {
+        id: 'legacy-ib-1',
+        name: 'Backdraft Batch',
+        notes: 'started with leftovers',
+        additions: [
+          { bottleId: 'src1', name: 'Eagle Rare 10 Year', amount: '2 oz', date: '2025-01-01' },
+          { bottleId: 'src2', name: 'Weller Special Reserve', amount: '60ml', date: '2025-02-01' },
+        ],
+        // Intentionally no `batches`, `archived`, or `createdAt` — the exact
+        // shape that used to crash every Infinity Bottle page on
+        // `ib.batches.length`.
+      } as unknown as UserDoc['infinityBottles'][number],
+    ]
+    return doc
+  }
+
+  it('normalizes a legacy record into batches before it ever reaches userDoc — no crash, no empty-looking blend', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(legacyDocFixture())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles).toHaveLength(1))
+
+    const ib = result.current.userDoc.infinityBottles[0]!
+    expect(ib.batches).toHaveLength(1)
+    expect(ib.batches[0]?.additions).toHaveLength(2)
+    expect(ib.batches[0]?.additions[0]?.bottleName).toBe('Eagle Rare 10 Year')
+    expect(ib.batches[0]?.additions[0]?.sourceBottleId).toBe('src1')
+  })
+
+  it('persists the migrated shape back to Firestore exactly once', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(legacyDocFixture())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
+
+    await waitFor(() => expect(mockSaveUserDoc).toHaveBeenCalled())
+    const migrationCalls = mockSaveUserDoc.mock.calls.filter(([, patch]) => (patch as Partial<UserDoc>).infinityBottles)
+    expect(migrationCalls).toHaveLength(1)
+
+    const [uid, patch] = migrationCalls[0]!
+    expect(uid).toBe('user-1')
+    const migratedBottles = (patch as Partial<UserDoc>).infinityBottles!
+    expect(migratedBottles[0]?.batches).toHaveLength(1)
+    expect(migratedBottles[0]?.batches[0]?.additions).toHaveLength(2)
+  })
+
+  it('does not write anything when every Infinity Bottle record is already in the new format', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.infinityBottles = [
+      { id: 'ib1', name: 'House Blend', archived: false, createdAt: 1, batches: [{ id: 'b1', status: 'active', startedAt: 1, additions: [], tastings: [] }] },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    // Give any stray async migration write a chance to fire before asserting none did.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const migrationCalls = mockSaveUserDoc.mock.calls.filter(([, patch]) => (patch as Partial<UserDoc>).infinityBottles)
+    expect(migrationCalls).toHaveLength(0)
+  })
+
+  it('refreshing (re-fetching) after a successful migration does not migrate again', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValueOnce(legacyDocFixture())
+
+    const { result, rerender } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
+    await waitFor(() => expect(mockSaveUserDoc).toHaveBeenCalledTimes(1))
+
+    // Simulate a refresh: Firestore now serves back the already-migrated
+    // doc (what the write above actually persisted).
+    const migratedDoc: UserDoc = {
+      ...emptyDoc(),
+      infinityBottles: mockSaveUserDoc.mock.calls[0]![1].infinityBottles,
+    }
+    mockSaveUserDoc.mockClear()
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-2' }, loading: false })
+    mockFetchUserDoc.mockResolvedValueOnce(migratedDoc)
+    rerender()
+
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(mockSaveUserDoc).not.toHaveBeenCalled()
+  })
+
+  it('does not crash and does not migrate when there are no Infinity Bottles at all', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue(emptyDoc())
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.userDoc.infinityBottles).toEqual([])
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(mockSaveUserDoc).not.toHaveBeenCalled()
+  })
+})

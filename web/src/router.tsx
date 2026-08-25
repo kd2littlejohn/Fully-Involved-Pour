@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { createHashRouter, Navigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { RouteFallback } from './components/layout/RouteFallback'
+import { RouteErrorFallback } from './components/layout/RouteErrorFallback'
 
 const HomePage = lazy(() => import('./pages/Home/HomePage').then((m) => ({ default: m.HomePage })))
 const CollectionPage = lazy(() => import('./pages/Collection/CollectionPage').then((m) => ({ default: m.CollectionPage })))
@@ -76,12 +77,22 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
       // visible throughout, same as Bottle Details above. :id refers to the
       // vessel (InfinityBottle.id); the current batch is derived from it,
       // not addressed separately in the URL.
-      { path: '/collection/infinity', element: <InfinityBottlesHomePage /> },
-      { path: '/collection/infinity/:id', element: <BlendBreakdownPage /> },
-      { path: '/collection/infinity/:id/add', element: <AddToBlendPage /> },
-      { path: '/collection/infinity/:id/tastings', element: <TastingsPage /> },
-      { path: '/collection/infinity/:id/tastings/new', element: <LogTastingPage /> },
-      { path: '/collection/infinity/:id/manage', element: <BatchManagementPage /> },
+      //
+      // Wrapped in a pathless layout route so a crash on any of these six
+      // pages (e.g. malformed Infinity Bottle data) shows a branded error
+      // state in place of just this Outlet slot — AppShell's nav/header
+      // stay mounted — instead of React Router's raw stack-trace page.
+      {
+        errorElement: <RouteErrorFallback backTo="/collection" backLabel="Back to My Bar" />,
+        children: [
+          { path: '/collection/infinity', element: <InfinityBottlesHomePage /> },
+          { path: '/collection/infinity/:id', element: <BlendBreakdownPage /> },
+          { path: '/collection/infinity/:id/add', element: <AddToBlendPage /> },
+          { path: '/collection/infinity/:id/tastings', element: <TastingsPage /> },
+          { path: '/collection/infinity/:id/tastings/new', element: <LogTastingPage /> },
+          { path: '/collection/infinity/:id/manage', element: <BatchManagementPage /> },
+        ],
+      },
       { path: '/journal', element: <JournalPage /> },
       // "Journey" is the current label for this page (see navItems.ts), but
       // /journal stays the canonical URL — it's what's linked throughout the

@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { InfinityBottleHeader } from '../../features/infinityBottle/InfinityBottleHeader'
 import { ScoreEvolutionChart } from '../../features/infinityBottle/ScoreEvolutionChart'
 import { TastingDetailModal } from '../../features/infinityBottle/TastingDetailModal'
-import { averageScore, batchDisplayName, currentScore, scoreEvolution, sortedTastings } from '../../features/infinityBottle/selectors'
+import { averageScore, batchDisplayName, currentScore, displayBatch, scoreEvolution, sortedTastings } from '../../features/infinityBottle/selectors'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { fipTier } from '../../features/fip/tiers'
@@ -20,7 +20,7 @@ export function TastingsPage() {
   const [selected, setSelected] = useState<InfinityTasting | null>(null)
 
   const ib = userDoc.infinityBottles.find((b) => b.id === id)
-  const batch = ib?.batches[ib.batches.length - 1]
+  const batch = ib ? displayBatch(ib) : undefined
 
   if (!ib || !batch) {
     return (
