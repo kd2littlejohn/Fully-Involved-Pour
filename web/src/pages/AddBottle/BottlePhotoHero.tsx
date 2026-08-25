@@ -10,6 +10,8 @@ import styles from './BottlePhotoHero.module.css'
 export interface BottlePhotoChange {
   imageUrl: string | undefined
   originalImageUrl?: string
+  imageStoragePath?: string
+  originalImageStoragePath?: string
   imageProcessingStatus?: ImageProcessingStatus
 }
 

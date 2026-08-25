@@ -12,6 +12,41 @@
   object-fit: cover;
 }
 
+.photoMenu {
+  position: absolute;
+  top: var(--fip-space-3);
+  right: var(--fip-space-3);
+}
+
+.photoOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.error {
+  margin: 0 0 var(--fip-space-3);
+  color: var(--fip-error);
+  font-size: var(--fip-text-xs);
+}
+
 .meta {
   color: var(--fip-muted);
   font-size: var(--fip-text-sm);

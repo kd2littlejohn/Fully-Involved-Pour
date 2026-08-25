@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
+import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
 import { useAuth } from '../../hooks/useAuth'
 import { acceptSharedMoment } from '../../data/repositories/sharedMoments'
+import { hideSharedMomentForUser } from '../../data/hiddenSharedMoments'
 import { ReactionBar } from './ReactionBar'
 import { CommentsList } from './CommentsList'
 import type { SharedMoment } from '../../data/types'
@@ -38,11 +40,25 @@ export function SharedMomentCard({ moment, onChange, onTapBottle }: SharedMoment
     }
   }
 
+  // Local-only "don't show me this again" — never deletes the owner's
+  // original story, matching Blind Room's existing per-device hide pattern
+  // (see data/hiddenSharedMoments.ts).
+  function handleRemoveFromView() {
+    if (!user) return
+    hideSharedMomentForUser(user.uid, moment.id)
+    onChange?.()
+  }
+
+  const menuItems: OverflowMenuItem[] = [{ label: 'Remove from my view', onClick: handleRemoveFromView }]
+
   return (
     <div className={styles.card}>
-      <div className={styles.header}>
-        <span className={styles.owner}>{moment.ownerDisplayName || moment.ownerUsername}</span>
-        <span className={styles.eyebrow}>shared a Pour Story with you</span>
+      <div className={styles.headerRow}>
+        <div className={styles.header}>
+          <span className={styles.owner}>{moment.ownerDisplayName || moment.ownerUsername}</span>
+          <span className={styles.eyebrow}>shared a Pour Story with you</span>
+        </div>
+        <OverflowMenu items={menuItems} label="Shared story actions" />
       </div>
 
       {onTapBottle ? (

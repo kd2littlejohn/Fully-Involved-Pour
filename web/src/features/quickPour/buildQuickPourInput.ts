@@ -1,4 +1,5 @@
 import type { NewPourInput } from '../../hooks/useUserData'
+import type { PourMemoryPhoto } from '../../data/types'
 import { FIP_MAX } from '../fip/scoring'
 
 function round1(n: number): number {
@@ -14,7 +15,7 @@ export interface QuickPourInputParams {
   notes?: string
   companion?: string
   location?: string
-  photoUrl?: string
+  memoryPhoto?: PourMemoryPhoto
   sharedWithUids?: string[]
 }
 
@@ -32,7 +33,7 @@ export function buildQuickPourInput({
   notes,
   companion,
   location,
-  photoUrl,
+  memoryPhoto,
   sharedWithUids,
 }: QuickPourInputParams): NewPourInput {
   const total = round1(Math.max(0, Math.min(10, score)))
@@ -53,7 +54,7 @@ export function buildQuickPourInput({
     notes,
     companion,
     location,
-    photoUrl,
+    memoryPhoto,
     sharedWithUids: sharedWithUids && sharedWithUids.length > 0 ? sharedWithUids : undefined,
     fip: {
       nose,

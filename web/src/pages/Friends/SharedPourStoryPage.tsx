@@ -3,9 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
+import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
 import { useAuth } from '../../hooks/useAuth'
 import { useSharedPourStory } from '../../features/friends/useSharedPourStory'
 import { acceptSharedMoment } from '../../data/repositories/sharedMoments'
+import { hideSharedMomentForUser } from '../../data/hiddenSharedMoments'
 import { ReactionBar } from '../../features/friends/ReactionBar'
 import { CommentsList } from '../../features/friends/CommentsList'
 import { FriendBottleQuickView, type FriendBottleQuickViewTarget } from '../../features/friends/FriendBottleQuickView'
@@ -60,6 +62,17 @@ export function SharedPourStoryPage() {
     navigate(0)
   }
 
+  function handleRemoveFromView() {
+    if (!user) return
+    hideSharedMomentForUser(user.uid, moment.id)
+    navigate('/friends')
+  }
+
+  const isOwner = user ? moment.ownerId === user.uid : false
+  const menuItems: OverflowMenuItem[] = isOwner
+    ? []
+    : [{ label: 'Remove from my view', onClick: handleRemoveFromView }]
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -70,6 +83,11 @@ export function SharedPourStoryPage() {
           <div className={styles.eyebrow}>Pour Story (Shared)</div>
           <div className={styles.date}>{formatDate(moment.snapshot.date)}</div>
         </div>
+        {menuItems.length > 0 ? (
+          <div className={styles.headerMenu}>
+            <OverflowMenu items={menuItems} label="Shared story actions" />
+          </div>
+        ) : null}
       </div>
 
       {moment.snapshot.memory ? <p className={styles.memory}>{moment.snapshot.memory}</p> : null}

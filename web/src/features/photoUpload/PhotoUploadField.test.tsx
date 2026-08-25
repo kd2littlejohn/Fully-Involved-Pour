@@ -34,7 +34,7 @@ describe('PhotoUploadField', () => {
     await userEvent.upload(input, file)
 
     expect(mockUpload).toHaveBeenCalledWith('u1', file, 'memory-photos', expect.any(Function))
-    expect(onUploaded).toHaveBeenCalledWith('https://example.com/photo.jpg')
+    expect(onUploaded).toHaveBeenCalledWith('https://example.com/photo.jpg', 'memory-photos/u1/123-photo.jpg')
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:local-preview')
   })
 

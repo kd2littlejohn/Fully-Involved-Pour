@@ -8,9 +8,28 @@
   border: 1px solid var(--fip-border-subtle);
 }
 
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--fip-space-2);
+}
+
 .header {
   display: flex;
   flex-direction: column;
+}
+
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
+.confirmText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
 }
 
 .sender {

@@ -21,6 +21,8 @@ export type WouldReplace = 'yes' | 'maybe' | 'no'
 export interface GalleryPhoto {
   url: string
   caption?: string
+  // Storage object path behind url — see Memory.photoStoragePath for why.
+  storagePath?: string
 }
 
 export type ImageProcessingStatus = 'ready' | 'failed'
@@ -39,6 +41,10 @@ export interface Bottle {
   // The user's original, unprocessed upload — preserved so a photo is never
   // lost even if standardization fails or looks worse than the source.
   originalImageUrl?: string
+  // Storage object paths behind imageUrl/originalImageUrl — see
+  // Memory.photoStoragePath for why these are kept alongside the URLs.
+  imageStoragePath?: string
+  originalImageStoragePath?: string
   // Outcome of standardizing the *current* imageUrl. 'ready' = background
   // removed and centered on the FIP canvas; 'failed' = the plain original
   // was composited onto the same 4:5 canvas instead (still consistent
@@ -212,6 +218,11 @@ export interface Memory {
   occasion?: string
   story: string
   photoUrl?: string
+  // The Storage object path behind photoUrl — kept so deleting/replacing
+  // the photo can remove the exact underlying file, not just stop
+  // referencing its URL. Absent for legacy photos uploaded before this
+  // field existed, or under mock auth.
+  photoStoragePath?: string
   createdAt?: number
 }
 
@@ -285,6 +296,8 @@ export interface Profile {
   bio?: string
   location?: string
   photoURL?: string
+  // Storage object path behind photoURL — see Memory.photoStoragePath for why.
+  photoStoragePath?: string
   // Lowercase mirrors of username/displayName, kept in sync on every
   // profile write — Firestore only supports prefix-range queries on a
   // literal field value, so search (see data/repositories/profile.ts

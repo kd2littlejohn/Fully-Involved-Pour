@@ -9,6 +9,8 @@ import { syncSharedCollection } from '../data/repositories/sharedCollections'
 import { readCachedUserDoc, writeCachedUserDoc } from '../data/localCache'
 import { isMockAuthEnabled } from '../data/devMode'
 import { findMatchingPerson, normalizePersonName } from '../features/pourWizard/pourPeople'
+import { deletePhotoIfSafe } from '../features/photoUpload/uploadPhoto'
+import { deleteSharedMomentsForStory } from '../data/repositories/sharedMoments'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type Bottle,
@@ -30,7 +32,10 @@ export type PourPatch = Omit<Pour, 'id' | 'bottleId'>
 export type NewMemoryInput = Omit<Memory, 'id' | 'createdAt'>
 export type MemoryPatch = Omit<Memory, 'id' | 'createdAt'>
 export type ProfilePatch = Partial<
-  Pick<Profile, 'displayName' | 'bio' | 'location' | 'photoURL' | 'whiskeyIdentityTags' | 'whiskeyIdentityDescription' | 'privacy'>
+  Pick<
+    Profile,
+    'displayName' | 'bio' | 'location' | 'photoURL' | 'photoStoragePath' | 'whiskeyIdentityTags' | 'whiskeyIdentityDescription' | 'privacy'
+  >
 >
 
 interface UserDataState {
@@ -54,6 +59,7 @@ interface UserDataState {
   updateMemory: (memoryId: string, patch: MemoryPatch) => Promise<void>
   deleteMemory: (memoryId: string) => Promise<void>
   addGalleryPhoto: (bottleId: string, photo: GalleryPhoto) => Promise<void>
+  deleteGalleryPhoto: (bottleId: string, photoUrl: string) => Promise<void>
   createInfinityBottle: (name: string) => Promise<void>
   addInfinityAddition: (infinityBottleId: string, addition: InfinityBottleAddition) => Promise<void>
   claimUsername: (username: string) => Promise<void>
@@ -81,6 +87,7 @@ const UserDataContext = createContext<UserDataState>({
   updateMemory: async () => {},
   deleteMemory: async () => {},
   addGalleryPhoto: async () => {},
+  deleteGalleryPhoto: async () => {},
   createInfinityBottle: async () => {},
   addInfinityAddition: async () => {},
   claimUsername: async () => {},
@@ -261,18 +268,31 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     async (bottleIds: string[]) => {
       if (!user || bottleIds.length === 0) return
       const idSet = new Set(bottleIds)
+      const removedBottles = userDoc.bottles.filter((b) => idSet.has(b.id))
       const nextBottles = userDoc.bottles.filter((b) => !idSet.has(b.id))
       // Pour Stories are meaningless without their bottle — every render
       // path (Home, Journal, Compare) looks the bottle up and skips the
       // pour entirely if it's missing, so leaving them behind would just
       // silently orphan them. Memories keep an optional bottleId and
       // already render fine without a linked bottle, so they're untouched.
+      const removedPours = userDoc.pours.filter((p) => idSet.has(p.bottleId))
       const nextPours = userDoc.pours.filter((p) => !idSet.has(p.bottleId))
       const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles, pours: nextPours }
       setUserDoc(nextDoc)
       if (mockMode) return
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { bottles: nextBottles, pours: nextPours })
+      // Best-effort — never blocks the delete itself, and a failure here
+      // just leaves an orphaned Storage file rather than losing user data.
+      for (const bottle of removedBottles) {
+        void deletePhotoIfSafe(bottle.imageStoragePath)
+        void deletePhotoIfSafe(bottle.originalImageStoragePath)
+        for (const photo of bottle.gallery ?? []) void deletePhotoIfSafe(photo.storagePath)
+      }
+      for (const pour of removedPours) {
+        void deletePhotoIfSafe(pour.memoryPhoto?.storagePath)
+        void deleteSharedMomentsForStory(pour.id, user.uid)
+      }
     },
     [user, userDoc, mockMode],
   )
@@ -358,12 +378,19 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   const deletePour = useCallback(
     async (pourId: string) => {
       if (!user) return
+      const removedPour = userDoc.pours.find((p) => p.id === pourId)
       const nextPours = userDoc.pours.filter((p) => p.id !== pourId)
       const nextDoc: UserDoc = { ...userDoc, pours: nextPours }
       setUserDoc(nextDoc)
       if (mockMode) return
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { pours: nextPours })
+      // Best-effort — never blocks the delete itself. Also cleans up any
+      // SharedMoment this pour was shared into, so deleting a Pour doesn't
+      // leave a friend-visible copy referencing a story that no longer
+      // exists (see sharedMoments.ts deleteSharedMomentsForStory).
+      void deletePhotoIfSafe(removedPour?.memoryPhoto?.storagePath)
+      void deleteSharedMomentsForStory(pourId, user.uid)
     },
     [user, userDoc, mockMode],
   )
@@ -437,12 +464,14 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
   const deleteMemory = useCallback(
     async (memoryId: string) => {
       if (!user) return
+      const removedMemory = userDoc.memories.find((m) => m.id === memoryId)
       const nextMemories = userDoc.memories.filter((m) => m.id !== memoryId)
       const nextDoc: UserDoc = { ...userDoc, memories: nextMemories }
       setUserDoc(nextDoc)
       if (mockMode) return
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { memories: nextMemories })
+      void deletePhotoIfSafe(removedMemory?.photoStoragePath)
     },
     [user, userDoc, mockMode],
   )
@@ -456,6 +485,24 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       if (mockMode) return
       writeCachedUserDoc(user.uid, nextDoc)
       await saveUserDoc(user.uid, { bottles: nextBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  const deleteGalleryPhoto = useCallback(
+    async (bottleId: string, photoUrl: string) => {
+      if (!user) return
+      const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+      const removedPhoto = bottle?.gallery?.find((p) => p.url === photoUrl)
+      const nextBottles = userDoc.bottles.map((b) =>
+        b.id === bottleId ? { ...b, gallery: (b.gallery ?? []).filter((p) => p.url !== photoUrl) } : b,
+      )
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+      void deletePhotoIfSafe(removedPhoto?.storagePath)
     },
     [user, userDoc, mockMode],
   )
@@ -561,6 +608,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateMemory,
       deleteMemory,
       addGalleryPhoto,
+      deleteGalleryPhoto,
       createInfinityBottle,
       addInfinityAddition,
       claimUsername,
@@ -588,6 +636,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateMemory,
       deleteMemory,
       addGalleryPhoto,
+      deleteGalleryPhoto,
       createInfinityBottle,
       addInfinityAddition,
       claimUsername,

@@ -9,6 +9,10 @@
   padding: var(--fip-space-4) var(--fip-shell-x) var(--fip-space-3);
 }
 
+.headerMenu {
+  margin-left: auto;
+}
+
 .back {
   display: inline-flex;
   align-items: center;

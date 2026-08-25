@@ -113,15 +113,55 @@ export async function acceptSharedMoment(id: string, uid: string): Promise<void>
   await updateDoc(doc(db, 'sharedMoments', id), { acceptedParticipantIds: [...data.acceptedParticipantIds, uid] })
 }
 
-// Owner-only — deletes the shared moment along with the implicit right to
-// react/comment/note on it (nothing else references it once gone).
+// Owner-only — deletes the shared moment, and cascades to every
+// storyComment/storyReaction attached to it first (both are separate
+// top-level collections keyed by sharedMomentId, not subcollections, so
+// they'd otherwise be left as orphaned documents pointing at a moment that
+// no longer exists).
 export async function deleteSharedMoment(id: string): Promise<void> {
   await ensureSeeded()
   if (isMockAuthEnabled()) {
+    for (const [key, comment] of mockComments) if (comment.sharedMomentId === id) mockComments.delete(key)
+    for (const [key, reaction] of mockReactions) if (reaction.sharedMomentId === id) mockReactions.delete(key)
     mockMoments.delete(id)
     return
   }
-  await deleteDoc(doc(db, 'sharedMoments', id))
+  const [comments, reactions] = await Promise.all([
+    getDocs(query(collection(db, 'storyComments'), where('sharedMomentId', '==', id))),
+    getDocs(query(collection(db, 'storyReactions'), where('sharedMomentId', '==', id))),
+  ])
+  await Promise.all([
+    ...comments.docs.map((d) => deleteDoc(d.ref)),
+    ...reactions.docs.map((d) => deleteDoc(d.ref)),
+    deleteDoc(doc(db, 'sharedMoments', id)),
+  ])
+}
+
+// Best-effort cleanup for a deleted Pour's shared copy (see
+// hooks/useUserData.tsx deletePour/deleteBottles) — only ever called with
+// the deleting user's own uid as ownerId, so this can never touch another
+// user's SharedMoment even though the query itself has no owner filter
+// built in; the ownerId check happens client-side before deleting. Never
+// throws — an orphaned SharedMoment is a much smaller problem than a
+// failed pour delete.
+export async function deleteSharedMomentsForStory(storyId: string, ownerId: string): Promise<void> {
+  await ensureSeeded()
+  try {
+    if (isMockAuthEnabled()) {
+      for (const [key, moment] of mockMoments) {
+        if (moment.storyId === storyId && moment.ownerId === ownerId) await deleteSharedMoment(key)
+      }
+      return
+    }
+    // A single equality filter — same "no composite index" discipline as
+    // getRecommendationsForRecipient above; the ownerId check is applied
+    // client-side rather than as a second `where` clause.
+    const snap = await getDocs(query(collection(db, 'sharedMoments'), where('storyId', '==', storyId)))
+    const owned = snap.docs.filter((d) => (d.data() as SharedMoment).ownerId === ownerId)
+    await Promise.all(owned.map((d) => deleteSharedMoment(d.id)))
+  } catch (err) {
+    console.error('[sharedMoments] deleteSharedMomentsForStory failed', { storyId, ownerId, err })
+  }
 }
 
 // --- Participant notes ("optionally add their own tasting impression" —

@@ -56,3 +56,12 @@
   color: var(--fip-cream);
   background: rgba(243, 231, 209, 0.055);
 }
+
+.danger {
+  background: var(--fip-error);
+  color: var(--fip-black);
+}
+
+.danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+}

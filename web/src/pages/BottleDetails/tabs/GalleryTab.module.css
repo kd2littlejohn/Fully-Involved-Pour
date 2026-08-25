@@ -11,10 +11,60 @@
   border: 1px solid var(--fip-border-subtle);
 }
 
+.imageWrap {
+  position: relative;
+}
+
 .image {
+  display: block;
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
+}
+
+.deleteButton {
+  position: absolute;
+  top: var(--fip-space-2);
+  right: var(--fip-space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: var(--fip-radius-round);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  background: var(--fip-error);
+}
+
+.confirmOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-3);
+  background: rgba(0, 0, 0, 0.8);
+  text-align: center;
+}
+
+.confirmText {
+  color: var(--fip-cream);
+  font-size: var(--fip-text-xs);
+}
+
+.confirmActions {
+  display: flex;
+  gap: var(--fip-space-2);
 }
 
 .caption {

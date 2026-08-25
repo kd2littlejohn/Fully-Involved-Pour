@@ -2,7 +2,13 @@ import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { uploadPhoto, NotAuthenticatedError, PhotoTooLargeError, UnsupportedFileTypeError } from '../../features/photoUpload/uploadPhoto'
+import {
+  uploadPhoto,
+  deletePhotoIfSafe,
+  NotAuthenticatedError,
+  PhotoTooLargeError,
+  UnsupportedFileTypeError,
+} from '../../features/photoUpload/uploadPhoto'
 import { UsernameTakenError } from '../../data/repositories/username'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { Button } from '../../components/ui/Button'
@@ -27,6 +33,7 @@ export function EditProfilePage() {
   const [location, setLocation] = useState(profile?.location ?? '')
   const [bio, setBio] = useState(profile?.bio ?? '')
   const [photoURL, setPhotoURL] = useState(profile?.photoURL)
+  const [photoStoragePath, setPhotoStoragePath] = useState(profile?.photoStoragePath)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
@@ -39,8 +46,9 @@ export function EditProfilePage() {
     setPhotoError(null)
     setPhotoUploading(true)
     try {
-      const { url } = await uploadPhoto(user?.uid, file, 'profile-photos')
+      const { url, path } = await uploadPhoto(user?.uid, file, 'profile-photos')
       setPhotoURL(url)
+      setPhotoStoragePath(path)
     } catch (err) {
       if (err instanceof NotAuthenticatedError || err instanceof PhotoTooLargeError || err instanceof UnsupportedFileTypeError) {
         setPhotoError(err.message)
@@ -50,6 +58,12 @@ export function EditProfilePage() {
     } finally {
       setPhotoUploading(false)
     }
+  }
+
+  function handleRemovePhoto() {
+    setPhotoURL(undefined)
+    setPhotoStoragePath(undefined)
+    setPhotoError(null)
   }
 
   function validate(): boolean {
@@ -80,7 +94,15 @@ export function EditProfilePage() {
         location: location.trim() || undefined,
         bio: bio.trim() || undefined,
         photoURL,
+        photoStoragePath,
       })
+      // Only cleaned up once the save has actually succeeded and the
+      // previous photo is confirmedly no longer referenced — deleting it
+      // eagerly on pick/remove would break the still-live old photo if the
+      // user replaced/removed it here and then cancelled out of the form.
+      if (profile?.photoStoragePath && profile.photoStoragePath !== photoStoragePath) {
+        void deletePhotoIfSafe(profile.photoStoragePath)
+      }
       navigate('/profile')
     } catch (err) {
       setSubmitError(err instanceof UsernameTakenError ? err.message : 'Could not save your profile. Try again.')
@@ -109,10 +131,23 @@ export function EditProfilePage() {
               </span>
             )}
           </div>
-          <label className={styles.photoButton}>
-            {photoUploading ? 'Uploading…' : 'Change Photo'}
-            <input type="file" accept="image/*" className={styles.photoInput} onChange={(e) => void handlePhotoChange(e)} disabled={photoUploading} />
-          </label>
+          <div className={styles.photoActions}>
+            <label className={styles.photoButton}>
+              {photoUploading ? 'Uploading…' : 'Change Photo'}
+              <input
+                type="file"
+                accept="image/*"
+                className={styles.photoInput}
+                onChange={(e) => void handlePhotoChange(e)}
+                disabled={photoUploading}
+              />
+            </label>
+            {photoURL ? (
+              <Button type="button" variant="ghost" onClick={handleRemovePhoto} disabled={photoUploading}>
+                Remove Photo
+              </Button>
+            ) : null}
+          </div>
         </div>
         {photoError ? (
           <p className={styles.fieldError} role="alert">

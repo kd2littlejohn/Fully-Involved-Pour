@@ -124,4 +124,22 @@ describe('SharedPourStoryPage', () => {
     renderPage()
     expect(screen.queryByRole('button', { name: 'Add to My Shared Memories' })).not.toBeInTheDocument()
   })
+
+  it('lets a participant remove the story from their own view, without deleting the owner’s original', async () => {
+    localStorage.clear()
+    mockUseSharedPourStory.mockReturnValue({ data: { moment, people }, loading: false, notFound: false })
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Shared story actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove from my view' }))
+
+    expect(localStorage.getItem('fip:hiddenSharedMoments:me')).toBe(JSON.stringify(['moment-1']))
+  })
+
+  it('offers no actions menu to the story’s own owner', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'friend-1' }, loading: false })
+    mockUseSharedPourStory.mockReturnValue({ data: { moment, people }, loading: false, notFound: false })
+    renderPage()
+    expect(screen.queryByRole('button', { name: 'Shared story actions' })).not.toBeInTheDocument()
+  })
 })

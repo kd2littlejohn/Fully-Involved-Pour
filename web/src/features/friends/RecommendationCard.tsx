@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
+import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
 import { useUserData } from '../../hooks/useUserData'
-import { setRecommendationStatus } from '../../data/repositories/recommendations'
+import { deleteRecommendation, setRecommendationStatus } from '../../data/repositories/recommendations'
 import type { Recommendation } from '../../data/types'
 import styles from './RecommendationCard.module.css'
 
@@ -17,6 +18,8 @@ interface RecommendationCardProps {
 export function RecommendationCard({ recommendation, onChange, onTapBottle }: RecommendationCardProps) {
   const { addBottle } = useUserData()
   const [busy, setBusy] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function handleAddToWishlist() {
     setBusy(true)
@@ -44,12 +47,40 @@ export function RecommendationCard({ recommendation, onChange, onTapBottle }: Re
     }
   }
 
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await deleteRecommendation(recommendation.id)
+      onChange?.()
+    } finally {
+      setDeleting(false)
+      setConfirmingDelete(false)
+    }
+  }
+
+  const menuItems: OverflowMenuItem[] = [{ label: 'Delete', tone: 'danger', onClick: () => setConfirmingDelete(true) }]
+
   return (
     <div className={styles.card}>
-      <div className={styles.header}>
-        <span className={styles.sender}>{recommendation.senderDisplayName || recommendation.senderUsername}</span>
-        <span className={styles.eyebrow}>recommended a bottle</span>
+      <div className={styles.headerRow}>
+        <div className={styles.header}>
+          <span className={styles.sender}>{recommendation.senderDisplayName || recommendation.senderUsername}</span>
+          <span className={styles.eyebrow}>recommended a bottle</span>
+        </div>
+        <OverflowMenu items={menuItems} label="Recommendation actions" />
       </div>
+
+      {confirmingDelete ? (
+        <div className={styles.confirm}>
+          <span className={styles.confirmText}>Delete this recommendation? This cannot be undone.</span>
+          <Button variant="ghost" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={() => void handleDelete()} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        </div>
+      ) : null}
       {onTapBottle ? (
         <button type="button" className={styles.body} onClick={onTapBottle}>
           {recommendation.bottleImageUrl ? <img className={styles.image} src={recommendation.bottleImageUrl} alt="" /> : null}

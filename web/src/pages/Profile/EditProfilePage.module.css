@@ -70,6 +70,13 @@
   font-size: var(--fip-text-xl);
 }
 
+.photoActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
 .photoButton {
   position: relative;
   display: inline-flex;

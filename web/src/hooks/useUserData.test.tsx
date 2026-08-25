@@ -10,6 +10,8 @@ const mockEnsureSearchableProfile = vi.fn()
 const mockReadCachedUserDoc = vi.fn()
 const mockSyncSharedCollection = vi.fn()
 const mockSaveUserDoc = vi.fn()
+const mockDeletePhotoIfSafe = vi.fn().mockResolvedValue(undefined)
+const mockDeleteSharedMomentsForStory = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('./useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -50,6 +52,14 @@ vi.mock('../data/repositories/sharedCollections', () => ({
 vi.mock('../data/localCache', () => ({
   readCachedUserDoc: (...args: unknown[]) => mockReadCachedUserDoc(...args),
   writeCachedUserDoc: vi.fn(),
+}))
+
+vi.mock('../features/photoUpload/uploadPhoto', () => ({
+  deletePhotoIfSafe: (...args: unknown[]) => mockDeletePhotoIfSafe(...args),
+}))
+
+vi.mock('../data/repositories/sharedMoments', () => ({
+  deleteSharedMomentsForStory: (...args: unknown[]) => mockDeleteSharedMomentsForStory(...args),
 }))
 
 function docWithOneBottle(name: string): UserDoc {
@@ -439,5 +449,153 @@ describe('useUserData — addOrReusePerson / updatePersonPhoto', () => {
     await result.current.updatePersonPhoto('p1', undefined)
 
     await waitFor(() => expect(result.current.userDoc.people[0]?.photoUrl).toBeUndefined())
+  })
+})
+
+describe('useUserData — Storage cleanup on delete', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+    mockDeletePhotoIfSafe.mockResolvedValue(undefined)
+    mockDeleteSharedMomentsForStory.mockResolvedValue(undefined)
+  })
+
+  it('deleteBottles cleans up the bottle image, original image, and every gallery photo, plus any of its pours’ memory photos', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue({
+      bottles: [
+        {
+          id: 'b1',
+          name: 'Eagle Rare',
+          status: 'open',
+          imageUrl: 'https://x/img.jpg',
+          imageStoragePath: 'bottle-photos/user-1/1-img.jpg',
+          originalImageUrl: 'https://x/orig.jpg',
+          originalImageStoragePath: 'bottle-photos/user-1/1-orig.jpg',
+          gallery: [{ url: 'https://x/g1.jpg', storagePath: 'bottle-photos/user-1/1-g1.jpg' }],
+        },
+      ],
+      pours: [
+        {
+          id: 'p1',
+          bottleId: 'b1',
+          date: '2026-08-14',
+          rating: 8.6,
+          memoryPhoto: { url: 'https://x/moment.jpg', storagePath: 'memory-photos/user-1/1-moment.jpg', createdAt: 1 },
+          fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.8, value: 1, total: 8.6, noseAromas: [], palateFlavors: [] },
+        },
+      ],
+      memories: [],
+      infinityBottles: [],
+      customLibrary: [],
+      people: [],
+    })
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.deleteBottle('b1')
+
+    await waitFor(() => {
+      expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('bottle-photos/user-1/1-img.jpg')
+      expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('bottle-photos/user-1/1-orig.jpg')
+      expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('bottle-photos/user-1/1-g1.jpg')
+      expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('memory-photos/user-1/1-moment.jpg')
+    })
+    expect(mockDeleteSharedMomentsForStory).toHaveBeenCalledWith('p1', 'user-1')
+  })
+
+  it('deletePour cleans up its memory photo and any SharedMoment it created', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue({
+      bottles: [],
+      pours: [
+        {
+          id: 'p1',
+          bottleId: 'b1',
+          date: '2026-08-14',
+          rating: 8.6,
+          memoryPhoto: { url: 'https://x/moment.jpg', storagePath: 'memory-photos/user-1/1-moment.jpg', createdAt: 1 },
+          fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.8, value: 1, total: 8.6, noseAromas: [], palateFlavors: [] },
+        },
+      ],
+      memories: [],
+      infinityBottles: [],
+      customLibrary: [],
+      people: [],
+    })
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.pours).toHaveLength(1))
+
+    await result.current.deletePour('p1')
+
+    await waitFor(() => expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('memory-photos/user-1/1-moment.jpg'))
+    expect(mockDeleteSharedMomentsForStory).toHaveBeenCalledWith('p1', 'user-1')
+  })
+
+  it('deleteMemory cleans up its photo', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue({
+      bottles: [],
+      pours: [],
+      memories: [
+        {
+          id: 'm1',
+          title: 'Porch night',
+          date: '2026-08-14',
+          people: [],
+          story: 'Great evening.',
+          photoUrl: 'https://x/photo.jpg',
+          photoStoragePath: 'memory-photos/user-1/1-photo.jpg',
+        },
+      ],
+      infinityBottles: [],
+      customLibrary: [],
+      people: [],
+    })
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.memories).toHaveLength(1))
+
+    await result.current.deleteMemory('m1')
+
+    await waitFor(() => expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('memory-photos/user-1/1-photo.jpg'))
+  })
+
+  it('deleteGalleryPhoto removes only the targeted photo and cleans up its storage file', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    mockFetchUserDoc.mockResolvedValue({
+      bottles: [
+        {
+          id: 'b1',
+          name: 'Eagle Rare',
+          status: 'open',
+          gallery: [
+            { url: 'https://x/g1.jpg', storagePath: 'bottle-photos/user-1/1-g1.jpg' },
+            { url: 'https://x/g2.jpg', storagePath: 'bottle-photos/user-1/1-g2.jpg' },
+          ],
+        },
+      ],
+      pours: [],
+      memories: [],
+      infinityBottles: [],
+      customLibrary: [],
+      people: [],
+    })
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.gallery).toHaveLength(2))
+
+    await result.current.deleteGalleryPhoto('b1', 'https://x/g1.jpg')
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.gallery).toHaveLength(1))
+    expect(result.current.userDoc.bottles[0]?.gallery?.[0]?.url).toBe('https://x/g2.jpg')
+    expect(mockDeletePhotoIfSafe).toHaveBeenCalledWith('bottle-photos/user-1/1-g1.jpg')
+    expect(mockDeletePhotoIfSafe).not.toHaveBeenCalledWith('bottle-photos/user-1/1-g2.jpg')
   })
 })

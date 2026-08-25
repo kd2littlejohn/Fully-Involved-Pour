@@ -304,6 +304,33 @@ describe('recommendations/{id}', () => {
     await assertSucceeds(updateDoc(doc(b.firestore(), 'recommendations', 'rec-1'), { status: 'added-to-wishlist' }))
     await assertFails(updateDoc(doc(b.firestore(), 'recommendations', 'rec-1'), { bottleName: 'Hijacked' }))
   })
+
+  it('the sender or the recipient can delete it, but a stranger cannot', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'recommendations', 'rec-1'), {
+        senderId: USER_A,
+        recipientId: USER_B,
+        status: 'pending',
+        bottleName: 'Eagle Rare',
+      })
+    })
+    const outsider = testEnv.authenticatedContext(OUTSIDER)
+    await assertFails(deleteDoc(doc(outsider.firestore(), 'recommendations', 'rec-1')))
+
+    const a = testEnv.authenticatedContext(USER_A)
+    await assertSucceeds(deleteDoc(doc(a.firestore(), 'recommendations', 'rec-1')))
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'recommendations', 'rec-2'), {
+        senderId: USER_A,
+        recipientId: USER_B,
+        status: 'pending',
+        bottleName: 'Eagle Rare',
+      })
+    })
+    const b = testEnv.authenticatedContext(USER_B)
+    await assertSucceeds(deleteDoc(doc(b.firestore(), 'recommendations', 'rec-2')))
+  })
 })
 
 // --- notifications/{id} — recipient-only read/update. -----------------------
@@ -389,6 +416,79 @@ describe('sharedMoments/{id}', () => {
 
     const owner = testEnv.authenticatedContext(USER_A)
     await assertSucceeds(deleteDoc(doc(owner.firestore(), 'sharedMoments', 'moment-1')))
+  })
+})
+
+// --- storyComments/{id} — deletable by its own author, or by the shared
+// moment's owner moderating their own story. ---------------------------------
+describe('storyComments/{id}', () => {
+  async function seedMomentAndComment() {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'sharedMoments', 'moment-1'), {
+        ownerId: USER_A,
+        participantIds: [USER_B],
+        acceptedParticipantIds: [],
+        bottleName: 'Eagle Rare',
+      })
+      await setDoc(doc(context.firestore(), 'storyComments', 'comment-1'), {
+        sharedMomentId: 'moment-1',
+        authorId: USER_B,
+        authorUsername: 'user-b',
+        text: 'Nice pour!',
+      })
+    })
+  }
+
+  it('the author can delete their own comment', async () => {
+    await seedMomentAndComment()
+    const author = testEnv.authenticatedContext(USER_B)
+    await assertSucceeds(deleteDoc(doc(author.firestore(), 'storyComments', 'comment-1')))
+  })
+
+  it('the shared moment’s owner can delete a comment on their own story (moderation)', async () => {
+    await seedMomentAndComment()
+    const owner = testEnv.authenticatedContext(USER_A)
+    await assertSucceeds(deleteDoc(doc(owner.firestore(), 'storyComments', 'comment-1')))
+  })
+
+  it('a stranger with no relationship to the comment or the story cannot delete it', async () => {
+    await seedMomentAndComment()
+    const outsider = testEnv.authenticatedContext(OUTSIDER)
+    await assertFails(deleteDoc(doc(outsider.firestore(), 'storyComments', 'comment-1')))
+  })
+})
+
+// --- storyReactions/{id} — one per person per story; only that person can
+// remove their own reaction. --------------------------------------------------
+describe('storyReactions/{id}', () => {
+  async function seedMomentAndReaction() {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'sharedMoments', 'moment-1'), {
+        ownerId: USER_A,
+        participantIds: [USER_B],
+        acceptedParticipantIds: [],
+        bottleName: 'Eagle Rare',
+      })
+      await setDoc(doc(context.firestore(), 'storyReactions', 'moment-1_user-b'), {
+        sharedMomentId: 'moment-1',
+        uid: USER_B,
+        type: 'cheers',
+      })
+    })
+  }
+
+  it('the reacting user can remove their own reaction', async () => {
+    await seedMomentAndReaction()
+    const b = testEnv.authenticatedContext(USER_B)
+    await assertSucceeds(deleteDoc(doc(b.firestore(), 'storyReactions', 'moment-1_user-b')))
+  })
+
+  it('nobody else — not even the story’s owner — can remove someone else’s reaction', async () => {
+    await seedMomentAndReaction()
+    const owner = testEnv.authenticatedContext(USER_A)
+    await assertFails(deleteDoc(doc(owner.firestore(), 'storyReactions', 'moment-1_user-b')))
+    const outsider = testEnv.authenticatedContext(OUTSIDER)
+    await assertFails(deleteDoc(doc(outsider.firestore(), 'storyReactions', 'moment-1_user-b')))
   })
 })
 

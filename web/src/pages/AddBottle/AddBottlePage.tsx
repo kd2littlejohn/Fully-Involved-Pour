@@ -7,6 +7,7 @@ import { EmptyState } from '../../components/ui/EmptyState'
 import { LinkButton } from '../../components/ui/LinkButton'
 import type { BottleStatus } from '../../data/types'
 import type { LabelScanResult } from '../../data/repositories/ai'
+import { deletePhotoIfSafe } from '../../features/photoUpload/uploadPhoto'
 import { BottlePhotoHero, type BottlePhotoChange } from './BottlePhotoHero'
 import { AddBottleEntryChoice } from './AddBottleEntryChoice'
 import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFieldsCard'
@@ -79,6 +80,8 @@ export function AddBottlePage() {
     setPhoto({
       imageUrl: existingBottle.imageUrl,
       originalImageUrl: existingBottle.originalImageUrl,
+      imageStoragePath: existingBottle.imageStoragePath,
+      originalImageStoragePath: existingBottle.originalImageStoragePath,
       imageProcessingStatus: existingBottle.imageProcessingStatus,
     })
     setEssential({
@@ -143,6 +146,8 @@ export function AddBottlePage() {
         mashBillMalted: essential.mashBillMalted ? Number(essential.mashBillMalted) : undefined,
         imageUrl: photo.imageUrl,
         originalImageUrl: photo.originalImageUrl,
+        imageStoragePath: photo.imageStoragePath,
+        originalImageStoragePath: photo.originalImageStoragePath,
         imageProcessingStatus: photo.imageProcessingStatus,
         status: ownership.status,
         price: ownership.price ? Number(ownership.price) : undefined,
@@ -159,6 +164,18 @@ export function AddBottlePage() {
       }
       if (isEditing && bottleId) {
         await updateBottle(bottleId, payload)
+        // Best-effort cleanup only after the save actually succeeds — never
+        // deletes a still-referenced file just because the user picked a
+        // new photo then cancelled out of the form before submitting.
+        if (existingBottle?.imageStoragePath && existingBottle.imageStoragePath !== payload.imageStoragePath) {
+          void deletePhotoIfSafe(existingBottle.imageStoragePath)
+        }
+        if (
+          existingBottle?.originalImageStoragePath &&
+          existingBottle.originalImageStoragePath !== payload.originalImageStoragePath
+        ) {
+          void deletePhotoIfSafe(existingBottle.originalImageStoragePath)
+        }
         navigate(`/collection/${bottleId}`)
       } else {
         const id = await addBottle(payload)

@@ -35,6 +35,8 @@ describe('standardizeAndUploadBottlePhoto', () => {
     expect(result).toEqual({
       imageUrl: 'https://example.com/display.jpg',
       originalImageUrl: 'https://example.com/original.jpg',
+      imageStoragePath: 'bottle-photos/u1/1-display.jpg',
+      originalImageStoragePath: 'bottle-photos/u1/1-original.jpg',
       imageProcessingStatus: 'ready',
     })
   })

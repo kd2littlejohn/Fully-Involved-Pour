@@ -9,7 +9,10 @@ interface PhotoUploadFieldProps {
   label: string
   folder: 'bottle-photos' | 'memory-photos' | 'pour-photos'
   currentUrl?: string
-  onUploaded: (url: string) => void
+  // path is the Storage object path behind url — passed through so callers
+  // can track it for later cleanup (delete/replace); optional because a
+  // caller that doesn't need cleanup can ignore the second argument.
+  onUploaded: (url: string, path?: string) => void
 }
 
 export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: PhotoUploadFieldProps) {
@@ -46,13 +49,13 @@ export function PhotoUploadField({ label, folder, currentUrl, onUploaded }: Phot
       // Bottle photos get a clean server-side background cutout; personal
       // memory snapshots stay as-is.
       const fileToUpload = folder === 'bottle-photos' ? await cutoutBottlePhoto(file) : file
-      const { url } = await uploadPhoto(user?.uid, fileToUpload, folder, setProgress)
+      const { url, path } = await uploadPhoto(user?.uid, fileToUpload, folder, setProgress)
       if (objectUrlRef.current) {
         URL.revokeObjectURL(objectUrlRef.current)
         objectUrlRef.current = null
       }
       setPreview(url)
-      onUploaded(url)
+      onUploaded(url, path)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Photo upload failed. Please try again.')
     } finally {

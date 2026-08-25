@@ -8,6 +8,7 @@ import {
   createSharedMoment,
   deleteComment,
   deleteSharedMoment,
+  deleteSharedMomentsForStory,
   getComments,
   getParticipantNotes,
   getReactions,
@@ -66,6 +67,70 @@ describe('deleteSharedMoment', () => {
     })
     await deleteSharedMoment(moment.id)
     expect(await getSharedMoment(moment.id)).toBeUndefined()
+  })
+
+  it('cascades to delete every comment and reaction on the moment, without touching unrelated ones', async () => {
+    const moment = await createSharedMoment({
+      storyId: 'p3b',
+      ownerId: 'owner3b',
+      ownerUsername: 'owner3b',
+      participantIds: ['friendX'],
+      snapshot: snapshot(),
+    })
+    const other = await createSharedMoment({
+      storyId: 'p3c',
+      ownerId: 'owner3b',
+      ownerUsername: 'owner3b',
+      participantIds: ['friendX'],
+      snapshot: snapshot(),
+    })
+    await addComment({ sharedMomentId: moment.id, authorId: 'friendX', authorUsername: 'friendx', text: 'Nice.' })
+    await addComment({ sharedMomentId: other.id, authorId: 'friendX', authorUsername: 'friendx', text: 'Also nice.' })
+    await setReaction(moment.id, 'friendX', 'cheers')
+    await setReaction(other.id, 'friendX', 'cheers')
+
+    await deleteSharedMoment(moment.id)
+
+    expect(await getComments(moment.id)).toEqual([])
+    expect(await getReactions(moment.id)).toEqual([])
+    expect((await getComments(other.id)).map((c) => c.text)).toEqual(['Also nice.'])
+    expect(await getReactions(other.id)).toHaveLength(1)
+  })
+})
+
+describe('deleteSharedMomentsForStory', () => {
+  it('deletes only moments the given owner created for that story', async () => {
+    const owned = await createSharedMoment({
+      storyId: 'story-1',
+      ownerId: 'owner4',
+      ownerUsername: 'owner4',
+      participantIds: [],
+      snapshot: snapshot(),
+    })
+    const differentOwner = await createSharedMoment({
+      storyId: 'story-1',
+      ownerId: 'someone-else',
+      ownerUsername: 'someone-else',
+      participantIds: [],
+      snapshot: snapshot(),
+    })
+    const differentStory = await createSharedMoment({
+      storyId: 'story-2',
+      ownerId: 'owner4',
+      ownerUsername: 'owner4',
+      participantIds: [],
+      snapshot: snapshot(),
+    })
+
+    await deleteSharedMomentsForStory('story-1', 'owner4')
+
+    expect(await getSharedMoment(owned.id)).toBeUndefined()
+    expect(await getSharedMoment(differentOwner.id)).toBeDefined()
+    expect(await getSharedMoment(differentStory.id)).toBeDefined()
+  })
+
+  it('never throws when there is nothing to delete', async () => {
+    await expect(deleteSharedMomentsForStory('no-such-story', 'nobody')).resolves.toBeUndefined()
   })
 })
 

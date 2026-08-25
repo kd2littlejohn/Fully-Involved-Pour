@@ -4,6 +4,7 @@ import type { NewMemoryInput } from '../../hooks/useUserData'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { Button } from '../../components/ui/Button'
 import { PhotoUploadField } from '../photoUpload/PhotoUploadField'
+import { deletePhotoIfSafe } from '../photoUpload/uploadPhoto'
 import styles from './MemoryForm.module.css'
 
 interface MemoryFormProps {
@@ -22,6 +23,7 @@ export function MemoryForm({ bottles, initial, onSubmit, onCancel }: MemoryFormP
   const [bottleId, setBottleId] = useState(initial?.bottleId ?? '')
   const [story, setStory] = useState(initial?.story ?? '')
   const [photoUrl, setPhotoUrl] = useState(initial?.photoUrl)
+  const [photoStoragePath, setPhotoStoragePath] = useState(initial?.photoStoragePath)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -50,6 +52,7 @@ export function MemoryForm({ bottles, initial, onSubmit, onCancel }: MemoryFormP
         bottleId: bottleId || undefined,
         story: story.trim(),
         photoUrl,
+        photoStoragePath,
       })
     } finally {
       setSubmitting(false)
@@ -123,7 +126,17 @@ export function MemoryForm({ bottles, initial, onSubmit, onCancel }: MemoryFormP
         </Field>
       ) : null}
 
-      <PhotoUploadField label="Photo (optional)" folder="memory-photos" currentUrl={photoUrl} onUploaded={setPhotoUrl} />
+      <PhotoUploadField
+        label="Photo (optional)"
+        folder="memory-photos"
+        currentUrl={photoUrl}
+        onUploaded={(url, path) => {
+          const oldPath = photoStoragePath
+          setPhotoUrl(url)
+          setPhotoStoragePath(path)
+          if (oldPath && oldPath !== path) void deletePhotoIfSafe(oldPath)
+        }}
+      />
 
       <Field label="The story" htmlFor="memory-story">
         <textarea

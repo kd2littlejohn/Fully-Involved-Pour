@@ -57,10 +57,10 @@ describe('buildQuickPourInput', () => {
     expect(input.companion).toBeUndefined()
     expect(input.notes).toBeUndefined()
     expect(input.location).toBeUndefined()
-    expect(input.photoUrl).toBeUndefined()
+    expect(input.memoryPhoto).toBeUndefined()
   })
 
-  it('carries through notes, companion, location, and photoUrl when given', () => {
+  it('carries through notes, companion, location, and memoryPhoto when given', () => {
     const input = buildQuickPourInput({
       bottleId: 'b1',
       date: '2026-08-14',
@@ -70,12 +70,12 @@ describe('buildQuickPourInput', () => {
       notes: 'Great porch pour',
       companion: 'Dave',
       location: 'Back porch',
-      photoUrl: 'https://example.com/photo.jpg',
+      memoryPhoto: { url: 'https://example.com/photo.jpg', storagePath: 'pour-photos/u1/1-photo.jpg', createdAt: 1 },
     })
 
     expect(input.notes).toBe('Great porch pour')
     expect(input.companion).toBe('Dave')
     expect(input.location).toBe('Back porch')
-    expect(input.photoUrl).toBe('https://example.com/photo.jpg')
+    expect(input.memoryPhoto).toEqual({ url: 'https://example.com/photo.jpg', storagePath: 'pour-photos/u1/1-photo.jpg', createdAt: 1 })
   })
 })

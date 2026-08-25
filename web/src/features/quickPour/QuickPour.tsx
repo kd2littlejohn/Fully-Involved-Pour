@@ -42,7 +42,8 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
   const [notes, setNotes] = useState('')
   const [companion, setCompanion] = useState('')
   const [location, setLocation] = useState('')
-  const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined)
+  const [memoryPhotoUrl, setMemoryPhotoUrl] = useState<string | undefined>(undefined)
+  const [memoryPhotoPath, setMemoryPhotoPath] = useState<string | undefined>(undefined)
   const [sharedWithUids, setSharedWithUids] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [savedPour, setSavedPour] = useState<Pour | null>(null)
@@ -70,7 +71,7 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
         notes: notes.trim() || undefined,
         companion: companion.trim() || undefined,
         location: location.trim() || undefined,
-        photoUrl,
+        memoryPhoto: memoryPhotoUrl ? { url: memoryPhotoUrl, storagePath: memoryPhotoPath, createdAt: Date.now() } : undefined,
         sharedWithUids,
       }),
     )
@@ -206,7 +207,14 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
                   placeholder="e.g. Back porch"
                 />
               </Field>
-              <PhotoUploadField label="Photo" folder="pour-photos" onUploaded={setPhotoUrl} />
+              <PhotoUploadField
+                label="Photo"
+                folder="pour-photos"
+                onUploaded={(url, path) => {
+                  setMemoryPhotoUrl(url)
+                  setMemoryPhotoPath(path)
+                }}
+              />
               <TagFriendsField uid={user?.uid} selectedUids={sharedWithUids} onChange={setSharedWithUids} />
             </div>
           </details>

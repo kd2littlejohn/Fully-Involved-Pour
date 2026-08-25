@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getSharedMomentsForParticipant } from '../../data/repositories/sharedMoments'
 import { getRecommendationsForRecipient } from '../../data/repositories/recommendations'
+import { readHiddenSharedMomentIds } from '../../data/hiddenSharedMoments'
 import type { Recommendation, SharedMoment } from '../../data/types'
 
 export type SharedItem = { kind: 'shared-moment'; moment: SharedMoment } | { kind: 'recommendation'; recommendation: Recommendation }
@@ -24,8 +25,9 @@ export function useSharedWithYou(uid: string | undefined) {
     }
     setLoading(true)
     const [moments, recommendations] = await Promise.all([getSharedMomentsForParticipant(uid), getRecommendationsForRecipient(uid)])
+    const hiddenMomentIds = readHiddenSharedMomentIds(uid)
     const merged: SharedItem[] = [
-      ...moments.map((moment) => ({ kind: 'shared-moment' as const, moment })),
+      ...moments.filter((moment) => !hiddenMomentIds.has(moment.id)).map((moment) => ({ kind: 'shared-moment' as const, moment })),
       ...recommendations.filter((r) => r.status === 'pending').map((recommendation) => ({ kind: 'recommendation' as const, recommendation })),
     ].sort((a, b) => itemTime(b) - itemTime(a))
     setItems(merged)

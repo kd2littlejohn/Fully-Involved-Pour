@@ -5,6 +5,8 @@ import type { ImageProcessingStatus } from '../../data/types'
 export interface BottlePhotoUploadResult {
   imageUrl: string
   originalImageUrl: string
+  imageStoragePath?: string
+  originalImageStoragePath?: string
   imageProcessingStatus: ImageProcessingStatus
 }
 
@@ -26,5 +28,11 @@ export async function standardizeAndUploadBottlePhoto(
     uploadPhoto(uid, originalFile, 'bottle-photos'),
   ])
 
-  return { imageUrl: display.url, originalImageUrl: original.url, imageProcessingStatus: status }
+  return {
+    imageUrl: display.url,
+    originalImageUrl: original.url,
+    imageStoragePath: display.path,
+    originalImageStoragePath: original.path,
+    imageProcessingStatus: status,
+  }
 }
