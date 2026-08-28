@@ -14,7 +14,6 @@ import { useLastBlindSummary } from '../../features/home/useLastBlindSummary'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { getFeaturedOpenBottle, getMaybeTonightCandidates, greetingForHour } from '../../features/home/selectors'
-import homeHeroImage from '../../assets/home-hero.webp'
 import styles from './HomePage.module.css'
 
 const BOTTLE_ICON = (
@@ -37,23 +36,6 @@ const BLIND_ROOM_ICON = (
   </svg>
 )
 
-// The approved hero banner — the real FIP compass mark, wordmark, and
-// lounge photography, never regenerated. Rendered at its native ~3:1 ratio
-// (width:100%, height:auto) so the whole thing is always visible; never
-// object-fit:cover, which would crop the logo or the glass/decanter on the
-// right at narrow widths.
-function HomeHero() {
-  return (
-    <div className={styles.hero}>
-      <img
-        className={styles.heroImage}
-        src={homeHeroImage}
-        alt="Fully Involved Pour — drink what you enjoy, share what matters."
-      />
-    </div>
-  )
-}
-
 export function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading } = useUserData()
@@ -63,18 +45,12 @@ export function HomePage() {
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
 
   if (authLoading || dataLoading) {
-    return (
-      <>
-        <HomeHero />
-        <PageHeader eyebrow="Home" title={`${greeting}.`} />
-      </>
-    )
+    return <PageHeader eyebrow="Home" title={`${greeting}.`} />
   }
 
   if (!user) {
     return (
       <>
-        <HomeHero />
         <PageHeader eyebrow="Home" title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
         <EmptyState
           title="Your whiskey journey starts here."
@@ -91,7 +67,6 @@ export function HomePage() {
 
   return (
     <>
-      <HomeHero />
       <PageHeader
         eyebrow="Home"
         title={name ? `${greeting}, ${name}.` : `${greeting}.`}

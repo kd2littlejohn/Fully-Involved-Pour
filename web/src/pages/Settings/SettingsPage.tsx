@@ -7,7 +7,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { clearUserCache } from '../../data/clearUserCache'
 import { downloadUserDataExport } from '../../features/profile/dataExport'
 import { PrivacyControls } from '../../features/friends/PrivacyControls'
-import homeHeroImage from '../../assets/home-hero.webp'
+import compassMark from '../../assets/compass-mark.png'
 import styles from './SettingsPage.module.css'
 
 const BACK_ICON = (
@@ -196,7 +196,7 @@ export function SettingsPage() {
       </button>
 
       <div className={styles.brandFooter}>
-        <img className={styles.brandImage} src={homeHeroImage} alt="" />
+        <img className={styles.brandMark} src={compassMark} alt="" aria-hidden="true" />
         <p className={styles.tagline}>Fully Involved Pour</p>
         <p className={styles.tagline}>Drink What You Enjoy. Share What Matters.</p>
       </div>

@@ -1,5 +1,27 @@
 .header {
+  position: relative;
   padding: var(--fip-space-8) var(--fip-shell-x) var(--fip-space-4);
+  overflow: hidden;
+}
+
+/* Ambient brand texture, not page content — bleeds off the top-right
+   corner at very low opacity so it reads as part of the surface, never
+   competing with the title/eyebrow it sits behind. */
+.watermark {
+  position: absolute;
+  top: -28px;
+  right: -28px;
+  width: 120px;
+  height: 120px;
+  opacity: 0.05;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Positioned + after .watermark in DOM so it always paints above the
+   watermark, regardless of z-index:auto stacking-order subtleties. */
+.content {
+  position: relative;
 }
 
 .eyebrow {

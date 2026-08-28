@@ -133,11 +133,12 @@
   padding: 0 var(--fip-shell-x);
 }
 
-.brandImage {
-  width: 100%;
-  height: auto;
-  border-radius: var(--fip-radius-lg);
+.brandMark {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
   display: block;
+  opacity: 0.7;
 }
 
 .tagline {
