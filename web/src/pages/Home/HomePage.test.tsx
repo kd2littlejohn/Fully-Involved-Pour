@@ -80,12 +80,10 @@ describe('HomePage', () => {
     expect(screen.getByText('Challenge your palate')).toBeInTheDocument()
   })
 
-  // The logo lives in the shared app chrome (nav/header) now, not pasted
-  // into individual pages — see PageHeader's subtle watermark instead.
-  it('does not paste the full brand hero image into the page', () => {
+  it('shows the full uncropped hero artwork above the greeting', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
-    expect(screen.queryByAltText(/Fully Involved Pour — drink/)).not.toBeInTheDocument()
+    expect(screen.getByAltText(/Fully Involved Pour/)).toBeInTheDocument()
   })
 
   it('does not offer a standalone Roll the Dice action anymore', () => {

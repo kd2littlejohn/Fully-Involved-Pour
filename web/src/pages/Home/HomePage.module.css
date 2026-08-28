@@ -1,3 +1,21 @@
+/* Full, uncropped hero artwork — width:100%/height:auto at the image's own
+   ~3:1 ratio, never object-fit:cover, so the compass mark, wordmark, and
+   the full lounge scene on the right are always entirely visible on every
+   phone width. The dark background is a safety net for any edge rounding,
+   not a crop mask. */
+.hero {
+  width: 100%;
+  background: var(--fip-black);
+  overflow: hidden;
+}
+
+.heroImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
 .primaryAction {
   margin: 0 var(--fip-shell-x) var(--fip-space-3);
 }
