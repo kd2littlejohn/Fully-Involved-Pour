@@ -16,6 +16,7 @@ const baseValues: EssentialFieldsValues = {
   distillery: '',
   type: '',
   proof: '',
+  bottleSize: '',
   ageStatement: '',
   region: '',
   mashBillCorn: '',
@@ -37,6 +38,15 @@ describe('EssentialFieldsCard', () => {
     await userEvent.type(screen.getByLabelText('Bottle name', { exact: false }), 'E')
 
     expect(onChange).toHaveBeenCalledWith({ name: 'E' })
+  })
+
+  it('reports the bottle size in ml via onChange', async () => {
+    const onChange = vi.fn()
+    render(<EssentialFieldsCard values={baseValues} onChange={onChange} />)
+
+    await userEvent.type(screen.getByLabelText('Bottle size (ml)'), '7')
+
+    expect(onChange).toHaveBeenCalledWith({ bottleSize: '7' })
   })
 
   it('shows the name error when provided', () => {
@@ -217,6 +227,7 @@ describe('EssentialFieldsCard', () => {
             distillery: 'Buffalo Trace',
             type: 'Bourbon',
             proof: '90',
+            bottleSize: '750',
             ageStatement: '10 Year',
             region: 'Kentucky',
             mashBillCorn: '75',

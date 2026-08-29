@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OwnershipFieldsCard, type OwnershipFieldsValues, type BottleContext } from './OwnershipFieldsCard'
@@ -11,6 +11,7 @@ vi.mock('../../data/repositories/ai', () => ({
 
 const baseValues: OwnershipFieldsValues = {
   status: 'sealed',
+  fillLevel: '',
   price: '',
   storeLocation: '',
   quantity: '',
@@ -47,8 +48,16 @@ describe('OwnershipFieldsCard', () => {
     render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
     await openCard()
 
-    const options = screen.getAllByRole('option').map((o) => o.textContent)
+    const options = within(screen.getByLabelText('Status')).getAllByRole('option').map((o) => o.textContent)
     expect(options).toEqual(['Sealed', 'Opened', 'Finished', 'Wish List', 'Incoming'])
+  })
+
+  it('offers the five fill levels plus a Not set default', async () => {
+    render(<OwnershipFieldsCard values={baseValues} onChange={vi.fn()} bottleContext={emptyContext} />)
+    await openCard()
+
+    const options = within(screen.getByLabelText('Fill level (optional)')).getAllByRole('option').map((o) => o.textContent)
+    expect(options).toEqual(['Not set', 'Full', 'Three Quarter', 'Half', 'Quarter', 'Empty'])
   })
 
   it('shows all four date fields together, regardless of current status', async () => {
@@ -59,6 +68,16 @@ describe('OwnershipFieldsCard', () => {
     expect(screen.getByLabelText('Opened date (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Expected arrival (optional)')).toBeInTheDocument()
     expect(screen.getByLabelText('Finished date (optional)')).toBeInTheDocument()
+  })
+
+  it('reports a Fill level change via onChange', async () => {
+    const onChange = vi.fn()
+    render(<OwnershipFieldsCard values={baseValues} onChange={onChange} bottleContext={emptyContext} />)
+    await openCard()
+
+    fireEvent.change(screen.getByLabelText('Fill level (optional)'), { target: { value: 'half' } })
+
+    expect(onChange).toHaveBeenCalledWith({ fillLevel: 'half' })
   })
 
   it('reports a Purchase date change via onChange', async () => {

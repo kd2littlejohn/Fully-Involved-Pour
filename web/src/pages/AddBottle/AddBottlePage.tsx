@@ -47,6 +47,7 @@ export function AddBottlePage() {
     distillery: state?.prefill?.distillery ?? '',
     type: state?.prefill?.type ?? '',
     proof: '',
+    bottleSize: '',
     ageStatement: '',
     region: '',
     mashBillCorn: '',
@@ -55,6 +56,7 @@ export function AddBottlePage() {
   })
   const [ownership, setOwnership] = useState<OwnershipFieldsValues>({
     status: defaultStatus,
+    fillLevel: '',
     price: '',
     storeLocation: '',
     quantity: '',
@@ -89,6 +91,7 @@ export function AddBottlePage() {
       distillery: existingBottle.distillery ?? '',
       type: existingBottle.type ?? '',
       proof: existingBottle.proof != null ? String(existingBottle.proof) : '',
+      bottleSize: existingBottle.bottleSize != null ? String(existingBottle.bottleSize) : '',
       ageStatement: existingBottle.ageStatement ?? '',
       region: existingBottle.region ?? '',
       mashBillCorn: existingBottle.mashBillCorn != null ? String(existingBottle.mashBillCorn) : '',
@@ -97,6 +100,7 @@ export function AddBottlePage() {
     })
     setOwnership({
       status: existingBottle.status,
+      fillLevel: existingBottle.fillLevel ?? '',
       price: existingBottle.price != null ? String(existingBottle.price) : '',
       storeLocation: existingBottle.storeLocation ?? '',
       quantity: existingBottle.quantity != null ? String(existingBottle.quantity) : '',
@@ -140,6 +144,7 @@ export function AddBottlePage() {
         type: essential.type.trim() || undefined,
         region: essential.region.trim() || undefined,
         proof: essential.proof ? Number(essential.proof) : undefined,
+        bottleSize: essential.bottleSize ? Number(essential.bottleSize) : undefined,
         ageStatement: essential.ageStatement.trim() || undefined,
         mashBillCorn: essential.mashBillCorn ? Number(essential.mashBillCorn) : undefined,
         mashBillRyeWheat: essential.mashBillRyeWheat ? Number(essential.mashBillRyeWheat) : undefined,
@@ -150,6 +155,7 @@ export function AddBottlePage() {
         originalImageStoragePath: photo.originalImageStoragePath,
         imageProcessingStatus: photo.imageProcessingStatus,
         status: ownership.status,
+        fillLevel: ownership.fillLevel || undefined,
         price: ownership.price ? Number(ownership.price) : undefined,
         storeLocation: ownership.storeLocation.trim() || undefined,
         quantity: ownership.quantity ? Number(ownership.quantity) : undefined,

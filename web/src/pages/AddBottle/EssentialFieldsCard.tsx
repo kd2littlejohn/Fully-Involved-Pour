@@ -10,6 +10,7 @@ export interface EssentialFieldsValues {
   distillery: string
   type: string
   proof: string
+  bottleSize: string
   ageStatement: string
   region: string
   mashBillCorn: string
@@ -188,7 +189,7 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
         </div>
       ) : null}
 
-      <div className={styles.row}>
+      <div className={styles.row3}>
         <Field label="Type" htmlFor="ab-type">
           <input
             id="ab-type"
@@ -208,6 +209,20 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
             value={values.proof}
             onChange={(e) => onChange({ proof: e.target.value })}
             placeholder="90"
+          />
+        </Field>
+
+        <Field label="Bottle size (ml)" htmlFor="ab-bottle-size">
+          <input
+            id="ab-bottle-size"
+            className={controlClassName}
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={values.bottleSize}
+            onChange={(e) => onChange({ bottleSize: e.target.value })}
+            placeholder="750"
           />
         </Field>
       </div>

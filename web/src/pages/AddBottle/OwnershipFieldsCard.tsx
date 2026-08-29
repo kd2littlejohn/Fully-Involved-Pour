@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
-import type { BottleStatus } from '../../data/types'
+import type { BottleStatus, FillLevel } from '../../data/types'
 import { generateTastingProfile } from '../../data/repositories/ai'
 import styles from './FieldsCard.module.css'
 
 export interface OwnershipFieldsValues {
   status: BottleStatus
+  fillLevel: FillLevel | ''
   price: string
   storeLocation: string
   quantity: string
@@ -39,6 +40,14 @@ const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
   { value: 'finished', label: 'Finished' },
   { value: 'wishlist', label: 'Wish List' },
   { value: 'incoming', label: 'Incoming' },
+]
+
+const FILL_LEVEL_OPTIONS: { value: FillLevel; label: string }[] = [
+  { value: 'full', label: 'Full' },
+  { value: 'three-quarter', label: 'Three Quarter' },
+  { value: 'half', label: 'Half' },
+  { value: 'quarter', label: 'Quarter' },
+  { value: 'empty', label: 'Empty' },
 ]
 
 export function OwnershipFieldsCard({ values, onChange, bottleContext }: OwnershipFieldsCardProps) {
@@ -95,6 +104,22 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               }}
             >
               {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Fill level (optional)" htmlFor="ab-fill-level">
+            <select
+              id="ab-fill-level"
+              className={controlClassName}
+              value={values.fillLevel}
+              onChange={(e) => onChange({ fillLevel: e.target.value as FillLevel | '' })}
+            >
+              <option value="">Not set</option>
+              {FILL_LEVEL_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
