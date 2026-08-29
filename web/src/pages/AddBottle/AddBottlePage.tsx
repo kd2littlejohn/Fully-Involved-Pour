@@ -5,14 +5,49 @@ import { useUserData } from '../../hooks/useUserData'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { LinkButton } from '../../components/ui/LinkButton'
-import type { BottleStatus } from '../../data/types'
+import type { BottleInstance, BottleStatus } from '../../data/types'
 import type { LabelScanResult } from '../../data/repositories/ai'
 import { deletePhotoIfSafe } from '../../features/photoUpload/uploadPhoto'
+import { resolveActiveInstanceId, rollupFromInstances } from '../../features/bottleInstances/selectors'
 import { BottlePhotoHero, type BottlePhotoChange } from './BottlePhotoHero'
 import { AddBottleEntryChoice } from './AddBottleEntryChoice'
 import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFieldsCard'
 import { OwnershipFieldsCard, type OwnershipFieldsValues } from './OwnershipFieldsCard'
+import { BottleInstancesCard, blankInstanceDraft, type InstanceDraft } from './BottleInstancesCard'
 import styles from './AddBottlePage.module.css'
+
+function generateInstanceId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function buildInstance1(ownership: OwnershipFieldsValues, id: string, createdAt: number): BottleInstance {
+  return {
+    id,
+    createdAt,
+    status: ownership.status === 'open' || ownership.status === 'sealed' || ownership.status === 'finished' ? ownership.status : 'sealed',
+    purchaseDate: ownership.purchaseDate.trim() || undefined,
+    price: ownership.price ? Number(ownership.price) : undefined,
+    storeLocation: ownership.storeLocation.trim() || undefined,
+    openedDate: ownership.openedDate.trim() || undefined,
+    finishedDate: ownership.finishedDate.trim() || undefined,
+    fillLevel: ownership.fillLevel || undefined,
+  }
+}
+
+// Every additional instance always starts Sealed regardless of what the
+// original bottle's status was — the Status Rules explicitly forbid
+// auto-opening more than one bottle just because quantity went up.
+function buildDraftInstance(draft: InstanceDraft, id: string, createdAt: number): BottleInstance {
+  return {
+    id,
+    createdAt,
+    status: 'sealed',
+    label: draft.label.trim() || undefined,
+    purchaseDate: draft.purchaseDate.trim() || undefined,
+    price: draft.price ? Number(draft.price) : undefined,
+    storeLocation: draft.storeLocation.trim() || undefined,
+  }
+}
 
 // 'choice' only ever applies to a fresh, from-scratch add (see the initial
 // state below) — editing an existing bottle or arriving with a prefill
@@ -37,6 +72,11 @@ export function AddBottlePage() {
   const { userDoc, loading: dataLoading, addBottle, updateBottle } = useUserData()
 
   const existingBottle = isEditing ? userDoc.bottles.find((b) => b.id === bottleId) : undefined
+  // Once a bottle already has more than one physical instance, this whole
+  // form stops being the place to edit ownership facts — those live per
+  // instance on Bottle Details from here on (see OwnershipFieldsCard's
+  // `multiInstance` prop and BatchManagement's equivalent pattern).
+  const isExistingMultiInstance = isEditing && (existingBottle?.instances?.length ?? 0) > 1
 
   const state = location.state as LocationState | null
   const defaultStatus = state?.defaultStatus ?? 'sealed'
@@ -69,8 +109,29 @@ export function AddBottlePage() {
   const [nameError, setNameError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Drafts for Bottle 2+ — only ever populated while quantity is 2+ on a
+  // bottle that doesn't already have real instances (a fresh add, or a
+  // plain single bottle whose quantity is being raised for the first
+  // time). Kept in sync with the Quantity field below.
+  const [instanceDrafts, setInstanceDrafts] = useState<InstanceDraft[]>([])
 
   const [mode, setMode] = useState<Mode>(() => (isEditing || state?.prefill?.name ? 'form' : 'choice'))
+
+  // Reveals/resizes "Your Bottles" the moment Quantity is 2+ — never for an
+  // already-multi-instance bottle, which manages its own instances via
+  // Bottle Details instead of this transient draft list.
+  useEffect(() => {
+    if (isExistingMultiInstance) return
+    const qty = Number(ownership.quantity)
+    const extraCount = Number.isFinite(qty) && qty >= 2 ? qty - 1 : 0
+    setInstanceDrafts((prev) => {
+      if (extraCount === 0) return prev.length === 0 ? prev : []
+      if (prev.length === extraCount) return prev
+      if (prev.length > extraCount) return prev.slice(0, extraCount)
+      const additional = Array.from({ length: extraCount - prev.length }, () => blankInstanceDraft(generateInstanceId()))
+      return [...prev, ...additional]
+    })
+  }, [ownership.quantity, isExistingMultiInstance])
 
   // Hydrates the form once the bottle being edited is available — handles
   // both the common case (data already loaded from a prior page) and a
@@ -138,7 +199,7 @@ export function AddBottlePage() {
     setSubmitError(null)
     setSubmitting(true)
     try {
-      const payload = {
+      const basePayload = {
         name,
         distillery: essential.distillery.trim() || undefined,
         type: essential.type.trim() || undefined,
@@ -154,20 +215,45 @@ export function AddBottlePage() {
         imageStoragePath: photo.imageStoragePath,
         originalImageStoragePath: photo.originalImageStoragePath,
         imageProcessingStatus: photo.imageProcessingStatus,
-        status: ownership.status,
-        fillLevel: ownership.fillLevel || undefined,
-        price: ownership.price ? Number(ownership.price) : undefined,
-        storeLocation: ownership.storeLocation.trim() || undefined,
-        quantity: ownership.quantity ? Number(ownership.quantity) : undefined,
-        // Every date is saved as entered, independent of the current status —
-        // a bottle's history (purchased/opened/expected/finished) stays
-        // editable even after its status has since moved on.
-        purchaseDate: ownership.purchaseDate.trim() || undefined,
-        openedDate: ownership.openedDate.trim() || undefined,
+        // Expected arrival and general notes have no per-instance
+        // equivalent — always editable here regardless of instance count.
         expectedDate: ownership.expectedDate.trim() || undefined,
-        finishedDate: ownership.finishedDate.trim() || undefined,
         notes: ownership.notes.trim() || undefined,
       }
+
+      // Once a bottle already has multiple instances, this form never
+      // touches status/price/store/dates/quantity/instances at all — those
+      // are only ever edited per instance from Bottle Details.
+      const ownershipPayload = isExistingMultiInstance
+        ? { status: ownership.status } // required by the Bottle type; the rest of the instance-owned facts are never touched here
+        : instanceDrafts.length === 0
+          ? {
+              // Plain single-bottle path — byte-for-byte what this form has
+              // always saved, and no `instances` key at all.
+              status: ownership.status,
+              fillLevel: ownership.fillLevel || undefined,
+              price: ownership.price ? Number(ownership.price) : undefined,
+              storeLocation: ownership.storeLocation.trim() || undefined,
+              quantity: ownership.quantity ? Number(ownership.quantity) : undefined,
+              // Every date is saved as entered, independent of the current
+              // status — a bottle's history (purchased/opened/finished)
+              // stays editable even after its status has since moved on.
+              purchaseDate: ownership.purchaseDate.trim() || undefined,
+              openedDate: ownership.openedDate.trim() || undefined,
+              finishedDate: ownership.finishedDate.trim() || undefined,
+            }
+          : (() => {
+              // Quantity was just raised to 2+ — Bottle 1 inherits exactly
+              // what's already in Ownership above (never re-entered), the
+              // rest are new sealed instances from the drafts below.
+              const now = Date.now()
+              const instance1 = buildInstance1(ownership, generateInstanceId(), now)
+              const instances = [instance1, ...instanceDrafts.map((draft, i) => buildDraftInstance(draft, generateInstanceId(), now + i + 1))]
+              const activeInstanceId = resolveActiveInstanceId(instances, instance1.status === 'open' ? instance1.id : undefined)
+              return { instances, activeInstanceId, ...rollupFromInstances(instances, activeInstanceId) }
+            })()
+
+      const payload = { ...basePayload, ...ownershipPayload }
       if (isEditing && bottleId) {
         await updateBottle(bottleId, payload)
         // Best-effort cleanup only after the save actually succeeds — never
@@ -276,7 +362,20 @@ export function AddBottlePage() {
                 values={ownership}
                 onChange={(patch) => setOwnership((prev) => ({ ...prev, ...patch }))}
                 bottleContext={{ name: essential.name, distillery: essential.distillery, type: essential.type, proof: essential.proof }}
+                multiInstance={isExistingMultiInstance}
               />
+              {!isExistingMultiInstance && instanceDrafts.length > 0 ? (
+                <BottleInstancesCard
+                  instance1={{
+                    statusLabel: ownership.status === 'open' ? 'Opened' : ownership.status === 'finished' ? 'Finished' : 'Sealed',
+                    purchaseDate: ownership.purchaseDate || undefined,
+                    price: ownership.price || undefined,
+                    storeLocation: ownership.storeLocation || undefined,
+                  }}
+                  drafts={instanceDrafts}
+                  onDraftsChange={setInstanceDrafts}
+                />
+              ) : null}
             </div>
           </div>
 

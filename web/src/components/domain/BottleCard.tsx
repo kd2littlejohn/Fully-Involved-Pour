@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { Bottle, BottleStatus } from '../../data/types'
+import { summarizeInstanceStatuses } from '../../features/bottleInstances/selectors'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { splitBottleTitle } from '../../features/collection/bottleTitle'
 import { useBottlePourFlow } from '../../features/startAPour/useBottlePourFlow'
@@ -68,6 +69,19 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
     { label: 'Edit', onClick: () => navigate(`/bottles/${currentBottleId}/edit`) },
   )
 
+  // One expression is always one card, never one per physical bottle — a
+  // multi-instance bottle just prints a count + status breakdown here
+  // instead of the single status pill. Never a button: status can't be
+  // changed from here once it's ambiguous which physical bottle that would
+  // mean — see Bottle Details' "Your Bottles" section for that instead.
+  const multiInstance = (bottle.instances?.length ?? 0) > 1
+  const instanceSummary = multiInstance ? (
+    <div className={styles.instanceSummary}>
+      <span className={styles.instanceCount}>{bottle.instances!.length} bottles</span>
+      <span className={styles.instanceBreakdown}>{summarizeInstanceStatuses(bottle.instances!)}</span>
+    </div>
+  ) : null
+
   const statusBadge = <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
 
   const linkContent = (
@@ -90,9 +104,11 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   // Tapping the status pill itself opens the picker — no trip through the
   // "⋯" menu needed. Kept as a plain Badge (not a button) when selectable,
   // since the whole row's click already means "toggle selection" there.
+  // Multi-instance bottles never get the status-change picker here (see
+  // instanceSummary above for why) — just the plain summary text.
   const footer = (
     <div className={styles.footer}>
-      {selectable ? (
+      {multiInstance ? null : selectable ? (
         statusBadge
       ) : (
         <button type="button" className={styles.statusButton} onClick={() => setShowStatusModal(true)}>
@@ -131,6 +147,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
         </span>
         <div className={styles.body}>
           {linkContent}
+          {instanceSummary}
           {footer}
           {journey}
         </div>
@@ -147,6 +164,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
         <Link to={`/collection/${bottle.id}`} className={styles.bodyLink}>
           {linkContent}
         </Link>
+        {instanceSummary}
         {footer}
         {journey}
       </div>

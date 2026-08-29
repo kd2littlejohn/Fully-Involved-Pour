@@ -13,11 +13,13 @@ import { deletePhotoIfSafe } from '../features/photoUpload/uploadPhoto'
 import { deleteSharedMomentsForStory } from '../data/repositories/sharedMoments'
 import { estimatedProof } from '../features/infinityBottle/selectors'
 import { normalizeInfinityBottles } from '../features/infinityBottle/migrateInfinityBottle'
+import { resolveActiveInstanceId, rollupFromInstances, sealedInstancesInOrder, blankInstance } from '../features/bottleInstances/selectors'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type BlendAddition,
   type BlendGoal,
   type Bottle,
+  type BottleInstance,
   type GalleryPhoto,
   type InfinityBatch,
   type InfinityBottle,
@@ -60,6 +62,11 @@ interface UserDataState {
   updateBottle: (bottleId: string, patch: BottlePatch) => Promise<void>
   deleteBottle: (bottleId: string) => Promise<void>
   deleteBottles: (bottleIds: string[]) => Promise<void>
+  addBottleInstance: (bottleId: string) => Promise<string | undefined>
+  updateBottleInstance: (bottleId: string, instanceId: string, patch: Partial<Omit<BottleInstance, 'id' | 'createdAt'>>) => Promise<void>
+  deleteBottleInstance: (bottleId: string, instanceId: string) => Promise<void>
+  openBottleInstance: (bottleId: string, instanceId: string) => Promise<void>
+  openNextBottleInstance: (bottleId: string) => Promise<void>
   addPour: (input: NewPourInput) => Promise<Pour | undefined>
   updatePour: (pourId: string, patch: PourPatch) => Promise<void>
   updatePourAiSummary: (pourId: string, aiSummary: PourAiSummary) => Promise<void>
@@ -97,6 +104,11 @@ const UserDataContext = createContext<UserDataState>({
   updateBottle: async () => {},
   deleteBottle: async () => {},
   deleteBottles: async () => {},
+  addBottleInstance: async () => undefined,
+  updateBottleInstance: async () => {},
+  deleteBottleInstance: async () => {},
+  openBottleInstance: async () => {},
+  openNextBottleInstance: async () => {},
   addPour: async () => undefined,
   updatePour: async () => {},
   updatePourAiSummary: async () => {},
@@ -357,6 +369,131 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
 
   const deleteBottle = useCallback((bottleId: string) => deleteBottles([bottleId]), [deleteBottles])
 
+  // Appends one new sealed physical bottle to an existing multi-instance
+  // Bottle — the "+ Add Another Bottle" action once quantity is already
+  // above 1. Never called for a plain quantity=1 bottle; that path goes
+  // through updateBottle building the whole instances[] array at once
+  // (see AddBottlePage), since raising quantity from scratch also needs to
+  // convert the existing flat fields into Instance 1 first.
+  const addBottleInstance = useCallback(
+    async (bottleId: string) => {
+      if (!user) return undefined
+      const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+      if (!bottle) return undefined
+      const newInstance = blankInstance(generateId(), Date.now())
+      const nextInstances = [...(bottle.instances ?? []), newInstance]
+      const activeInstanceId = resolveActiveInstanceId(nextInstances, bottle.activeInstanceId)
+      const rollup = rollupFromInstances(nextInstances, activeInstanceId)
+      const nextBottles = userDoc.bottles.map((b) =>
+        b.id === bottleId ? { ...b, instances: nextInstances, activeInstanceId, ...rollup } : b,
+      )
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return newInstance.id
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+      return newInstance.id
+    },
+    [user, userDoc, mockMode],
+  )
+
+  // Edits one physical bottle's own fields (including marking it finished —
+  // there's no separate "finish" mutator; the caller just patches status).
+  // Top-level Bottle fields are always recomputed from instances[]
+  // afterward, never left stale, and activeInstanceId is always
+  // re-resolved rather than trusted (see resolveActiveInstanceId — it can
+  // never end up pointing at a non-open instance).
+  const updateBottleInstance = useCallback(
+    async (bottleId: string, instanceId: string, patch: Partial<Omit<BottleInstance, 'id' | 'createdAt'>>) => {
+      if (!user) return
+      const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+      if (!bottle?.instances) return
+      const nextInstances = bottle.instances.map((i) => (i.id === instanceId ? { ...i, ...patch } : i))
+      const activeInstanceId = resolveActiveInstanceId(nextInstances, bottle.activeInstanceId)
+      const rollup = rollupFromInstances(nextInstances, activeInstanceId)
+      const nextBottles = userDoc.bottles.map((b) =>
+        b.id === bottleId ? { ...b, instances: nextInstances, activeInstanceId, ...rollup } : b,
+      )
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  // Write-before-commit (matches this file's other delete mutators) — a
+  // failed delete must never leave local state showing an instance as gone
+  // when it's still actually in Firestore. Refuses to remove the last
+  // remaining instance — deleting the whole bottle goes through
+  // deleteBottle instead, which also cleans up its pours/photos.
+  const deleteBottleInstance = useCallback(
+    async (bottleId: string, instanceId: string) => {
+      if (!user) return
+      const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+      if (!bottle?.instances) return
+      const nextInstances = bottle.instances.filter((i) => i.id !== instanceId)
+      if (nextInstances.length === 0) return
+      const activeInstanceId = resolveActiveInstanceId(nextInstances, bottle.activeInstanceId)
+      const rollup = rollupFromInstances(nextInstances, activeInstanceId)
+      const nextBottles = userDoc.bottles.map((b) =>
+        b.id === bottleId ? { ...b, instances: nextInstances, activeInstanceId, ...rollup } : b,
+      )
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      if (mockMode) {
+        setUserDoc(nextDoc)
+        return
+      }
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+      setUserDoc(nextDoc)
+      writeCachedUserDoc(user.uid, nextDoc)
+    },
+    [user, userDoc, mockMode],
+  )
+
+  // Explicit "open this specific bottle" action — sets openedDate (once,
+  // never overwritten) and status, and makes it the active instance.
+  // Whether opening a SECOND already-open instance needs confirming first
+  // is a UI decision (see YourBottlesSection) — this mutator just performs
+  // the action once the caller has decided to.
+  const openBottleInstance = useCallback(
+    async (bottleId: string, instanceId: string) => {
+      if (!user) return
+      const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+      if (!bottle?.instances) return
+      const today = new Date().toISOString().slice(0, 10)
+      const nextInstances = bottle.instances.map((i) =>
+        i.id === instanceId ? { ...i, status: 'open' as const, openedDate: i.openedDate ?? today } : i,
+      )
+      const activeInstanceId = resolveActiveInstanceId(nextInstances, instanceId)
+      const rollup = rollupFromInstances(nextInstances, activeInstanceId)
+      const nextBottles = userDoc.bottles.map((b) =>
+        b.id === bottleId ? { ...b, instances: nextInstances, activeInstanceId, ...rollup } : b,
+      )
+      const nextDoc: UserDoc = { ...userDoc, bottles: nextBottles }
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+    },
+    [user, userDoc, mockMode],
+  )
+
+  // The "Open Next Bottle" action offered after finishing the active
+  // instance (see the prompt in YourBottlesSection) — deliberately a
+  // separate, opt-in step from finishing, never automatic. Opens the
+  // oldest remaining sealed instance.
+  const openNextBottleInstance = useCallback(
+    async (bottleId: string) => {
+      const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+      const next = bottle?.instances ? sealedInstancesInOrder(bottle.instances)[0] : undefined
+      if (!next) return
+      await openBottleInstance(bottleId, next.id)
+    },
+    [userDoc, openBottleInstance],
+  )
+
   const addPour = useCallback(
     async (input: NewPourInput) => {
       if (!user) return undefined
@@ -365,9 +502,29 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
 
       // Logging a pour on a still-sealed bottle marks it opened — a real
       // product behavior (not a schema change), using existing fields only.
+      // Instance-aware once the bottle has physical instances: opens the
+      // resolved/target instance (whatever the caller already picked —
+      // active, or the one the "which bottle?" picker returned) rather
+      // than blindly flipping the whole bottle's rollup status.
       const nextBottles = userDoc.bottles.map((bottle) => {
-        if (bottle.id !== pour.bottleId || bottle.status !== 'sealed') return bottle
-        return { ...bottle, status: 'open' as const, openedDate: bottle.openedDate ?? pour.date }
+        if (bottle.id !== pour.bottleId) return bottle
+        if (!bottle.instances || bottle.instances.length === 0) {
+          if (bottle.status !== 'sealed') return bottle
+          return { ...bottle, status: 'open' as const, openedDate: bottle.openedDate ?? pour.date }
+        }
+        const targetInstanceId =
+          pour.bottleInstanceId ??
+          resolveActiveInstanceId(bottle.instances, bottle.activeInstanceId) ??
+          sealedInstancesInOrder(bottle.instances)[0]?.id
+        if (!targetInstanceId) return bottle
+        const nextInstances = bottle.instances.map((instance) =>
+          instance.id === targetInstanceId && instance.status === 'sealed'
+            ? { ...instance, status: 'open' as const, openedDate: instance.openedDate ?? pour.date }
+            : instance,
+        )
+        const activeInstanceId = resolveActiveInstanceId(nextInstances, targetInstanceId)
+        const rollup = rollupFromInstances(nextInstances, activeInstanceId)
+        return { ...bottle, instances: nextInstances, activeInstanceId, ...rollup }
       })
 
       const nextDoc: UserDoc = { ...userDoc, pours: nextPours, bottles: nextBottles }
@@ -911,6 +1068,11 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateBottle,
       deleteBottle,
       deleteBottles,
+      addBottleInstance,
+      updateBottleInstance,
+      deleteBottleInstance,
+      openBottleInstance,
+      openNextBottleInstance,
       addPour,
       updatePour,
       updatePourAiSummary,
@@ -948,6 +1110,11 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateBottle,
       deleteBottle,
       deleteBottles,
+      addBottleInstance,
+      updateBottleInstance,
+      deleteBottleInstance,
+      openBottleInstance,
+      openNextBottleInstance,
       addPour,
       updatePour,
       updatePourAiSummary,

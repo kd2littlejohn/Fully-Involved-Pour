@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { UserDataProvider, useUserData } from './useUserData'
-import { DEFAULT_PRIVACY_SETTINGS, type UserDoc } from '../data/types'
+import { DEFAULT_PRIVACY_SETTINGS, type Bottle, type UserDoc } from '../data/types'
 
 const mockUseAuth = vi.fn()
 const mockFetchUserDoc = vi.fn()
@@ -1436,5 +1436,223 @@ describe('useUserData — multiple simultaneous active Infinity Bottles', () => 
 
     expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-a')?.name).toBe('Backdraft Batch')
     expect(result.current.userDoc.infinityBottles.find((ib) => ib.id === 'ib-c')?.name).toBe('Rye Project')
+  })
+})
+
+describe('useUserData — Bottle Instances', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+  })
+
+  function emptyDoc(): UserDoc {
+    return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
+  }
+
+  function multiInstanceBottle(overrides: Partial<Bottle> = {}): Bottle {
+    return {
+      id: 'bt1',
+      name: 'Eagle Rare',
+      status: 'open',
+      createdAt: 1,
+      instances: [
+        { id: 'i1', status: 'open', price: 39.99, storeLocation: 'ABC Store', purchaseDate: '2026-08-15', openedDate: '2026-08-18', createdAt: 1 },
+        { id: 'i2', status: 'sealed', createdAt: 2 },
+        { id: 'i3', status: 'sealed', createdAt: 3 },
+      ],
+      activeInstanceId: 'i1',
+      quantity: 3,
+      ...overrides,
+    }
+  }
+
+  it('addBottleInstance appends a new sealed instance and recomputes quantity', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle()]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    const newId = await result.current.addBottleInstance('bt1')
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances).toHaveLength(4))
+    expect(newId).toBeDefined()
+    expect(result.current.userDoc.bottles[0]?.quantity).toBe(4)
+    expect(result.current.userDoc.bottles[0]?.instances?.at(-1)).toMatchObject({ id: newId, status: 'sealed' })
+  })
+
+  it('updateBottleInstance patches one instance and recomputes the top-level rollup', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle()]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.updateBottleInstance('bt1', 'i2', { status: 'open' })
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances?.find((i) => i.id === 'i2')?.status).toBe('open'))
+    // Still rolls up to 'open' overall (was already open via i1) — unaffected by this change.
+    expect(result.current.userDoc.bottles[0]?.status).toBe('open')
+  })
+
+  it('activeInstanceId never references a non-open instance once an active one is marked finished', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle()]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.updateBottleInstance('bt1', 'i1', { status: 'finished', finishedDate: '2026-09-01' })
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances?.find((i) => i.id === 'i1')?.status).toBe('finished'))
+    // No other instance is open, so activeInstanceId must be cleared, not left pointing at i1.
+    expect(result.current.userDoc.bottles[0]?.activeInstanceId).toBeUndefined()
+    expect(result.current.userDoc.bottles[0]?.status).toBe('sealed')
+  })
+
+  it('deleteBottleInstance writes to Firestore before committing local state and refuses to remove the last instance', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle()]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.deleteBottleInstance('bt1', 'i3')
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances).toHaveLength(2))
+    expect(result.current.userDoc.bottles[0]?.quantity).toBe(2)
+
+    await result.current.deleteBottleInstance('bt1', 'i2')
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances).toHaveLength(1))
+
+    await result.current.deleteBottleInstance('bt1', 'i1')
+    // The last remaining instance is never removed via this mutator.
+    expect(result.current.userDoc.bottles[0]?.instances).toHaveLength(1)
+  })
+
+  it('deleteBottleInstance-fails-safe: a rejected write leaves the instance in place locally', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle()]
+    mockFetchUserDoc.mockResolvedValue(doc)
+    mockSaveUserDoc.mockRejectedValueOnce(new Error('offline'))
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await expect(result.current.deleteBottleInstance('bt1', 'i3')).rejects.toThrow('offline')
+    expect(result.current.userDoc.bottles[0]?.instances).toHaveLength(3)
+  })
+
+  it('openBottleInstance opens a sealed instance, sets openedDate once, and becomes the active instance', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle({ instances: [{ id: 'i1', status: 'sealed', createdAt: 1 }], activeInstanceId: undefined, status: 'sealed', quantity: 1 })]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.openBottleInstance('bt1', 'i1')
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances?.[0]?.status).toBe('open'))
+    expect(result.current.userDoc.bottles[0]?.instances?.[0]?.openedDate).toBeTruthy()
+    expect(result.current.userDoc.bottles[0]?.activeInstanceId).toBe('i1')
+    expect(result.current.userDoc.bottles[0]?.status).toBe('open')
+  })
+
+  it('openNextBottleInstance opens the oldest sealed instance, not just any', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [
+      multiInstanceBottle({
+        instances: [
+          { id: 'i1', status: 'finished', createdAt: 1 },
+          { id: 'i2', status: 'sealed', createdAt: 3 },
+          { id: 'i3', status: 'sealed', createdAt: 2 },
+        ],
+        activeInstanceId: undefined,
+        status: 'sealed',
+      }),
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.openNextBottleInstance('bt1')
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.activeInstanceId).toBe('i3'))
+    expect(result.current.userDoc.bottles[0]?.instances?.find((i) => i.id === 'i3')?.status).toBe('open')
+  })
+
+  it('openNextBottleInstance does not implicitly finish the previously active instance', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle()]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.openNextBottleInstance('bt1')
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances?.find((i) => i.id === 'i2')?.status).toBe('open'))
+    // i1 (the previously active instance) is untouched — still open, not finished.
+    expect(result.current.userDoc.bottles[0]?.instances?.find((i) => i.id === 'i1')?.status).toBe('open')
+  })
+
+  it('addPour on a multi-instance bottle opens the resolved instance, not the whole bottle blindly', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [multiInstanceBottle({ status: 'sealed', instances: [{ id: 'i1', status: 'sealed', createdAt: 1 }], activeInstanceId: undefined, quantity: 1 })]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.addPour({
+      bottleId: 'bt1',
+      bottleInstanceId: 'i1',
+      date: '2026-09-01',
+      rating: 8,
+      fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.5, value: 1, total: 8, noseAromas: [], palateFlavors: [] },
+    })
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.instances?.[0]?.status).toBe('open'))
+    expect(result.current.userDoc.bottles[0]?.status).toBe('open')
+    expect(result.current.userDoc.pours[0]?.bottleInstanceId).toBe('i1')
+  })
+
+  it('a plain quantity=1 bottle with no instances behaves exactly as before this feature', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [{ id: 'bt2', name: 'Weller 12', status: 'sealed', createdAt: 1 }]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.addPour({
+      bottleId: 'bt2',
+      date: '2026-09-01',
+      rating: 7,
+      fip: { nose: 2, palate: 3, finish: 1, complexity: 0.5, value: 0.5, total: 7, noseAromas: [], palateFlavors: [] },
+    })
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.status).toBe('open'))
+    expect(result.current.userDoc.bottles[0]?.instances).toBeUndefined()
+    expect(result.current.userDoc.bottles[0]?.openedDate).toBe('2026-09-01')
   })
 })

@@ -134,6 +134,11 @@ export function BottleDetailsPage() {
   const bottleLocation = distilleryLocation(bottle)
   const fillPercent = fillLevelPercent(bottle)
   const otherBottles = userDoc.bottles.filter((b) => b.id !== bottle.id)
+  // Same reasoning as the My Bar cards: status is ambiguous once there's
+  // more than one physical bottle, so this pill stops being a status-
+  // change trigger and becomes a plain summary — real per-instance status
+  // changes happen in the "Your Bottles" section below instead.
+  const multiInstance = (bottle.instances?.length ?? 0) > 1
 
   // Just the three core facts the mockup calls for — Proof (with its ABV
   // equivalent, exact since proof is always 2x ABV), Age, and Bottle Size.
@@ -236,11 +241,18 @@ export function BottleDetailsPage() {
         </div>
 
         <div className={styles.heroRight}>
-          <button type="button" className={styles.statusPill} onClick={() => setShowStatusModal(true)}>
-            <span className={styles.statusDot} style={{ background: STATUS_DOT_COLOR[bottle.status] }} aria-hidden="true" />
-            {STATUS_LABEL[bottle.status]}
-            {fillPercent != null ? <span className={styles.fillPercent}>{fillPercent}% Full</span> : null}
-          </button>
+          {multiInstance ? (
+            <div className={styles.statusPill}>
+              <span className={styles.statusDot} style={{ background: STATUS_DOT_COLOR[bottle.status] }} aria-hidden="true" />
+              {bottle.instances!.length} bottles
+            </div>
+          ) : (
+            <button type="button" className={styles.statusPill} onClick={() => setShowStatusModal(true)}>
+              <span className={styles.statusDot} style={{ background: STATUS_DOT_COLOR[bottle.status] }} aria-hidden="true" />
+              {STATUS_LABEL[bottle.status]}
+              {fillPercent != null ? <span className={styles.fillPercent}>{fillPercent}% Full</span> : null}
+            </button>
+          )}
           {typeof score === 'number' ? (
             <div className={styles.score}>
               <ScoreRing score={score} />

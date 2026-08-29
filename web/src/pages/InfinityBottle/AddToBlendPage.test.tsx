@@ -396,3 +396,76 @@ describe('AddToBlendPage — review and save', () => {
     expect(within(amountCard('Eagle Rare')).getByLabelText('Amount (ml)')).toHaveValue(60)
   })
 })
+
+describe('AddToBlendPage — multiple physical bottles of the same source', () => {
+  it('a bottle with exactly one open instance resolves silently — no picker, saved with that instance id', async () => {
+    mockBottles = [
+      bottle({
+        id: 'b1',
+        name: 'Eagle Rare',
+        proof: 90,
+        instances: [
+          { id: 'i1', status: 'open', createdAt: 1 },
+          { id: 'i2', status: 'sealed', createdAt: 2 },
+        ],
+      }),
+    ]
+    render(<AddToBlendPage />)
+    await selectBottle('Eagle Rare')
+    await continueToAmounts()
+
+    expect(screen.queryByLabelText('Which bottle?')).not.toBeInTheDocument()
+
+    await userEvent.click(within(amountCard('Eagle Rare')).getByRole('button', { name: '60ml' }))
+    await userEvent.click(screen.getByRole('button', { name: /Add 1 Bottle to Blend/ }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: /Add 1 Bottle to Blend/ }))
+
+    expect(mockAddBlendAdditions).toHaveBeenCalledWith('ib1', 'b1', [expect.objectContaining({ sourceBottleInstanceId: 'i1' })])
+  })
+
+  it('a bottle with two open instances requires picking one before Review, and shows it in the review line', async () => {
+    mockBottles = [
+      bottle({
+        id: 'b1',
+        name: 'Eagle Rare',
+        proof: 90,
+        instances: [
+          { id: 'i1', status: 'open', createdAt: 1 },
+          { id: 'i2', status: 'open', createdAt: 2, label: 'Total Wine' },
+        ],
+      }),
+    ]
+    render(<AddToBlendPage />)
+    await selectBottle('Eagle Rare')
+    await continueToAmounts()
+
+    const card = amountCard('Eagle Rare')
+    await userEvent.click(within(card).getByRole('button', { name: '60ml' }))
+    expect(screen.getByRole('button', { name: /Add 1 Bottle to Blend/ })).toBeDisabled()
+
+    await userEvent.selectOptions(within(card).getByLabelText('Which bottle?'), 'i2')
+    expect(screen.getByRole('button', { name: /Add 1 Bottle to Blend/ })).toBeEnabled()
+
+    await userEvent.click(screen.getByRole('button', { name: /Add 1 Bottle to Blend/ }))
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByText('Eagle Rare · Bottle #2 — Total Wine')).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /Add 1 Bottle to Blend/ }))
+    expect(mockAddBlendAdditions).toHaveBeenCalledWith('ib1', 'b1', [expect.objectContaining({ sourceBottleInstanceId: 'i2' })])
+  })
+
+  it('a plain bottle with no instances never shows the picker and saves with no sourceBottleInstanceId', async () => {
+    render(<AddToBlendPage />)
+    await selectBottle('Eagle Rare')
+    await continueToAmounts()
+    expect(screen.queryByLabelText('Which bottle?')).not.toBeInTheDocument()
+
+    await userEvent.click(within(amountCard('Eagle Rare')).getByRole('button', { name: '60ml' }))
+    await userEvent.click(screen.getByRole('button', { name: /Add 1 Bottle to Blend/ }))
+    const dialog = screen.getByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: /Add 1 Bottle to Blend/ }))
+
+    expect(mockAddBlendAdditions).toHaveBeenCalledWith('ib1', 'b1', [expect.objectContaining({ sourceBottleInstanceId: undefined })])
+  })
+})

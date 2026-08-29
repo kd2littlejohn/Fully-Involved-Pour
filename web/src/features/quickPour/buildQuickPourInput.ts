@@ -8,6 +8,7 @@ function round1(n: number): number {
 
 export interface QuickPourInputParams {
   bottleId: string
+  bottleInstanceId?: string
   date: string
   reactionLabel: string
   score: number
@@ -26,6 +27,7 @@ export interface QuickPourInputParams {
 // anything that displays "Nose 2.1 / 2.5" elsewhere stays consistent.
 export function buildQuickPourInput({
   bottleId,
+  bottleInstanceId,
   date,
   reactionLabel,
   score,
@@ -48,6 +50,7 @@ export function buildQuickPourInput({
 
   return {
     bottleId,
+    bottleInstanceId,
     date,
     rating: total,
     mood: reactionLabel,

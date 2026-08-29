@@ -8,6 +8,7 @@ import { SpecList, type SpecRow } from '../../../components/ui/SpecList'
 import { Badge } from '../../../components/ui/Badge'
 import { FlavorRadar } from '../../../features/flavorRadar/FlavorRadar'
 import { flavorRadarValues } from '../../../features/flavorRadar/flavorCategories'
+import { YourBottlesSection } from '../YourBottlesSection'
 import styles from './OverviewTab.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -83,6 +84,8 @@ export function OverviewTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }
         <h3 className={styles.heading}>Your Bottle</h3>
         <SpecList rows={yourBottleRows} />
       </div>
+
+      {bottle.instances && bottle.instances.length > 0 ? <YourBottlesSection bottle={bottle} pours={pours} /> : null}
 
       {radarValues ? (
         <div className={styles.section}>

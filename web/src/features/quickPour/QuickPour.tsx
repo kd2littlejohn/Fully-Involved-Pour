@@ -14,6 +14,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { TagFriendsField } from '../friends/TagFriendsField'
 import { shareStoryWithTaggedFriends } from '../friends/shareStoryOnSave'
 import { generateAndSaveTastingSummary } from '../pourWizard/tastingSummaryOnSave'
+import { useBottleInstancePicker } from '../pourWizard/useBottleInstancePicker'
 import type { Pour } from '../../data/types'
 import styles from './QuickPour.module.css'
 
@@ -36,6 +37,7 @@ interface QuickPourProps {
 export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourProps) {
   const { user } = useAuth()
   const { userDoc, profile, addPour, updatePourAiSummary } = useUserData()
+  const { resolveThenSave, picker: instancePicker } = useBottleInstancePicker(userDoc.bottles.find((b) => b.id === bottleId))
   const [reaction, setReaction] = useState<QuickPourReaction | null>(null)
   const [flavors, setFlavors] = useState<string[]>([])
   const [score, setScore] = useState<number | null>(null)
@@ -58,12 +60,18 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
     setFlavors((prev) => (prev.includes(flavor) ? prev.filter((f) => f !== flavor) : [...prev, flavor]))
   }
 
-  async function handleSave() {
+  function handleSave() {
     if (!reaction || score == null || saving) return
+    resolveThenSave((bottleInstanceId) => void doSave(bottleInstanceId))
+  }
+
+  async function doSave(bottleInstanceId: string | undefined) {
+    if (!reaction || score == null) return
     setSaving(true)
     const pour = await addPour(
       buildQuickPourInput({
         bottleId,
+        bottleInstanceId,
         date: todayIsoDate(),
         reactionLabel: reaction.label,
         score,
@@ -131,6 +139,7 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
   }
 
   return (
+    <>
     <Modal title={`Quick Pour — ${bottleName}`} onClose={onClose}>
       <p className={styles.prompt}>How&rsquo;s it drinking tonight?</p>
       <div className={styles.reactionRow}>
@@ -230,5 +239,7 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
         </Button>
       </div>
     </Modal>
+    {instancePicker}
+    </>
   )
 }

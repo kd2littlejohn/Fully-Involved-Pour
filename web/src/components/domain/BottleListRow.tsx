@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Bottle, BottleStatus } from '../../data/types'
+import { summarizeInstanceStatuses } from '../../features/bottleInstances/selectors'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { useUserData } from '../../hooks/useUserData'
 import { Badge } from '../ui/Badge'
@@ -55,6 +56,12 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
   )
 
   const statusBadge = <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
+  // Same reasoning as BottleCard: one expression is one row, never one per
+  // physical bottle — a multi-instance bottle just prints a count +
+  // status breakdown instead of the single status pill, and the status
+  // picker (ambiguous once there's more than one physical bottle) doesn't
+  // open from here at all.
+  const multiInstance = (bottle.instances?.length ?? 0) > 1
 
   // Tapping the status pill opens the picker directly — kept as a plain
   // Badge (not a button) when selectable, since the whole row's click
@@ -66,7 +73,11 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
           {journeyStage.label}
         </span>
       ) : null}
-      {selectable ? (
+      {multiInstance ? (
+        <span className={styles.instanceSummary}>
+          {bottle.instances!.length} bottles · {summarizeInstanceStatuses(bottle.instances!)}
+        </span>
+      ) : selectable ? (
         statusBadge
       ) : (
         <button type="button" className={styles.statusButton} onClick={() => setShowStatusModal(true)}>

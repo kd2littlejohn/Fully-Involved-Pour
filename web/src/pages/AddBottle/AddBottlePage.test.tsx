@@ -77,8 +77,54 @@ vi.mock('./EssentialFieldsCard', () => ({
 }))
 
 vi.mock('./OwnershipFieldsCard', () => ({
-  OwnershipFieldsCard: ({ values }: { values: { status: string } }) => <div data-testid="fake-status">{values.status}</div>,
+  OwnershipFieldsCard: ({
+    values,
+    onChange,
+    multiInstance,
+  }: {
+    values: { status: string; quantity: string; price: string; storeLocation: string }
+    onChange: (patch: Record<string, string>) => void
+    multiInstance?: boolean
+  }) => (
+    <div>
+      <span data-testid="fake-status">{values.status}</span>
+      <span data-testid="fake-multi-instance">{String(!!multiInstance)}</span>
+      <label htmlFor="fake-quantity">Quantity</label>
+      <input id="fake-quantity" value={values.quantity} onChange={(e) => onChange({ quantity: e.target.value })} />
+      <label htmlFor="fake-price">Price</label>
+      <input id="fake-price" value={values.price} onChange={(e) => onChange({ price: e.target.value })} />
+      <label htmlFor="fake-store">Store</label>
+      <input id="fake-store" value={values.storeLocation} onChange={(e) => onChange({ storeLocation: e.target.value })} />
+    </div>
+  ),
 }))
+
+vi.mock('./BottleInstancesCard', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./BottleInstancesCard')>()
+  return {
+    ...actual,
+    BottleInstancesCard: ({
+      drafts,
+      onDraftsChange,
+    }: {
+      drafts: { id: string; price: string }[]
+      onDraftsChange: (drafts: { id: string; price: string }[]) => void
+    }) => (
+      <div data-testid="fake-instances-card">
+        <span data-testid="fake-draft-count">{drafts.length}</span>
+        {drafts.map((draft, i) => (
+          <button
+            key={draft.id}
+            type="button"
+            onClick={() => onDraftsChange(drafts.map((d, ii) => (ii === i ? { ...d, price: '10' } : d)))}
+          >
+            fill-draft-{i}
+          </button>
+        ))}
+      </div>
+    ),
+  }
+})
 
 function renderPage(initialState?: { defaultStatus?: string; prefill?: { name?: string; distillery?: string; type?: string } }) {
   return render(
@@ -180,6 +226,98 @@ describe('AddBottlePage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/collection/new-bottle-id')
   })
 
+  it('a quantity of 1 never shows "Your Bottles" and saves with no instances field at all', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockAddBottle.mockResolvedValue('new-bottle-id')
+    renderPage()
+    await goToManualEntry()
+
+    await userEvent.type(screen.getByLabelText('Bottle name'), 'Eagle Rare')
+    await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+
+    expect(screen.queryByTestId('fake-instances-card')).not.toBeInTheDocument()
+    const [payload] = mockAddBottle.mock.calls[0]!
+    expect(payload.instances).toBeUndefined()
+    expect(payload.activeInstanceId).toBeUndefined()
+  })
+
+  it('raising quantity to 3 reveals two draft bottles', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    renderPage()
+    await goToManualEntry()
+
+    expect(screen.queryByTestId('fake-instances-card')).not.toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText('Quantity'), '3')
+
+    expect(screen.getByTestId('fake-draft-count')).toHaveTextContent('2')
+  })
+
+  it('quantity 1 -> 3: Bottle 1 inherits the already-entered price/store, the other two are sealed with no price', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockAddBottle.mockResolvedValue('new-bottle-id')
+    renderPage()
+    await goToManualEntry()
+
+    await userEvent.type(screen.getByLabelText('Bottle name'), 'Eagle Rare')
+    await userEvent.type(screen.getByLabelText('Price'), '39.99')
+    await userEvent.type(screen.getByLabelText('Store'), 'ABC Store')
+    await userEvent.type(screen.getByLabelText('Quantity'), '3')
+    await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+
+    const [payload] = mockAddBottle.mock.calls[0]!
+    expect(payload.instances).toHaveLength(3)
+    expect(payload.instances[0]).toMatchObject({ price: 39.99, storeLocation: 'ABC Store', status: 'sealed' })
+    expect(payload.instances[1]).toMatchObject({ status: 'sealed', price: undefined })
+    expect(payload.instances[2]).toMatchObject({ status: 'sealed', price: undefined })
+    // Top-level fields roll up from the instances, kept in sync for old readers.
+    expect(payload.quantity).toBe(3)
+    expect(payload.price).toBe(39.99)
+  })
+
+  it('quantity 1 -> 3 on a bottle that starts Opened: only Bottle 1 opens, the rest stay Sealed', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockAddBottle.mockResolvedValue('new-bottle-id')
+    renderPage({ defaultStatus: 'open' })
+    await goToManualEntry()
+
+    await userEvent.type(screen.getByLabelText('Bottle name'), 'Eagle Rare')
+    await userEvent.type(screen.getByLabelText('Quantity'), '2')
+    await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+
+    const [payload] = mockAddBottle.mock.calls[0]!
+    expect(payload.instances[0].status).toBe('open')
+    expect(payload.instances[1].status).toBe('sealed')
+    expect(payload.status).toBe('open')
+  })
+
+  it('a filled-in draft bottle’s details make it into the saved instances array', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockAddBottle.mockResolvedValue('new-bottle-id')
+    renderPage()
+    await goToManualEntry()
+
+    await userEvent.type(screen.getByLabelText('Bottle name'), 'Eagle Rare')
+    await userEvent.type(screen.getByLabelText('Quantity'), '2')
+    await userEvent.click(screen.getByRole('button', { name: 'fill-draft-0' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+
+    const [payload] = mockAddBottle.mock.calls[0]!
+    expect(payload.instances[1].price).toBe(10)
+  })
+
+  it('dropping quantity back to 1 hides "Your Bottles" again', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    renderPage()
+    await goToManualEntry()
+
+    await userEvent.type(screen.getByLabelText('Quantity'), '3')
+    expect(screen.getByTestId('fake-instances-card')).toBeInTheDocument()
+
+    await userEvent.clear(screen.getByLabelText('Quantity'))
+    await userEvent.type(screen.getByLabelText('Quantity'), '1')
+    expect(screen.queryByTestId('fake-instances-card')).not.toBeInTheDocument()
+  })
+
   it('shows the error and preserves form state when saving fails', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockAddBottle.mockRejectedValue(new Error('The image uploaded, but the bottle could not be saved.'))
@@ -232,6 +370,36 @@ describe('AddBottlePage', () => {
       expect(mockUpdateBottle).toHaveBeenCalledWith('b1', expect.objectContaining({ name: 'Eagle Rare 10 Year' }))
       expect(mockNavigate).toHaveBeenCalledWith('/collection/b1')
       expect(mockAddBottle).not.toHaveBeenCalled()
+    })
+
+    it('editing a bottle that already has multiple instances passes multiInstance to Ownership and never shows "Your Bottles"', async () => {
+      mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+      mockBottles = [
+        {
+          ...existingBottle,
+          status: 'open',
+          quantity: 2,
+          instances: [
+            { id: 'i1', status: 'open', createdAt: 1 },
+            { id: 'i2', status: 'sealed', createdAt: 2 },
+          ],
+          activeInstanceId: 'i1',
+        },
+      ]
+      renderEditPage('b1')
+
+      expect(screen.getByTestId('fake-multi-instance')).toHaveTextContent('true')
+      expect(screen.queryByTestId('fake-instances-card')).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+      const [, payload] = mockUpdateBottle.mock.calls[0]!
+      // Only the required rollup field is sent — instance-owned facts are
+      // never touched by this form once instances already exist.
+      expect(payload.instances).toBeUndefined()
+      expect(payload.price).toBeUndefined()
+      expect(payload.storeLocation).toBeUndefined()
+      expect(payload.purchaseDate).toBeUndefined()
+      expect(payload.status).toBe('open')
     })
   })
 })

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { InfinityBottleHeader } from '../../features/infinityBottle/InfinityBottleHeader'
 import { batchDisplayName, batchVolumeMl, displayBatch, estimatedProof } from '../../features/infinityBottle/selectors'
+import { instanceLabel, openInstances } from '../../features/bottleInstances/selectors'
 import { Button } from '../../components/ui/Button'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -42,6 +43,11 @@ interface Selection {
   // time, matching the single-add page's original behavior, ever truncates).
   amountMl: number
   note: string
+  // Which physical bottle this is actually being poured from — resolved
+  // automatically at selection time when there's exactly one open
+  // instance, left unset (and required before Review) when the source
+  // bottle has more than one open instance at once.
+  sourceBottleInstanceId?: string
 }
 
 function formatAmountForUnit(amountMl: number, unit: 'ml' | 'oz'): string {
@@ -107,7 +113,15 @@ export function AddToBlendPage() {
     .filter((entry): entry is { selection: Selection; bottle: Bottle } => entry.bottle != null)
 
   function toggleBottle(bottleId: string) {
-    setSelections((prev) => (prev.some((s) => s.bottleId === bottleId) ? prev.filter((s) => s.bottleId !== bottleId) : [...prev, { bottleId, amountMl: 0, note: '' }]))
+    setSelections((prev) => {
+      if (prev.some((s) => s.bottleId === bottleId)) return prev.filter((s) => s.bottleId !== bottleId)
+      const bottle = userDoc.bottles.find((b) => b.id === bottleId)
+      const open = bottle?.instances ? openInstances(bottle.instances) : []
+      // Silently resolved when unambiguous; left unset (and required before
+      // Review) when more than one physical bottle is open at once.
+      const sourceBottleInstanceId = open.length === 1 ? open[0]!.id : undefined
+      return [...prev, { bottleId, amountMl: 0, note: '', sourceBottleInstanceId }]
+    })
   }
 
   function updateSelection(bottleId: string, patch: Partial<Omit<Selection, 'bottleId'>>) {
@@ -126,7 +140,12 @@ export function AddToBlendPage() {
   const overCapacity = ib.capacityMl != null && newVolumeMl > ib.capacityMl
   const overCapacityByMl = overCapacity ? newVolumeMl - ib.capacityMl! : 0
   const allAmountsValid = selectedBottles.length > 0 && selectedBottles.every(({ selection }) => selection.amountMl > 0)
-  const canReview = allAmountsValid && !overCapacity
+  // A bottle with more than one open physical instance must have one
+  // explicitly picked before Review — never silently defaults to either.
+  const allInstancesResolved = selectedBottles.every(
+    ({ selection, bottle }) => openInstances(bottle.instances ?? []).length <= 1 || Boolean(selection.sourceBottleInstanceId),
+  )
+  const canReview = allAmountsValid && !overCapacity && allInstancesResolved
 
   const currentProof = estimatedProof(batch)
   const previewBatch = {
@@ -155,6 +174,7 @@ export function AddToBlendPage() {
       const today = new Date().toISOString().slice(0, 10)
       const inputs: NewBlendAdditionInput[] = selectedBottles.map(({ selection, bottle }) => ({
         sourceBottleId: bottle.id,
+        sourceBottleInstanceId: selection.sourceBottleInstanceId,
         bottleName: bottle.name,
         proof: bottle.proof,
         amountMl: Math.round(selection.amountMl),
@@ -337,6 +357,28 @@ export function AddToBlendPage() {
                       placeholder="What made you pour the last of this one in?"
                     />
                   </Field>
+
+                  {(() => {
+                    const open = bottle.instances ? openInstances(bottle.instances) : []
+                    if (open.length <= 1) return null
+                    return (
+                      <Field label="Which bottle?" htmlFor={`instance-${bottle.id}`}>
+                        <select
+                          id={`instance-${bottle.id}`}
+                          className={controlClassName}
+                          value={selection.sourceBottleInstanceId ?? ''}
+                          onChange={(e) => updateSelection(bottle.id, { sourceBottleInstanceId: e.target.value || undefined })}
+                        >
+                          <option value="">Choose a bottle…</option>
+                          {open.map((instance) => (
+                            <option key={instance.id} value={instance.id}>
+                              {instanceLabel(instance, bottle.instances!.indexOf(instance))}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
@@ -392,12 +434,25 @@ export function AddToBlendPage() {
           ) : (
             <>
               <div className={styles.reviewList}>
-                {selectedBottles.map(({ selection, bottle }) => (
-                  <div className={styles.reviewRow} key={bottle.id}>
-                    <span className={styles.reviewName}>{bottle.name}</span>
-                    <span className={styles.reviewAmount}>{Math.round(selection.amountMl)}ml</span>
-                  </div>
-                ))}
+                {selectedBottles.map(({ selection, bottle }) => {
+                  // Only worth naming which physical bottle when there's
+                  // more than one to have picked between — a plain
+                  // (or single-instance) bottle just shows its name.
+                  const pickedInstance =
+                    bottle.instances && bottle.instances.length > 1 && selection.sourceBottleInstanceId
+                      ? bottle.instances.find((i) => i.id === selection.sourceBottleInstanceId)
+                      : undefined
+                  const instanceIndex = pickedInstance ? bottle.instances!.indexOf(pickedInstance) : -1
+                  return (
+                    <div className={styles.reviewRow} key={bottle.id}>
+                      <span className={styles.reviewName}>
+                        {bottle.name}
+                        {pickedInstance ? ` · ${instanceLabel(pickedInstance, instanceIndex)}` : ''}
+                      </span>
+                      <span className={styles.reviewAmount}>{Math.round(selection.amountMl)}ml</span>
+                    </div>
+                  )
+                })}
               </div>
               <div className={styles.reviewTotals}>
                 <div className={styles.totalsRow}>

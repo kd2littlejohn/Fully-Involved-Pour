@@ -32,6 +32,13 @@ interface OwnershipFieldsCardProps {
   values: OwnershipFieldsValues
   onChange: (patch: Partial<OwnershipFieldsValues>) => void
   bottleContext: BottleContext
+  // True once this bottle already has more than one physical instance —
+  // those instance records are the authoritative source for status/price/
+  // store/dates/fill level from here on, so this card stops offering to
+  // edit them directly (that would silently clobber whichever instance's
+  // history a top-level save happened to overwrite). Quantity becomes a
+  // plain readout; edit individual bottles from Bottle Details instead.
+  multiInstance?: boolean
 }
 
 const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
@@ -50,7 +57,7 @@ const FILL_LEVEL_OPTIONS: { value: FillLevel; label: string }[] = [
   { value: 'empty', label: 'Empty' },
 ]
 
-export function OwnershipFieldsCard({ values, onChange, bottleContext }: OwnershipFieldsCardProps) {
+export function OwnershipFieldsCard({ values, onChange, bottleContext, multiInstance = false }: OwnershipFieldsCardProps) {
   const [open, setOpen] = useState(false)
   const [generatingNotes, setGeneratingNotes] = useState(false)
   const [notesStatus, setNotesStatus] = useState<string | null>(null)
@@ -88,11 +95,19 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
 
       {open ? (
         <div className={styles.body}>
+          {multiInstance ? (
+            <p className={styles.conditionalNote}>
+              This bottle has multiple physical instances — status, price, store, and dates are set per bottle from Bottle
+              Details, not here.
+            </p>
+          ) : null}
+
           <Field label="Status" htmlFor="ab-status">
             <select
               id="ab-status"
               className={controlClassName}
               value={values.status}
+              disabled={multiInstance}
               onChange={(e) => {
                 const status = e.target.value as BottleStatus
                 // Default to today the moment a bottle becomes Finished, but
@@ -116,6 +131,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
               id="ab-fill-level"
               className={controlClassName}
               value={values.fillLevel}
+              disabled={multiInstance}
               onChange={(e) => onChange({ fillLevel: e.target.value as FillLevel | '' })}
             >
               <option value="">Not set</option>
@@ -135,23 +151,28 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 type="number"
                 inputMode="decimal"
                 value={values.price}
+                disabled={multiInstance}
                 onChange={(e) => onChange({ price: e.target.value })}
                 placeholder="45.99"
               />
             </Field>
 
             <Field label="Quantity (optional)" htmlFor="ab-quantity">
-              <input
-                id="ab-quantity"
-                className={controlClassName}
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                value={values.quantity}
-                onChange={(e) => onChange({ quantity: e.target.value })}
-                placeholder="1"
-              />
+              {multiInstance ? (
+                <input id="ab-quantity" className={controlClassName} value={values.quantity} disabled readOnly />
+              ) : (
+                <input
+                  id="ab-quantity"
+                  className={controlClassName}
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  step="1"
+                  value={values.quantity}
+                  onChange={(e) => onChange({ quantity: e.target.value })}
+                  placeholder="1"
+                />
+              )}
             </Field>
           </div>
 
@@ -162,6 +183,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 className={controlClassName}
                 type="date"
                 value={values.purchaseDate}
+                disabled={multiInstance}
                 onChange={(e) => onChange({ purchaseDate: e.target.value })}
               />
             </Field>
@@ -171,6 +193,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 id="ab-store"
                 className={controlClassName}
                 value={values.storeLocation}
+                disabled={multiInstance}
                 onChange={(e) => onChange({ storeLocation: e.target.value })}
                 placeholder="ABC Liquor"
               />
@@ -187,6 +210,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 className={controlClassName}
                 type="date"
                 value={values.openedDate}
+                disabled={multiInstance}
                 onChange={(e) => onChange({ openedDate: e.target.value })}
               />
             </Field>
@@ -197,6 +221,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext }: Ownersh
                 className={controlClassName}
                 type="date"
                 value={values.finishedDate}
+                disabled={multiInstance}
                 onChange={(e) => onChange({ finishedDate: e.target.value })}
               />
             </Field>

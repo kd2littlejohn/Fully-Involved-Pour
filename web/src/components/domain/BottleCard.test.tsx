@@ -169,3 +169,83 @@ describe('BottleCard', () => {
     expect(onToggleSelect).toHaveBeenCalled()
   })
 })
+
+describe('BottleCard — multiple physical bottles', () => {
+  beforeEach(() => {
+    mockUpdateBottle.mockClear()
+  })
+
+  it('still renders exactly one card, showing a count and status breakdown instead of the single status pill', () => {
+    const multi: Bottle = {
+      ...eagleRare,
+      instances: [
+        { id: 'i1', status: 'open', createdAt: 1 },
+        { id: 'i2', status: 'sealed', createdAt: 2 },
+        { id: 'i3', status: 'sealed', createdAt: 3 },
+      ],
+    }
+    mockData([multi])
+    renderCard(multi)
+
+    expect(screen.getAllByText(multi.name)).toHaveLength(1)
+    expect(screen.getByText('3 bottles')).toBeInTheDocument()
+    expect(screen.getByText('1 Open · 2 Sealed')).toBeInTheDocument()
+    expect(screen.queryByText('Opened')).not.toBeInTheDocument()
+  })
+
+  it('shows "3 Sealed" when none are open, and "1 Open · 1 Sealed · 1 Finished" with a mix', () => {
+    const allSealed: Bottle = {
+      ...eagleRare,
+      status: 'sealed',
+      instances: [
+        { id: 'i1', status: 'sealed', createdAt: 1 },
+        { id: 'i2', status: 'sealed', createdAt: 2 },
+        { id: 'i3', status: 'sealed', createdAt: 3 },
+      ],
+    }
+    mockData([allSealed])
+    const { rerender } = renderCard(allSealed)
+    expect(screen.getByText('3 Sealed')).toBeInTheDocument()
+
+    const mixed: Bottle = {
+      ...eagleRare,
+      instances: [
+        { id: 'i1', status: 'open', createdAt: 1 },
+        { id: 'i2', status: 'sealed', createdAt: 2 },
+        { id: 'i3', status: 'finished', createdAt: 3 },
+      ],
+    }
+    rerender(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<BottleCard bottle={mixed} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('1 Open · 1 Sealed · 1 Finished')).toBeInTheDocument()
+  })
+
+  it('does not offer the status-change picker on a multi-instance card', async () => {
+    const multi: Bottle = {
+      ...eagleRare,
+      instances: [
+        { id: 'i1', status: 'open', createdAt: 1 },
+        { id: 'i2', status: 'sealed', createdAt: 2 },
+      ],
+    }
+    mockData([multi])
+    renderCard(multi)
+
+    // The single-status button (which opens ChangeBottleStatusModal) is
+    // gone entirely — status is ambiguous once there's more than one
+    // physical bottle, and is only ever changed per instance elsewhere.
+    expect(document.querySelector('[class*="statusButton"]')).not.toBeInTheDocument()
+  })
+
+  it('renders the normal single status pill unchanged for a plain quantity=1 bottle', () => {
+    mockData([eagleRare])
+    renderCard(eagleRare)
+    expect(screen.getByText('Opened')).toBeInTheDocument()
+    expect(screen.queryByText(/bottles$/)).not.toBeInTheDocument()
+  })
+})

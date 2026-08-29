@@ -1,13 +1,19 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuickPour } from './QuickPour'
+import type { Bottle } from '../../data/types'
 
 const mockAddPour = vi.fn()
 const mockGenerateAndSaveTastingSummary = vi.fn().mockResolvedValue(undefined)
+let mockBottles: Bottle[] = [{ id: 'b1', name: 'Eagle Rare', status: 'open' }]
 
 vi.mock('../../hooks/useUserData', () => ({
-  useUserData: () => ({ addPour: mockAddPour, updatePourAiSummary: vi.fn() }),
+  useUserData: () => ({
+    userDoc: { bottles: mockBottles },
+    addPour: mockAddPour,
+    updatePourAiSummary: vi.fn(),
+  }),
 }))
 
 vi.mock('../pourWizard/tastingSummaryOnSave', () => ({
@@ -37,6 +43,7 @@ beforeEach(() => {
   mockAddPour.mockReset()
   mockAddPour.mockResolvedValue(undefined)
   mockGenerateAndSaveTastingSummary.mockClear()
+  mockBottles = [{ id: 'b1', name: 'Eagle Rare', status: 'open' }]
 })
 
 describe('QuickPour', () => {
@@ -199,6 +206,51 @@ describe('QuickPour', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Tell the Full Story' }))
 
     expect(screen.getByText('Full Wizard — Eagle Rare (editing p1)')).toBeInTheDocument()
+  })
+
+  it('silently stamps bottleInstanceId when the bottle has exactly one open instance', async () => {
+    mockBottles = [
+      {
+        id: 'b1',
+        name: 'Eagle Rare',
+        status: 'open',
+        instances: [
+          { id: 'i1', status: 'open', createdAt: 1 },
+          { id: 'i2', status: 'sealed', createdAt: 2 },
+        ],
+      },
+    ]
+    render(<QuickPour bottleId="b1" bottleName="Eagle Rare" onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Pour' }))
+
+    expect(screen.queryByText('Which bottle are you pouring from?')).not.toBeInTheDocument()
+    expect(mockAddPour.mock.calls[0]![0].bottleInstanceId).toBe('i1')
+  })
+
+  it('asks which bottle when more than one instance is open, and stamps the chosen one', async () => {
+    mockBottles = [
+      {
+        id: 'b1',
+        name: 'Eagle Rare',
+        status: 'open',
+        instances: [
+          { id: 'i1', status: 'open', createdAt: 1 },
+          { id: 'i2', status: 'open', createdAt: 2 },
+        ],
+      },
+    ]
+    render(<QuickPour bottleId="b1" bottleName="Eagle Rare" onClose={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /Enjoying It/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Save Pour' }))
+
+    expect(mockAddPour).not.toHaveBeenCalled()
+    const dialog = screen.getByText('Which bottle are you pouring from?').closest('dialog')!
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Bottle #2' }))
+
+    expect(mockAddPour.mock.calls[0]![0].bottleInstanceId).toBe('i2')
   })
 })
 

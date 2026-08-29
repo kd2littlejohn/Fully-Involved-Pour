@@ -90,6 +90,45 @@ export interface Bottle {
   // scan flow that used to write this has been removed, but the field
   // stays so existing bottles that already have one don't lose it.
   upc?: string
+  // Multiple physical bottles of this same expression — absent for every
+  // bottle added at quantity 1 (the common case), which keeps `status`,
+  // `purchaseDate`, `price`, `storeLocation`, `openedDate`, `finishedDate`,
+  // and `fillLevel` above the single source of truth exactly as before this
+  // existed. Once `instances` is present, those top-level fields become a
+  // read-only compatibility rollup (kept in sync by the mutators so old
+  // call sites — My Bar filters, journey stage, Discover/Friends previews —
+  // never need to become instance-aware) and must never be written to
+  // directly; edit a specific instance instead (see
+  // features/bottleInstances/selectors.ts).
+  instances?: BottleInstance[]
+  // The instance currently being poured from/tracked as "active." Only ever
+  // references an OPEN instance — undefined whenever no instance is open,
+  // never defaulted to instance 1 just because it exists. More than one
+  // instance may be open at once (a user can confirm opening a second), in
+  // which case this is just the most recently opened/selected one; pour
+  // logging still resolves and asks when more than one is actually open.
+  activeInstanceId?: string
+}
+
+// One physical bottle of an expression a user owns — see `Bottle.instances`.
+export interface BottleInstance {
+  id: string
+  // In practice always 'sealed' | 'open' | 'finished' — reuses BottleStatus
+  // rather than a narrower type so existing status-label/tone maps work
+  // unchanged; 'wishlist'/'incoming' are never set on an instance.
+  status: BottleStatus
+  // Optional short identifier for telling instances apart when they really
+  // are different (a store pick, a specific batch) — "Bottle #2" is always
+  // the default label; this appends " — {label}" when set.
+  label?: string
+  purchaseDate?: string
+  price?: number
+  storeLocation?: string
+  openedDate?: string
+  finishedDate?: string
+  fillLevel?: FillLevel
+  notes?: string
+  createdAt: number
 }
 
 export interface FipBreakdown {
@@ -110,6 +149,13 @@ export interface FipBreakdown {
 export interface Pour {
   id: string
   bottleId: string
+  // Which physical bottle this pour came from, when resolvable — optional
+  // and absent on every pour saved before multi-instance bottles existed,
+  // and on any pour against a bottle that never went past quantity 1.
+  // Pour count/current score/journey stage all roll up by bottleId alone
+  // (the expression), never by this — this only exists so a future
+  // per-instance Journey breakdown has the data to work with.
+  bottleInstanceId?: string
   date: string
   ounces?: number
   rating: number
@@ -234,6 +280,11 @@ export interface Memory {
 export interface BlendAddition {
   id: string
   sourceBottleId?: string
+  // Which physical bottle of sourceBottleId this addition was poured from,
+  // when the source bottle has multiple instances and it was resolvable —
+  // never fabricated, absent when the source has no instances or wasn't
+  // resolvable.
+  sourceBottleInstanceId?: string
   canonicalBottleId?: string
   bottleName: string
   proof?: number

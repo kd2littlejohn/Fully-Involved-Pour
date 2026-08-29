@@ -148,6 +148,23 @@
   gap: var(--fip-space-2);
 }
 
+.instanceSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.instanceCount {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.instanceBreakdown {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
 .journey {
   display: flex;
   align-items: center;

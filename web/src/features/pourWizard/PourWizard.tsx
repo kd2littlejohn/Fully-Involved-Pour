@@ -11,6 +11,7 @@ import { generateAndSaveTastingSummary } from './tastingSummaryOnSave'
 import { uploadAndSaveMemoryPhoto } from './memoryPhotoOnSave'
 import { deletePhotoIfSafe } from '../photoUpload/uploadPhoto'
 import { companionStringFromPouredWith } from './pourPeople'
+import { useBottleInstancePicker } from './useBottleInstancePicker'
 import type { Pour } from '../../data/types'
 import { SessionStep } from './steps/SessionStep'
 import { NoseStep } from './steps/NoseStep'
@@ -43,6 +44,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
   const { draft, updateDraft, clearDraft } = useWizardDraft(bottleId, existingPour, userDoc.people)
   const { user } = useAuth()
   const bottle = userDoc?.bottles.find((b) => b.id === bottleId)
+  const { resolveThenSave, picker: instancePicker } = useBottleInstancePicker(bottle)
   const [stepIndex, setStepIndex] = useState(0)
   const [saving, setSaving] = useState(false)
 
@@ -56,13 +58,25 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
   const isLastStep = stepIndex === STEPS.length - 1
   const Step = STEPS[stepIndex]?.Component ?? SessionStep
 
-  async function handleSave() {
+  function handleSave() {
+    // Only a brand-new pour ever needs to resolve which physical bottle it
+    // came from — editing an existing one leaves its instance attribution
+    // exactly as it already was (see the conditional spread below).
+    if (existingPour) {
+      void doSave(undefined)
+      return
+    }
+    resolveThenSave((bottleInstanceId) => void doSave(bottleInstanceId))
+  }
+
+  async function doSave(bottleInstanceId: string | undefined) {
     setSaving(true)
     const value = buyAgainToValueScore(draft.buyAgain)
     const total = computeFipTotal({ nose: draft.nose, palate: draft.palate, finish: draft.finish, complexity: draft.complexity, value })
 
     const pour: NewPourInput = {
       bottleId,
+      ...(existingPour ? {} : { bottleInstanceId }),
       date: draft.date,
       ounces: draft.ounces,
       rating: total,
@@ -155,6 +169,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
   }
 
   return (
+    <>
     <Modal title={`${isEditing ? 'Edit' : 'Add a'} Pour Story — ${bottleName}`} onClose={onClose}>
       <ProgressStepper labels={STEPS.map((s) => s.label)} activeIndex={stepIndex} />
 
@@ -205,5 +220,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
         </div>
       </div>
     </Modal>
+    {instancePicker}
+    </>
   )
 }

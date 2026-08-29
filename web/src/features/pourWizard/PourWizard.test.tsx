@@ -2,9 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PourWizard } from './PourWizard'
-import type { Pour } from '../../data/types'
+import type { Bottle, Pour } from '../../data/types'
 
 const mockAddPour = vi.fn().mockResolvedValue(undefined)
+let mockBottles: Bottle[] = []
 const mockUpdatePour = vi.fn().mockResolvedValue(undefined)
 const mockAddOrReusePerson = vi.fn()
 const mockUpdatePersonPhoto = vi.fn().mockResolvedValue(undefined)
@@ -16,7 +17,7 @@ const mockDeletePhotoIfSafe = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../hooks/useUserData', () => ({
   useUserData: () => ({
-    userDoc: { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+    userDoc: { bottles: mockBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
     addPour: mockAddPour,
     updatePour: mockUpdatePour,
     updatePourAiSummary: vi.fn(),
@@ -63,6 +64,7 @@ beforeEach(() => {
   mockGenerateAndSaveTastingSummary.mockResolvedValue(undefined)
   mockUploadAndSaveMemoryPhoto.mockResolvedValue(undefined)
   mockDeletePhotoIfSafe.mockResolvedValue(undefined)
+  mockBottles = []
 })
 
 async function goNext() {
@@ -138,6 +140,51 @@ describe('PourWizard', () => {
     // generate a tasting summary for.
     expect(mockGenerateAndSaveTastingSummary).not.toHaveBeenCalled()
     expect(mockUploadAndSaveMemoryPhoto).not.toHaveBeenCalled()
+  })
+
+  it('stamps bottleInstanceId on a new pour when the bottle has exactly one open instance', async () => {
+    mockBottles = [
+      {
+        id: 'b1',
+        name: 'Eagle Rare',
+        status: 'open',
+        instances: [
+          { id: 'i1', status: 'open', createdAt: 1 },
+          { id: 'i2', status: 'sealed', createdAt: 2 },
+        ],
+      },
+    ]
+    render(<PourWizard bottleId="b1" bottleName="Eagle Rare" onClose={vi.fn()} onSaved={vi.fn()} />)
+    await goToSummary()
+    await userEvent.click(screen.getByRole('button', { name: 'Save Story' }))
+
+    expect(mockAddPour).toHaveBeenCalledWith(expect.objectContaining({ bottleInstanceId: 'i1' }))
+  })
+
+  it('never stamps a bottleInstanceId when editing an existing pour', async () => {
+    mockBottles = [
+      {
+        id: 'b1',
+        name: 'Eagle Rare',
+        status: 'open',
+        instances: [{ id: 'i1', status: 'open', createdAt: 1 }],
+      },
+    ]
+    const existingPour: Pour = {
+      id: 'p1',
+      bottleId: 'b1',
+      bottleInstanceId: 'i1',
+      date: '2026-08-01',
+      rating: 7.5,
+      fip: { nose: 2, palate: 2.5, finish: 1.5, complexity: 0.5, value: 1, total: 7.5, noseAromas: [], palateFlavors: [] },
+    }
+    render(<PourWizard bottleId="b1" bottleName="Eagle Rare" existingPour={existingPour} onClose={vi.fn()} />)
+    await goToSummary()
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    expect(mockUpdatePour).toHaveBeenCalled()
+    const [, patch] = mockUpdatePour.mock.calls[0]!
+    expect(patch).not.toHaveProperty('bottleInstanceId')
   })
 
   it('fires the tasting summary generator in the background once a real saved pour comes back, after onSaved/onClose', async () => {
