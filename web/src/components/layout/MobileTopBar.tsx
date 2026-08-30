@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import compassMark from '../../assets/compass-mark.png'
+import compassMark from '../../assets/compass-mark-transparent.png'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import styles from './MobileTopBar.module.css'
