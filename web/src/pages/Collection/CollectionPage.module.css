@@ -2,6 +2,13 @@
   padding: 0 var(--fip-shell-x) var(--fip-space-3);
 }
 
+.resultCount {
+  padding: 0 var(--fip-shell-x) var(--fip-space-3);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: 0;
+}
+
 .searchRow input {
   width: 100%;
 }

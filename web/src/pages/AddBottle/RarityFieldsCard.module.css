@@ -1,0 +1,21 @@
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}
+
+.confirmedRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+}
+
+.confirmedHint {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.suggestButton {
+  margin-top: var(--fip-space-3);
+}

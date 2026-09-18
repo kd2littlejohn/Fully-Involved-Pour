@@ -1,0 +1,49 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--fip-space-2);
+  border-radius: var(--fip-radius-sm);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  border: 1px solid var(--fip-border-subtle);
+}
+
+/* Muted, outlined — deliberately understated so a card full of Unclassified
+   badges doesn't read as an error state, just an invitation to classify. */
+.unclassified {
+  color: var(--fip-muted);
+  border-color: var(--fip-border-subtle);
+  background: transparent;
+}
+
+.common {
+  color: var(--fip-muted);
+  border-color: var(--fip-border-subtle);
+  background: var(--fip-card-soft);
+}
+
+.uncommon {
+  color: var(--fip-cream-soft);
+  border-color: var(--fip-border);
+  background: var(--fip-card-soft);
+}
+
+.allocated {
+  color: var(--fip-brass);
+  border-color: var(--fip-border);
+  background: var(--fip-brass-soft);
+}
+
+.rare {
+  color: var(--fip-copper);
+  border-color: var(--fip-border);
+  background: var(--fip-copper-soft);
+}
+
+.unicorn {
+  color: var(--fip-amber);
+  border-color: var(--fip-border);
+  background: var(--fip-amber-soft);
+}

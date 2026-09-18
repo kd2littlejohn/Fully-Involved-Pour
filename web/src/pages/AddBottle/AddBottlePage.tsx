@@ -14,6 +14,7 @@ import { AddBottleEntryChoice } from './AddBottleEntryChoice'
 import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFieldsCard'
 import { OwnershipFieldsCard, type OwnershipFieldsValues } from './OwnershipFieldsCard'
 import { BottleInstancesCard, blankInstanceDraft, type InstanceDraft } from './BottleInstancesCard'
+import { RarityFieldsCard, blankRarityFieldsValues, type RarityFieldsValues } from './RarityFieldsCard'
 import styles from './AddBottlePage.module.css'
 
 function generateInstanceId(): string {
@@ -106,6 +107,7 @@ export function AddBottlePage() {
     finishedDate: '',
     notes: '',
   })
+  const [rarity, setRarity] = useState<RarityFieldsValues>(blankRarityFieldsValues())
   const [nameError, setNameError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -174,6 +176,14 @@ export function AddBottlePage() {
       finishedDate: existingBottle.finishedDate ?? '',
       notes: existingBottle.notes ?? '',
     })
+    setRarity({
+      rarity: existingBottle.rarity ?? '',
+      raritySource: existingBottle.raritySource,
+      rarityConfidence: existingBottle.rarityConfidence,
+      rarityReason: existingBottle.rarityReason,
+      rarityConfirmedAt: existingBottle.rarityConfirmedAt,
+      raritySuggestion: existingBottle.raritySuggestion,
+    })
   }, [isEditing, existingBottle])
 
   function handleScanResult(info: LabelScanResult) {
@@ -219,6 +229,17 @@ export function AddBottlePage() {
         // equivalent — always editable here regardless of instance count.
         expectedDate: ownership.expectedDate.trim() || undefined,
         notes: ownership.notes.trim() || undefined,
+        // Rarity is a property of the expression, not any one physical
+        // instance — always included here regardless of instance count. A
+        // suggestion that was fetched but never accepted is saved too
+        // (pending, not confirmed) so it's there to resume next time this
+        // bottle is reviewed, without ever affecting the rarity chart.
+        rarity: rarity.rarity || undefined,
+        raritySource: rarity.raritySource,
+        rarityConfidence: rarity.rarityConfidence,
+        rarityReason: rarity.rarityReason,
+        rarityConfirmedAt: rarity.rarityConfirmedAt,
+        raritySuggestion: rarity.raritySuggestion,
       }
 
       // Once a bottle already has multiple instances, this form never
@@ -363,6 +384,11 @@ export function AddBottlePage() {
                 onChange={(patch) => setOwnership((prev) => ({ ...prev, ...patch }))}
                 bottleContext={{ name: essential.name, distillery: essential.distillery, type: essential.type, proof: essential.proof }}
                 multiInstance={isExistingMultiInstance}
+              />
+              <RarityFieldsCard
+                values={rarity}
+                onChange={(patch) => setRarity((prev) => ({ ...prev, ...patch }))}
+                bottleContext={{ name: essential.name, distillery: essential.distillery, type: essential.type, region: essential.region, ageStatement: essential.ageStatement, proof: essential.proof }}
               />
               {!isExistingMultiInstance && instanceDrafts.length > 0 ? (
                 <BottleInstancesCard

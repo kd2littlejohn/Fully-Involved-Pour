@@ -1,0 +1,94 @@
+.page {
+  padding: 0 var(--fip-shell-x) var(--fip-space-6);
+}
+
+.progress {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: 0 0 var(--fip-space-2);
+}
+
+.error {
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+  margin: 0 0 var(--fip-space-3);
+}
+
+.acceptAllButton {
+  margin-bottom: var(--fip-space-4);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-4);
+}
+
+.row {
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  padding: var(--fip-space-4);
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-3);
+}
+
+.image {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: var(--fip-radius-md);
+  overflow: hidden;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fip-card-soft);
+}
+
+.rowInfo {
+  min-width: 0;
+}
+
+.rowName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  margin: 0;
+}
+
+.rowDistillery {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  margin: 0;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-2);
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-3);
+}
+
+.confirmText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  margin: 0 0 var(--fip-space-4);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--fip-space-2);
+}

@@ -80,6 +80,46 @@ describe('users/{uid}', () => {
   })
 })
 
+// --- Bottle rarity write protection — rarity/raritySource/rarityConfidence/
+// rarityReason/rarityConfirmedAt/raritySuggestion all live inside a bottle
+// on this same users/{uid} document (see data/types.ts), so this is really
+// exercising the existing users/{uid} rule with rarity fields specifically
+// — there is no separate rarity collection or rule to add. -----------------
+describe('bottle rarity write protection', () => {
+  const rareBottle = { id: 'b1', name: 'Pappy 23', status: 'open', createdAt: 1, rarity: 'unicorn', raritySource: 'manual', rarityConfidence: undefined, rarityReason: undefined, rarityConfirmedAt: 1 }
+
+  it('the owner can confirm rarity on their own bottle', async () => {
+    await seedUserDoc(USER_A)
+    const a = testEnv.authenticatedContext(USER_A)
+    await assertSucceeds(setDoc(doc(a.firestore(), 'users', USER_A), baseUserDoc({ bottles: [rareBottle] })))
+  })
+
+  it('a friend cannot write a rarity value onto the owner\'s document', async () => {
+    await seedUserDoc(USER_A)
+    const b = testEnv.authenticatedContext(USER_B)
+    await assertFails(updateDoc(doc(b.firestore(), 'users', USER_A), { bottles: [rareBottle] }))
+    await assertFails(setDoc(doc(b.firestore(), 'users', USER_A), baseUserDoc({ bottles: [rareBottle] }), { merge: true }))
+  })
+
+  it('a friend cannot write a rarity value onto sharedCollections either — that projection is owner-write-only', async () => {
+    const b = testEnv.authenticatedContext(USER_B)
+    await assertFails(
+      setDoc(doc(b.firestore(), 'sharedCollections', USER_A), {
+        uid: USER_A,
+        bottles: [{ id: 'b1', name: 'Pappy 23', status: 'open', rarity: 'unicorn' }],
+        wishlist: [],
+        updatedAt: Date.now(),
+      }),
+    )
+  })
+
+  it('an unauthenticated client cannot write rarity onto any user\'s document', async () => {
+    await seedUserDoc(USER_A)
+    const anon = testEnv.unauthenticatedContext()
+    await assertFails(setDoc(doc(anon.firestore(), 'users', USER_A), baseUserDoc({ bottles: [rareBottle] }), { merge: true }))
+  })
+})
+
 // --- profiles/{uid} — public projection, owner-only write. ------------------
 describe('profiles/{uid}', () => {
   it('is publicly readable, including unauthenticated', async () => {

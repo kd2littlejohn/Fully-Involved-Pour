@@ -42,6 +42,7 @@ const SharedPourStoryPage = lazy(() =>
 )
 const AddFriendPage = lazy(() => import('./pages/Friends/AddFriendPage').then((m) => ({ default: m.AddFriendPage })))
 const AddBottlePage = lazy(() => import('./pages/AddBottle/AddBottlePage').then((m) => ({ default: m.AddBottlePage })))
+const RarityReviewPage = lazy(() => import('./pages/Collection/RarityReviewPage').then((m) => ({ default: m.RarityReviewPage })))
 const BlindRoomLandingPage = lazy(() =>
   import('./pages/BlindRoom/BlindRoomLandingPage').then((m) => ({ default: m.BlindRoomLandingPage })),
 )
@@ -72,6 +73,7 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/collection', element: <CollectionPage /> },
+      { path: '/collection/rarity-review', element: <RarityReviewPage /> },
       { path: '/collection/:bottleId', element: <BottleDetailsPage /> },
       // Infinity Bottle lives under My Bar — browsable with the bottom nav
       // visible throughout, same as Bottle Details above. :id refers to the

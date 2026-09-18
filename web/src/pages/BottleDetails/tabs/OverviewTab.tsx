@@ -9,6 +9,8 @@ import { Badge } from '../../../components/ui/Badge'
 import { FlavorRadar } from '../../../features/flavorRadar/FlavorRadar'
 import { flavorRadarValues } from '../../../features/flavorRadar/flavorCategories'
 import { YourBottlesSection } from '../YourBottlesSection'
+import { confirmedRarityOf } from '../../../features/rarity/rarityFields'
+import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../../features/rarity/rarityLevels'
 import styles from './OverviewTab.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -48,6 +50,11 @@ export function OverviewTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }
   // Deliberately "~$" — MSRP is a reference figure, distinct from the exact
   // Price Paid shown in Your Bottle below.
   if (bottle.msrp) bottleInfoRows.push({ label: 'MSRP', value: `~$${Math.round(bottle.msrp)}` })
+  // Structured, owner-confirmed classification — placed just above FIP
+  // Guide's own free-text `availability` phrase (uncontrolled model prose)
+  // so the relationship between the two reads clearly without unifying
+  // them. Always shown, including "Unclassified" — never omitted.
+  bottleInfoRows.push({ label: 'Rarity', value: confirmedRarityOf(bottle) ? RARITY_LABEL[confirmedRarityOf(bottle)!] : UNCLASSIFIED_LABEL })
   if (guide?.availability) bottleInfoRows.push({ label: 'Availability', value: guide.availability })
   if (bottle.bottleSize) bottleInfoRows.push({ label: 'Bottle Size', value: `${bottle.bottleSize}ml` })
 

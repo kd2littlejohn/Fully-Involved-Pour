@@ -3,7 +3,7 @@
     {
       "source": "functions",
       "codebase": "default",
-      "ignore": ["node_modules", ".git", "*.log"]
+      "ignore": ["node_modules", ".git", "*.log", "*.test.js", "vitest.config.mjs"]
     }
   ],
   "firestore": {

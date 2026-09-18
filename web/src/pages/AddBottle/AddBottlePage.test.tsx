@@ -99,6 +99,11 @@ vi.mock('./OwnershipFieldsCard', () => ({
   ),
 }))
 
+vi.mock('../../data/repositories/rarity', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../data/repositories/rarity')>()
+  return { ...actual, requestRaritySuggestion: vi.fn().mockResolvedValue({ status: 'failed' }) }
+})
+
 vi.mock('./BottleInstancesCard', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./BottleInstancesCard')>()
   return {
@@ -191,6 +196,25 @@ describe('AddBottlePage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Bottle name is required.')
     expect(mockAddBottle).not.toHaveBeenCalled()
+  })
+
+  it('a failed rarity suggestion never blocks saving the bottle', async () => {
+    const { requestRaritySuggestion } = await import('../../data/repositories/rarity')
+    vi.mocked(requestRaritySuggestion).mockResolvedValue({ status: 'failed' })
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockAddBottle.mockResolvedValue('new-bottle-id')
+    // Prefilled distillery/type gives the real RarityFieldsCard enough
+    // identity to auto-request immediately, without needing to interact
+    // with the mocked-out EssentialFieldsCard stub.
+    renderPage({ prefill: { name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace', type: 'Bourbon' } })
+
+    await screen.findByText("We couldn't suggest a rarity for this bottle.")
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+
+    expect(mockAddBottle).toHaveBeenCalled()
+    const [payload] = mockAddBottle.mock.calls[0]!
+    expect(payload.rarity).toBeUndefined()
   })
 
   it('merges scan results into empty fields without overwriting user input', async () => {

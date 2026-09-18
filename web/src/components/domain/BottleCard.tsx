@@ -9,6 +9,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
 import { FipScoreBadge } from '../ui/FipScoreBadge'
+import { RarityBadge } from '../ui/RarityBadge'
 import { OverflowMenu, type OverflowMenuItem } from '../ui/OverflowMenu'
 import { RecommendToFriendModal } from '../../features/friends/RecommendToFriendModal'
 import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
@@ -115,6 +116,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
           {statusBadge}
         </button>
       )}
+      <RarityBadge bottle={bottle} />
       {typeof bottle.rating === 'number' ? <FipScoreBadge score={bottle.rating} /> : null}
     </div>
   )

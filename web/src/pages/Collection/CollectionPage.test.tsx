@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -269,5 +269,138 @@ describe('CollectionPage', () => {
 
     expect(screen.getByText('1 selected')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Eagle Rare' })).toHaveAttribute('aria-checked', 'true')
+  })
+})
+
+describe('CollectionPage — rarity chart and filter', () => {
+  const rarityBottles: Bottle[] = [
+    { id: 'r1', name: 'Eagle Rare', status: 'open', distillery: 'Buffalo Trace', createdAt: 1, rarity: 'rare', raritySource: 'manual' },
+    { id: 'r2', name: 'Weller 12', status: 'sealed', distillery: 'Buffalo Trace', createdAt: 2, rarity: 'common', raritySource: 'manual' },
+    { id: 'r3', name: 'Unclassified Bottle', status: 'sealed', createdAt: 3 },
+    { id: 'r4', name: 'Pappy 15 (wishlist)', status: 'wishlist', createdAt: 4, rarity: 'unicorn', raritySource: 'manual' },
+    { id: 'r5', name: 'Pending Bottle', status: 'open', createdAt: 5, raritySuggestion: { rarity: 'rare', confidence: 'high', reason: 'x', identityKey: 'k', generatedAt: 1, classifierVersion: 'rarity-v1' } },
+  ]
+
+  function renderWithRarityBottles() {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: rarityBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    return renderCollection()
+  }
+
+  function legend() {
+    return within(screen.getByTestId('rarity-legend'))
+  }
+
+  it('the chart total excludes wishlist bottles (Pappy 15) even though it has a confirmed rarity', () => {
+    renderWithRarityBottles()
+    // 4 owned bottles (r1, r2, r3, r5) out of 5 total — r4 is wishlist and excluded.
+    expect(screen.getByText('4')).toBeInTheDocument()
+  })
+
+  it('clicking the Rare legend row filters the list to only Rare bottles', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
+
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+    expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
+    expect(screen.queryByText('Unclassified Bottle')).not.toBeInTheDocument()
+  })
+
+  it('clicking Unclassified shows bottles without confirmed rarity, including one with a pending suggestion', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Unclassified:/ }))
+
+    expect(screen.getByText('Unclassified Bottle')).toBeInTheDocument()
+    expect(screen.getByText('Pending Bottle')).toBeInTheDocument()
+    expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
+  })
+
+  it('clicking the active row again clears the rarity filter', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
+    expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
+
+    await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+  })
+
+  it('"All Bottles" clears the rarity filter', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'All Bottles' }))
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+  })
+
+  it('selecting a different rarity switches the filter rather than combining additively', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
+    await userEvent.click(legend().getByRole('button', { name: /^Common:/ }))
+
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+    expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
+  })
+
+  it('the rarity filter combines with search (AND, not OR)', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Common:/ }))
+    await userEvent.type(screen.getByLabelText('Search your bar'), 'weller')
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+
+    await userEvent.clear(screen.getByLabelText('Search your bar'))
+    await userEvent.type(screen.getByLabelText('Search your bar'), 'eagle')
+    expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
+    // Eagle Rare is Rare, not Common — the AND of search+rarity matches
+    // nothing; the rarity-scoped zero-results message takes precedence.
+    expect(screen.getByText('No bottles match Common right now.')).toBeInTheDocument()
+  })
+
+  it('the rarity filter combines with an existing status filter', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(screen.getByRole('button', { name: /Sealed \(2\)/ }))
+    await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
+
+    // Eagle Rare is Rare but status 'open', not 'sealed' — excluded by the AND.
+    expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
+  })
+
+  it('shows a rarity-specific zero-results state when nothing matches', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Allocated:/ }))
+    expect(screen.getByText('No bottles match Allocated right now.')).toBeInTheDocument()
+  })
+
+  it('shows the visible result count once a rarity filter is active', async () => {
+    renderWithRarityBottles()
+    await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
+    expect(screen.getByText(/Showing 1 bottle · Rare/)).toBeInTheDocument()
+  })
+
+  it('shows the "Review Rarity Suggestions" action only when there are eligible Unclassified bottles', () => {
+    renderWithRarityBottles()
+    expect(screen.getByRole('button', { name: 'Review Rarity Suggestions' })).toBeInTheDocument()
+  })
+
+  it('hides "Review Rarity Suggestions" when every owned bottle is already classified', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: {
+        bottles: [{ id: 'r1', name: 'Eagle Rare', status: 'open', createdAt: 1, rarity: 'rare', raritySource: 'manual' }],
+        pours: [],
+        memories: [],
+        infinityBottles: [],
+        customLibrary: [],
+        people: [],
+      },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+    expect(screen.queryByRole('button', { name: 'Review Rarity Suggestions' })).not.toBeInTheDocument()
   })
 })

@@ -18,6 +18,39 @@ export type BuyAgain = 'absolutely' | 'probably' | 'maybe' | 'probably-not' | 'n
 export type BottleBuyAgain = 'absolutely' | 'at-msrp' | 'maybe' | 'probably-not' | 'no'
 export type WouldReplace = 'yes' | 'maybe' | 'no'
 
+// How hard a bottle is to actually get — a settled, owner-confirmed
+// classification, distinct from an AI-proposed guess (see RaritySuggestion
+// below) which never counts as classified until explicitly accepted.
+export type BottleRarity = 'common' | 'uncommon' | 'allocated' | 'rare' | 'unicorn'
+// 'manual' = the owner picked a level directly. 'suggested-confirmed' = the
+// owner accepted an AI suggestion as-is — the confidence/reason it came
+// with are preserved. There's no third "ai" source: an unaccepted
+// suggestion never sets `rarity` at all, it only ever populates
+// `raritySuggestion`.
+export type BottleRaritySource = 'manual' | 'suggested-confirmed'
+export type RarityConfidence = 'high' | 'medium' | 'low'
+
+// A pending, NOT-yet-reviewed rarity classification proposed by the AI
+// classifier (functions/rarityLogic.js) — kept entirely separate from the
+// confirmed `rarity`/`raritySource`/etc. fields on Bottle below, so an
+// unaccepted suggestion can never be mistaken for (or silently promoted
+// into) a real classification. `rarity: null` means the classifier
+// declined rather than guessing (see functions/rarityLogic.js) — that is
+// itself a valid, storable suggestion outcome, not an error.
+export interface RaritySuggestion {
+  rarity: BottleRarity | null
+  confidence: RarityConfidence
+  reason: string
+  normalizedBottleName?: string
+  // What bottle-identity fields this suggestion was generated for (see
+  // features/rarity/rarity.ts rarityIdentityKey) — compared against the
+  // bottle's CURRENT identity to decide whether this suggestion is still
+  // valid or has gone stale and needs refreshing.
+  identityKey: string
+  generatedAt: number
+  classifierVersion: string
+}
+
 export interface GalleryPhoto {
   url: string
   caption?: string
@@ -86,6 +119,22 @@ export interface Bottle {
   createdAt?: number
   buyAgain?: BottleBuyAgain
   wouldReplace?: WouldReplace
+  // Confirmed rarity classification — the only rarity state that ever
+  // counts on the rarity chart/badges. `rarity` is only ever set together
+  // with `raritySource`; when `raritySource === 'suggested-confirmed'`,
+  // `rarityConfidence`/`rarityReason` mirror the accepted suggestion's own
+  // values. A manual change always clears `rarityConfidence`/`rarityReason`
+  // (stale AI confidence must never survive a manual override) and any
+  // pending `raritySuggestion`.
+  rarity?: BottleRarity
+  raritySource?: BottleRaritySource
+  rarityConfidence?: RarityConfidence
+  rarityReason?: string
+  rarityConfirmedAt?: number
+  // A fetched-but-not-yet-reviewed suggestion — never itself confirmation.
+  // Persisted as soon as it's fetched (not just on accept) so a bulk
+  // review run that's interrupted can resume without re-requesting it.
+  raritySuggestion?: RaritySuggestion
   // UPC/EAN this bottle was originally added from, if any — the barcode
   // scan flow that used to write this has been removed, but the field
   // stays so existing bottles that already have one don't lose it.
@@ -144,6 +193,10 @@ export interface FipBreakdown {
   palateNotes?: string
   finishNotes?: string
   complexityNotes?: string
+  // Structured Finish descriptors (Short/Long/Oaky/...), mirroring
+  // noseAromas/palateFlavors — optional, absent on every pour saved before
+  // this field existed.
+  finishTags?: string[]
 }
 
 export interface Pour {
@@ -306,6 +359,7 @@ export interface InfinityTasting {
   palateFlavors: string[]
   palateNotes?: string
   finishNotes?: string
+  finishTags?: string[]
   overallNotes?: string
   photoUrl?: string
   photoStoragePath?: string

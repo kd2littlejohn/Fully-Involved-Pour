@@ -6,6 +6,7 @@ import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { useUserData } from '../../hooks/useUserData'
 import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
+import { RarityBadge } from '../ui/RarityBadge'
 import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
 import styles from './BottleListRow.module.css'
 
@@ -84,6 +85,7 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
           {statusBadge}
         </button>
       )}
+      <RarityBadge bottle={bottle} />
       {typeof bottle.rating === 'number' ? <span className={styles.score}>{bottle.rating.toFixed(1)}</span> : null}
     </div>
   )

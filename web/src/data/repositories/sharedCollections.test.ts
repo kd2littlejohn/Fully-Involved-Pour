@@ -150,4 +150,29 @@ describe('buildSharedCollectionProjection', () => {
       expect(take.notes).toBeUndefined()
     })
   })
+
+  describe('rarity never leaks into the friend projection', () => {
+    it('omits every rarity field from a bottle summary regardless of includeTake', () => {
+      const rarityFields = {
+        rarity: 'unicorn' as const,
+        raritySource: 'manual' as const,
+        rarityConfidence: 'high' as const,
+        rarityReason: 'Very hard to find.',
+        rarityConfirmedAt: 1,
+        raritySuggestion: { rarity: 'rare' as const, confidence: 'high' as const, reason: 'x', identityKey: 'k', generatedAt: 1, classifierVersion: 'rarity-v1' },
+      }
+      const doc = userDoc([bottle({ id: 'b1', name: 'Pappy 23', status: 'open', ...rarityFields })])
+
+      for (const pourStoryDefault of ['private', 'friends'] as const) {
+        const projection = buildSharedCollectionProjection('uid-1', doc, privacy({ pourStoryDefault }))
+        const summary = projection.bottles[0] as unknown as Record<string, unknown>
+        expect(summary.rarity).toBeUndefined()
+        expect(summary.raritySource).toBeUndefined()
+        expect(summary.rarityConfidence).toBeUndefined()
+        expect(summary.rarityReason).toBeUndefined()
+        expect(summary.rarityConfirmedAt).toBeUndefined()
+        expect(summary.raritySuggestion).toBeUndefined()
+      }
+    })
+  })
 })

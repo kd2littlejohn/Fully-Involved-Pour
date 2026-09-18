@@ -13,6 +13,11 @@ import { getCoreBarBottles } from '../../features/coreBar/selectors'
 import { InfinityBottleButton } from '../../features/infinityBottle/InfinityBottleButton'
 import { sortBottles, SORT_OPTIONS, type SortOption } from '../../features/collection/sortBottles'
 import { bottleDistilleryMatches } from '../../data/distillery/search'
+import { RarityDonutChart } from '../../components/ui/RarityDonutChart'
+import { rarityBreakdown } from '../../features/rarity/rarityBreakdown'
+import { matchesRarityFilter, type RarityFilterValue } from '../../features/rarity/rarityFilter'
+import { selectRarityReviewQueue } from '../../features/rarity/rarityReviewQueue'
+import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../features/rarity/rarityLevels'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
 
@@ -56,6 +61,7 @@ export function CollectionPage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading, deleteBottles } = useUserData()
   const [filter, setFilter] = useState<Filter>('all')
+  const [rarityFilter, setRarityFilter] = useState<RarityFilterValue>(null)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOption>('recent')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -68,15 +74,18 @@ export function CollectionPage() {
 
   const filteredBottles = useMemo(() => {
     const base = filter === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter))
-    return base.filter((bottle) => matchesQuery(bottle, query))
-  }, [userDoc.bottles, filter, coreBarBottles, query])
+    return base.filter((bottle) => matchesQuery(bottle, query)).filter((bottle) => matchesRarityFilter(bottle, rarityFilter))
+  }, [userDoc.bottles, filter, coreBarBottles, query, rarityFilter])
 
   const sortedBottles = useMemo(() => sortBottles(filteredBottles, sort), [filteredBottles, sort])
 
   function countForFilter(value: Filter): number {
     const base = value === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((b) => matchesFilter(b, value))
-    return base.filter((bottle) => matchesQuery(bottle, query)).length
+    return base.filter((bottle) => matchesQuery(bottle, query)).filter((bottle) => matchesRarityFilter(bottle, rarityFilter)).length
   }
+
+  const rarity = useMemo(() => rarityBreakdown(userDoc.bottles), [userDoc.bottles])
+  const rarityReviewQueue = useMemo(() => selectRarityReviewQueue(userDoc.bottles), [userDoc.bottles])
 
   const allFilteredSelected = filteredBottles.length > 0 && filteredBottles.every((b) => selectedIds.has(b.id))
 
@@ -135,6 +144,8 @@ export function CollectionPage() {
         />
       ) : (
         <>
+          <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
+
           <div className={styles.searchRow}>
             <input
               type="search"
@@ -219,6 +230,11 @@ export function CollectionPage() {
                 </Button>
               )}
               <InfinityBottleButton />
+              {rarityReviewQueue.length > 0 ? (
+                <Button variant="ghost" onClick={() => navigate('/collection/rarity-review')}>
+                  Review Rarity Suggestions
+                </Button>
+              ) : null}
               <Button onClick={() => navigate('/bottles/new')}>Add a Bottle</Button>
             </div>
           </div>
@@ -255,15 +271,32 @@ export function CollectionPage() {
             </div>
           ) : null}
 
+          {rarityFilter ? (
+            <p className={styles.resultCount}>
+              Showing {sortedBottles.length} {sortedBottles.length === 1 ? 'bottle' : 'bottles'} ·{' '}
+              {rarityFilter === 'unclassified' ? UNCLASSIFIED_LABEL : RARITY_LABEL[rarityFilter]}
+            </p>
+          ) : null}
+
           {sortedBottles.length === 0 ? (
             <EmptyState
-              title={query.trim() ? `No bottles match "${query.trim()}".` : filter === 'core-bar' ? 'No Core Bar bottles yet.' : 'No bottles here yet.'}
+              title={
+                rarityFilter
+                  ? `No bottles match ${rarityFilter === 'unclassified' ? UNCLASSIFIED_LABEL : RARITY_LABEL[rarityFilter]} right now.`
+                  : query.trim()
+                    ? `No bottles match "${query.trim()}".`
+                    : filter === 'core-bar'
+                      ? 'No Core Bar bottles yet.'
+                      : 'No bottles here yet.'
+              }
               message={
-                query.trim()
-                  ? 'Try a different name or distillery, or clear the search.'
-                  : filter === 'core-bar'
-                    ? 'Log a few Pour Stories for a bottle to see it earn a permanent spot here.'
-                    : 'Try a different filter, or add a bottle to this view.'
+                rarityFilter
+                  ? 'Try a different rarity, or clear the filter with "All Bottles".'
+                  : query.trim()
+                    ? 'Try a different name or distillery, or clear the search.'
+                    : filter === 'core-bar'
+                      ? 'Log a few Pour Stories for a bottle to see it earn a permanent spot here.'
+                      : 'Try a different filter, or add a bottle to this view.'
               }
             />
           ) : viewMode === 'grid' ? (

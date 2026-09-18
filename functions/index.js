@@ -1,6 +1,8 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const { handleSuggestBottleRarity } = require("./rarityLogic");
+const { assertNotRateLimited } = require("./rateLimit");
 
 admin.initializeApp();
 
@@ -31,29 +33,6 @@ async function callClaude(apiKey, { system, prompt, maxTokens, content, messages
 
   const data = await response.json();
   return data.content?.[0]?.text || "";
-}
-
-const RATE_LIMIT_MAX_CALLS = 20;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-
-// Lightweight, best-effort per-user rate limit for the newer, more
-// expensive FIP Intelligence Layer endpoints. Backed by a small doc written
-// only via the Admin SDK, so it needs no client-facing Firestore rule.
-// Not perfectly race-proof under truly simultaneous calls from the same
-// user -- an acceptable trade-off for a soft cap, not a billing guardrail.
-async function assertNotRateLimited(uid, operation) {
-  const ref = admin.firestore().doc(`rateLimits/${uid}_${operation}`);
-  const snap = await ref.get();
-  const now = Date.now();
-  const data = snap.exists ? snap.data() : {};
-  const withinWindow = typeof data.windowStart === "number" && now - data.windowStart < RATE_LIMIT_WINDOW_MS;
-  const count = withinWindow ? data.count || 0 : 0;
-
-  if (withinWindow && count >= RATE_LIMIT_MAX_CALLS) {
-    throw new HttpsError("resource-exhausted", "You've hit the limit for this right now -- try again in a bit.");
-  }
-
-  await ref.set({ count: count + 1, windowStart: withinWindow ? data.windowStart : now });
 }
 
 const SOMMELIER_PERSONA = `You are a refined, knowledgeable whiskey sommelier helping someone manage their personal bourbon and whiskey collection in an app called "Fully Involved Pour" (tagline: "Where there's proof, there's fire."). Speak with warmth and expertise, like a trusted sommelier, not a chatbot. Be concise: 2-4 sentences. Reference their actual collection naturally when it's given to you. Never invent specific bottle data you weren't given.`;
@@ -253,6 +232,22 @@ exports.generateFipGuide = onCall({ secrets: [anthropicApiKey], cors: true }, as
     intensity,
   };
 });
+
+// Suggests how hard a bottle is to actually get (Common/Uncommon/Allocated/
+// Rare/Unicorn), or declines (rarity: null) rather than guessing. This is
+// always a SUGGESTION the client shows for the owner to accept or change --
+// see web/src/hooks/useUserData.tsx's rarity mutators and
+// web/src/data/repositories/rarity.ts. The real logic lives in
+// rarityLogic.js specifically so it's unit-testable without the emulator;
+// this wrapper only supplies the real dependencies.
+exports.suggestBottleRarity = onCall({ secrets: [anthropicApiKey], cors: true }, (request) =>
+  handleSuggestBottleRarity(request, {
+    callClaude,
+    assertNotRateLimited,
+    apiKey: () => anthropicApiKey.value(),
+    now: Date.now,
+  }),
+);
 
 // Polishes a pour's OWN tasting notes/tags into one short, natural paragraph
 // -- the opposite job of generateTastingProfile (which invents a plausible

@@ -1656,3 +1656,188 @@ describe('useUserData — Bottle Instances', () => {
     expect(result.current.userDoc.bottles[0]?.openedDate).toBe('2026-09-01')
   })
 })
+
+describe('useUserData — bottle rarity', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+  })
+
+  function emptyDoc(): UserDoc {
+    return { bottles: [], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
+  }
+
+  it('setBottleRarity confirms a manual rarity with the correct provenance', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.setBottleRarity('b1', 'rare')
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.rarity).toBe('rare'))
+    expect(result.current.userDoc.bottles[0]?.raritySource).toBe('manual')
+    expect(result.current.userDoc.bottles[0]?.rarityConfirmedAt).toBeTypeOf('number')
+  })
+
+  it('acceptRaritySuggestions stores correct provenance (confidence + reason preserved, suggestion cleared)', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [
+      {
+        id: 'b1',
+        name: 'Eagle Rare',
+        status: 'open',
+        createdAt: 1,
+        raritySuggestion: { rarity: 'allocated', confidence: 'high', reason: 'Usually released via lottery.', identityKey: 'k1', generatedAt: 1, classifierVersion: 'rarity-v1' },
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.acceptRaritySuggestions(['b1'])
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.rarity).toBe('allocated'))
+    const bottle = result.current.userDoc.bottles[0]
+    expect(bottle?.raritySource).toBe('suggested-confirmed')
+    expect(bottle?.rarityConfidence).toBe('high')
+    expect(bottle?.rarityReason).toBe('Usually released via lottery.')
+    expect(bottle?.raritySuggestion).toBeUndefined()
+
+    // Firestore's `ignoreUndefinedProperties: true` (verified directly in
+    // web/src/data/firebase.ts) is what turns an `undefined` value into a
+    // genuine removed key once this patch reaches the real setDoc call —
+    // saveUserDoc itself is mocked here, so this only asserts the value the
+    // mutator hands it is `undefined`, not the resulting Firestore document
+    // shape (that requires the emulator).
+    const [, patch] = mockSaveUserDoc.mock.calls.at(-1)!
+    const savedBottle = (patch.bottles as Bottle[])[0]!
+    expect(savedBottle.rarity).toBe('allocated')
+    expect(savedBottle.raritySuggestion).toBeUndefined()
+  })
+
+  it('accepting a declined suggestion (rarity: null) is a no-op', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [
+      { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1, raritySuggestion: { rarity: null, confidence: 'low', reason: 'Not recognized.', identityKey: 'k1', generatedAt: 1, classifierVersion: 'rarity-v1' } },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.acceptRaritySuggestions(['b1'])
+
+    expect(result.current.userDoc.bottles[0]?.rarity).toBeUndefined()
+    expect(result.current.userDoc.bottles[0]?.raritySuggestion).toBeDefined()
+  })
+
+  it('storeRaritySuggestions writes a pending suggestion without touching confirmed rarity fields', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    const suggestion = { rarity: 'rare' as const, confidence: 'high' as const, reason: 'Very limited.', identityKey: 'k1', generatedAt: 1, classifierVersion: 'rarity-v1' }
+    await result.current.storeRaritySuggestions([{ bottleId: 'b1', suggestion }])
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.raritySuggestion).toEqual(suggestion))
+    expect(result.current.userDoc.bottles[0]?.rarity).toBeUndefined()
+  })
+
+  it('a manual change clears obsolete AI confidence/reason/suggestion and round-trips through saveUserDoc without those keys (Firestore-safe)', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [
+      {
+        id: 'b1',
+        name: 'Eagle Rare',
+        status: 'open',
+        createdAt: 1,
+        rarity: 'allocated',
+        raritySource: 'suggested-confirmed',
+        rarityConfidence: 'high',
+        rarityReason: 'Usually released via lottery.',
+        rarityConfirmedAt: 1,
+      },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await expect(result.current.setBottleRarity('b1', 'unicorn')).resolves.not.toThrow()
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.rarity).toBe('unicorn'))
+    const bottle = result.current.userDoc.bottles[0]
+    expect(bottle?.raritySource).toBe('manual')
+    expect(bottle?.rarityConfidence).toBeUndefined()
+    expect(bottle?.rarityReason).toBeUndefined()
+    expect(bottle?.raritySuggestion).toBeUndefined()
+
+    // The value handed to saveUserDoc (mocked here) is genuinely `undefined`
+    // for these keys — combined with `ignoreUndefinedProperties: true`
+    // already verified on the real Firestore client (web/src/data/
+    // firebase.ts), that's what makes the actual Firestore write a real key
+    // removal rather than a serialization error. Re-verifying the write
+    // itself would need the Firestore emulator.
+    const [, patch] = mockSaveUserDoc.mock.calls.at(-1)!
+    const savedBottle = (patch.bottles as Bottle[])[0]!
+    expect(savedBottle.rarityConfidence).toBeUndefined()
+    expect(savedBottle.rarityReason).toBeUndefined()
+    expect(savedBottle.rarity).toBe('unicorn')
+  })
+
+  it('a bulk accept applied at concurrency never drops a write to a stale snapshot', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [
+      { id: 'b1', name: 'Bottle One', status: 'open', createdAt: 1, raritySuggestion: { rarity: 'rare', confidence: 'high', reason: 'x', identityKey: 'k1', generatedAt: 1, classifierVersion: 'rarity-v1' } },
+      { id: 'b2', name: 'Bottle Two', status: 'open', createdAt: 2, raritySuggestion: { rarity: 'common', confidence: 'high', reason: 'x', identityKey: 'k2', generatedAt: 1, classifierVersion: 'rarity-v1' } },
+    ]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(2))
+
+    // Two concurrent single-bottle accepts, fired without awaiting between
+    // them — this is exactly the shape a concurrency-4 bulk review run
+    // produces. Both must land; neither may clobber the other.
+    await Promise.all([result.current.acceptRaritySuggestions(['b1']), result.current.acceptRaritySuggestions(['b2'])])
+
+    await waitFor(() => {
+      expect(result.current.userDoc.bottles.find((b) => b.id === 'b1')?.rarity).toBe('rare')
+      expect(result.current.userDoc.bottles.find((b) => b.id === 'b2')?.rarity).toBe('common')
+    })
+  })
+
+  it('backward-compatible: an existing bottle with no rarity fields is unaffected by an unrelated updateBottle patch', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    const doc = emptyDoc()
+    doc.bottles = [{ id: 'b1', name: 'Eagle Rare', status: 'sealed', createdAt: 1 }]
+    mockFetchUserDoc.mockResolvedValue(doc)
+
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.updateBottle('b1', { favorite: true })
+
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.favorite).toBe(true))
+    expect(result.current.userDoc.bottles[0]?.rarity).toBeUndefined()
+    const [, patch] = mockSaveUserDoc.mock.calls.at(-1)!
+    expect((patch.bottles as Bottle[])[0]).not.toHaveProperty('rarity')
+  })
+})

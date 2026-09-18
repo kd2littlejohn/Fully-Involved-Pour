@@ -14,12 +14,15 @@ import { deleteSharedMomentsForStory } from '../data/repositories/sharedMoments'
 import { estimatedProof } from '../features/infinityBottle/selectors'
 import { normalizeInfinityBottles } from '../features/infinityBottle/migrateInfinityBottle'
 import { resolveActiveInstanceId, rollupFromInstances, sealedInstancesInOrder, blankInstance } from '../features/bottleInstances/selectors'
+import { manualRarityFields, acceptedRarityFields } from '../features/rarity/rarityFields'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type BlendAddition,
   type BlendGoal,
   type Bottle,
   type BottleInstance,
+  type BottleRarity,
+  type RaritySuggestion,
   type GalleryPhoto,
   type InfinityBatch,
   type InfinityBottle,
@@ -60,6 +63,9 @@ interface UserDataState {
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<string | undefined>
   updateBottle: (bottleId: string, patch: BottlePatch) => Promise<void>
+  setBottleRarity: (bottleId: string, rarity: BottleRarity) => Promise<void>
+  acceptRaritySuggestions: (bottleIds: string[]) => Promise<void>
+  storeRaritySuggestions: (entries: { bottleId: string; suggestion: RaritySuggestion }[]) => Promise<void>
   deleteBottle: (bottleId: string) => Promise<void>
   deleteBottles: (bottleIds: string[]) => Promise<void>
   addBottleInstance: (bottleId: string) => Promise<string | undefined>
@@ -102,6 +108,9 @@ const UserDataContext = createContext<UserDataState>({
   signedIn: false,
   addBottle: async () => {},
   updateBottle: async () => {},
+  setBottleRarity: async () => {},
+  acceptRaritySuggestions: async () => {},
+  storeRaritySuggestions: async () => {},
   deleteBottle: async () => {},
   deleteBottles: async () => {},
   addBottleInstance: async () => undefined,
@@ -332,6 +341,73 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       await saveUserDoc(user.uid, { bottles: nextBottles })
     },
     [user, userDoc, mockMode],
+  )
+
+  // Every mutator above reads `userDoc` from its own render-time closure,
+  // which is safe as long as each call is user-paced (one write, the user
+  // waits, a re-render happens, then the next write reads the fresh
+  // value). Rarity Review can fire several of these in quick succession at
+  // real concurrency (see features/rarity/runWithConcurrency.ts) — closing
+  // over stale `userDoc` there would mean the second write clobbers the
+  // first's result. `applyBottleUpdates` instead always reads/writes
+  // through `userDocRef` (already declared above, kept in sync every
+  // render for the profile effect) and updates it SYNCHRONOUSLY the moment
+  // a new doc is computed, before the write even starts — so a second call
+  // that starts before React has re-rendered still sees the first call's
+  // result.
+  const applyBottleUpdates = useCallback(
+    async (update: (bottles: Bottle[]) => Bottle[]) => {
+      if (!user) return
+      const current = userDocRef.current
+      const nextBottles = update(current.bottles)
+      const nextDoc: UserDoc = { ...current, bottles: nextBottles }
+      userDocRef.current = nextDoc
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { bottles: nextBottles })
+    },
+    [user, mockMode],
+  )
+
+  const setBottleRarity = useCallback(
+    async (bottleId: string, rarity: BottleRarity) => {
+      const fields = manualRarityFields(rarity)
+      await applyBottleUpdates((bottles) => bottles.map((b) => (b.id === bottleId ? { ...b, ...fields } : b)))
+    },
+    [applyBottleUpdates],
+  )
+
+  // Covers both the single-accept case (call with one id) and "Accept All
+  // High-Confidence Suggestions" (call with many). A bottle whose current
+  // suggestion declined (rarity: null) is left untouched — there's nothing
+  // to accept.
+  const acceptRaritySuggestions = useCallback(
+    async (bottleIds: string[]) => {
+      if (bottleIds.length === 0) return
+      const ids = new Set(bottleIds)
+      await applyBottleUpdates((bottles) =>
+        bottles.map((b) => {
+          if (!ids.has(b.id) || !b.raritySuggestion) return b
+          const fields = acceptedRarityFields(b.raritySuggestion)
+          return fields ? { ...b, ...fields } : b
+        }),
+      )
+    },
+    [applyBottleUpdates],
+  )
+
+  // Writes a PENDING suggestion only — never touches confirmed rarity
+  // fields. Called as soon as each suggestion is fetched during a Rarity
+  // Review run (not batched until the end) so an interrupted run is
+  // resumable: reopening the review shows whatever was already persisted.
+  const storeRaritySuggestions = useCallback(
+    async (entries: { bottleId: string; suggestion: RaritySuggestion }[]) => {
+      if (entries.length === 0) return
+      const byId = new Map(entries.map((e) => [e.bottleId, e.suggestion]))
+      await applyBottleUpdates((bottles) => bottles.map((b) => (byId.has(b.id) ? { ...b, raritySuggestion: byId.get(b.id) } : b)))
+    },
+    [applyBottleUpdates],
   )
 
   const deleteBottles = useCallback(
@@ -1066,6 +1142,9 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       signedIn: Boolean(user),
       addBottle,
       updateBottle,
+      setBottleRarity,
+      acceptRaritySuggestions,
+      storeRaritySuggestions,
       deleteBottle,
       deleteBottles,
       addBottleInstance,
@@ -1108,6 +1187,9 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       user,
       addBottle,
       updateBottle,
+      setBottleRarity,
+      acceptRaritySuggestions,
+      storeRaritySuggestions,
       deleteBottle,
       deleteBottles,
       addBottleInstance,
