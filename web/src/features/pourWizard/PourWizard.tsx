@@ -112,6 +112,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
         noseNotes: draft.noseNotes,
         palateNotes: draft.palateNotes,
         finishNotes: draft.finishNotes,
+        finishTags: draft.finishTags,
         complexityNotes: draft.complexityNotes,
       },
     }

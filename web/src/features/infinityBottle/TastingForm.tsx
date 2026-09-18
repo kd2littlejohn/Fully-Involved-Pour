@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { Button } from '../../components/ui/Button'
 import { TapChip } from '../../components/ui/TapChip'
+import { FlavorFamilySelector } from '../../components/domain/FlavorFamilySelector'
 import { PhotoUploadField } from '../photoUpload/PhotoUploadField'
-import { NOSE_AROMAS, PALATE_FLAVORS } from '../fip/scoring'
 import { fipTier } from '../fip/tiers'
+import { FLAVOR_DESCRIPTORS, FINISH_DESCRIPTORS } from '../flavorTaxonomy/taxonomy'
 import type { NewTastingInput } from '../../hooks/useUserData'
 import styles from './TastingForm.module.css'
 
@@ -16,6 +17,7 @@ export interface TastingFormValue {
   palateFlavors: string[]
   palateNotes: string
   finishNotes: string
+  finishTags: string[]
   overallNotes: string
   companion: string
   photoUrl?: string
@@ -31,6 +33,7 @@ export function blankTastingValue(): TastingFormValue {
     palateFlavors: [],
     palateNotes: '',
     finishNotes: '',
+    finishTags: [],
     overallNotes: '',
     companion: '',
   }
@@ -45,6 +48,7 @@ export function tastingValueToInput(value: TastingFormValue): NewTastingInput {
     palateFlavors: value.palateFlavors,
     palateNotes: value.palateNotes.trim() || undefined,
     finishNotes: value.finishNotes.trim() || undefined,
+    finishTags: value.finishTags,
     overallNotes: value.overallNotes.trim() || undefined,
     companion: value.companion.trim() || undefined,
     photoUrl: value.photoUrl,
@@ -76,6 +80,10 @@ export function TastingForm({ value, onChange, onSubmit, submitLabel, submitting
     onChange({
       palateFlavors: value.palateFlavors.includes(flavor) ? value.palateFlavors.filter((f) => f !== flavor) : [...value.palateFlavors, flavor],
     })
+  }
+
+  function toggleFinishTag(tag: string) {
+    onChange({ finishTags: value.finishTags.includes(tag) ? value.finishTags.filter((t) => t !== tag) : [...value.finishTags, tag] })
   }
 
   return (
@@ -111,11 +119,7 @@ export function TastingForm({ value, onChange, onSubmit, submitLabel, submitting
       </div>
 
       <Field label="Nose" htmlFor={`${uid}-nose-notes`}>
-        <div className={styles.chipRow}>
-          {NOSE_AROMAS.map((aroma) => (
-            <TapChip key={aroma} label={aroma} active={value.noseAromas.includes(aroma)} onToggle={() => toggleAroma(aroma)} />
-          ))}
-        </div>
+        <FlavorFamilySelector descriptors={FLAVOR_DESCRIPTORS} selected={value.noseAromas} onToggle={toggleAroma} />
         <textarea
           id={`${uid}-nose-notes`}
           className={controlClassName}
@@ -127,11 +131,7 @@ export function TastingForm({ value, onChange, onSubmit, submitLabel, submitting
       </Field>
 
       <Field label="Palate" htmlFor={`${uid}-palate-notes`}>
-        <div className={styles.chipRow}>
-          {PALATE_FLAVORS.map((flavor) => (
-            <TapChip key={flavor} label={flavor} active={value.palateFlavors.includes(flavor)} onToggle={() => toggleFlavor(flavor)} />
-          ))}
-        </div>
+        <FlavorFamilySelector descriptors={FLAVOR_DESCRIPTORS} selected={value.palateFlavors} onToggle={toggleFlavor} />
         <textarea
           id={`${uid}-palate-notes`}
           className={controlClassName}
@@ -143,6 +143,11 @@ export function TastingForm({ value, onChange, onSubmit, submitLabel, submitting
       </Field>
 
       <Field label="Finish" htmlFor={`${uid}-finish-notes`}>
+        <div className={styles.chipRow}>
+          {FINISH_DESCRIPTORS.map((d) => (
+            <TapChip key={d.label} label={d.label} active={value.finishTags.includes(d.label)} onToggle={() => toggleFinishTag(d.label)} />
+          ))}
+        </div>
         <textarea
           id={`${uid}-finish-notes`}
           className={controlClassName}

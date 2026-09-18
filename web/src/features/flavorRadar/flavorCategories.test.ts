@@ -1,6 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { flavorRadarValues, collectionFlavorRadarValues, topFlavorTags, topFlavorTagPercentages, FLAVOR_AXES } from './flavorCategories'
+import {
+  flavorRadarValues,
+  collectionFlavorRadarValues,
+  dominantFlavorAxis,
+  topFlavorTags,
+  topFlavorTagPercentages,
+  identityLabelForAxis,
+  FLAVOR_AXES,
+} from './flavorCategories'
 import type { Bottle, Pour } from '../../data/types'
+
+// One representative, unambiguous descriptor per family (Fruit/Nutty/Grain/
+// Herbal are entries that did not exist as radar axes before this feature).
+const REPRESENTATIVE_DESCRIPTOR: Record<string, string> = {
+  Sweet: 'Vanilla',
+  Fruit: 'Peach',
+  Spice: 'Ginger',
+  Oak: 'Cedar',
+  Nutty: 'Almond',
+  Grain: 'Malt',
+  Herbal: 'Rose',
+  Smoke: 'Peat',
+}
 
 const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }
 
@@ -30,7 +51,7 @@ describe('flavorRadarValues', () => {
   })
 
   it('weights the dominant category as 1 and scales the rest relative to it', () => {
-    // Sweet: Vanilla, Caramel, Honey (x3) — Woody: Oak (x1)
+    // Sweet: Vanilla, Caramel, Honey (x3) — Oak: Oak (x1)
     const pours = [pourFor('b1', ['Vanilla', 'Caramel'], ['Honey']), pourFor('b1', ['Oak'], [])]
     const values = flavorRadarValues(bottle, pours)
     expect(values).toBeDefined()
@@ -38,16 +59,16 @@ describe('flavorRadarValues', () => {
 
     const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
     expect(byAxis.Sweet).toBe(1)
-    expect(byAxis.Woody).toBeCloseTo(1 / 3)
-    expect(byAxis.Spicy).toBe(0)
+    expect(byAxis.Oak).toBeCloseTo(1 / 3)
+    expect(byAxis.Spice).toBe(0)
   })
 
   it('includes the legacy per-bottle flavors field alongside pour tags', () => {
     const bottleWithFlavors: Bottle = { ...bottle, flavors: ['Cherry'] }
     const values = flavorRadarValues(bottleWithFlavors, [])
     expect(values).toBeDefined()
-    const fruityIndex = FLAVOR_AXES.indexOf('Fruity')
-    expect(values?.[fruityIndex]).toBe(1)
+    const fruitIndex = FLAVOR_AXES.indexOf('Fruit')
+    expect(values?.[fruitIndex]).toBe(1)
   })
 
   it('picks up flavor words written in free-text tasting notes, not just tapped chips', () => {
@@ -57,8 +78,8 @@ describe('flavorRadarValues', () => {
 
     const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
     expect(byAxis.Sweet).toBeGreaterThan(0) // vanilla
-    expect(byAxis.Woody).toBeGreaterThan(0) // oak
-    expect(byAxis.Spicy).toBeGreaterThan(0) // black pepper
+    expect(byAxis.Oak).toBeGreaterThan(0) // oak
+    expect(byAxis.Spice).toBeGreaterThan(0) // black pepper
   })
 
   it('picks up flavor words from the bottle-level notes field', () => {
@@ -68,7 +89,67 @@ describe('flavorRadarValues', () => {
 
     const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
     expect(byAxis.Sweet).toBeGreaterThan(0) // caramel
-    expect(byAxis.Smoky).toBeGreaterThan(0) // leather
+    expect(byAxis.Oak).toBeGreaterThan(0) // leather
+  })
+
+  it('a descriptor absent from the old 5-axis mapping now moves the radar (regression test for the reported bug)', () => {
+    // "Pecan" (Nutty) and "Peach" (Fruit) never existed in the old TAG_AXIS —
+    // before this fix they were selectable chips that silently never
+    // affected the radar.
+    const pours = [pourFor('b1', ['Pecan'], ['Peach'])]
+    const values = flavorRadarValues(bottle, pours)
+    expect(values).toBeDefined()
+    const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
+    expect(byAxis.Nutty).toBeGreaterThan(0)
+    expect(byAxis.Fruit).toBeGreaterThan(0)
+  })
+
+  it('counts a descriptor once per pour even when both selected as a chip and typed in notes', () => {
+    const pours = [pourFor('b1', ['Vanilla'], [], { noseNotes: 'hints of vanilla' })]
+    const ranked = topFlavorTags([bottle], pours)
+    const vanilla = ranked.find((r) => r.tag === 'Vanilla')
+    expect(vanilla).toBeDefined()
+    // Counted once, as a structured pick (not once structured + once free-text).
+    expect(vanilla!.structuredCount).toBe(1)
+    expect(vanilla!.freeTextCount).toBe(0)
+
+    const percentages = topFlavorTagPercentages([bottle], pours)
+    expect(percentages.find((p) => p.tag === 'Vanilla')?.count).toBe(1)
+  })
+
+  it('counts a descriptor once per pour even when it appears in two different note fields', () => {
+    const pours = [pourFor('b1', [], [], { noseNotes: 'vanilla', palateNotes: 'vanilla' })]
+    const percentages = topFlavorTagPercentages([bottle], pours)
+    expect(percentages.find((p) => p.tag === 'Vanilla')?.count).toBe(1)
+  })
+
+  it('a secondary-weighted descriptor moves both its families on the radar without breaking label percentages', () => {
+    // Mint: primary Herbal/Floral, secondary Spice (half-weighted).
+    const pours = [pourFor('b1', ['Mint'], [])]
+    const values = flavorRadarValues(bottle, pours)
+    expect(values).toBeDefined()
+    const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
+    expect(byAxis.Herbal).toBeGreaterThan(0)
+    expect(byAxis.Spice).toBeGreaterThan(0)
+    expect(byAxis.Herbal).toBeGreaterThan(byAxis.Spice ?? 0) // primary outweighs secondary
+
+    // Label-level percentages are per-label, never per-family — one Mint
+    // mention is still exactly one mention, 100% of the total.
+    const percentages = topFlavorTagPercentages([bottle], pours)
+    expect(percentages).toEqual([{ tag: 'Mint', count: 1, percent: 100 }])
+  })
+
+  it('a flavor-mapped Finish tag moves its axis; a purely-textural one moves nothing', () => {
+    const oakyPours = [pourFor('b1', [], [], {})]
+    oakyPours[0]!.fip.finishTags = ['Oaky']
+    const oakyValues = flavorRadarValues(bottle, oakyPours)
+    expect(oakyValues).toBeDefined()
+    const oakyByAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, oakyValues?.[i]]))
+    expect(oakyByAxis.Oak).toBeGreaterThan(0)
+
+    const longPours = [pourFor('b1', [], [], {})]
+    longPours[0]!.fip.finishTags = ['Long']
+    expect(flavorRadarValues(bottle, longPours)).toBeUndefined()
   })
 
   it('does not false-positive match a tag word inside an unrelated word', () => {
@@ -91,7 +172,7 @@ describe('collectionFlavorRadarValues', () => {
     expect(values).toBeDefined()
     const byAxis = Object.fromEntries(FLAVOR_AXES.map((axis, i) => [axis, values?.[i]]))
     expect(byAxis.Sweet).toBeGreaterThan(0) // vanilla, from bottle b1's pour
-    expect(byAxis.Woody).toBeGreaterThan(0) // oak, from bottle b2's own flavors field
+    expect(byAxis.Oak).toBeGreaterThan(0) // oak, from bottle b2's own flavors field
   })
 })
 
@@ -141,7 +222,7 @@ describe('topFlavorTagPercentages', () => {
   })
 
   it('computes real percentages that sum to the same total mention count — never invented numbers', () => {
-    // 3 Sweet mentions (Vanilla x2, Caramel x1), 1 Woody mention (Oak) — 4 total.
+    // 3 Sweet mentions (Vanilla x2, Caramel x1), 1 Oak mention (Oak) — 4 total.
     const bottleWithFlavors: Bottle = { ...bottle, flavors: ['Vanilla', 'Caramel'] }
     const pours = [pourFor('b1', ['Vanilla'], []), pourFor('b1', ['Oak'], [])]
     const percentages = topFlavorTagPercentages([bottleWithFlavors], pours)
@@ -160,4 +241,36 @@ describe('topFlavorTagPercentages', () => {
     const percentages = topFlavorTagPercentages([bottleWithFlavors], [], 2)
     expect(percentages).toHaveLength(2)
   })
+})
+
+// Every one of the 8 possible dominant axes — including the 3 net-new ones
+// (Nutty/Grain/Herbal) that had no radar axis at all before this feature —
+// must behave correctly end to end, not just typecheck. A hand-written
+// Record<FlavorAxis, string> could silently return the wrong (but still
+// type-valid) string for one key, so this is real runtime assertions, not
+// a type-only check.
+describe('every dominant axis produces valid, well-formed output', () => {
+  for (const axis of FLAVOR_AXES) {
+    it(`${axis}: identityLabelForAxis returns a real, non-empty label`, () => {
+      const label = identityLabelForAxis(axis)
+      expect(typeof label).toBe('string')
+      expect(label.length).toBeGreaterThan(0)
+      expect(label).not.toContain('undefined')
+    })
+
+    it(`${axis}: flavorRadarValues/dominantFlavorAxis return well-formed 8-length output`, () => {
+      const descriptor = REPRESENTATIVE_DESCRIPTOR[axis]!
+      const bottleWithFlavor: Bottle = { ...bottle, flavors: [descriptor] }
+
+      const values = flavorRadarValues(bottleWithFlavor, [])
+      expect(values).toBeDefined()
+      expect(values).toHaveLength(FLAVOR_AXES.length)
+      expect(values!.every((v) => Number.isFinite(v))).toBe(true)
+
+      const dominant = dominantFlavorAxis([bottleWithFlavor], [])
+      expect(dominant).toBeDefined()
+      expect(dominant!.axis).toBe(axis)
+      expect(Number.isFinite(dominant!.percent)).toBe(true)
+    })
+  }
 })

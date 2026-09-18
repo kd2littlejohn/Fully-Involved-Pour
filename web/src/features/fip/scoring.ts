@@ -1,4 +1,5 @@
 import type { BuyAgain } from '../../data/types'
+import { FLAVOR_DESCRIPTORS, OTHER_LABEL } from '../flavorTaxonomy/taxonomy'
 
 // FIP Rating rubric — FIP_PRODUCT_VISION_AND_DESIGN_SYSTEM.md §13.
 // Nose 2.5 + Palate 3.5 + Finish 2.0 + Complexity & Balance 1.0 + Value/Buy Again 1.0 = 10
@@ -10,35 +11,13 @@ export const FIP_MAX = {
   value: 1.0,
 } as const
 
-export const NOSE_AROMAS = [
-  'Brown Sugar',
-  'Vanilla',
-  'Oak',
-  'Caramel',
-  'Cherry',
-  'Honey',
-  'Cinnamon',
-  'Orange Peel',
-  'Leather',
-  'Baking Spice',
-  'Toffee',
-  'Other',
-]
-
-export const PALATE_FLAVORS = [
-  'Vanilla',
-  'Caramel',
-  'Oak',
-  'Butterscotch',
-  'Dark Fruit',
-  'Black Pepper',
-  'Corn Sweetness',
-  'Cinnamon',
-  'Toffee',
-  'Leather',
-  'Tobacco',
-  'Other',
-]
+// Flat descriptor vocab derived from the centralized flavor taxonomy
+// (features/flavorTaxonomy/taxonomy.ts) — kept as simple string[] exports
+// for consumers that render an ungrouped chip list (e.g. Blind Room's
+// tasting screens) rather than the grouped FlavorFamilySelector the Pour
+// Wizard and Infinity Bottle TastingForm use directly.
+export const NOSE_AROMAS = [...FLAVOR_DESCRIPTORS.map((d) => d.label), OTHER_LABEL]
+export const PALATE_FLAVORS = NOSE_AROMAS
 
 export const BUY_AGAIN_OPTIONS: { value: BuyAgain; label: string; score: number }[] = [
   { value: 'absolutely', label: 'Absolutely', score: 1 },

@@ -1,4 +1,5 @@
 import type { Bottle, FriendBottleTake, Pour } from './types'
+import { FINISH_DESCRIPTORS as TAXONOMY_FINISH_DESCRIPTORS } from '../features/flavorTaxonomy/taxonomy'
 
 const TOP_NOTES_LIMIT = 6
 const CATEGORY_LIMIT = 3
@@ -9,41 +10,33 @@ const CATEGORY_LIMIT = 3
 // mention erasing everything before it.
 const MAX_RECENCY_BONUS = 0.5
 
-// A fixed, real-word vocabulary matched against the owner's own free-text
-// finishNotes — there's no structured finish-tag field on Pour the way
-// nose/palate have noseAromas/palateFlavors, so this is the only way to
-// get finish descriptors at all without inventing them. Every word shown
-// is one the owner actually typed; this just finds which of them are
-// common-enough whiskey finish descriptors worth surfacing as chips.
-const FINISH_DESCRIPTORS = [
-  'long',
-  'short',
-  'warm',
-  'hot',
-  'spicy',
-  'smooth',
-  'dry',
-  'sweet',
-  'oaky',
-  'lingering',
-  'clean',
-  'bitter',
-  'peppery',
-  'bold',
-  'mellow',
-  'balanced',
-  'complex',
-  'harsh',
-]
+// Words this function recognized before the centralized Finish taxonomy
+// existed but that aren't in its canonical chip list — kept so free-text
+// extraction on older pours doesn't lose any recognition coverage.
+const LEGACY_EXTRA_FINISH_WORDS = ['peppery', 'bold', 'mellow', 'balanced', 'complex', 'harsh']
+const FINISH_WORDS = [...new Set([...TAXONOMY_FINISH_DESCRIPTORS.map((d) => d.label.toLowerCase()), ...LEGACY_EXTRA_FINISH_WORDS])]
 
 function getPoursForBottle(pours: Pour[], bottleId: string): Pour[] {
   return [...pours.filter((p) => p.bottleId === bottleId)].sort((a, b) => a.date.localeCompare(b.date))
 }
 
-function extractFinishDescriptors(text: string | undefined): string[] {
+function extractFinishDescriptorsFromText(text: string | undefined): string[] {
   if (!text) return []
   const lower = text.toLowerCase()
-  return FINISH_DESCRIPTORS.filter((word) => new RegExp(`\\b${word}\\b`).test(lower))
+  return FINISH_WORDS.filter((word) => new RegExp(`\\b${word}\\b`).test(lower))
+}
+
+// Prefers the pour's own structured Finish tags (the exact words the owner
+// selected) when present — no more guessing from prose. Falls back to the
+// free-text regex scan of finishNotes for pours saved before finishTags
+// existed. Both paths return lowercase words, the same output shape this
+// function has always had, so a bottle with a mix of old and new pours
+// never fragments its ranking by casing.
+function extractFinishDescriptors(pour: Pour): string[] {
+  if (pour.fip.finishTags && pour.fip.finishTags.length > 0) {
+    return pour.fip.finishTags.map((tag) => tag.toLowerCase())
+  }
+  return extractFinishDescriptorsFromText(pour.fip.finishNotes)
 }
 
 // Repeated notes matter more than one-off ones (plain frequency), and
@@ -118,7 +111,7 @@ export function buildBottleTastingSummary(bottle: Bottle, pours: Pour[]): Friend
 
   const noseCounts = weightedCounts(chronological, (p) => p.fip.noseAromas)
   const palateCounts = weightedCounts(chronological, (p) => p.fip.palateFlavors)
-  const finishCounts = weightedCounts(chronological, (p) => extractFinishDescriptors(p.fip.finishNotes))
+  const finishCounts = weightedCounts(chronological, (p) => extractFinishDescriptors(p))
 
   const noseNotes = topByWeight(noseCounts, CATEGORY_LIMIT)
   const palateNotes = topByWeight(palateCounts, CATEGORY_LIMIT)

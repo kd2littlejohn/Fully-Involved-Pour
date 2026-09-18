@@ -48,6 +48,23 @@ describe('computePalateMatch', () => {
     expect(result).toEqual({ score: null, confidence: 'low', status: 'still-learning', reasons: [] })
   })
 
+  it('produces a valid, non-NaN score for a candidate dominated by any of the 8 flavor families', () => {
+    // Representative descriptors covering every family, including three
+    // (Nutty/Grain/Herbal) that did not exist as radar axes before this
+    // feature — proves radarSimilarity's total-variation math handles the
+    // full 8-length radar without producing NaN/undefined for any of them.
+    const representativeFlavors = ['Vanilla', 'Peach', 'Ginger', 'Cedar', 'Almond', 'Malt', 'Rose', 'Peat']
+    for (const flavor of representativeFlavors) {
+      const candidate: Bottle = { id: 'new', name: 'Candidate', status: 'wishlist', type: 'Bourbon', proof: 92, flavors: [flavor] }
+      const result = computePalateMatch(candidate, establishedBottles, establishedPours, establishedProfile)
+      if (result.score !== null) {
+        expect(Number.isFinite(result.score)).toBe(true)
+        expect(result.score).toBeGreaterThanOrEqual(0)
+        expect(result.score).toBeLessThanOrEqual(100)
+      }
+    }
+  })
+
   it('returns still-learning when no signal has any usable data, even past the maturity floor', () => {
     const candidate: Bottle = { id: 'blank', name: 'Blank Slate', status: 'wishlist' }
 

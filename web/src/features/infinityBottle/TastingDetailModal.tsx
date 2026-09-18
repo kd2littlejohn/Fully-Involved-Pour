@@ -18,6 +18,7 @@ function toFormValue(t: InfinityTasting): TastingFormValue {
     palateFlavors: t.palateFlavors,
     palateNotes: t.palateNotes ?? '',
     finishNotes: t.finishNotes ?? '',
+    finishTags: t.finishTags ?? [],
     overallNotes: t.overallNotes ?? '',
     companion: t.companion ?? '',
     photoUrl: t.photoUrl,

@@ -1,19 +1,11 @@
 import type { Bottle, Pour } from '../../data/types'
-import { dominantFlavorAxis, type FlavorAxis } from '../flavorRadar/flavorCategories'
+import { dominantFlavorAxis, identityLabelForAxis } from '../flavorRadar/flavorCategories'
 import { getCategoryAffinity, getProofAffinity, getPalateStats } from '../yourPalate/selectors'
 import { getAverageProof } from './selectors'
 import { FIP_MAX } from '../fip/scoring'
 
 const MIN_POURS_FOR_IDENTITY = 3
 const RICH_COMPONENT_SHARE = 0.75
-
-const AXIS_LABEL: Record<FlavorAxis, string> = {
-  Sweet: 'Sweet',
-  Spicy: 'Spice-Forward',
-  Woody: 'Oak-Forward',
-  Fruity: 'Fruit-Forward',
-  Smoky: 'Smoky',
-}
 
 function proofDescriptor(bottles: Bottle[], pours: Pour[]): string | undefined {
   const affinity = getProofAffinity(bottles, pours)
@@ -41,7 +33,7 @@ export function getWhiskeyIdentity(bottles: Bottle[], pours: Pour[]): WhiskeyIde
 
   const tags: string[] = []
   const axis = dominantFlavorAxis(bottles, pours)
-  if (axis) tags.push(AXIS_LABEL[axis.axis])
+  if (axis) tags.push(identityLabelForAxis(axis.axis))
 
   const category = getCategoryAffinity(bottles, pours)
   if (category) tags.push(category.category)
@@ -66,7 +58,7 @@ export function getWhiskeyIdentity(bottles: Bottle[], pours: Pour[]): WhiskeyIde
     )
   }
   if (axis) {
-    descriptionParts.push(`with ${AXIS_LABEL[axis.axis].toLowerCase()} character showing up in ${axis.percent}% of what you've tagged`)
+    descriptionParts.push(`with ${identityLabelForAxis(axis.axis).toLowerCase()} character showing up in ${axis.percent}% of what you've tagged`)
   }
 
   const description =

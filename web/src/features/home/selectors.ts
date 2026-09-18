@@ -1,5 +1,5 @@
 import type { Bottle, Pour } from '../../data/types'
-import { dominantFlavorAxis } from '../flavorRadar/flavorCategories'
+import { dominantFlavorAxis, identityLabelForAxis } from '../flavorRadar/flavorCategories'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const STALE_POUR_DAYS = 14
@@ -111,9 +111,10 @@ export function getPalateInsight(bottles: Bottle[], pours: Pour[]): PalateInsigh
   const dominant = dominantFlavorAxis(relevantBottles, recent)
   if (!dominant || dominant.percent < PALATE_INSIGHT_MIN_SHARE) return undefined
 
+  const label = identityLabelForAxis(dominant.axis)
   return {
-    headline: `${dominant.axis}-forward notes have come up in most of your last ${recent.length} ${recent.length === 1 ? 'pour' : 'pours'}.`,
-    primaryLabel: `${dominant.axis}-Forward`,
+    headline: `${label} notes have come up in most of your last ${recent.length} ${recent.length === 1 ? 'pour' : 'pours'}.`,
+    primaryLabel: label,
     primaryPercent: dominant.percent,
     secondaryLabel: 'All Other Profiles',
     secondaryPercent: 100 - dominant.percent,

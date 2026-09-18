@@ -34,7 +34,11 @@ export function RadarChart({ axes, series, size = 220 }: RadarChartProps) {
         />
       ))}
       {axes.map((axis, i) => {
-        const [x, y] = pointFor(i, 1.18)
+        // With more than 6 axes, labels crowd the same ring — alternate
+        // the label radius so neighboring labels sit on different rings
+        // instead of shrinking the text to fit.
+        const labelRadius = axes.length > 6 ? (i % 2 === 0 ? 1.14 : 1.3) : 1.18
+        const [x, y] = pointFor(i, labelRadius)
         return (
           <text key={axis} x={x} y={y} fontSize="10" fill="var(--fip-muted)" textAnchor="middle" dominantBaseline="middle">
             {axis}

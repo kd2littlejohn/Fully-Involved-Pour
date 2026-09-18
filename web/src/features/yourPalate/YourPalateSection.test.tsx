@@ -111,7 +111,7 @@ describe('YourPalateSection', () => {
   })
 
   it('excludes an unrelated bottle\'s static flavors from the highest-rated tag list', () => {
-    const untouched: Bottle = { id: 'b3', name: 'Untouched Bottle', status: 'sealed', flavors: ['Smoke'] }
+    const untouched: Bottle = { id: 'b3', name: 'Untouched Bottle', status: 'sealed', flavors: ['Leather'] }
     const highRated = (id: string, rating: number): Pour => ({
       id,
       bottleId: 'b1',
@@ -121,7 +121,13 @@ describe('YourPalateSection', () => {
     })
     const pours = [highRated('p1', 9.0), highRated('p2', 8.5), highRated('p3', 8.2)]
     render(<YourPalateSection bottles={[bourbon, untouched]} pours={pours} />)
-    expect(screen.queryByText(/Smoke/)).not.toBeInTheDocument()
+    // 'Leather' legitimately appears in the collection-wide "gravitate
+    // toward" chips (which include every bottle's static flavors, b3
+    // included) — this assertion is scoped to the highest-rated-pours
+    // Taste Patterns sentence specifically, which must only ever describe
+    // the bottle that was actually poured (b1).
+    const patternItems = screen.queryAllByRole('listitem')
+    expect(patternItems.some((li) => /Leather/.test(li.textContent ?? ''))).toBe(false)
   })
 
   it('labels a single-category collection honestly as "most poured" rather than a favorite', () => {

@@ -87,18 +87,23 @@ describe('PourWizard', () => {
     expect(screen.getByText('Add a Pour Story — Eagle Rare')).toBeInTheDocument()
     await goNext()
 
-    // Nose
+    // Nose — descriptors are grouped by flavor family and collapsed by
+    // default, so the Sweet family panel has to be opened before Vanilla
+    // is reachable.
     fireEvent.change(screen.getByLabelText('Nose'), { target: { value: '2' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Sweet' }))
     await userEvent.click(screen.getByRole('button', { name: 'Vanilla' }))
     await goNext()
 
-    // Palate
+    // Palate — same grouping, Oak lives under the Oak/Wood family.
     fireEvent.change(screen.getByLabelText('Palate'), { target: { value: '3' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Oak/Wood' }))
     await userEvent.click(screen.getByRole('button', { name: 'Oak' }))
     await goNext()
 
     // Finish
     fireEvent.change(screen.getByLabelText('Finish'), { target: { value: '1.5' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Long' }))
     await goNext()
 
     // Complexity
@@ -131,6 +136,7 @@ describe('PourWizard', () => {
           total: 8.3,
           noseAromas: ['Vanilla'],
           palateFlavors: ['Oak'],
+          finishTags: ['Long'],
         }),
       }),
     )
@@ -185,6 +191,39 @@ describe('PourWizard', () => {
     expect(mockUpdatePour).toHaveBeenCalled()
     const [, patch] = mockUpdatePour.mock.calls[0]!
     expect(patch).not.toHaveProperty('bottleInstanceId')
+  })
+
+  it('editing an existing pour with an off-taxonomy legacy tag shows it as a selected Legacy chip instead of silently dropping it', async () => {
+    mockBottles = [{ id: 'b1', name: 'Eagle Rare', status: 'open' }]
+    const existingPour: Pour = {
+      id: 'p1',
+      bottleId: 'b1',
+      date: '2026-08-01',
+      rating: 7.5,
+      fip: {
+        nose: 2,
+        palate: 2.5,
+        finish: 1.5,
+        complexity: 0.5,
+        value: 1,
+        total: 7.5,
+        noseAromas: ['Some Discontinued Tag'],
+        palateFlavors: [],
+      },
+    }
+    render(<PourWizard bottleId="b1" bottleName="Eagle Rare" existingPour={existingPour} onClose={vi.fn()} />)
+    await goNext() // Session -> Nose
+
+    const legacyChip = screen.getByRole('button', { name: 'Some Discontinued Tag' })
+    expect(legacyChip).toHaveAttribute('aria-pressed', 'true')
+
+    for (let i = 0; i < 4; i++) {
+      await goNext() // Nose -> Palate -> Finish -> Complexity -> Summary
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    const [, patch] = mockUpdatePour.mock.calls[0]!
+    expect(patch.fip.noseAromas).toEqual(['Some Discontinued Tag'])
   })
 
   it('fires the tasting summary generator in the background once a real saved pour comes back, after onSaved/onClose', async () => {

@@ -119,7 +119,7 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
 
       {radarValues ? (
         <div className={styles.radarWrap}>
-          <RadarChart axes={[...FLAVOR_AXES]} series={[{ label: 'Your Palate', color: 'var(--fip-amber)', values: radarValues }]} size={200} />
+          <RadarChart axes={[...FLAVOR_AXES]} series={[{ label: 'Your Palate', color: 'var(--fip-amber)', values: radarValues }]} size={260} />
         </div>
       ) : null}
 

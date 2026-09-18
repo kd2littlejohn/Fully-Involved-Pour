@@ -1,7 +1,8 @@
 import { Slider } from '../../../components/ui/Slider'
-import { TapChip } from '../../../components/ui/TapChip'
+import { FlavorFamilySelector } from '../../../components/domain/FlavorFamilySelector'
 import { Field, controlClassName } from '../../../components/ui/Field'
-import { FIP_MAX, NOSE_AROMAS } from '../../fip/scoring'
+import { FIP_MAX } from '../../fip/scoring'
+import { FLAVOR_DESCRIPTORS } from '../../flavorTaxonomy/taxonomy'
 import type { StepProps } from './StepProps'
 import styles from './steps.module.css'
 
@@ -16,11 +17,7 @@ export function NoseStep({ draft, updateDraft }: StepProps) {
       <Slider id="pw-nose" label="Nose" max={FIP_MAX.nose} value={draft.nose} onChange={(nose) => updateDraft({ nose })} />
 
       <div className={styles.sectionLabel}>Aromas</div>
-      <div className={styles.chipRow}>
-        {NOSE_AROMAS.map((aroma) => (
-          <TapChip key={aroma} label={aroma} active={draft.noseAromas.includes(aroma)} onToggle={() => toggleAroma(aroma)} />
-        ))}
-      </div>
+      <FlavorFamilySelector descriptors={FLAVOR_DESCRIPTORS} selected={draft.noseAromas} onToggle={toggleAroma} />
 
       <Field label="Nose notes" htmlFor="pw-nose-notes">
         <textarea

@@ -101,8 +101,8 @@ describe('getPalateInsight', () => {
     const insight = getPalateInsight(bottles, pours)
 
     expect(insight).toEqual({
-      headline: 'Woody-forward notes have come up in most of your last 5 pours.',
-      primaryLabel: 'Woody-Forward',
+      headline: 'Oak-Forward notes have come up in most of your last 5 pours.',
+      primaryLabel: 'Oak-Forward',
       primaryPercent: 100,
       secondaryLabel: 'All Other Profiles',
       secondaryPercent: 0,

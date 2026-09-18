@@ -9,7 +9,7 @@ export function FlavorRadar({ bottle, pours }: { bottle: Bottle; pours: Pour[] }
 
   return (
     <div className={styles.wrap}>
-      <RadarChart axes={[...FLAVOR_AXES]} series={[{ label: bottle.name, color: 'var(--fip-amber)', values }]} size={200} />
+      <RadarChart axes={[...FLAVOR_AXES]} series={[{ label: bottle.name, color: 'var(--fip-amber)', values }]} size={260} />
     </div>
   )
 }

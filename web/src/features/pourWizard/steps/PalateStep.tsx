@@ -1,7 +1,8 @@
 import { Slider } from '../../../components/ui/Slider'
-import { TapChip } from '../../../components/ui/TapChip'
+import { FlavorFamilySelector } from '../../../components/domain/FlavorFamilySelector'
 import { Field, controlClassName } from '../../../components/ui/Field'
-import { FIP_MAX, PALATE_FLAVORS } from '../../fip/scoring'
+import { FIP_MAX } from '../../fip/scoring'
+import { FLAVOR_DESCRIPTORS } from '../../flavorTaxonomy/taxonomy'
 import type { StepProps } from './StepProps'
 import styles from './steps.module.css'
 
@@ -16,11 +17,7 @@ export function PalateStep({ draft, updateDraft }: StepProps) {
       <Slider id="pw-palate" label="Palate" max={FIP_MAX.palate} value={draft.palate} onChange={(palate) => updateDraft({ palate })} />
 
       <div className={styles.sectionLabel}>Flavors</div>
-      <div className={styles.chipRow}>
-        {PALATE_FLAVORS.map((flavor) => (
-          <TapChip key={flavor} label={flavor} active={draft.palateFlavors.includes(flavor)} onToggle={() => toggleFlavor(flavor)} />
-        ))}
-      </div>
+      <FlavorFamilySelector descriptors={FLAVOR_DESCRIPTORS} selected={draft.palateFlavors} onToggle={toggleFlavor} />
 
       <Field label="Palate notes" htmlFor="pw-palate-notes">
         <textarea

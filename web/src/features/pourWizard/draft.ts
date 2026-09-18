@@ -23,6 +23,7 @@ export interface PourDraft {
   palateFlavors: string[]
   palateNotes?: string
   finish: number
+  finishTags: string[]
   finishNotes?: string
   complexity: number
   complexityNotes?: string
@@ -39,6 +40,7 @@ export function blankDraft(): PourDraft {
     palate: 0,
     palateFlavors: [],
     finish: 0,
+    finishTags: [],
     complexity: 0,
   }
 }
@@ -63,6 +65,7 @@ export function pourToDraft(pour: Pour, people: PourPerson[]): PourDraft {
     palateFlavors: pour.fip.palateFlavors,
     palateNotes: pour.fip.palateNotes,
     finish: pour.fip.finish,
+    finishTags: pour.fip.finishTags ?? [],
     finishNotes: pour.fip.finishNotes,
     complexity: pour.fip.complexity,
     complexityNotes: pour.fip.complexityNotes,

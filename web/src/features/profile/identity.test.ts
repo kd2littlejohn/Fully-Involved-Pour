@@ -45,4 +45,28 @@ describe('getWhiskeyIdentity', () => {
     expect(identity?.tags).not.toContain('Rich')
     expect(identity?.tags).not.toContain('Complex')
   })
+
+  // One representative descriptor per family, including the 3 net-new
+  // ones (Nutty/Grain/Herbal) that had no radar axis before this feature —
+  // each must produce a real tag, never "undefined" leaking into the UI.
+  const REPRESENTATIVE_FLAVOR_BY_AXIS: [string, string][] = [
+    ['Sweet', 'Vanilla'],
+    ['Fruit', 'Peach'],
+    ['Spice', 'Ginger'],
+    ['Oak', 'Cedar'],
+    ['Nutty', 'Almond'],
+    ['Grain', 'Malt'],
+    ['Herbal', 'Rose'],
+    ['Smoke', 'Peat'],
+  ]
+
+  it.each(REPRESENTATIVE_FLAVOR_BY_AXIS)('produces a real tag and description for a %s-dominant palate, never "undefined"', (_axis, flavor) => {
+    const bottles: Bottle[] = [{ id: 'b1', name: 'Eagle Rare', status: 'open', type: 'Bourbon', flavors: [flavor] }]
+    const pours: Pour[] = [pour('p1', 'b1', '2026-01-01', 8), pour('p2', 'b1', '2026-01-02', 8), pour('p3', 'b1', '2026-01-03', 8)]
+    const identity = getWhiskeyIdentity(bottles, pours)
+    expect(identity).toBeDefined()
+    expect(identity!.tags.length).toBeGreaterThan(0)
+    for (const tag of identity!.tags) expect(tag).not.toContain('undefined')
+    expect(identity!.description).not.toContain('undefined')
+  })
 })

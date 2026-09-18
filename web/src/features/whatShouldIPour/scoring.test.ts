@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Bottle, Pour } from '../../data/types'
 import { buildCandidates, getRecommendation } from './scoring'
+import { FLAVOR_AXES } from '../flavorRadar/flavorCategories'
 import type { MoodId } from './moods'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -74,6 +75,25 @@ describe('buildCandidates', () => {
     const ids = candidates.map((c) => c.bottle.id)
     expect(ids).toContain('weller') // open
     expect(ids).toContain('eaglerare') // sealed
+  })
+
+  it('builds a full 8-axis flavors record, with a defined value on every axis, regardless of which axis dominates', () => {
+    // One representative descriptor per family — proves the dynamically
+    // built Record<FlavorAxis, number> (via FLAVOR_AXES.map) never leaves
+    // a key undefined for any of the 8 possible dominant axes.
+    const representative: Bottle = {
+      id: 'representative',
+      name: 'Representative',
+      status: 'open',
+      proof: 90,
+      flavors: ['Vanilla', 'Peach', 'Ginger', 'Cedar', 'Almond', 'Malt', 'Rose', 'Peat'],
+    }
+    const [candidate] = buildCandidates([representative], [])
+    expect(candidate!.flavors).toBeDefined()
+    for (const axis of FLAVOR_AXES) {
+      expect(candidate!.flavors![axis]).not.toBeUndefined()
+      expect(Number.isFinite(candidate!.flavors![axis])).toBe(true)
+    }
   })
 })
 
