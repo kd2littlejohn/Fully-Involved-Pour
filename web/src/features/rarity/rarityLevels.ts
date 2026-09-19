@@ -5,7 +5,6 @@ import type { BottleRarity, RarityConfidence } from '../../data/types'
 export const RARITY_OPTIONS: { value: BottleRarity; label: string }[] = [
   { value: 'common', label: 'Common' },
   { value: 'uncommon', label: 'Uncommon' },
-  { value: 'allocated', label: 'Allocated' },
   { value: 'rare', label: 'Rare' },
   { value: 'unicorn', label: 'Unicorn' },
 ]
@@ -13,7 +12,6 @@ export const RARITY_OPTIONS: { value: BottleRarity; label: string }[] = [
 export const RARITY_LABEL: Record<BottleRarity, string> = {
   common: 'Common',
   uncommon: 'Uncommon',
-  allocated: 'Allocated',
   rare: 'Rare',
   unicorn: 'Unicorn',
 }
@@ -24,7 +22,6 @@ export const RARITY_LABEL: Record<BottleRarity, string> = {
 export const RARITY_COLOR: Record<BottleRarity, string> = {
   common: 'var(--fip-muted)',
   uncommon: 'var(--fip-cream-soft)',
-  allocated: 'var(--fip-brass)',
   rare: 'var(--fip-copper)',
   unicorn: 'var(--fip-amber)',
 }

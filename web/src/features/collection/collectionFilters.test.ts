@@ -28,9 +28,9 @@ describe('matchesFilter', () => {
     expect(matchesFilter({ ...base, fillLevel: 'full' }, 'low-fill', [], new Set())).toBe(false)
   })
 
-  it('matches rare-allocated through isRareOrAllocated', () => {
-    expect(matchesFilter({ ...base, rarity: 'rare', raritySource: 'manual' }, 'rare-allocated', [], new Set())).toBe(true)
-    expect(matchesFilter({ ...base, rarity: 'common', raritySource: 'manual' }, 'rare-allocated', [], new Set())).toBe(false)
+  it('matches rare-unicorn through isRareOrUnicorn', () => {
+    expect(matchesFilter({ ...base, rarity: 'rare', raritySource: 'manual' }, 'rare-unicorn', [], new Set())).toBe(true)
+    expect(matchesFilter({ ...base, rarity: 'common', raritySource: 'manual' }, 'rare-unicorn', [], new Set())).toBe(false)
   })
 
   it('matches needs-replacement through wouldReplace', () => {

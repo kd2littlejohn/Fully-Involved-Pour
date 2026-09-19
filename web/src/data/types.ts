@@ -21,7 +21,10 @@ export type WouldReplace = 'yes' | 'maybe' | 'no'
 // How hard a bottle is to actually get — a settled, owner-confirmed
 // classification, distinct from an AI-proposed guess (see RaritySuggestion
 // below) which never counts as classified until explicitly accepted.
-export type BottleRarity = 'common' | 'uncommon' | 'allocated' | 'rare' | 'unicorn'
+// 'allocated' was removed as its own level — a bottle already confirmed
+// that way reads as 'rare' instead (see confirmedRarityOf in
+// features/rarity/rarityFields.ts), never as an invalid/undefined value.
+export type BottleRarity = 'common' | 'uncommon' | 'rare' | 'unicorn'
 // 'manual' = the owner picked a level directly. 'suggested-confirmed' = the
 // owner accepted an AI suggestion as-is — the confidence/reason it came
 // with are preserved. There's no third "ai" source: an unaccepted

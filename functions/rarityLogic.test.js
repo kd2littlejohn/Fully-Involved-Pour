@@ -5,7 +5,7 @@ const { buildRarityPrompt, sanitizeRaritySuggestion, handleSuggestBottleRarity }
 
 function fakeDeps(overrides) {
   return {
-    callClaude: vi.fn().mockResolvedValue(JSON.stringify({ rarity: "allocated", confidence: "high", reason: "Usually released via store lottery.", normalizedBottleName: "Test Bottle" })),
+    callClaude: vi.fn().mockResolvedValue(JSON.stringify({ rarity: "rare", confidence: "high", reason: "Usually released via store lottery.", normalizedBottleName: "Test Bottle" })),
     assertNotRateLimited: vi.fn().mockResolvedValue(undefined),
     apiKey: () => "fake-key",
     now: () => 1000,
@@ -47,7 +47,7 @@ describe("sanitizeRaritySuggestion", () => {
       reason: "Very limited annual release.",
       normalizedBottleName: "Test Bottle",
       generatedAt: 1000,
-      classifierVersion: "rarity-v1",
+      classifierVersion: "rarity-v2",
     });
   });
 
@@ -88,8 +88,8 @@ describe("sanitizeRaritySuggestion", () => {
     for (const raw of ["", "not json at all", "```json\n{\"rarity\":\"rare\",\"confidence\":\"high\",\"reason\":\"x\"}\n```", "[]", "null", "undefined"]) {
       expect(() => sanitizeRaritySuggestion(raw, 1000)).not.toThrow();
       const result = sanitizeRaritySuggestion(raw, 1000);
-      expect(result.classifierVersion).toBe("rarity-v1");
-      expect(["common", "uncommon", "allocated", "rare", "unicorn", null]).toContain(result.rarity);
+      expect(result.classifierVersion).toBe("rarity-v2");
+      expect(["common", "uncommon", "rare", "unicorn", null]).toContain(result.rarity);
     }
     // The one fenced-but-valid case should actually parse through, not decline.
     const fenced = sanitizeRaritySuggestion('```json\n{"rarity":"rare","confidence":"high","reason":"Very limited."}\n```', 1000);
@@ -101,7 +101,7 @@ describe("handleSuggestBottleRarity", () => {
   it("returns a structured suggestion for a valid, authenticated request", async () => {
     const deps = fakeDeps();
     const result = await handleSuggestBottleRarity({ auth: { uid: "u1" }, data: { bottleName: "Test Bottle", distillery: "Test Distillery" } }, deps);
-    expect(result.rarity).toBe("allocated");
+    expect(result.rarity).toBe("rare");
     expect(result.confidence).toBe("high");
     expect(deps.callClaude).toHaveBeenCalledTimes(1);
   });

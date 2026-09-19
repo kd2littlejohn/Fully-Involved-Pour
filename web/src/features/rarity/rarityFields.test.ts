@@ -4,12 +4,12 @@ import type { RaritySuggestion } from '../../data/types'
 
 function suggestion(overrides: Partial<RaritySuggestion> = {}): RaritySuggestion {
   return {
-    rarity: 'allocated',
+    rarity: 'rare',
     confidence: 'high',
     reason: 'Usually released via store lottery.',
     identityKey: 'key1',
     generatedAt: 1000,
-    classifierVersion: 'rarity-v1',
+    classifierVersion: 'rarity-v2',
     ...overrides,
   }
 }
@@ -32,7 +32,7 @@ describe('acceptedRarityFields', () => {
   it('copies a non-null suggestion into confirmed fields with suggested-confirmed provenance', () => {
     const fields = acceptedRarityFields(suggestion(), 5000)
     expect(fields).toEqual({
-      rarity: 'allocated',
+      rarity: 'rare',
       raritySource: 'suggested-confirmed',
       rarityConfidence: 'high',
       rarityReason: 'Usually released via store lottery.',
@@ -71,6 +71,13 @@ describe('isRarityConfirmed / isRarityManual / confirmedRarityOf', () => {
   it('backward-compatible: a bottle with no rarity fields at all is safely unconfirmed', () => {
     expect(isRarityConfirmed({ rarity: undefined, raritySource: undefined })).toBe(false)
     expect(confirmedRarityOf({ rarity: undefined, raritySource: undefined })).toBeUndefined()
+  })
+
+  it('backward-compatible: a bottle confirmed as the removed "allocated" level reads back as Rare', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- simulating a historical Firestore value no longer representable by BottleRarity
+    const legacyBottle = { rarity: 'allocated' as any, raritySource: 'manual' as const }
+    expect(isRarityConfirmed(legacyBottle)).toBe(true)
+    expect(confirmedRarityOf(legacyBottle)).toBe('rare')
   })
 })
 

@@ -1696,7 +1696,7 @@ describe('useUserData — bottle rarity', () => {
         name: 'Eagle Rare',
         status: 'open',
         createdAt: 1,
-        raritySuggestion: { rarity: 'allocated', confidence: 'high', reason: 'Usually released via lottery.', identityKey: 'k1', generatedAt: 1, classifierVersion: 'rarity-v1' },
+        raritySuggestion: { rarity: 'rare', confidence: 'high', reason: 'Usually released via lottery.', identityKey: 'k1', generatedAt: 1, classifierVersion: 'rarity-v2' },
       },
     ]
     mockFetchUserDoc.mockResolvedValue(doc)
@@ -1706,7 +1706,7 @@ describe('useUserData — bottle rarity', () => {
 
     await result.current.acceptRaritySuggestions(['b1'])
 
-    await waitFor(() => expect(result.current.userDoc.bottles[0]?.rarity).toBe('allocated'))
+    await waitFor(() => expect(result.current.userDoc.bottles[0]?.rarity).toBe('rare'))
     const bottle = result.current.userDoc.bottles[0]
     expect(bottle?.raritySource).toBe('suggested-confirmed')
     expect(bottle?.rarityConfidence).toBe('high')
@@ -1721,7 +1721,7 @@ describe('useUserData — bottle rarity', () => {
     // shape (that requires the emulator).
     const [, patch] = mockSaveUserDoc.mock.calls.at(-1)!
     const savedBottle = (patch.bottles as Bottle[])[0]!
-    expect(savedBottle.rarity).toBe('allocated')
+    expect(savedBottle.rarity).toBe('rare')
     expect(savedBottle.raritySuggestion).toBeUndefined()
   })
 
@@ -1767,7 +1767,7 @@ describe('useUserData — bottle rarity', () => {
         name: 'Eagle Rare',
         status: 'open',
         createdAt: 1,
-        rarity: 'allocated',
+        rarity: 'rare',
         raritySource: 'suggested-confirmed',
         rarityConfidence: 'high',
         rarityReason: 'Usually released via lottery.',

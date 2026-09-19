@@ -50,8 +50,16 @@ export function isRarityManual(bottle: Pick<Bottle, 'raritySource'>): boolean {
   return bottle.raritySource === 'manual'
 }
 
+// 'allocated' existed as its own level before it was removed from the
+// scale — a bottle confirmed that way keeps its historical Firestore value
+// untouched (no rewrite), but reads back as 'rare' everywhere in the app,
+// the closest remaining tier, rather than an unrecognized/undefined rarity.
+const LEGACY_RARITY_ALIASES: Record<string, BottleRarity> = { allocated: 'rare' }
+
 export function confirmedRarityOf(bottle: Pick<Bottle, 'rarity' | 'raritySource'>): BottleRarity | undefined {
-  return isRarityConfirmed(bottle) ? bottle.rarity : undefined
+  if (!isRarityConfirmed(bottle)) return undefined
+  const raw = bottle.rarity as string
+  return LEGACY_RARITY_ALIASES[raw] ?? bottle.rarity
 }
 
 // Bottles you don't yet physically hold (Wishlist, and Incoming — the

@@ -29,7 +29,6 @@ export function rarityBreakdown(bottles: Bottle[]): RarityBreakdown {
   const counts: Record<BottleRarity | 'unclassified', number> = {
     common: 0,
     uncommon: 0,
-    allocated: 0,
     rare: 0,
     unicorn: 0,
     unclassified: 0,

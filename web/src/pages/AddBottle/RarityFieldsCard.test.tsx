@@ -56,7 +56,7 @@ describe('RarityFieldsCard', () => {
   it('a new-bottle suggestion can be accepted', async () => {
     mockRequestRaritySuggestion.mockResolvedValue({
       status: 'ready',
-      suggestion: { rarity: 'allocated', confidence: 'high', reason: 'Usually released via lottery.', identityKey: await realIdentityKey(), generatedAt: 1, classifierVersion: 'rarity-v1' },
+      suggestion: { rarity: 'rare', confidence: 'high', reason: 'Usually released via lottery.', identityKey: await realIdentityKey(), generatedAt: 1, classifierVersion: 'rarity-v2' },
     })
     const onChangeSpy = vi.fn()
     render(<ControlledCard onChangeSpy={onChangeSpy} />)
@@ -67,14 +67,14 @@ describe('RarityFieldsCard', () => {
 
     await user.click(screen.getByRole('button', { name: 'Accept Suggestion' }))
     expect(onChangeSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ rarity: 'allocated', raritySource: 'suggested-confirmed', rarityConfidence: 'high', rarityReason: 'Usually released via lottery.' }),
+      expect.objectContaining({ rarity: 'rare', raritySource: 'suggested-confirmed', rarityConfidence: 'high', rarityReason: 'Usually released via lottery.' }),
     )
   })
 
   it('the user can choose a different rarity instead of accepting', async () => {
     mockRequestRaritySuggestion.mockResolvedValue({
       status: 'ready',
-      suggestion: { rarity: 'rare', confidence: 'high', reason: 'Very limited.', identityKey: await realIdentityKey(), generatedAt: 1, classifierVersion: 'rarity-v1' },
+      suggestion: { rarity: 'rare', confidence: 'high', reason: 'Very limited.', identityKey: await realIdentityKey(), generatedAt: 1, classifierVersion: 'rarity-v2' },
     })
     const onChangeSpy = vi.fn()
     render(<ControlledCard onChangeSpy={onChangeSpy} />)
@@ -83,9 +83,9 @@ describe('RarityFieldsCard', () => {
     await waitFor(() => expect(screen.getByText('Very limited.')).toBeInTheDocument())
 
     await user.click(screen.getByRole('button', { name: 'Choose Different Rarity' }))
-    await user.click(screen.getByRole('button', { name: 'Allocated' }))
+    await user.click(screen.getByRole('button', { name: 'Unicorn' }))
 
-    expect(onChangeSpy).toHaveBeenCalledWith(expect.objectContaining({ rarity: 'allocated', raritySource: 'manual' }))
+    expect(onChangeSpy).toHaveBeenCalledWith(expect.objectContaining({ rarity: 'unicorn', raritySource: 'manual' }))
     const lastCall = onChangeSpy.mock.calls.at(-1)![0]
     expect(lastCall.rarityConfidence).toBeUndefined()
     expect(lastCall.rarityReason).toBeUndefined()
@@ -115,7 +115,7 @@ describe('RarityFieldsCard', () => {
     vi.useFakeTimers()
     mockRequestRaritySuggestion.mockResolvedValue({
       status: 'ready',
-      suggestion: { rarity: 'common', confidence: 'high', reason: 'x', identityKey: await realIdentityKey(), generatedAt: 1, classifierVersion: 'rarity-v1' },
+      suggestion: { rarity: 'common', confidence: 'high', reason: 'x', identityKey: await realIdentityKey(), generatedAt: 1, classifierVersion: 'rarity-v2' },
     })
     render(<ControlledCard />)
     await vi.advanceTimersByTimeAsync(400)
@@ -130,7 +130,7 @@ describe('RarityFieldsCard', () => {
     const identity = rarityIdentity({ name: bottleContext.name, distillery: bottleContext.distillery, type: bottleContext.type })
     const initial: RarityFieldsValues = {
       rarity: '',
-      raritySuggestion: { rarity: 'uncommon', confidence: 'medium', reason: 'x', identityKey: rarityIdentityKey(identity), generatedAt: 1, classifierVersion: 'rarity-v1' },
+      raritySuggestion: { rarity: 'uncommon', confidence: 'medium', reason: 'x', identityKey: rarityIdentityKey(identity), generatedAt: 1, classifierVersion: 'rarity-v2' },
     }
     render(<ControlledCard initial={initial} />)
     await vi.advanceTimersByTimeAsync(2000)

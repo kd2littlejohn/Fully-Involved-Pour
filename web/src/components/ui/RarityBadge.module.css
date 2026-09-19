@@ -30,12 +30,6 @@
   background: var(--fip-card-soft);
 }
 
-.allocated {
-  color: var(--fip-brass);
-  border-color: var(--fip-border);
-  background: var(--fip-brass-soft);
-}
-
 .rare {
   color: var(--fip-copper);
   border-color: var(--fip-border);

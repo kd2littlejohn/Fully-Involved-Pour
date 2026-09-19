@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isLowFill,
   needsReplacement,
-  isRareOrAllocated,
+  isRareOrUnicorn,
   isNeverReviewed,
   isNotPouredRecently,
   isDuplicateBottle,
@@ -43,21 +43,20 @@ describe('needsReplacement', () => {
   })
 })
 
-describe('isRareOrAllocated', () => {
-  it('includes allocated, rare, and unicorn', () => {
-    expect(isRareOrAllocated({ rarity: 'allocated', raritySource: 'manual' })).toBe(true)
-    expect(isRareOrAllocated({ rarity: 'rare', raritySource: 'manual' })).toBe(true)
-    expect(isRareOrAllocated({ rarity: 'unicorn', raritySource: 'manual' })).toBe(true)
+describe('isRareOrUnicorn', () => {
+  it('includes rare and unicorn', () => {
+    expect(isRareOrUnicorn({ rarity: 'rare', raritySource: 'manual' })).toBe(true)
+    expect(isRareOrUnicorn({ rarity: 'unicorn', raritySource: 'manual' })).toBe(true)
   })
 
   it('excludes common, uncommon, and unclassified bottles', () => {
-    expect(isRareOrAllocated({ rarity: 'common', raritySource: 'manual' })).toBe(false)
-    expect(isRareOrAllocated({ rarity: 'uncommon', raritySource: 'manual' })).toBe(false)
-    expect(isRareOrAllocated({ rarity: undefined, raritySource: undefined })).toBe(false)
+    expect(isRareOrUnicorn({ rarity: 'common', raritySource: 'manual' })).toBe(false)
+    expect(isRareOrUnicorn({ rarity: 'uncommon', raritySource: 'manual' })).toBe(false)
+    expect(isRareOrUnicorn({ rarity: undefined, raritySource: undefined })).toBe(false)
   })
 
   it('excludes a rarity value with no confirming source (pending, never confirmed)', () => {
-    expect(isRareOrAllocated({ rarity: 'rare', raritySource: undefined })).toBe(false)
+    expect(isRareOrUnicorn({ rarity: 'rare', raritySource: undefined })).toBe(false)
   })
 })
 

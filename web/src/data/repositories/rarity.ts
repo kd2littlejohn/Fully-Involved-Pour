@@ -3,7 +3,11 @@ import { functions } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
 import type { Bottle, RarityConfidence, RaritySuggestion } from '../types'
 
-export const RARITY_CLASSIFIER_VERSION = 'rarity-v1'
+// Bumped to v2 when 'allocated' was removed from the rarity scale — this
+// invalidates every previously-cached suggestion (including any pending
+// 'allocated' ones), so a fresh request always returns one of the new
+// 4-level set instead of a stale value the app no longer recognizes.
+export const RARITY_CLASSIFIER_VERSION = 'rarity-v2'
 
 export interface RarityIdentity {
   bottleName: string

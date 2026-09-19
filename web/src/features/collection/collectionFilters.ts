@@ -2,7 +2,7 @@ import type { Bottle, Pour } from '../../data/types'
 import {
   isLowFill,
   needsReplacement,
-  isRareOrAllocated,
+  isRareOrUnicorn,
   isNeverReviewed,
   isNotPouredRecently,
   isDuplicateBottle,
@@ -23,7 +23,7 @@ export type Filter =
   | 'favorites'
   | 'core-bar'
   | 'low-fill'
-  | 'rare-allocated'
+  | 'rare-unicorn'
   | 'needs-replacement'
   | 'never-reviewed'
   | 'not-poured-recently'
@@ -53,7 +53,7 @@ export const MORE_FILTERS: FilterMeta[] = [
   { value: 'wishlist', label: 'Wishlist', description: 'Bottles you don’t own yet.' },
   { value: 'incoming', label: 'Incoming', description: 'On the way, not yet in hand.' },
   { value: 'core-bar', label: 'Core Bar', description: 'The bottles you keep coming back to.' },
-  { value: 'rare-allocated', label: 'Rare & Allocated', description: 'Allocated, Rare, and Unicorn bottles.' },
+  { value: 'rare-unicorn', label: 'Rare & Unicorn', description: 'Your rarest bottles.' },
   { value: 'needs-replacement', label: 'Needs Replacement', description: 'Bottles you’ve flagged to replace.' },
   { value: 'never-reviewed', label: 'Never Reviewed', description: 'Owned bottles with no rating yet.' },
   { value: 'not-poured-recently', label: 'Not Poured Recently', description: `Open bottles untouched for ${NOT_POURED_RECENTLY_DAYS}+ days.` },
@@ -81,8 +81,8 @@ export function matchesFilter(bottle: Bottle, filter: Filter, pours: Pour[], inf
       return false // Core Bar is computed from pours, handled separately by the caller.
     case 'low-fill':
       return isLowFill(bottle)
-    case 'rare-allocated':
-      return isRareOrAllocated(bottle)
+    case 'rare-unicorn':
+      return isRareOrUnicorn(bottle)
     case 'needs-replacement':
       return needsReplacement(bottle)
     case 'never-reviewed':

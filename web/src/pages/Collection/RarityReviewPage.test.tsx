@@ -54,7 +54,7 @@ function suggestionFor(bottle: Pick<Bottle, 'name' | 'distillery' | 'type'>, ove
     reason: 'x',
     identityKey: rarityIdentityKey(rarityIdentity(bottle)),
     generatedAt: 1,
-    classifierVersion: 'rarity-v1',
+    classifierVersion: 'rarity-v2',
     ...overrides,
   }
 }
@@ -91,7 +91,7 @@ describe('RarityReviewPage', () => {
 
   it('a bottle with an already-valid suggestion renders immediately with zero network calls (resume behavior)', () => {
     const bottle: Bottle = { id: 'b1', name: 'Already Suggested', status: 'open', createdAt: 1 }
-    bottle.raritySuggestion = suggestionFor(bottle, { rarity: 'allocated', reason: 'Usually via lottery.' })
+    bottle.raritySuggestion = suggestionFor(bottle, { rarity: 'rare', reason: 'Usually via lottery.' })
     mockUseUserData.mockReturnValue(baseUserData([bottle]))
     renderPage()
     expect(screen.getByText('Already Suggested')).toBeInTheDocument()

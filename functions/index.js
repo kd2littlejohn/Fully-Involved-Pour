@@ -233,8 +233,8 @@ exports.generateFipGuide = onCall({ secrets: [anthropicApiKey], cors: true }, as
   };
 });
 
-// Suggests how hard a bottle is to actually get (Common/Uncommon/Allocated/
-// Rare/Unicorn), or declines (rarity: null) rather than guessing. This is
+// Suggests how hard a bottle is to actually get (Common/Uncommon/Rare/
+// Unicorn), or declines (rarity: null) rather than guessing. This is
 // always a SUGGESTION the client shows for the owner to accept or change --
 // see web/src/hooks/useUserData.tsx's rarity mutators and
 // web/src/data/repositories/rarity.ts. The real logic lives in

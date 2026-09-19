@@ -426,8 +426,8 @@ describe('CollectionPage — rarity chart and filter', () => {
 
   it('shows a rarity-specific zero-results state when nothing matches', async () => {
     renderWithRarityBottles()
-    await userEvent.click(legend().getByRole('button', { name: /^Allocated:/ }))
-    expect(screen.getByText('No bottles match Allocated right now.')).toBeInTheDocument()
+    await userEvent.click(legend().getByRole('button', { name: /^Uncommon:/ }))
+    expect(screen.getByText('No bottles match Uncommon right now.')).toBeInTheDocument()
   })
 
   it('shows the visible result count once a rarity filter is active', async () => {

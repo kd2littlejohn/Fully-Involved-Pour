@@ -19,12 +19,10 @@ export function needsReplacement(bottle: Pick<Bottle, 'wouldReplace'>): boolean 
   return bottle.wouldReplace === 'yes'
 }
 
-// Rarity levels the donut chart already treats as "the scarce half" of the
-// existing 5-level scale (common/uncommon vs. allocated/rare/unicorn) —
-// combined into one quick filter per the batch's "Rare and Allocated" view.
-export function isRareOrAllocated(bottle: Pick<Bottle, 'rarity' | 'raritySource'>): boolean {
+// The scarce half of the rarity scale — combined into one quick filter.
+export function isRareOrUnicorn(bottle: Pick<Bottle, 'rarity' | 'raritySource'>): boolean {
   const rarity = confirmedRarityOf(bottle)
-  return rarity === 'allocated' || rarity === 'rare' || rarity === 'unicorn'
+  return rarity === 'rare' || rarity === 'unicorn'
 }
 
 // "Reviewed" here means tasted-and-rated (getCurrentScore), not rarity-
