@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
@@ -60,7 +60,14 @@ export function CollectionPage() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading, deleteBottles } = useUserData()
-  const [filter, setFilter] = useState<Filter>('all')
+  const [searchParams] = useSearchParams()
+  // A "View All" link elsewhere in the app (e.g. Home's Open Bottles card)
+  // can deep-link straight into a filtered view via ?filter=open — falls
+  // back to 'all' for anything else, same as visiting /collection directly.
+  const [filter, setFilter] = useState<Filter>(() => {
+    const requested = searchParams.get('filter')
+    return FILTERS.some((f) => f.value === requested) ? (requested as Filter) : 'all'
+  })
   const [rarityFilter, setRarityFilter] = useState<RarityFilterValue>(null)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOption>('recent')

@@ -4,6 +4,17 @@ import { BUY_AGAIN_OPTIONS, FIP_MAX } from '../../fip/scoring'
 import type { BuyAgain } from '../../../data/types'
 import type { StepProps } from './StepProps'
 
+// Meaningful checkpoints along the slider, not a running commentary on every
+// tick — a rater new to "complexity & balance" as one combined score needs
+// to know roughly where they land, not a precise formula.
+function describeComplexity(value: number, max: number): string {
+  const pct = max > 0 ? value / max : 0
+  if (pct >= 0.85) return 'Exceptional — many distinct layers that evolve together with no rough edges.'
+  if (pct >= 0.6) return 'Layered and balanced — flavors develop without any one note taking over.'
+  if (pct >= 0.35) return 'Some development, but fairly straightforward or a little unbalanced.'
+  return 'Simple or one-note — or noticeably out of balance.'
+}
+
 export function ComplexityStep({ draft, updateDraft }: StepProps) {
   return (
     <>
@@ -14,6 +25,7 @@ export function ComplexityStep({ draft, updateDraft }: StepProps) {
         step={0.05}
         value={draft.complexity}
         onChange={(complexity) => updateDraft({ complexity })}
+        describeValue={describeComplexity}
       />
 
       <Field label="Would you buy it again?" htmlFor="pw-buy-again">

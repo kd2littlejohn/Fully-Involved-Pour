@@ -24,9 +24,9 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-function renderCollection() {
+function renderCollection(initialEntries: string[] = ['/collection']) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <CollectionPage />
     </MemoryRouter>,
   )
@@ -68,6 +68,21 @@ describe('CollectionPage', () => {
 
     const discoverLink = screen.getByRole('link', { name: 'Explore Whiskey' })
     expect(discoverLink).toHaveAttribute('href', expect.stringContaining('/discover'))
+  })
+
+  it('deep-links into the Opened filter via ?filter=open, for Home\'s Open Bottles "View All"', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+
+    renderCollection(['/collection?filter=open'])
+
+    expect(screen.getByRole('button', { name: 'Opened (1)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'All (5)' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('filters the grid by status when a chip is clicked', async () => {

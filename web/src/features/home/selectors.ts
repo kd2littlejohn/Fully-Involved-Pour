@@ -1,5 +1,6 @@
 import type { Bottle, Pour } from '../../data/types'
 import { dominantFlavorAxis, identityLabelForAxis } from '../flavorRadar/flavorCategories'
+import { fillLevelPercent, getPoursForBottle } from '../bottleDetails/selectors'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const STALE_POUR_DAYS = 14
@@ -118,5 +119,52 @@ export function getPalateInsight(bottles: Bottle[], pours: Pour[]): PalateInsigh
     primaryPercent: dominant.percent,
     secondaryLabel: 'All Other Profiles',
     secondaryPercent: 100 - dominant.percent,
+  }
+}
+
+export interface OpenBottleSummary {
+  bottle: Bottle
+  fillPercent: number | undefined
+  lastPouredDate: string | undefined
+  pourCount: number
+}
+
+// Most-recently-opened first — matches getFeaturedOpenBottle's own ordering
+// so the carousel and "Continue Your Pour Story" agree on what's freshest.
+export function getOpenBottles(bottles: Bottle[], pours: Pour[]): OpenBottleSummary[] {
+  return [...bottles]
+    .filter((b) => b.status === 'open')
+    .sort((a, b) => (b.openedDate ?? '').localeCompare(a.openedDate ?? ''))
+    .map((bottle) => {
+      const bottlePours = getPoursForBottle(pours, bottle.id)
+      return {
+        bottle,
+        fillPercent: fillLevelPercent(bottle),
+        lastPouredDate: bottlePours[0]?.date,
+        pourCount: bottlePours.length,
+      }
+    })
+}
+
+export interface CollectionSnapshot {
+  total: number
+  open: number
+  sealed: number
+  // Open bottles that are empty (should be marked Finished) or down to
+  // their last quarter (worth noting before they run out) — a real,
+  // observable signal from the fill level the user already recorded, never
+  // a guess.
+  needingAttention: number
+}
+
+export function getCollectionSnapshot(bottles: Bottle[]): CollectionSnapshot {
+  const open = bottles.filter((b) => b.status === 'open')
+  const needingAttention = open.filter((b) => b.fillLevel === 'empty' || b.fillLevel === 'quarter').length
+
+  return {
+    total: bottles.length,
+    open: open.length,
+    sealed: bottles.filter((b) => b.status === 'sealed').length,
+    needingAttention,
   }
 }

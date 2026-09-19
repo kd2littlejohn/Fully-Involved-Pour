@@ -1,0 +1,9 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  overflow: hidden;
+}

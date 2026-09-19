@@ -49,3 +49,10 @@
   box-shadow: var(--fip-focus);
   border-radius: var(--fip-radius-sm);
 }
+
+.hint {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+  line-height: var(--fip-leading-copy);
+  margin: 0;
+}

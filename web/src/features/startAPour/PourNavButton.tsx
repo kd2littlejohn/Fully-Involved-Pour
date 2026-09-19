@@ -1,4 +1,4 @@
-import { usePourHub } from './usePourHub'
+import { usePourQuickActions } from './usePourQuickActions'
 import styles from './PourNavButton.module.css'
 
 interface PourNavButtonProps {
@@ -6,12 +6,12 @@ interface PourNavButtonProps {
   variant?: 'bottom' | 'top'
 }
 
-// The nav's own entry point into the shared Pour hub (see usePourHub) —
-// tapping this opens the exact same Quick Pour / Pour Story / Blind Room /
-// Compare chooser as Home's "Start a Pour" button, so there's one Pour
-// workflow reachable from two places, not two workflows.
+// The nav's own entry point into the Pour quick-action sheet (see
+// usePourQuickActions) — Record a Pour, Start a Blind Tasting, Add a
+// Bottle, Update an Open Bottle, Add to an Infinity Bottle, each routed
+// into its existing feature.
 export function PourNavButton({ variant = 'bottom' }: PourNavButtonProps) {
-  const hub = usePourHub()
+  const hub = usePourQuickActions()
 
   return (
     <>

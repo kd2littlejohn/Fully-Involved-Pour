@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getMaybeTonightCandidates, getPalateInsight } from './selectors'
+import { getMaybeTonightCandidates, getPalateInsight, getOpenBottles, getCollectionSnapshot } from './selectors'
 import type { Bottle, Pour } from '../../data/types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -119,5 +119,57 @@ describe('getPalateInsight', () => {
       { id: 'p5', bottleId: 'a', date: daysAgo(5), rating: 8, fip: minFip(8) },
     ]
     expect(getPalateInsight(bottles, pours)).toBeUndefined()
+  })
+})
+
+describe('getOpenBottles', () => {
+  it('includes only open bottles, most recently opened first', () => {
+    const bottles: Bottle[] = [
+      { id: 'a', name: 'Older', status: 'open', createdAt: 1, openedDate: '2026-01-01' },
+      { id: 'b', name: 'Newer', status: 'open', createdAt: 2, openedDate: '2026-06-01' },
+      { id: 'c', name: 'Sealed', status: 'sealed', createdAt: 3 },
+    ]
+    const result = getOpenBottles(bottles, [])
+    expect(result.map((r) => r.bottle.id)).toEqual(['b', 'a'])
+  })
+
+  it('carries fill level and last-poured facts for each open bottle', () => {
+    const bottles: Bottle[] = [{ id: 'a', name: 'Eagle Rare', status: 'open', createdAt: 1, fillLevel: 'half' }]
+    const pours: Pour[] = [
+      { id: 'p1', bottleId: 'a', date: daysAgo(5), rating: 8, fip: minFip(8) },
+      { id: 'p2', bottleId: 'a', date: daysAgo(1), rating: 8.5, fip: minFip(8.5) },
+    ]
+    const [summary] = getOpenBottles(bottles, pours)
+    expect(summary?.fillPercent).toBe(50)
+    expect(summary?.lastPouredDate).toBe(daysAgo(1))
+    expect(summary?.pourCount).toBe(2)
+  })
+
+  it('reports no last-poured date for an open bottle with no pours', () => {
+    const bottles: Bottle[] = [{ id: 'a', name: 'Never Poured', status: 'open', createdAt: 1 }]
+    const [summary] = getOpenBottles(bottles, [])
+    expect(summary?.lastPouredDate).toBeUndefined()
+    expect(summary?.pourCount).toBe(0)
+  })
+})
+
+describe('getCollectionSnapshot', () => {
+  it('counts totals by status', () => {
+    const bottles: Bottle[] = [
+      { id: 'a', name: 'Open', status: 'open', createdAt: 1 },
+      { id: 'b', name: 'Sealed', status: 'sealed', createdAt: 1 },
+      { id: 'c', name: 'Wishlist', status: 'wishlist', createdAt: 1 },
+    ]
+    expect(getCollectionSnapshot(bottles)).toEqual({ total: 3, open: 1, sealed: 1, needingAttention: 0 })
+  })
+
+  it('flags open bottles that are empty or down to a quarter as needing attention', () => {
+    const bottles: Bottle[] = [
+      { id: 'a', name: 'Empty', status: 'open', createdAt: 1, fillLevel: 'empty' },
+      { id: 'b', name: 'Quarter', status: 'open', createdAt: 1, fillLevel: 'quarter' },
+      { id: 'c', name: 'Full', status: 'open', createdAt: 1, fillLevel: 'full' },
+      { id: 'd', name: 'Sealed', status: 'sealed', createdAt: 1, fillLevel: 'empty' },
+    ]
+    expect(getCollectionSnapshot(bottles).needingAttention).toBe(2)
   })
 })

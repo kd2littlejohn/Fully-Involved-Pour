@@ -7,9 +7,15 @@ interface SliderProps {
   step?: number
   value: number
   onChange: (value: number) => void
+  // Short guidance text for the value the slider is currently at — e.g.
+  // explaining what "high complexity" actually means so a rater isn't left
+  // guessing. Purely descriptive, never affects scoring.
+  describeValue?: (value: number, max: number) => string | undefined
 }
 
-export function Slider({ id, label, max, step = 0.1, value, onChange }: SliderProps) {
+export function Slider({ id, label, max, step = 0.1, value, onChange, describeValue }: SliderProps) {
+  const hint = describeValue?.(value, max)
+
   return (
     <div className={styles.wrap}>
       <div className={styles.header}>
@@ -35,6 +41,7 @@ export function Slider({ id, label, max, step = 0.1, value, onChange }: SliderPr
         onChange={(e) => onChange(Number(e.target.value))}
         aria-valuetext={`${value.toFixed(1)} out of ${max}`}
       />
+      {hint ? <p className={styles.hint}>{hint}</p> : null}
     </div>
   )
 }

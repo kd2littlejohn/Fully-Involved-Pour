@@ -16,19 +16,10 @@
   object-fit: contain;
 }
 
-.primaryAction {
-  margin: 0 var(--fip-shell-x) var(--fip-space-3);
-}
-
-.primaryAction > * {
-  width: 100%;
-}
-
-.actions {
+.journeyStack {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--fip-space-3);
-  margin: 0 var(--fip-shell-x) var(--fip-space-6);
+  flex-direction: column;
+  gap: var(--fip-space-4);
 }
 
 .emptyActions {

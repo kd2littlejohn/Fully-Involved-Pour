@@ -91,21 +91,24 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: /Journey/ }).className).toMatch(/linkActive/)
   })
 
-  it('opens the Pour hub with Quick Pour, Pour Story, Blind Room, and Compare when Pour is tapped', async () => {
+  it('opens the Pour quick-action sheet with actions the user can perform when Pour is tapped', async () => {
     renderNav()
     await userEvent.click(screen.getByRole('button', { name: /Pour/ }))
 
-    expect(screen.getByRole('heading', { name: 'Start a Pour' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Quick Pour/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Pour Story/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Blind Room/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Compare/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pour' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Record a Pour/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Start a Blind Tasting/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Add a Bottle/ })).toBeInTheDocument()
+    // Only one open bottle exists, so "Update an Open Bottle" is offered,
+    // but there's no Infinity Bottle yet, so that action is left out.
+    expect(screen.getByRole('button', { name: /Update an Open Bottle/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Add to an Infinity Bottle/ })).not.toBeInTheDocument()
   })
 
-  it('opens Quick Pour via the bottle picker from the nav Pour hub', async () => {
+  it('opens Quick Pour via the bottle picker when Record a Pour is chosen', async () => {
     renderNav()
     await userEvent.click(screen.getByRole('button', { name: /Pour/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Quick Pour/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Record a Pour/ }))
 
     expect(screen.getByText('Which bottle?')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /Eagle Rare/ }))

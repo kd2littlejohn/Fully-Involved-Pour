@@ -72,10 +72,10 @@ describe('TopNav', () => {
     expect(screen.getByText('1')).toBeInTheDocument()
   })
 
-  it('opens the same Pour hub as the mobile nav', async () => {
+  it('opens the same Pour quick-action sheet as the mobile nav', async () => {
     renderNav()
     await userEvent.click(screen.getByRole('button', { name: /Pour/ }))
-    expect(screen.getByRole('heading', { name: 'Start a Pour' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Blind Room/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pour' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Start a Blind Tasting/ })).toBeInTheDocument()
   })
 })

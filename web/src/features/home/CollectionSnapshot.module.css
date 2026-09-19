@@ -1,0 +1,36 @@
+.card {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  text-decoration: none;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fip-space-1);
+  flex: 1;
+}
+
+.value {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-cream);
+}
+
+.valueAttention {
+  color: var(--fip-warning);
+}
+
+.label {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  text-align: center;
+}

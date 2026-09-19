@@ -1,12 +1,16 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { HomePage } from './HomePage'
 import type { Bottle, Pour } from '../../data/types'
 
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
 const mockUseLastBlindSummary = vi.fn()
+const mockExplainPourRecommendation = vi.fn()
+const mockUseFriends = vi.fn()
+const mockUseNotifications = vi.fn()
+const mockUseSharedBlindActivity = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -18,6 +22,22 @@ vi.mock('../../hooks/useUserData', () => ({
 
 vi.mock('../../features/home/useLastBlindSummary', () => ({
   useLastBlindSummary: () => mockUseLastBlindSummary(),
+}))
+
+vi.mock('../../data/repositories/pourRecommendationExplanation', () => ({
+  explainPourRecommendation: (...args: unknown[]) => mockExplainPourRecommendation(...args),
+}))
+
+vi.mock('../../features/friends/useFriends', () => ({
+  useFriends: (...args: unknown[]) => mockUseFriends(...args),
+}))
+
+vi.mock('../../features/friends/useNotifications', () => ({
+  useNotifications: (...args: unknown[]) => mockUseNotifications(...args),
+}))
+
+vi.mock('../../features/friends/useSharedBlindActivity', () => ({
+  useSharedBlindActivity: (...args: unknown[]) => mockUseSharedBlindActivity(...args),
 }))
 
 function renderHome() {
@@ -37,6 +57,13 @@ function signIn(bottles: Bottle[], pours: Pour[] = []) {
   })
   mockUseLastBlindSummary.mockReturnValue({ summary: undefined, loading: false })
 }
+
+beforeEach(() => {
+  mockExplainPourRecommendation.mockReset().mockResolvedValue(null)
+  mockUseFriends.mockReturnValue({ friends: [], loading: false, reload: vi.fn() })
+  mockUseNotifications.mockReturnValue({ notifications: [], loading: false, markRead: vi.fn() })
+  mockUseSharedBlindActivity.mockReturnValue({ items: [], loading: false })
+})
 
 describe('HomePage', () => {
   it('shows a sign-in prompt when signed out', () => {
@@ -60,36 +87,23 @@ describe('HomePage', () => {
     expect(screen.getByText('Add a bottle to begin building your bar.')).toBeInTheDocument()
   })
 
-  it('leads with a Start a Pour primary action and "What are you pouring tonight?" subtext', () => {
-    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
-    renderHome()
-
-    expect(screen.getByText('What are you pouring tonight?')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Start a Pour' })).toBeInTheDocument()
-  })
-
-  it('offers the three secondary actions as icon+title+subtitle cards', () => {
-    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
-    renderHome()
-
-    expect(screen.getByRole('button', { name: /^What Should I Pour\?/ })).toBeInTheDocument()
-    expect(screen.getByText('Get a recommendation')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /^Add a Bottle/ })).toHaveAttribute('href', '/bottles/new')
-    expect(screen.getByText('Grow your collection')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /^Blind Room/ })).toHaveAttribute('href', '/blind')
-    expect(screen.getByText('Challenge your palate')).toBeInTheDocument()
-  })
-
   it('shows the full uncropped hero artwork above the greeting', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
     expect(screen.getByAltText(/Fully Involved Pour/)).toBeInTheDocument()
   })
 
-  it('does not offer a standalone Roll the Dice action anymore', () => {
+  it('leads with the What Should I Pour? recommendation as the primary card', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
-    expect(screen.queryByRole('button', { name: /Roll the Dice/ })).not.toBeInTheDocument()
+
+    // Appears both as the primary card's own eyebrow and as the embedded
+    // "choose by mood" trigger's title — both are legitimate, so this just
+    // confirms the primary card rendered at all.
+    expect(screen.getAllByText('What Should I Pour?').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Eagle Rare').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'View Bottle' })).toHaveAttribute('href', '/collection/b1')
+    expect(screen.getByRole('button', { name: 'Show Me Another' })).toBeInTheDocument()
   })
 
   it('shows a Maybe Tonight section for a sealed, owned bottle', () => {
@@ -100,7 +114,23 @@ describe('HomePage', () => {
     expect(screen.getAllByText("Blanton's").length).toBeGreaterThan(0)
   })
 
-  it('shows a real pour count and Pour Again action on the Continue Your Pour Story card', () => {
+  it('shows an Open Bottles carousel with a View All link into the filtered My Bar view', () => {
+    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1, fillLevel: 'half' }])
+    renderHome()
+
+    const heading = screen.getByText('Open Bottles')
+    const section = heading.closest('section')
+    expect(section).not.toBeNull()
+    expect(within(section as HTMLElement).getByRole('link', { name: 'View all' })).toHaveAttribute('href', '/collection?filter=open')
+  })
+
+  it('does not show an Open Bottles section when nothing is open', () => {
+    signIn([{ id: 'b1', name: 'Sealed Bottle', status: 'sealed', createdAt: 1 }])
+    renderHome()
+    expect(screen.queryByText('Open Bottles')).not.toBeInTheDocument()
+  })
+
+  it('shows a real pour count on the Continue Your Journey card', () => {
     const bottle: Bottle = { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1, openedDate: '2026-06-01' }
     const pour: Pour = {
       id: 'p1',
@@ -113,19 +143,18 @@ describe('HomePage', () => {
     signIn([bottle], [pour])
     renderHome()
 
-    expect(screen.getByText('Continue Your Pour Story')).toBeInTheDocument()
+    expect(screen.getByText('Continue Your Journey')).toBeInTheDocument()
     expect(screen.getByText('1 pour')).toBeInTheDocument()
     expect(screen.getAllByText('Great catch-up.').length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: 'Pour Again' })).toBeInTheDocument()
   })
 
-  it('hides the Last Blind Result section when the user has no finished blinds', () => {
-    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
+  it('hides the Continue Your Journey section when there is no featured bottle or blind result', () => {
+    signIn([{ id: 'b1', name: 'Sealed Bottle', status: 'sealed', createdAt: 1 }])
     renderHome()
-    expect(screen.queryByText('Last Blind Result')).not.toBeInTheDocument()
+    expect(screen.queryByText('Continue Your Journey')).not.toBeInTheDocument()
   })
 
-  it('shows the Last Blind Result card with the winning bottle and a View Details link once resolved', () => {
+  it('shows the Last Blind Result inside Continue Your Journey once resolved', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     mockUseLastBlindSummary.mockReturnValue({
       summary: {
@@ -151,10 +180,68 @@ describe('HomePage', () => {
 
     renderHome()
 
-    expect(screen.getByText('Last Blind Result')).toBeInTheDocument()
+    expect(screen.getByText('Continue Your Journey')).toBeInTheDocument()
     expect(screen.getByText('You picked the winner!')).toBeInTheDocument()
     expect(screen.getByText('Pursuit Double Oaked Rye')).toBeInTheDocument()
-    expect(screen.getByText(/Double Oak Showdown/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View Details' })).toHaveAttribute('href', '/blind/room-1/reveal')
+  })
+
+  it("shows an empty state for Friends' Recent Pours when the user has no friends", () => {
+    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
+    renderHome()
+
+    expect(screen.getByText("Friends' Recent Pours")).toBeInTheDocument()
+    expect(screen.getByText('Whiskey is better shared.')).toBeInTheDocument()
+  })
+
+  it("shows friend activity rows in Friends' Recent Pours when there is activity", () => {
+    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
+    mockUseFriends.mockReturnValue({ friends: [{ uid: 'f1', displayName: 'Dave', username: 'dave' }], loading: false, reload: vi.fn() })
+    mockUseNotifications.mockReturnValue({
+      notifications: [
+        {
+          id: 'n1',
+          recipientId: 'u1',
+          actorId: 'f1',
+          actorDisplayName: 'Dave',
+          actorUsername: 'dave',
+          type: 'tagged-in-pour',
+          refId: 'moment-1',
+          read: false,
+          createdAt: Date.now(),
+          refBottleName: 'Weller 12',
+        },
+      ],
+      loading: false,
+      markRead: vi.fn(),
+    })
+
+    renderHome()
+
+    expect(screen.getAllByText(/Dave/).length).toBeGreaterThan(0)
+  })
+
+  it('shows a Palate Insight empty-state card when there is not enough tasting data', () => {
+    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
+    renderHome()
+
+    expect(screen.getByText('Your Palate')).toBeInTheDocument()
+    expect(screen.getByText('Keep logging pours and your palate trends will appear here.')).toBeInTheDocument()
+  })
+
+  it('shows the Collection Snapshot with real totals', () => {
+    signIn([
+      { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 },
+      { id: 'b2', name: 'Weller 12', status: 'sealed', createdAt: 1 },
+      { id: 'b3', name: 'Blanton\'s', status: 'wishlist', createdAt: 1 },
+    ])
+    renderHome()
+
+    const heading = screen.getByText('Collection Snapshot')
+    const section = heading.closest('section')
+    expect(section).not.toBeNull()
+    const scoped = within(section as HTMLElement)
+    expect(scoped.getByText('3')).toBeInTheDocument() // total
+    expect(scoped.getAllByText('1')).toHaveLength(2) // open, sealed
   })
 })
