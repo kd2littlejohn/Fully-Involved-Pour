@@ -4,15 +4,19 @@ import type { Bottle, BottleStatus } from '../../data/types'
 import { summarizeInstanceStatuses } from '../../features/bottleInstances/selectors'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { splitBottleTitle } from '../../features/collection/bottleTitle'
+import { needsReplacement } from '../../features/collection/inventoryFilters'
 import { useBottlePourFlow } from '../../features/startAPour/useBottlePourFlow'
 import { useUserData } from '../../hooks/useUserData'
+import { fillLevelPercent } from '../../features/bottleDetails/selectors'
 import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
+import { FillLevelBar } from '../ui/FillLevelBar'
 import { FipScoreBadge } from '../ui/FipScoreBadge'
 import { RarityBadge } from '../ui/RarityBadge'
 import { OverflowMenu, type OverflowMenuItem } from '../ui/OverflowMenu'
 import { RecommendToFriendModal } from '../../features/friends/RecommendToFriendModal'
 import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
+import { FillLevelModal } from './FillLevelModal'
 import styles from './BottleCard.module.css'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
@@ -46,9 +50,11 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   const { open: openPourFlow, modals } = useBottlePourFlow(bottle.id)
   const [showRecommendModal, setShowRecommendModal] = useState(false)
   const [showStatusModal, setShowStatusModal] = useState(false)
+  const [showFillLevelModal, setShowFillLevelModal] = useState(false)
 
   const currentBottleId = bottle.id
   const currentFavorite = bottle.favorite
+  const currentNeedsReplacement = needsReplacement(bottle)
   // A wishlist bottle isn't owned yet — nothing to pour. Matches the same
   // pourable filter StartAPourButton's own bottle picker already applies.
   const canStartAPour = bottle.status !== 'wishlist'
@@ -57,18 +63,9 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
     await updateBottle(currentBottleId, { favorite: !currentFavorite })
   }
 
-  // Deliberately short — a handful of real actions in one "⋯" menu instead
-  // of a row of buttons crowding every card.
-  const menuItems: OverflowMenuItem[] = []
-  if (canStartAPour) {
-    menuItems.push({ label: 'Start a Pour', onClick: openPourFlow })
+  async function handleToggleReplacement() {
+    await updateBottle(currentBottleId, { wouldReplace: currentNeedsReplacement ? undefined : 'yes' })
   }
-  menuItems.push(
-    { label: 'View Bottle', onClick: () => navigate(`/collection/${currentBottleId}`) },
-    { label: currentFavorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
-    { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
-    { label: 'Edit', onClick: () => navigate(`/bottles/${currentBottleId}/edit`) },
-  )
 
   // One expression is always one card, never one per physical bottle — a
   // multi-instance bottle just prints a count + status breakdown here
@@ -76,14 +73,42 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   // changed from here once it's ambiguous which physical bottle that would
   // mean — see Bottle Details' "Your Bottles" section for that instead.
   const multiInstance = (bottle.instances?.length ?? 0) > 1
+  // Fill level is only ever meaningful for a single, currently-open bottle —
+  // ambiguous the moment there's more than one physical copy.
+  const canUpdateFillLevel = bottle.status === 'open' && !multiInstance
+
+  // Deliberately short — a handful of real actions in one "⋯" menu instead
+  // of a row of buttons crowding every card.
+  const menuItems: OverflowMenuItem[] = []
+  if (canStartAPour) {
+    menuItems.push({ label: 'Start a Pour', onClick: openPourFlow })
+  }
+  menuItems.push({ label: 'View Bottle', onClick: () => navigate(`/collection/${currentBottleId}`) })
+  if (canUpdateFillLevel) {
+    menuItems.push({ label: 'Update Fill Level', onClick: () => setShowFillLevelModal(true) })
+  }
+  menuItems.push(
+    { label: currentFavorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
+    {
+      label: currentNeedsReplacement ? 'Remove from Replacement List' : 'Add to Replacement List',
+      onClick: () => void handleToggleReplacement(),
+    },
+    { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
+    { label: 'Edit', onClick: () => navigate(`/bottles/${currentBottleId}/edit`) },
+  )
+
+  const totalQuantity = bottle.instances?.length ?? bottle.quantity ?? 1
   const instanceSummary = multiInstance ? (
     <div className={styles.instanceSummary}>
       <span className={styles.instanceCount}>{bottle.instances!.length} bottles</span>
       <span className={styles.instanceBreakdown}>{summarizeInstanceStatuses(bottle.instances!)}</span>
     </div>
+  ) : totalQuantity > 1 ? (
+    <span className={styles.quantityBadge}>× {totalQuantity}</span>
   ) : null
 
   const statusBadge = <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
+  const fillPercent = multiInstance ? undefined : fillLevelPercent(bottle)
 
   const linkContent = (
     <>
@@ -97,8 +122,14 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
       <div className={styles.titleBlock}>
         <div className={styles.name}>{title}</div>
         {subtitle ? <div className={styles.subtitle}>{subtitle}</div> : null}
-        {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
+        {bottle.distillery || bottle.type ? (
+          <div className={styles.distillery}>
+            {[bottle.distillery, bottle.type].filter(Boolean).join(' · ')}
+          </div>
+        ) : null}
+        {bottle.proof ? <div className={styles.proof}>{bottle.proof} Proof</div> : null}
       </div>
+      {typeof fillPercent === 'number' ? <FillLevelBar percent={fillPercent} /> : null}
     </>
   )
 
@@ -174,6 +205,9 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
       {showRecommendModal ? <RecommendToFriendModal bottle={bottle} onClose={() => setShowRecommendModal(false)} /> : null}
       {showStatusModal ? (
         <ChangeBottleStatusModal bottle={bottle} onUpdate={updateBottle} onClose={() => setShowStatusModal(false)} />
+      ) : null}
+      {showFillLevelModal ? (
+        <FillLevelModal bottle={bottle} onUpdate={updateBottle} onClose={() => setShowFillLevelModal(false)} />
       ) : null}
     </div>
   )

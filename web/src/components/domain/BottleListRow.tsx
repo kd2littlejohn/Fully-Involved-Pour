@@ -4,6 +4,7 @@ import type { Bottle, BottleStatus } from '../../data/types'
 import { summarizeInstanceStatuses } from '../../features/bottleInstances/selectors'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { useUserData } from '../../hooks/useUserData'
+import { fillLevelPercent } from '../../features/bottleDetails/selectors'
 import { Badge } from '../ui/Badge'
 import { BottlePlaceholder } from '../ui/BottlePlaceholder'
 import { RarityBadge } from '../ui/RarityBadge'
@@ -38,6 +39,15 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
   const journeyStage = bottleJourneyStage(bottle)
   const [showStatusModal, setShowStatusModal] = useState(false)
 
+  // Same reasoning as BottleCard: one expression is one row, never one per
+  // physical bottle — a multi-instance bottle just prints a count +
+  // status breakdown instead of the single status pill, and the status
+  // picker (ambiguous once there's more than one physical bottle) doesn't
+  // open from here at all.
+  const multiInstance = (bottle.instances?.length ?? 0) > 1
+  const totalQuantity = bottle.instances?.length ?? bottle.quantity ?? 1
+  const fillPercent = multiInstance ? undefined : fillLevelPercent(bottle)
+
   const mainContent = (
     <>
       {selectable ? (
@@ -51,18 +61,14 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
 
       <div className={styles.info}>
         <div className={styles.name}>{bottle.name}</div>
-        {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
+        {bottle.distillery || bottle.type ? (
+          <div className={styles.distillery}>{[bottle.distillery, bottle.type].filter(Boolean).join(' · ')}</div>
+        ) : null}
       </div>
     </>
   )
 
   const statusBadge = <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
-  // Same reasoning as BottleCard: one expression is one row, never one per
-  // physical bottle — a multi-instance bottle just prints a count +
-  // status breakdown instead of the single status pill, and the status
-  // picker (ambiguous once there's more than one physical bottle) doesn't
-  // open from here at all.
-  const multiInstance = (bottle.instances?.length ?? 0) > 1
 
   // Tapping the status pill opens the picker directly — kept as a plain
   // Badge (not a button) when selectable, since the whole row's click
@@ -74,6 +80,8 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
           {journeyStage.label}
         </span>
       ) : null}
+      {typeof fillPercent === 'number' ? <span className={styles.fillLevel}>{fillPercent}% Full</span> : null}
+      {totalQuantity > 1 && !multiInstance ? <span className={styles.quantityBadge}>× {totalQuantity}</span> : null}
       {multiInstance ? (
         <span className={styles.instanceSummary}>
           {bottle.instances!.length} bottles · {summarizeInstanceStatuses(bottle.instances!)}

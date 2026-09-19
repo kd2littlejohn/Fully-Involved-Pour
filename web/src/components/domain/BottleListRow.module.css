@@ -123,6 +123,29 @@
   white-space: nowrap;
 }
 
+.fillLevel {
+  display: none;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  white-space: nowrap;
+}
+
+.quantityBadge {
+  padding: 2px var(--fip-space-2);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card-soft);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .fillLevel {
+    display: inline;
+  }
+}
+
 @media (min-width: 640px) {
   .journey {
     display: inline;

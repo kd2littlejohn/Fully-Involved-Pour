@@ -1,5 +1,41 @@
+.rarityDisclaimer {
+  margin: 0;
+  padding: 0 var(--fip-shell-x) var(--fip-space-4);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  line-height: var(--fip-leading-copy);
+}
+
 .searchRow {
   padding: 0 var(--fip-shell-x) var(--fip-space-3);
+}
+
+.activeFilterPill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  margin: 0 var(--fip-shell-x) var(--fip-space-3);
+  padding: var(--fip-space-2) var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-amber-soft);
+  border: 1px solid var(--fip-border-strong);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+}
+
+.clearFiltersButton {
+  flex-shrink: 0;
+  min-height: 32px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  border: none;
+  background: transparent;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
 .resultCount {
@@ -26,21 +62,8 @@
   min-width: 0;
 }
 
-.chips {
-  display: flex;
-  gap: var(--fip-space-2);
-  overflow-x: auto;
-  padding-bottom: var(--fip-space-1);
-  min-width: 0;
-  scrollbar-width: none;
-}
-
-.chips::-webkit-scrollbar {
-  display: none;
-}
-
-/* Row 1: Explore Whiskey / sort. Row 2: view toggle, Select, Infinity
-   Bottle, Add a Bottle — wraps cleanly onto a 3rd line rather than
+/* Row 1: More Filters / Explore Whiskey / sort. Row 2: view toggle, Select,
+   Infinity Bottle, Add a Bottle — wraps cleanly onto a 3rd line rather than
    overflowing if it doesn't fit. */
 .toolbarRow {
   display: flex;
@@ -48,34 +71,6 @@
   gap: var(--fip-space-3);
   flex-wrap: wrap;
   min-width: 0;
-}
-
-.chip {
-  flex-shrink: 0;
-  min-height: 44px;
-  padding: 0 var(--fip-space-4);
-  border-radius: var(--fip-radius-round);
-  border: 1px solid var(--fip-border);
-  background: transparent;
-  color: var(--fip-muted);
-  font-size: var(--fip-text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background-color var(--fip-motion) var(--fip-ease),
-    color var(--fip-motion) var(--fip-ease),
-    border-color var(--fip-motion) var(--fip-ease);
-}
-
-.chip:hover {
-  color: var(--fip-cream);
-  border-color: var(--fip-border-strong);
-}
-
-.chipActive {
-  background: var(--fip-amber);
-  border-color: var(--fip-amber);
-  color: var(--fip-black);
 }
 
 /* A deterministic 2-up grid on phones — auto-fill's column count can drift

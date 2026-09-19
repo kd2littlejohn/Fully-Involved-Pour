@@ -191,6 +191,45 @@ describe('BottleDetailsPage', () => {
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: false })
   })
 
+  it('adds a bottle to the replacement list from the menu', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to Replacement List' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { wouldReplace: 'yes' })
+  })
+
+  it('offers to remove a bottle from the replacement list once flagged', async () => {
+    mockSignedInWith([{ ...eagleRare, wouldReplace: 'yes' }], [pour])
+    renderPage('b1')
+
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove from Replacement List' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { wouldReplace: undefined })
+  })
+
+  it('offers Update Fill Level for a single open bottle, and applies the pick', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await openBottleMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Update Fill Level' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Quarter' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { fillLevel: 'quarter' })
+  })
+
+  it('does not offer Update Fill Level for a sealed bottle', async () => {
+    mockSignedInWith([wellerSpecial], [])
+    renderPage('b2')
+
+    await openBottleMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Update Fill Level' })).not.toBeInTheDocument()
+  })
+
   it('does not offer Change Status in the menu — the status pill itself is the shortcut', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')

@@ -1,0 +1,53 @@
+.bar {
+  display: flex;
+  gap: var(--fip-space-2);
+  overflow-x: auto;
+  padding: 0 var(--fip-shell-x) var(--fip-space-3);
+  scrollbar-width: none;
+}
+
+.bar::-webkit-scrollbar {
+  display: none;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1 0 64px;
+  min-height: 44px;
+  padding: var(--fip-space-2) var(--fip-space-2);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  cursor: pointer;
+}
+
+.tile:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.tileActive {
+  background: var(--fip-amber-soft);
+  border-color: var(--fip-border-strong);
+}
+
+.value {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+  line-height: 1;
+}
+
+.tileActive .value {
+  color: var(--fip-amber);
+}
+
+.label {
+  font-size: 0.6875rem;
+  color: var(--fip-muted);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}

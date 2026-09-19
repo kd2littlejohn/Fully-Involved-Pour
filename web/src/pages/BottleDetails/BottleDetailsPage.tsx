@@ -11,10 +11,12 @@ import { StatTile } from '../../components/ui/StatTile'
 import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
 import { ChangeBottleStatusModal } from '../../components/domain/ChangeBottleStatusModal'
+import { FillLevelModal } from '../../components/domain/FillLevelModal'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData, type BottlePatch } from '../../hooks/useUserData'
 import type { BottleStatus } from '../../data/types'
 import { bottleJourneyStage } from '../../features/collection/journeyStage'
+import { needsReplacement } from '../../features/collection/inventoryFilters'
 import {
   currentScoreDate,
   distilleryLocation,
@@ -92,6 +94,7 @@ export function BottleDetailsPage() {
   const [deleting, setDeleting] = useState(false)
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
   const [showStatusModal, setShowStatusModal] = useState(false)
+  const [showFillLevelModal, setShowFillLevelModal] = useState(false)
   const [showBottleKillCelebration, setShowBottleKillCelebration] = useState(false)
   const [showRecommendModal, setShowRecommendModal] = useState(false)
 
@@ -167,6 +170,11 @@ export function BottleDetailsPage() {
     await updateBottle(currentBottleId, { favorite: !currentFavorite })
   }
 
+  const currentNeedsReplacement = needsReplacement(bottle)
+  async function handleToggleReplacement() {
+    await updateBottle(currentBottleId, { wouldReplace: currentNeedsReplacement ? undefined : 'yes' })
+  }
+
   function handleReplaceBottle() {
     navigate('/bottles/new', {
       state: { prefill: { name: currentName, distillery: currentDistillery, type: currentType }, defaultStatus: 'sealed' },
@@ -177,9 +185,19 @@ export function BottleDetailsPage() {
     await updateBottle(currentBottleId, patch)
   }
 
+  // Fill level is only meaningful for a single, currently-open bottle —
+  // ambiguous once there's more than one physical copy (see the "Your
+  // Bottles" section below for per-instance fill level instead).
+  const canUpdateFillLevel = bottle.status === 'open' && !multiInstance
+
   const menuItems: OverflowMenuItem[] = [
     { label: 'Edit Bottle', onClick: () => navigate(`/bottles/${bottle.id}/edit`) },
+    ...(canUpdateFillLevel ? [{ label: 'Update Fill Level', onClick: () => setShowFillLevelModal(true) }] : []),
     { label: bottle.favorite ? 'Remove from Favorites' : 'Add to Favorites', onClick: () => void handleToggleFavorite() },
+    {
+      label: currentNeedsReplacement ? 'Remove from Replacement List' : 'Add to Replacement List',
+      onClick: () => void handleToggleReplacement(),
+    },
     { label: 'Recommend to Friend', onClick: () => setShowRecommendModal(true) },
     { label: 'Replace Bottle', onClick: handleReplaceBottle },
     { label: 'Delete Bottle', onClick: () => setConfirmingDelete(true), tone: 'danger' },
@@ -311,6 +329,10 @@ export function BottleDetailsPage() {
             if (status === 'finished') setShowBottleKillCelebration(true)
           }}
         />
+      ) : null}
+
+      {showFillLevelModal ? (
+        <FillLevelModal bottle={bottle} onUpdate={updateBottle} onClose={() => setShowFillLevelModal(false)} />
       ) : null}
     </>
   )

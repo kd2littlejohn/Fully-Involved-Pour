@@ -1,0 +1,58 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  min-height: 56px;
+  padding: var(--fip-space-3) var(--fip-space-4);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  color: var(--fip-cream);
+  text-align: left;
+  cursor: pointer;
+}
+
+.option:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.optionActive {
+  background: var(--fip-amber-soft);
+  border-color: var(--fip-border-strong);
+}
+
+.optionMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.optionLabel {
+  font-weight: 600;
+  font-size: var(--fip-text-sm);
+}
+
+.optionActive .optionLabel {
+  color: var(--fip-amber);
+}
+
+.optionDescription {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.optionCount {
+  flex-shrink: 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}

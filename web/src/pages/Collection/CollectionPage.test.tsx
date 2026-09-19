@@ -81,11 +81,11 @@ describe('CollectionPage', () => {
 
     renderCollection(['/collection?filter=open'])
 
-    expect(screen.getByRole('button', { name: 'Opened (1)' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'All (5)' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /^Open:/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^Total:/ })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('filters the grid by status when a chip is clicked', async () => {
+  it('filters the grid by status when a summary tile is clicked', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
       userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
@@ -99,7 +99,7 @@ describe('CollectionPage', () => {
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
     expect(screen.getByText('Weller 12')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: /Sealed \(2\)/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Sealed:/ }))
 
     expect(screen.getByText('Weller 12')).toBeInTheDocument()
     expect(screen.getByText('Favorite Pick')).toBeInTheDocument()
@@ -107,7 +107,7 @@ describe('CollectionPage', () => {
     expect(screen.queryByText(/Pappy 15/)).not.toBeInTheDocument()
   })
 
-  it('filters to incoming bottles', async () => {
+  it('filters to incoming bottles via the More Filters sheet', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
       userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
@@ -118,7 +118,8 @@ describe('CollectionPage', () => {
 
     renderCollection()
 
-    await userEvent.click(screen.getByRole('button', { name: /Incoming \(1\)/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'More Filters' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^Incoming/ }))
 
     expect(screen.getByText('Elmer T. Lee')).toBeInTheDocument()
     expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
@@ -157,7 +158,7 @@ describe('CollectionPage', () => {
     expect(screen.queryByText(/Pappy 15/)).not.toBeInTheDocument()
   })
 
-  it('combines search with the active status filter and updates chip counts', async () => {
+  it('combines search with the active status filter and updates summary counts', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
     mockUseUserData.mockReturnValue({
       userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
@@ -168,11 +169,51 @@ describe('CollectionPage', () => {
     renderCollection()
 
     await userEvent.type(screen.getByLabelText('Search your bar'), 'buffalo trace')
-    await userEvent.click(screen.getByRole('button', { name: /Sealed \(1\)/ }))
+    expect(screen.getByRole('button', { name: 'Sealed: 1 bottles' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Sealed: 1 bottles' }))
 
     expect(screen.getByText('Weller 12')).toBeInTheDocument()
     expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument() // open, not sealed
     expect(screen.queryByText('Favorite Pick')).not.toBeInTheDocument() // sealed, but no distillery match
+  })
+
+  it('shows an active-filter pill with a one-tap Clear Filters action', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    expect(screen.queryByText(/Filtering by/)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /^Sealed:/ }))
+    expect(screen.getByText(/Filtering by Sealed/)).toBeInTheDocument()
+    expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear Filters' }))
+    expect(screen.queryByText(/Filtering by/)).not.toBeInTheDocument()
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+  })
+
+  it('offers to clear the filter from the empty state when a filtered view has no matches', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: [{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection()
+
+    await userEvent.click(screen.getByRole('button', { name: /^Sealed:/ }))
+    expect(screen.getByText('No bottles match Sealed right now.')).toBeInTheDocument()
+
+    const clearButtons = screen.getAllByRole('button', { name: 'Clear Filters' })
+    await userEvent.click(clearButtons[clearButtons.length - 1]!)
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
   })
 
   it('shows a "no matches" empty state for a search with no results', async () => {
@@ -376,7 +417,7 @@ describe('CollectionPage — rarity chart and filter', () => {
 
   it('the rarity filter combines with an existing status filter', async () => {
     renderWithRarityBottles()
-    await userEvent.click(screen.getByRole('button', { name: /Sealed \(2\)/ }))
+    await userEvent.click(screen.getByRole('button', { name: /^Sealed:/ }))
     await userEvent.click(legend().getByRole('button', { name: /^Rare:/ }))
 
     // Eagle Rare is Rare but status 'open', not 'sealed' — excluded by the AND.

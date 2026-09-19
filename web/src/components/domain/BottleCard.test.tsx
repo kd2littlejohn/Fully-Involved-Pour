@@ -157,6 +157,67 @@ describe('BottleCard', () => {
     expect(screen.queryByText('9.2')).not.toBeInTheDocument()
   })
 
+  it('shows type and proof when present', () => {
+    const withDetails: Bottle = { ...eagleRare, type: 'Bourbon', proof: 90 }
+    mockData([withDetails])
+    renderCard(withDetails)
+    expect(screen.getByText('Buffalo Trace · Bourbon')).toBeInTheDocument()
+    expect(screen.getByText('90 Proof')).toBeInTheDocument()
+  })
+
+  it('shows a fill-level bar for a single open bottle with a recorded fill level', () => {
+    const withFill: Bottle = { ...eagleRare, fillLevel: 'quarter' }
+    mockData([withFill])
+    renderCard(withFill)
+    expect(screen.getByRole('progressbar', { name: 'Fill level' })).toHaveAttribute('aria-valuenow', '25')
+  })
+
+  it('shows a quantity badge for a plain bottle with quantity greater than one', () => {
+    const multiQty: Bottle = { ...eagleRare, quantity: 3 }
+    mockData([multiQty])
+    renderCard(multiQty)
+    expect(screen.getByText('× 3')).toBeInTheDocument()
+  })
+
+  it('offers Update Fill Level for a single open bottle, and toggles it via the menu', async () => {
+    mockData([eagleRare])
+    renderCard(eagleRare)
+
+    await openMenu('Eagle Rare 10 Year')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Update Fill Level' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Quarter' }))
+
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { fillLevel: 'quarter' })
+  })
+
+  it('does not offer Update Fill Level for a sealed bottle', async () => {
+    const sealed: Bottle = { id: 'b3', name: 'Weller 12', status: 'sealed' }
+    mockData([sealed])
+    renderCard(sealed)
+
+    await openMenu('Weller 12')
+    expect(screen.queryByRole('menuitem', { name: 'Update Fill Level' })).not.toBeInTheDocument()
+  })
+
+  it('adds a bottle to the replacement list from the menu', async () => {
+    mockData([eagleRare])
+    renderCard(eagleRare)
+
+    await openMenu('Eagle Rare 10 Year')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Add to Replacement List' }))
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { wouldReplace: 'yes' })
+  })
+
+  it('offers to remove a bottle from the replacement list once flagged', async () => {
+    const flagged: Bottle = { ...eagleRare, wouldReplace: 'yes' }
+    mockData([flagged])
+    renderCard(flagged)
+
+    await openMenu('Eagle Rare 10 Year')
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Remove from Replacement List' }))
+    expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { wouldReplace: undefined })
+  })
+
   it('renders as a selection checkbox instead of a link when selectable', async () => {
     mockData([eagleRare])
     const onToggleSelect = vi.fn()

@@ -52,6 +52,27 @@ describe('BottleListRow', () => {
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { status: 'open', openedDate: expect.any(String) })
   })
 
+  it('shows type alongside distillery', () => {
+    const withType: Bottle = { ...sealed, type: 'Bourbon' }
+    mockData([withType])
+    renderRow(withType)
+    expect(screen.getByText('Buffalo Trace · Bourbon')).toBeInTheDocument()
+  })
+
+  it('shows fill percent for a single open bottle', () => {
+    const open: Bottle = { ...sealed, status: 'open', fillLevel: 'half' }
+    mockData([open])
+    renderRow(open)
+    expect(screen.getByText('50% Full')).toBeInTheDocument()
+  })
+
+  it('shows a quantity badge for a plain bottle with quantity greater than one', () => {
+    const multiQty: Bottle = { ...sealed, quantity: 4 }
+    mockData([multiQty])
+    renderRow(multiQty)
+    expect(screen.getByText('× 4')).toBeInTheDocument()
+  })
+
   it('renders as a selection checkbox instead of a link when selectable, with a non-interactive status pill', async () => {
     mockData([sealed])
     const onToggleSelect = vi.fn()

@@ -13,62 +13,60 @@ import { getCoreBarBottles } from '../../features/coreBar/selectors'
 import { InfinityBottleButton } from '../../features/infinityBottle/InfinityBottleButton'
 import { sortBottles, SORT_OPTIONS, type SortOption } from '../../features/collection/sortBottles'
 import { bottleDistilleryMatches } from '../../data/distillery/search'
+import { detectPickFlags } from '../../data/repositories/rarity'
 import { RarityDonutChart } from '../../components/ui/RarityDonutChart'
 import { rarityBreakdown } from '../../features/rarity/rarityBreakdown'
 import { matchesRarityFilter, type RarityFilterValue } from '../../features/rarity/rarityFilter'
 import { selectRarityReviewQueue } from '../../features/rarity/rarityReviewQueue'
-import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../features/rarity/rarityLevels'
+import { RARITY_LABEL, UNCLASSIFIED_LABEL, RARITY_OPTIONS } from '../../features/rarity/rarityLevels'
+import { CollectionSummaryBar } from '../../features/collection/CollectionSummaryBar'
+import { CollectionFilterSheet } from '../../features/collection/CollectionFilterSheet'
+import { matchesFilter, filterLabel, ALL_FILTERS, type Filter } from '../../features/collection/collectionFilters'
+import { getInfinityIngredientBottleIds } from '../../features/collection/inventoryFilters'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
-
-type Filter = 'all' | 'open' | 'sealed' | 'wishlist' | 'incoming' | 'favorites' | 'core-bar'
-
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'open', label: 'Opened' },
-  { value: 'sealed', label: 'Sealed' },
-  { value: 'wishlist', label: 'Wishlist' },
-  { value: 'incoming', label: 'Incoming' },
-  { value: 'favorites', label: 'Favorites' },
-  { value: 'core-bar', label: 'Core Bar' },
-]
-
-function matchesFilter(bottle: Bottle, filter: Filter): boolean {
-  switch (filter) {
-    case 'all':
-      return true
-    case 'favorites':
-      return Boolean(bottle.favorite)
-    case 'core-bar':
-      return false // Core Bar is computed from pours, handled separately below.
-    default:
-      return bottle.status === filter
-  }
-}
 
 function matchesQuery(bottle: Bottle, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  if (bottle.name.toLowerCase().includes(q) || (bottle.distillery?.toLowerCase().includes(q) ?? false)) return true
+  if (
+    bottle.name.toLowerCase().includes(q) ||
+    (bottle.distillery?.toLowerCase().includes(q) ?? false) ||
+    (bottle.type?.toLowerCase().includes(q) ?? false) ||
+    (bottle.proof !== undefined && String(bottle.proof).includes(q))
+  ) {
+    return true
+  }
   // Catches e.g. "MGP" finding a bottle stored under "Ross & Squibb
   // Distillery", or "BT" finding one stored under "Buffalo Trace" — see
   // data/distillery/search.ts.
-  return bottleDistilleryMatches(bottle.distillery, q)
+  if (bottleDistilleryMatches(bottle.distillery, q)) return true
+  // "store pick" / "single barrel" reuse the same name-based detection the
+  // rarity suggestion prompt already relies on (see data/repositories/
+  // rarity.ts) rather than a new persisted field.
+  const flags = detectPickFlags(bottle.name)
+  if (flags.storePick && 'store pick'.includes(q)) return true
+  if (flags.singleBarrel && 'single barrel'.includes(q)) return true
+  return false
 }
 
 export function CollectionPage() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading, deleteBottles } = useUserData()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   // A "View All" link elsewhere in the app (e.g. Home's Open Bottles card)
   // can deep-link straight into a filtered view via ?filter=open — falls
   // back to 'all' for anything else, same as visiting /collection directly.
-  const [filter, setFilter] = useState<Filter>(() => {
+  const [filter, setFilterState] = useState<Filter>(() => {
     const requested = searchParams.get('filter')
-    return FILTERS.some((f) => f.value === requested) ? (requested as Filter) : 'all'
+    return ALL_FILTERS.some((f) => f.value === requested) ? (requested as Filter) : 'all'
   })
-  const [rarityFilter, setRarityFilter] = useState<RarityFilterValue>(null)
+  const [rarityFilter, setRarityFilterState] = useState<RarityFilterValue>(() => {
+    const requested = searchParams.get('rarity')
+    if (requested === 'unclassified') return 'unclassified'
+    return RARITY_OPTIONS.some((r) => r.value === requested) ? (requested as RarityFilterValue) : null
+  })
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortOption>('recent')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -76,23 +74,63 @@ export function CollectionPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [showFilterSheet, setShowFilterSheet] = useState(false)
+
+  // Keeps the current view in the URL (replacing, not pushing, so picking
+  // through filters doesn't pile up history entries) so browser/gesture
+  // Back from a bottle's own details page lands back on the same filtered
+  // view instead of a reset one.
+  function setFilter(next: Filter) {
+    setFilterState(next)
+    const params = new URLSearchParams(searchParams)
+    if (next === 'all') params.delete('filter')
+    else params.set('filter', next)
+    setSearchParams(params, { replace: true })
+  }
+
+  function setRarityFilter(next: RarityFilterValue) {
+    setRarityFilterState(next)
+    const params = new URLSearchParams(searchParams)
+    if (next === null) params.delete('rarity')
+    else params.set('rarity', next)
+    setSearchParams(params, { replace: true })
+  }
+
+  function clearFilters() {
+    setFilter('all')
+    setRarityFilter(null)
+  }
 
   const coreBarBottles = useMemo(() => getCoreBarBottles(userDoc.bottles, userDoc.pours), [userDoc.bottles, userDoc.pours])
+  const infinityIngredientIds = useMemo(() => getInfinityIngredientBottleIds(userDoc.infinityBottles), [userDoc.infinityBottles])
 
   const filteredBottles = useMemo(() => {
-    const base = filter === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter))
+    const base = filter === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((bottle) => matchesFilter(bottle, filter, userDoc.pours, infinityIngredientIds))
     return base.filter((bottle) => matchesQuery(bottle, query)).filter((bottle) => matchesRarityFilter(bottle, rarityFilter))
-  }, [userDoc.bottles, filter, coreBarBottles, query, rarityFilter])
+  }, [userDoc.bottles, userDoc.pours, filter, coreBarBottles, infinityIngredientIds, query, rarityFilter])
 
-  const sortedBottles = useMemo(() => sortBottles(filteredBottles, sort), [filteredBottles, sort])
+  const sortedBottles = useMemo(() => sortBottles(filteredBottles, sort, userDoc.pours), [filteredBottles, sort, userDoc.pours])
 
   function countForFilter(value: Filter): number {
-    const base = value === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((b) => matchesFilter(b, value))
+    const base = value === 'core-bar' ? coreBarBottles : userDoc.bottles.filter((b) => matchesFilter(b, value, userDoc.pours, infinityIngredientIds))
     return base.filter((bottle) => matchesQuery(bottle, query)).filter((bottle) => matchesRarityFilter(bottle, rarityFilter)).length
   }
 
+  const summary = useMemo(
+    () => ({
+      total: countForFilter('all'),
+      open: countForFilter('open'),
+      sealed: countForFilter('sealed'),
+      finished: countForFilter('finished'),
+      lowFill: countForFilter('low-fill'),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- countForFilter closes over the same state already listed below
+    [userDoc.bottles, userDoc.pours, infinityIngredientIds, query, rarityFilter],
+  )
+
   const rarity = useMemo(() => rarityBreakdown(userDoc.bottles), [userDoc.bottles])
   const rarityReviewQueue = useMemo(() => selectRarityReviewQueue(userDoc.bottles), [userDoc.bottles])
+  const hasActiveFilter = filter !== 'all' || rarityFilter !== null
 
   const allFilteredSelected = filteredBottles.length > 0 && filteredBottles.every((b) => selectedIds.has(b.id))
 
@@ -152,6 +190,11 @@ export function CollectionPage() {
       ) : (
         <>
           <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
+          <p className={styles.rarityDisclaimer}>
+            Rarity reflects how hard a bottle is to find — availability, allocation, and release scarcity — never how good it tastes.
+          </p>
+
+          <CollectionSummaryBar summary={summary} active={filter} onSelect={setFilter} />
 
           <div className={styles.searchRow}>
             <input
@@ -159,27 +202,30 @@ export function CollectionPage() {
               className={controlClassName}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or distillery…"
+              placeholder="Search by name, distillery, type, or proof…"
               aria-label="Search your bar"
             />
           </div>
 
-          <div className={styles.toolbar}>
-            <div className={styles.chips}>
-              {FILTERS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={option.value === filter ? `${styles.chip} ${styles.chipActive}` : styles.chip}
-                  onClick={() => setFilter(option.value)}
-                  aria-pressed={option.value === filter}
-                >
-                  {option.label} ({countForFilter(option.value)})
-                </button>
-              ))}
+          {hasActiveFilter ? (
+            <div className={styles.activeFilterPill}>
+              <span>
+                Filtering by{' '}
+                {[filter !== 'all' ? filterLabel(filter) : null, rarityFilter ? (rarityFilter === 'unclassified' ? UNCLASSIFIED_LABEL : RARITY_LABEL[rarityFilter]) : null]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+              <button type="button" className={styles.clearFiltersButton} onClick={clearFilters}>
+                Clear Filters
+              </button>
             </div>
+          ) : null}
 
+          <div className={styles.toolbar}>
             <div className={styles.toolbarRow}>
+              <Button variant="secondary" onClick={() => setShowFilterSheet(true)}>
+                More Filters
+              </Button>
               <Link to="/discover">
                 <Button variant="ghost">Explore Whiskey</Button>
               </Link>
@@ -294,17 +340,20 @@ export function CollectionPage() {
                     ? `No bottles match "${query.trim()}".`
                     : filter === 'core-bar'
                       ? 'No Core Bar bottles yet.'
-                      : 'No bottles here yet.'
+                      : hasActiveFilter
+                        ? `No bottles match ${filterLabel(filter)} right now.`
+                        : 'No bottles here yet.'
               }
               message={
-                rarityFilter
-                  ? 'Try a different rarity, or clear the filter with "All Bottles".'
-                  : query.trim()
-                    ? 'Try a different name or distillery, or clear the search.'
-                    : filter === 'core-bar'
-                      ? 'Log a few Pour Stories for a bottle to see it earn a permanent spot here.'
+                query.trim()
+                  ? 'Try a different name, distillery, type, or proof, or clear the search.'
+                  : filter === 'core-bar'
+                    ? 'Log a few Pour Stories for a bottle to see it earn a permanent spot here.'
+                    : hasActiveFilter
+                      ? 'Try a different view, or clear the filter to see everything.'
                       : 'Try a different filter, or add a bottle to this view.'
               }
+              action={hasActiveFilter ? <Button onClick={clearFilters}>Clear Filters</Button> : undefined}
             />
           ) : viewMode === 'grid' ? (
             <div className={styles.grid}>
@@ -331,6 +380,15 @@ export function CollectionPage() {
               ))}
             </div>
           )}
+
+          {showFilterSheet ? (
+            <CollectionFilterSheet
+              active={filter}
+              counts={Object.fromEntries(ALL_FILTERS.map((f) => [f.value, countForFilter(f.value)])) as Record<Filter, number>}
+              onSelect={setFilter}
+              onClose={() => setShowFilterSheet(false)}
+            />
+          ) : null}
         </>
       )}
     </>

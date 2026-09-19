@@ -44,19 +44,6 @@
   font-size: var(--fip-text-xs);
 }
 
-.fillTrack {
-  height: 4px;
-  border-radius: var(--fip-radius-round);
-  background: var(--fip-card-soft);
-  overflow: hidden;
-  margin-top: var(--fip-space-1);
-}
-
-.fillLevel {
-  height: 100%;
-  background: var(--fip-copper);
-}
-
 .meta {
   color: var(--fip-muted);
   font-size: var(--fip-text-xs);

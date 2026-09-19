@@ -141,6 +141,21 @@
   font-size: var(--fip-text-sm);
 }
 
+.proof {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.quantityBadge {
+  align-self: flex-start;
+  padding: 2px var(--fip-space-2);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card-soft);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+}
+
 .footer {
   display: flex;
   align-items: center;

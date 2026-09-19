@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { OpenBottleSummary } from './selectors'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
+import { FillLevelBar } from '../../components/ui/FillLevelBar'
 import styles from './OpenBottleCard.module.css'
 
 interface OpenBottleCardProps {
@@ -25,18 +26,7 @@ export function OpenBottleCard({ summary }: OpenBottleCardProps) {
       <div className={styles.body}>
         <div className={styles.name}>{bottle.name}</div>
         {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
-        {typeof fillPercent === 'number' ? (
-          <div
-            className={styles.fillTrack}
-            role="progressbar"
-            aria-label="Fill level"
-            aria-valuenow={fillPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
-            <div className={styles.fillLevel} style={{ width: `${fillPercent}%` }} />
-          </div>
-        ) : null}
+        {typeof fillPercent === 'number' ? <FillLevelBar percent={fillPercent} /> : null}
         <div className={styles.meta}>{lastPouredText(summary)}</div>
       </div>
     </Link>
