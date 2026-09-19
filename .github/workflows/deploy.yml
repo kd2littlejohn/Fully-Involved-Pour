@@ -1,4 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy to Firebase Hosting
+
+# fullyinvolvedpour.com is served by Firebase Hosting, not GitHub Pages —
+# this builds web/ and deploys web/dist straight to the live site on every
+# push to main, using the service account firebase init hosting:github
+# created (see the FIREBASE_SERVICE_ACCOUNT_FULLY_INVOLVED_POUR repo secret).
 
 on:
   push:
@@ -7,15 +12,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
-  build:
+  build_and_deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,16 +29,10 @@ jobs:
       - name: Build
         working-directory: web
         run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          path: web/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_FULLY_INVOLVED_POUR }}'
+          projectId: fully-involved-pour
+          channelId: live
