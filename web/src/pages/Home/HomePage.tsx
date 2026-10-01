@@ -102,7 +102,7 @@ export function HomePage() {
         />
       ) : (
         <>
-          <WhatShouldIPourCard bottles={bottles} pours={pours} />
+          <WhatShouldIPourCard uid={user.uid} bottles={bottles} pours={pours} />
 
           {maybeTonight.length > 0 ? (
             <Section title="Maybe Tonight" viewAllHref="/collection">

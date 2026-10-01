@@ -59,6 +59,7 @@ function signIn(bottles: Bottle[], pours: Pour[] = []) {
 }
 
 beforeEach(() => {
+  localStorage.clear() // the real WhatShouldIPourCard persists its pick per uid — see useHomeRecommendation
   mockExplainPourRecommendation.mockReset().mockResolvedValue(null)
   mockUseFriends.mockReturnValue({ friends: [], loading: false, reload: vi.fn() })
   mockUseNotifications.mockReturnValue({ notifications: [], loading: false, markRead: vi.fn() })
