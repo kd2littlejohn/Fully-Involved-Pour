@@ -45,24 +45,34 @@
   flex-shrink: 0;
 }
 
+/* Sized by the photo, not the other way around: fixed width, natural
+   height from the image's own aspect ratio — no fixed box, padding, or
+   backdrop, so nothing is cropped and no dark frame shows around it. */
 .imageWrap {
+  display: block;
   width: 140px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--fip-radius-lg);
+}
+
+/* The no-photo placeholder has no intrinsic size, so it keeps a box. */
+.imageWrapPlaceholder {
   height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--fip-oak-deep);
-  border: none;
   border-radius: var(--fip-radius-lg);
   overflow: hidden;
-  padding: 0;
-  cursor: pointer;
-}
-
-.image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
 }
 
 .favoritePill {

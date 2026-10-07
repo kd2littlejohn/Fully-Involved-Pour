@@ -228,7 +228,13 @@ export function BottleDetailsPage() {
       <div className={styles.hero}>
         <div className={styles.heroImageArea}>
           <button type="button" className={styles.imageWrap} onClick={() => setShowPhotoLightbox(true)} aria-label="View photo">
-            {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+            {bottle.imageUrl ? (
+              <img className={styles.image} src={bottle.imageUrl} alt="" />
+            ) : (
+              <span className={styles.imageWrapPlaceholder}>
+                <BottlePlaceholder name={bottle.name} />
+              </span>
+            )}
           </button>
           <button
             type="button"
