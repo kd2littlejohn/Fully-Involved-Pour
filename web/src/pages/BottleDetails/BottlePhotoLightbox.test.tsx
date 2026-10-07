@@ -66,12 +66,12 @@ describe('BottlePhotoLightbox', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('does not offer a View Original toggle when there is no original to show', () => {
+  it('does not offer a toggle when there is no separate original to show', () => {
     render(<BottlePhotoLightbox bottle={{ ...bottle, imageUrl: 'https://example.com/photo.jpg' }} onClose={vi.fn()} />)
-    expect(screen.queryByRole('button', { name: /View Original Photo/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /View (Original|Standardized) Photo/ })).not.toBeInTheDocument()
   })
 
-  it('toggles between the standardized and original photo when both exist', async () => {
+  it('defaults to the untouched original and toggles to the standardized photo when both exist', async () => {
     const withOriginal: Bottle = {
       ...bottle,
       imageUrl: 'https://example.com/standardized.jpg',
@@ -79,12 +79,12 @@ describe('BottlePhotoLightbox', () => {
     }
     const { container } = render(<BottlePhotoLightbox bottle={withOriginal} onClose={vi.fn()} />)
 
-    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/standardized.jpg')
-
-    await userEvent.click(screen.getByRole('button', { name: 'View Original Photo' }))
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/original.jpg')
 
     await userEvent.click(screen.getByRole('button', { name: 'View Standardized Photo' }))
     expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/standardized.jpg')
+
+    await userEvent.click(screen.getByRole('button', { name: 'View Original Photo' }))
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/original.jpg')
   })
 })

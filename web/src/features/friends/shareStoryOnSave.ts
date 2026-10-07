@@ -1,6 +1,7 @@
 import { createSharedMoment } from '../../data/repositories/sharedMoments'
 import { createNotification } from '../../data/repositories/notifications'
 import type { Bottle, Pour } from '../../data/types'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 export interface ShareStoryOwner {
   uid: string
@@ -29,7 +30,7 @@ export async function shareStoryWithTaggedFriends(owner: ShareStoryOwner, pour: 
       snapshot: {
         bottleName: bottle?.name ?? 'A whiskey',
         distillery: bottle?.distillery,
-        bottleImageUrl: bottle?.imageUrl,
+        bottleImageUrl: (bottle ? bottlePhotoUrl(bottle) : undefined),
         rating: pour.rating,
         occasion: pour.occasion,
         memory: pour.memory,

@@ -15,6 +15,7 @@ import { MOODS, type MoodId } from './moods'
 import { DiceFace } from '../diceRoll/DiceFace'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './WhatShouldIPourButton.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 const LIGHTBULB_ICON = (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -184,8 +185,8 @@ export function WhatShouldIPourButton() {
               <div className={styles.eyebrow}>Tonight&rsquo;s Pour</div>
 
               <div className={styles.imageWrap}>
-                {result.bottle.imageUrl ? (
-                  <img className={styles.image} src={result.bottle.imageUrl} alt="" />
+                {bottlePhotoUrl(result.bottle) ? (
+                  <img className={styles.image} src={bottlePhotoUrl(result.bottle)} alt="" />
                 ) : (
                   <BottlePlaceholder name={result.bottle.name} />
                 )}

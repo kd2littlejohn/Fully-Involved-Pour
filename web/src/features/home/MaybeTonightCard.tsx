@@ -3,6 +3,7 @@ import type { MaybeTonightCandidate } from './selectors'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { StartAPourButton } from '../startAPour/StartAPourButton'
 import styles from './MaybeTonightCard.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 interface MaybeTonightCardProps {
   candidate: MaybeTonightCandidate
@@ -14,7 +15,7 @@ export function MaybeTonightCard({ candidate }: MaybeTonightCardProps) {
   return (
     <div className={styles.card}>
       <Link to={`/collection/${bottle.id}`} className={styles.media}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} compact />}
+        {bottlePhotoUrl(bottle) ? <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder name={bottle.name} compact />}
       </Link>
       <div className={styles.body}>
         <Link to={`/collection/${bottle.id}`} className={styles.name}>

@@ -9,6 +9,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { createBlindRoom, sessionTypeLabel } from '../../data/repositories/blindRoom'
 import type { BlindKnowledgeMode, BlindSecretPour, BlindSessionType } from '../../data/types'
 import styles from './CreateBlindPage.module.css'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 const POUR_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
 
@@ -117,7 +118,7 @@ export function CreateBlindPage() {
           bottleId: bottle.id,
           bottleName: bottle.name,
           distillery: bottle.distillery,
-          imageUrl: bottle.imageUrl,
+          imageUrl: bottlePhotoUrl(bottle),
           proof: bottle.proof,
         }
       })

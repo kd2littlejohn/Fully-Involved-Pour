@@ -18,6 +18,7 @@ import { RecommendToFriendModal } from '../../features/friends/RecommendToFriend
 import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
 import { FillLevelModal } from './FillLevelModal'
 import styles from './BottleCard.module.css'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
   open: 'Opened',
@@ -113,8 +114,8 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   const linkContent = (
     <>
       <div className={styles.imageWrap}>
-        {bottle.imageUrl ? (
-          <img className={styles.image} src={bottle.imageUrl} alt="" />
+        {bottlePhotoUrl(bottle) ? (
+          <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" />
         ) : (
           <BottlePlaceholder name={bottle.name} compact />
         )}

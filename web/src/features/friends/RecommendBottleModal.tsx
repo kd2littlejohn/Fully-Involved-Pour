@@ -7,6 +7,7 @@ import { useUserData } from '../../hooks/useUserData'
 import { sendRecommendation } from '../../data/repositories/recommendations'
 import { createNotification } from '../../data/repositories/notifications'
 import styles from './RecommendBottleModal.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 interface RecommendBottleModalProps {
   friendUid: string
@@ -43,7 +44,7 @@ export function RecommendBottleModal({ friendUid, friendName, onClose }: Recomme
         recipientId: friendUid,
         bottleName: selectedBottle.name,
         bottleDistillery: selectedBottle.distillery,
-        bottleImageUrl: selectedBottle.imageUrl,
+        bottleImageUrl: bottlePhotoUrl(selectedBottle),
         message: message.trim() || undefined,
       })
       await createNotification({

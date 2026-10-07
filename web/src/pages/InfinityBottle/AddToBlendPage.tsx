@@ -11,6 +11,7 @@ import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { useUserData, type NewBlendAdditionInput } from '../../hooks/useUserData'
 import type { Bottle, FillLevel } from '../../data/types'
 import styles from './AddToBlendPage.module.css'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 const FILL_LEVEL_LABEL: Record<FillLevel, string> = {
   full: 'Full',
@@ -246,7 +247,7 @@ export function AddToBlendPage() {
                       aria-pressed={selected}
                     >
                       <div className={styles.bottleThumb}>
-                        {bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder compact name={bottle.name} />}
+                        {bottlePhotoUrl(bottle) ? <img className={styles.bottleImage} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder compact name={bottle.name} />}
                       </div>
                       <div className={styles.bottleInfo}>
                         <div className={styles.bottleName}>{bottle.name}</div>
@@ -305,7 +306,7 @@ export function AddToBlendPage() {
                 <div className={styles.amountCard} key={bottle.id}>
                   <div className={styles.amountCardHeader}>
                     <div className={styles.bottleThumb}>
-                      {bottle.imageUrl ? <img className={styles.bottleImage} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder compact name={bottle.name} />}
+                      {bottlePhotoUrl(bottle) ? <img className={styles.bottleImage} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder compact name={bottle.name} />}
                     </div>
                     <div className={styles.bottleInfo}>
                       <div className={styles.bottleName}>{bottle.name}</div>

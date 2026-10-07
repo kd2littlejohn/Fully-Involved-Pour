@@ -11,6 +11,7 @@ import { FIP_MAX } from '../../../features/fip/scoring'
 import { castFaceoffVote, getFaceoffTally, type FaceoffTally } from '../../../features/faceoff/repository'
 import { useAuth } from '../../../hooks/useAuth'
 import styles from './CompareTab.module.css'
+import { bottlePhotoUrl } from '../../../features/photoUpload/bottlePhotoUrl'
 
 interface CompareTabProps {
   bottle: Bottle
@@ -109,8 +110,8 @@ export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
           <div className={styles.faceoffHeader}>
             <div className={styles.faceoffBottle}>
               <div className={styles.faceoffImageWrap}>
-                {bottle.imageUrl ? (
-                  <img className={styles.faceoffImage} src={bottle.imageUrl} alt="" />
+                {bottlePhotoUrl(bottle) ? (
+                  <img className={styles.faceoffImage} src={bottlePhotoUrl(bottle)} alt="" />
                 ) : (
                   <BottlePlaceholder name={bottle.name} />
                 )}
@@ -121,8 +122,8 @@ export function CompareTab({ bottle, otherBottles, pours }: CompareTabProps) {
             <div className={styles.vs}>VS</div>
             <div className={styles.faceoffBottle}>
               <div className={styles.faceoffImageWrap}>
-                {other.imageUrl ? (
-                  <img className={styles.faceoffImage} src={other.imageUrl} alt="" />
+                {bottlePhotoUrl(other) ? (
+                  <img className={styles.faceoffImage} src={bottlePhotoUrl(other)} alt="" />
                 ) : (
                   <BottlePlaceholder name={other.name} />
                 )}

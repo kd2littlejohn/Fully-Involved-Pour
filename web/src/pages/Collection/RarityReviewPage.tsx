@@ -17,6 +17,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import type { Bottle, BottleRarity, RaritySuggestion } from '../../data/types'
 import styles from './RarityReviewPage.module.css'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 type FailureKind = 'failed' | 'unavailable'
 
@@ -188,8 +189,8 @@ export function RarityReviewPage() {
           {rows.map((bottle) => (
             <div key={bottle.id} className={styles.row}>
               <div className={styles.rowMain}>
-                {bottle.imageUrl ? (
-                  <img src={bottle.imageUrl} alt="" className={styles.image} />
+                {bottlePhotoUrl(bottle) ? (
+                  <img src={bottlePhotoUrl(bottle)} alt="" className={styles.image} />
                 ) : (
                   <div className={styles.image}>
                     <BottlePlaceholder name={bottle.name} compact />

@@ -6,6 +6,7 @@ import { useHomeRecommendation } from './useHomeRecommendation'
 import { StartAPourButton } from '../startAPour/StartAPourButton'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './WhatShouldIPourCard.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 interface WhatShouldIPourCardProps {
   uid: string | undefined
@@ -34,8 +35,8 @@ export function WhatShouldIPourCard({ uid, bottles, pours }: WhatShouldIPourCard
         <>
           <div className={styles.body}>
             <Link to={`/collection/${result.bottle.id}`} className={styles.media}>
-              {result.bottle.imageUrl ? (
-                <img className={styles.image} src={result.bottle.imageUrl} alt="" />
+              {bottlePhotoUrl(result.bottle) ? (
+                <img className={styles.image} src={bottlePhotoUrl(result.bottle)} alt="" />
               ) : (
                 <BottlePlaceholder name={result.bottle.name} />
               )}

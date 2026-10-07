@@ -1,6 +1,7 @@
 import type { Bottle } from '../../data/types'
 import { EmptyState } from '../../components/ui/EmptyState'
 import styles from './FavoritesGrid.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -63,7 +64,7 @@ export function FavoritesGrid({ favoriteBottle, favoriteDistillery, favoriteComp
           label="Favorite Bottle"
           title={favoriteBottle.bottle.name}
           subtitle={typeof favoriteBottle.score === 'number' ? `Scored ${favoriteBottle.score.toFixed(1)}` : undefined}
-          imageUrl={favoriteBottle.bottle.imageUrl}
+          imageUrl={bottlePhotoUrl(favoriteBottle.bottle)}
           monogramSource={favoriteBottle.bottle.name}
         />
       ) : null}
@@ -88,7 +89,7 @@ export function FavoritesGrid({ favoriteBottle, favoriteDistillery, favoriteComp
           label="Most Shared Bottle"
           title={mostShared.bottle.name}
           subtitle={`${mostShared.sharedPourCount} shared ${mostShared.sharedPourCount === 1 ? 'pour' : 'pours'}`}
-          imageUrl={mostShared.bottle.imageUrl}
+          imageUrl={bottlePhotoUrl(mostShared.bottle)}
           monogramSource={mostShared.bottle.name}
         />
       ) : null}

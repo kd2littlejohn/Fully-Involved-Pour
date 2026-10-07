@@ -4,6 +4,7 @@ import { bottleJourneyStage } from '../../features/collection/journeyStage'
 import { buildScoreEvolution } from '../bottleDetails/selectors'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import styles from './BottleJourneyCard.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 interface BottleJourneyCardProps {
   bottle: Bottle
@@ -22,7 +23,7 @@ export function BottleJourneyCard({ bottle, pours }: BottleJourneyCardProps) {
     <Link to={`/collection/${bottle.id}`} className={styles.card}>
       <div className={styles.header}>
         <div className={styles.imageWrap}>
-          {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+          {bottlePhotoUrl(bottle) ? <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder name={bottle.name} />}
         </div>
         <div className={styles.info}>
           <div className={styles.name}>{bottle.name}</div>

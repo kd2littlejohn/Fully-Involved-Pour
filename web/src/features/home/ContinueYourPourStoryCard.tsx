@@ -5,6 +5,7 @@ import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { FipScoreBadge } from '../../components/ui/FipScoreBadge'
 import { StartAPourButton } from '../startAPour/StartAPourButton'
 import styles from './ContinueYourPourStoryCard.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 interface ContinueYourPourStoryCardProps {
   bottle: Bottle
@@ -49,7 +50,7 @@ export function ContinueYourPourStoryCard({ bottle, pours }: ContinueYourPourSto
         </div>
       </div>
       <Link to={`/collection/${bottle.id}`} className={styles.media}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+        {bottlePhotoUrl(bottle) ? <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder name={bottle.name} />}
       </Link>
     </div>
   )

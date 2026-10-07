@@ -10,6 +10,7 @@ import { BottlePlaceholder } from '../ui/BottlePlaceholder'
 import { RarityBadge } from '../ui/RarityBadge'
 import { ChangeBottleStatusModal } from './ChangeBottleStatusModal'
 import styles from './BottleListRow.module.css'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
   open: 'Opened',
@@ -56,7 +57,7 @@ export function BottleListRow({ bottle, selectable = false, selected = false, on
         </span>
       ) : null}
       <div className={styles.imageWrap}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder compact name={bottle.name} />}
+        {bottlePhotoUrl(bottle) ? <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder compact name={bottle.name} />}
       </div>
 
       <div className={styles.info}>

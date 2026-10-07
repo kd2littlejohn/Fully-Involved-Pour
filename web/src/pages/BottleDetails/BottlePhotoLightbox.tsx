@@ -4,6 +4,7 @@ import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { standardizeAndUploadBottlePhoto } from '../../features/photoUpload/standardizeAndUploadBottlePhoto'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 import type { Bottle } from '../../data/types'
 import styles from './BottlePhotoLightbox.module.css'
 
@@ -17,15 +18,17 @@ export function BottlePhotoLightbox({ bottle, onClose }: BottlePhotoLightboxProp
   const { updateBottle } = useUserData()
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showingOriginal, setShowingOriginal] = useState(false)
+  const [showingStandardized, setShowingStandardized] = useState(false)
 
-  const hasOriginal = Boolean(bottle.originalImageUrl && bottle.originalImageUrl !== bottle.imageUrl)
-  const displayedUrl = showingOriginal && bottle.originalImageUrl ? bottle.originalImageUrl : bottle.imageUrl
+  // Defaults to the untouched original (the photo's own shape, no baked-in
+  // backdrop); the FIP-standardized version stays one tap away.
+  const hasStandardized = Boolean(bottle.originalImageUrl && bottle.imageUrl && bottle.originalImageUrl !== bottle.imageUrl)
+  const displayedUrl = showingStandardized && bottle.imageUrl ? bottle.imageUrl : bottlePhotoUrl(bottle)
 
   async function handleReplace(file: File) {
     setError(null)
     setUploading(true)
-    setShowingOriginal(false)
+    setShowingStandardized(false)
     try {
       const result = await standardizeAndUploadBottlePhoto(user?.uid, file)
       await updateBottle(bottle.id, {
@@ -69,9 +72,9 @@ export function BottlePhotoLightbox({ bottle, onClose }: BottlePhotoLightboxProp
         </p>
       ) : null}
 
-      {hasOriginal ? (
-        <button type="button" className={styles.originalToggle} onClick={() => setShowingOriginal((v) => !v)} disabled={uploading}>
-          {showingOriginal ? 'View Standardized Photo' : 'View Original Photo'}
+      {hasStandardized ? (
+        <button type="button" className={styles.originalToggle} onClick={() => setShowingStandardized((v) => !v)} disabled={uploading}>
+          {showingStandardized ? 'View Original Photo' : 'View Standardized Photo'}
         </button>
       ) : null}
 

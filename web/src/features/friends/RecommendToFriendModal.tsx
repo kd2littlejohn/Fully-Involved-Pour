@@ -9,6 +9,7 @@ import { sendRecommendation } from '../../data/repositories/recommendations'
 import { createNotification } from '../../data/repositories/notifications'
 import type { Bottle } from '../../data/types'
 import styles from './RecommendToFriendModal.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 interface RecommendToFriendModalProps {
   bottle: Pick<Bottle, 'name' | 'distillery' | 'imageUrl'>
@@ -36,7 +37,7 @@ export function RecommendToFriendModal({ bottle, onClose }: RecommendToFriendMod
         recipientId: selectedUid,
         bottleName: bottle.name,
         bottleDistillery: bottle.distillery,
-        bottleImageUrl: bottle.imageUrl,
+        bottleImageUrl: bottlePhotoUrl(bottle),
         message: message.trim() || undefined,
       })
       await createNotification({

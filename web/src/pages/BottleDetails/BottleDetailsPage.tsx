@@ -35,6 +35,7 @@ import { GalleryTab } from './tabs/GalleryTab'
 import { CompareTab } from './tabs/CompareTab'
 import { BottlePhotoLightbox } from './BottlePhotoLightbox'
 import styles from './BottleDetailsPage.module.css'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
   open: 'Opened',
@@ -228,8 +229,8 @@ export function BottleDetailsPage() {
       <div className={styles.hero}>
         <div className={styles.heroImageArea}>
           <button type="button" className={styles.imageWrap} onClick={() => setShowPhotoLightbox(true)} aria-label="View photo">
-            {bottle.imageUrl ? (
-              <img className={styles.image} src={bottle.imageUrl} alt="" />
+            {bottlePhotoUrl(bottle) ? (
+              <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" />
             ) : (
               <span className={styles.imageWrapPlaceholder}>
                 <BottlePlaceholder name={bottle.name} />

@@ -7,6 +7,7 @@ import { PourStoryDetail } from '../../features/pourWizard/PourStoryDetail'
 import { useUserData } from '../../hooks/useUserData'
 import { FEATURE_REASON_LABEL, type JourneyCardFeatureReason, type JourneyCardVariant } from '../../features/journal/journeyCardVariant'
 import styles from './PourStoryCard.module.css'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 interface PourStoryCardProps {
   pour: Pour
@@ -33,7 +34,7 @@ export function PourStoryCard({ pour, bottle, variant = 'standard', reason }: Po
   // photoUrl when both somehow exist.
   const photoUrl = pour.memoryPhoto?.url ?? pour.photoUrl
   const isLifestylePhoto = Boolean(photoUrl)
-  const fallbackImage = photoUrl ?? bottle.imageUrl
+  const fallbackImage = photoUrl ?? bottlePhotoUrl(bottle)
   const featured = variant === 'featured'
 
   async function toggleFeatured() {

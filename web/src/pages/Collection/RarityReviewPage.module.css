@@ -44,7 +44,7 @@
   flex-shrink: 0;
   border-radius: var(--fip-radius-md);
   overflow: hidden;
-  object-fit: cover;
+  object-fit: contain;
   display: flex;
   align-items: center;
   justify-content: center;

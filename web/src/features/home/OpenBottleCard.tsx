@@ -3,6 +3,7 @@ import type { OpenBottleSummary } from './selectors'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { FillLevelBar } from '../../components/ui/FillLevelBar'
 import styles from './OpenBottleCard.module.css'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 interface OpenBottleCardProps {
   summary: OpenBottleSummary
@@ -21,7 +22,7 @@ export function OpenBottleCard({ summary }: OpenBottleCardProps) {
   return (
     <Link to={`/collection/${bottle.id}`} className={styles.card}>
       <div className={styles.media}>
-        {bottle.imageUrl ? <img className={styles.image} src={bottle.imageUrl} alt="" /> : <BottlePlaceholder name={bottle.name} compact />}
+        {bottlePhotoUrl(bottle) ? <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder name={bottle.name} compact />}
       </div>
       <div className={styles.body}>
         <div className={styles.name}>{bottle.name}</div>

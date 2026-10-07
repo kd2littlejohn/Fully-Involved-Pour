@@ -3,6 +3,7 @@ import { db } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
 import { buildBottleTastingSummary } from '../bottleTastingSummary'
 import type { PrivacySettings, SharedBottleSummary, SharedCollection, UserDoc } from '../types'
+import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
 const mockSharedCollections = new Map<string, SharedCollection>()
 
@@ -31,7 +32,7 @@ export function buildSharedCollectionProjection(uid: string, userDoc: UserDoc, p
     id: bottle.id,
     name: bottle.name,
     distillery: bottle.distillery,
-    imageUrl: bottle.imageUrl,
+    imageUrl: bottlePhotoUrl(bottle),
     status: bottle.status,
     type: bottle.type,
     region: bottle.region,

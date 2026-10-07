@@ -1,4 +1,5 @@
 import type { Bottle, SharedBottleSummary } from '../../data/types'
+import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 
 export interface CommonBottle {
   name: string
@@ -36,7 +37,7 @@ export function getBottlesInCommon(myBottles: Bottle[], friendBottles: SharedBot
       results.push({
         name: bottle.name,
         distillery: bottle.distillery,
-        imageUrl: bottle.imageUrl || match.imageUrl,
+        imageUrl: bottlePhotoUrl(bottle) || match.imageUrl,
         type: bottle.type,
         proof: bottle.proof,
         ageStatement: bottle.ageStatement,

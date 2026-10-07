@@ -76,36 +76,31 @@
   border-color: var(--fip-amber);
 }
 
-/* Bottle photography is the dominant element here — roughly 60-70% of the
-   card's height goes to it, matching the "premium bottle library" ratio in
-   the approved mockup. Full-bleed: every bottle.imageUrl is the standardized
-   4:5 canvas from standardizeBottlePhoto.ts (a fixed 960x1200 composite with
-   the real bottle already centered/scaled with its own margin against a
-   dark-oak backdrop, never touching that canvas's own edges) — since this
-   container matches that exact 4:5 ratio, object-fit:cover here never crops
-   the bottle itself, it only fills the frame exactly as contain already did.
-   The negative margin bleeds the image out past .body's own padding to
-   reach the card's real left/right/top edges; overflow:hidden plus matching
-   the card's own border-radius on the top corners keeps it clipped
-   correctly. flex-centering is kept for the no-photo BottlePlaceholder
-   fallback, which sizes/centers itself. */
+/* Bottle photography is the dominant element. The photo sets its own
+   height from its natural aspect ratio (width: 100%, height: auto) — no
+   fixed box, backdrop, or crop — so portrait, square, and landscape bottle
+   photos each fill the card's width edge to edge. The negative margin
+   bleeds it out past .body's padding to the card's real left/right/top
+   edges, rounded to match the card. The no-photo BottlePlaceholder fallback
+   has no intrinsic size, so it keeps a 4:5 box of its own. */
 .imageWrap {
-  aspect-ratio: 4 / 5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   margin: calc(-1 * var(--fip-space-4)) calc(-1 * var(--fip-space-4)) 0;
-  background: var(--fip-oak-deep);
   border-radius: var(--fip-radius-lg) var(--fip-radius-lg) 0 0;
   overflow: hidden;
 }
 
+.imageWrap:has(> div) {
+  aspect-ratio: 4 / 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fip-oak-deep);
+}
+
 .image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
   display: block;
+  width: 100%;
+  height: auto;
 }
 
 .titleBlock {
