@@ -49,7 +49,13 @@ export function BottlePhotoLightbox({ bottle, onClose }: BottlePhotoLightboxProp
   return (
     <Modal title={bottle.name} onClose={onClose}>
       <div className={styles.frame}>
-        {displayedUrl ? <img className={styles.image} src={displayedUrl} alt="" /> : <BottlePlaceholder name={bottle.name} />}
+        {displayedUrl ? (
+          <img className={styles.image} src={displayedUrl} alt="" />
+        ) : (
+          <div className={styles.placeholderFrame}>
+            <BottlePlaceholder name={bottle.name} />
+          </div>
+        )}
         {uploading ? (
           <div className={styles.overlay}>
             <span className={styles.overlayText}>Uploading…</span>
