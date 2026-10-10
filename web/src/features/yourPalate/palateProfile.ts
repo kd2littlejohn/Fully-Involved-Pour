@@ -1,5 +1,4 @@
 import type { Bottle, Pour } from '../../data/types'
-import type { FlavorTagRank } from '../flavorRadar/flavorCategories'
 import {
   getProofAffinity,
   getTopRatedFlavorTags,
@@ -9,6 +8,7 @@ import {
   round1,
   type ProofAffinity,
   type LoyaltyStat,
+  type FlavorPreferenceRank,
 } from './selectors'
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ export interface PalateProfile {
   maturity: PalateMaturity
   categoryScores: CategoryScore[]
   proofAffinity?: ProofAffinity
-  topRatedFlavors: FlavorTagRank[]
+  topRatedFlavors: FlavorPreferenceRank[]
   loyalty?: LoyaltyStat
   // No structured finish-length or mouthfeel data exists on Pour yet (only a
   // numeric fip.finish score + free-text finishNotes) — deliberately left
@@ -116,7 +116,7 @@ export function buildPalateProfile(bottles: Bottle[], pours: Pour[]): PalateProf
     maturity: getPalateMaturity(qualifyingPourCount),
     categoryScores: getCategoryScores(bottles, pours),
     proofAffinity: getProofAffinity(bottles, pours),
-    topRatedFlavors: getTopRatedFlavorTags(bottles, pours),
+    topRatedFlavors: getTopRatedFlavorTags(pours),
     loyalty: getLoyaltySignal(bottles, pours),
     finishPreference: undefined,
     mouthfeelPreference: undefined,

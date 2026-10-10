@@ -109,6 +109,42 @@ function accumulate(bottles: Bottle[], pours: Pour[]): FlavorAccumulator {
   return acc
 }
 
+// Restricts a bottle list to the ones the user has actually logged a pour
+// for. A sealed/wishlist/incoming bottle's own `flavors`/`notes` describe
+// what it's expected to taste like (useful for matching a candidate bottle
+// against the user's palate — see palateMatch/scoring.ts and
+// whatShouldIPour/scoring.ts, which call flavorRadarValues on a specific
+// candidate directly and intentionally want that, tasted or not) — never
+// what the user has actually experienced. Every collection-wide "what have
+// I tasted" measure below (the ones YourPalateSection/PalateBreakdown/
+// getWhiskeyIdentity use) must be called with this applied first, or notes
+// written on a bottle before it's ever been opened — including the AI
+// Tasting Note on Add/Edit Bottle — silently count as tasting history.
+export function tastedBottles(bottles: Bottle[], pours: Pour[]): Bottle[] {
+  const pouredIds = new Set(pours.map((p) => p.bottleId))
+  return bottles.filter((b) => pouredIds.has(b.id))
+}
+
+// The deduplicated set of canonical flavor labels present on one pour —
+// structured chips (nose/palate/finish) unioned with free-text matches
+// across its own note fields, filtered to labels that resolve to a real
+// flavor family (mirrors addRecord's own filter above). Exposed for
+// callers that need a plain per-pour presence set rather than a running
+// count — e.g. yourPalate/selectors.ts's preferred-flavor ranking, which
+// must treat each bottle's flavors as present-or-absent across its pours so
+// repeat tastings of one bottle can't multiply that bottle's weight.
+export function pourFlavorLabels(pour: Pour): Set<string> {
+  const labels = new Set<string>([...pour.fip.noseAromas, ...pour.fip.palateFlavors, ...(pour.fip.finishTags ?? [])])
+  for (const text of [pour.fip.noseNotes, pour.fip.palateNotes, pour.fip.finishNotes, pour.fip.complexityNotes]) {
+    for (const label of matchDescriptorsInText(text)) labels.add(label)
+  }
+  const result = new Set<string>()
+  for (const label of labels) {
+    if (findDescriptor(label) || findFinishDescriptor(label)) result.add(label)
+  }
+  return result
+}
+
 function radarFromAccumulator(acc: FlavorAccumulator): number[] | undefined {
   if (acc.total === 0) return undefined
   const max = Math.max(...FLAVOR_AXES.map((axis) => acc.counts[axis]))
@@ -120,13 +156,20 @@ function radarFromAccumulator(acc: FlavorAccumulator): number[] | undefined {
 // leans woodier on the chart than one where it showed up once. Free-text
 // notes (bottle notes, and each pour's nose/palate/finish/complexity notes)
 // are scanned for the same tag words, so writing "vanilla and oak" in notes
-// counts even if the matching chip was never tapped.
+// counts even if the matching chip was never tapped. Deliberately NOT
+// filtered through tastedBottles — this reports one specific bottle's own
+// profile (its catalog data plus whatever pours it has, zero or more), not
+// a claim about the user's tasting history.
 export function flavorRadarValues(bottle: Bottle, pours: Pour[]): number[] | undefined {
   return radarFromAccumulator(accumulate([bottle], pours.filter((p) => p.bottleId === bottle.id)))
 }
 
 // Same logic, widened from one bottle's pours to the user's entire pour
 // history — the basis for Your Palate's collection-wide Flavor Radar.
+// Callers must pass only tasted bottles (see tastedBottles above); this
+// function doesn't filter itself since collectionFlavorRadarValues is also
+// reused by palateMatch/scoring.ts with a deliberately pre-filtered,
+// smaller bottle list of its own.
 export function collectionFlavorRadarValues(bottles: Bottle[], pours: Pour[]): number[] | undefined {
   return radarFromAccumulator(accumulate(bottles, pours))
 }

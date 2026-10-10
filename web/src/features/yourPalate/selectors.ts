@@ -1,6 +1,6 @@
 import type { Bottle, Pour } from '../../data/types'
 import { buyAgainToValueScore } from '../fip/scoring'
-import { topFlavorTags, type FlavorTagRank } from '../flavorRadar/flavorCategories'
+import { pourFlavorLabels } from '../flavorRadar/flavorCategories'
 
 export function round1(n: number): number {
   return Math.round(n * 10) / 10
@@ -259,8 +259,10 @@ export function getProofEvolution(bottles: Bottle[], pours: Pour[]): ProofEvolut
 }
 
 // ---------------------------------------------------------------------------
-// Flavor notes behind the highest-rated pours — a distinct, smaller sample
-// than the overall "gravitate toward" tags (which cover every pour).
+// Flavor notes behind the highest-rated pours — a distinct measurement from
+// the overall "experienced" tags (which cover every pour regardless of how
+// it was rated): this is FIP's "flavors preferred" signal, so it must never
+// be allowed to reflect just one well-loved bottle poured many times.
 // ---------------------------------------------------------------------------
 
 // Exported for reuse by palateMatch/scoring.ts, which applies this exact
@@ -268,14 +270,43 @@ export function getProofEvolution(bottles: Bottle[], pours: Pour[]): ProofEvolut
 // user's own best pours.
 export const TOP_RATED_THRESHOLD = 8.0 // Working Fire and above, see features/fip/tiers.ts
 export const TOP_RATED_MIN_POURS = 3
+// A flavor only counts as "preferred" once it shows up across at least this
+// many *different* high-rated bottles — otherwise 3 repeat pours of a
+// single favorite bottle would look identical to 3 different well-rated
+// bottles that happen to share a note, which is a much stronger signal.
+export const TOP_RATED_MIN_BOTTLES = 2
 
-export function getTopRatedFlavorTags(bottles: Bottle[], pours: Pour[], limit = 4): FlavorTagRank[] {
+export interface FlavorPreferenceRank {
+  tag: string
+  bottleCount: number
+}
+
+export function getTopRatedFlavorTags(pours: Pour[], limit = 4): FlavorPreferenceRank[] {
   const highRated = pours.filter((p) => p.rating >= TOP_RATED_THRESHOLD)
   if (highRated.length < TOP_RATED_MIN_POURS) return []
-  // topFlavorTags also pulls each bottle's static `flavors` field regardless
-  // of which pours were passed in — restrict to only the bottles actually
-  // behind a high-rated pour, or an unrelated bottle's tags would leak in.
-  const relevantBottleIds = new Set(highRated.map((p) => p.bottleId))
-  const relevantBottles = bottles.filter((b) => relevantBottleIds.has(b.id))
-  return topFlavorTags(relevantBottles, highRated, limit)
+
+  // Union each bottle's own high-rated pours into one label set per bottle
+  // first — a bottle poured (and loved) five times still contributes its
+  // flavors exactly once, never five times over. Built from each pour's own
+  // structured tags + notes only (see pourFlavorLabels), never a bottle's
+  // general `flavors`/`notes` field, which isn't tied to any specific pour
+  // or rating and could describe an impression from a different tasting —
+  // or one written before the bottle was ever opened.
+  const labelsByBottle = new Map<string, Set<string>>()
+  for (const pour of highRated) {
+    const labels = labelsByBottle.get(pour.bottleId) ?? new Set<string>()
+    for (const label of pourFlavorLabels(pour)) labels.add(label)
+    labelsByBottle.set(pour.bottleId, labels)
+  }
+  if (labelsByBottle.size < TOP_RATED_MIN_BOTTLES) return []
+
+  const bottleCountByLabel = new Map<string, number>()
+  for (const labels of labelsByBottle.values()) {
+    for (const label of labels) bottleCountByLabel.set(label, (bottleCountByLabel.get(label) ?? 0) + 1)
+  }
+
+  return [...bottleCountByLabel.entries()]
+    .map(([tag, bottleCount]) => ({ tag, bottleCount }))
+    .sort((a, b) => b.bottleCount - a.bottleCount || a.tag.localeCompare(b.tag))
+    .slice(0, limit)
 }

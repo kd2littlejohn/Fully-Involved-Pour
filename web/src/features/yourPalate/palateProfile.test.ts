@@ -146,13 +146,17 @@ describe('buildPalateProfile', () => {
     expect(profile.proofAffinity?.bucketLabel).toBe('110+ proof')
   })
 
-  it('surfaces top-rated flavor tags only once the threshold is met, reusing getTopRatedFlavorTags as-is', () => {
-    const highRated: Pour[] = Array.from({ length: 3 }, (_, i) => {
-      const p = pour({ id: `hr${i}`, bottleId: 'b1', date: daysAgo(i), rating: 9 })
-      p.fip.palateFlavors = ['Caramel']
-      return p
-    })
-    const profile = buildPalateProfile([bourbon], highRated)
+  it('surfaces top-rated flavor tags only once the threshold is met across multiple bottles', () => {
+    // 2 pours of b1 + 1 pour of b2 — clears both TOP_RATED_MIN_POURS (3) and
+    // TOP_RATED_MIN_BOTTLES (2 distinct bottles), so Caramel legitimately
+    // counts as preferred rather than being one bottle's repeat pours.
+    const highRated: Pour[] = [
+      pour({ id: 'hr0', bottleId: 'b1', date: daysAgo(0), rating: 9 }),
+      pour({ id: 'hr1', bottleId: 'b1', date: daysAgo(1), rating: 9 }),
+      pour({ id: 'hr2', bottleId: 'b2', date: daysAgo(2), rating: 9 }),
+    ]
+    for (const p of highRated) p.fip.palateFlavors = ['Caramel']
+    const profile = buildPalateProfile([bourbon, bourbon2], highRated)
     expect(profile.topRatedFlavors.map((t) => t.tag)).toContain('Caramel')
   })
 

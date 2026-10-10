@@ -37,7 +37,7 @@ describe('YourPalateSection', () => {
   it('shows an honest teaser and no claims at 0 pours', () => {
     render(<YourPalateSection bottles={[bourbon]} pours={[]} />)
     expect(screen.getByText('Your palate starts here.')).toBeInTheDocument()
-    expect(screen.queryByText('You seem to gravitate toward')).not.toBeInTheDocument()
+    expect(screen.queryByText('Flavors you’ve experienced most')).not.toBeInTheDocument()
     expect(screen.queryByText('Taste Patterns')).not.toBeInTheDocument()
   })
 
@@ -45,7 +45,7 @@ describe('YourPalateSection', () => {
     const pours = [pour({ id: 'p1', bottleId: 'b1', date: daysAgo(1), rating: 8.4 })]
     render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
     expect(screen.getByText(/logged 1 pour so far, averaging 8.4/)).toBeInTheDocument()
-    expect(screen.queryByText(/gravitate toward/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/experienced most/)).not.toBeInTheDocument()
     expect(screen.queryByText('Taste Patterns')).not.toBeInTheDocument()
     expect(screen.getByText(/A few more pours/)).toBeInTheDocument()
   })
@@ -58,7 +58,7 @@ describe('YourPalateSection', () => {
     ]
     render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
     expect(screen.getByText(/logged 3 pours so far, averaging 8.0/)).toBeInTheDocument()
-    expect(screen.getByText('You seem to gravitate toward')).toBeInTheDocument()
+    expect(screen.getByText('Flavors you’ve experienced most')).toBeInTheDocument()
     expect(screen.getByText('Vanilla')).toBeInTheDocument()
     expect(screen.queryByText(/A few more pours/)).not.toBeInTheDocument()
   })
@@ -94,23 +94,28 @@ describe('YourPalateSection', () => {
     expect(screen.getByText(/You used to average around 90 proof\. Lately, you've been averaging closer to 120 proof\./)).toBeInTheDocument()
   })
 
-  it('surfaces the flavor notes behind the highest-rated pours as a Taste Pattern', () => {
-    // bourbon (b1) carries static flavors ['Vanilla', 'Caramel'] — since all
-    // three qualifying pours are for b1, both legitimately count alongside
-    // the tapped 'Vanilla' chip, same as topFlavorTags does everywhere else.
-    const highRated = (id: string, rating: number, tags: string[]): Pour => ({
+  it('shows flavors preferred separately from flavors experienced, once two different high-rated bottles support it', () => {
+    const highRated = (id: string, bottleId: string, rating: number, tags: string[]): Pour => ({
       id,
-      bottleId: 'b1',
+      bottleId,
       date: daysAgo(1),
       rating,
       fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.75, value: 0.75, total: rating, noseAromas: [], palateFlavors: tags },
     })
-    const pours = [highRated('p1', 9.0, ['Vanilla']), highRated('p2', 8.5, ['Vanilla']), highRated('p3', 8.2, ['Vanilla'])]
-    render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
-    expect(screen.getByText(/Your highest-rated pours tend to have Vanilla and Caramel notes\./)).toBeInTheDocument()
+    const pours = [
+      highRated('p1', 'b1', 9.0, ['Vanilla']),
+      highRated('p2', 'b2', 8.5, ['Vanilla']),
+      highRated('p3', 'b1', 8.2, ['Vanilla']),
+    ]
+    render(<YourPalateSection bottles={[bourbon, highProof]} pours={pours} />)
+    const preferredLabel = screen.getByText('Flavors you tend to prefer')
+    expect(preferredLabel.parentElement?.textContent).toContain('Vanilla')
   })
 
-  it('excludes an unrelated bottle\'s static flavors from the highest-rated tag list', () => {
+  it('shows an honest "not enough data" footnote for preferred flavors when every high-rated pour is the same single bottle', () => {
+    // 3 pours clears the minimum sample size, but they're all the one bottle
+    // — repeat tastings of a single favorite must not be presented as an
+    // established, palate-wide preference.
     const untouched: Bottle = { id: 'b3', name: 'Untouched Bottle', status: 'sealed', flavors: ['Leather'] }
     const highRated = (id: string, rating: number): Pour => ({
       id,
@@ -121,13 +126,25 @@ describe('YourPalateSection', () => {
     })
     const pours = [highRated('p1', 9.0), highRated('p2', 8.5), highRated('p3', 8.2)]
     render(<YourPalateSection bottles={[bourbon, untouched]} pours={pours} />)
-    // 'Leather' legitimately appears in the collection-wide "gravitate
-    // toward" chips (which include every bottle's static flavors, b3
-    // included) — this assertion is scoped to the highest-rated-pours
-    // Taste Patterns sentence specifically, which must only ever describe
-    // the bottle that was actually poured (b1).
-    const patternItems = screen.queryAllByRole('listitem')
-    expect(patternItems.some((li) => /Leather/.test(li.textContent ?? ''))).toBe(false)
+    expect(screen.queryByText('Flavors you tend to prefer')).not.toBeInTheDocument()
+    expect(screen.getByText(/we.ll start showing flavors you tend to prefer/)).toBeInTheDocument()
+    // 'Untouched Bottle' (b3) has never been poured — its static 'Leather'
+    // flavors field must not leak into either flavor measurement.
+    expect(screen.queryByText('Leather')).not.toBeInTheDocument()
+  })
+
+  it('excludes a never-poured bottle\'s static flavors from the "experienced" chips', () => {
+    const untouched: Bottle = { id: 'b3', name: 'Untouched Bottle', status: 'sealed', flavors: ['Leather'] }
+    const pours = [
+      pour({ id: 'p1', bottleId: 'b1', date: daysAgo(1), rating: 8 }),
+      pour({ id: 'p2', bottleId: 'b1', date: daysAgo(2), rating: 8 }),
+      pour({ id: 'p3', bottleId: 'b1', date: daysAgo(3), rating: 8 }),
+    ]
+    render(<YourPalateSection bottles={[bourbon, untouched]} pours={pours} />)
+    // bourbon (b1) was actually poured, so its own static flavors still
+    // legitimately count — only the untouched bottle's are excluded.
+    expect(screen.getByText('Vanilla')).toBeInTheDocument()
+    expect(screen.queryByText('Leather')).not.toBeInTheDocument()
   })
 
   it('labels a single-category collection honestly as "most poured" rather than a favorite', () => {
