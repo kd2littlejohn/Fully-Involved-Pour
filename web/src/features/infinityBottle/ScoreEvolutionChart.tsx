@@ -1,5 +1,6 @@
 import type { ScoreEvolutionPoint } from './selectors'
 import styles from './ScoreEvolutionChart.module.css'
+import { parseLocalDate } from '../bottleDetails/selectors'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 
@@ -58,7 +59,7 @@ export function ScoreEvolutionChart({ points }: ScoreEvolutionChartProps) {
           y={HEIGHT - 6}
           textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}
         >
-          {dateFormatter.format(new Date(points[i]!.date))}
+          {dateFormatter.format(parseLocalDate(points[i]!.date))}
         </text>
       ))}
     </svg>

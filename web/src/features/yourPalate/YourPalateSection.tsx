@@ -2,27 +2,14 @@ import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Badge } from '../../components/ui/Badge'
 import { RadarChart } from '../../components/ui/RadarChart'
-import { fipTier } from '../fip/tiers'
-import { collectionFlavorRadarValues, topFlavorTags, FLAVOR_AXES } from '../flavorRadar/flavorCategories'
+import { FLAVOR_AXES } from '../flavorRadar/flavorCategories'
 import { getAverageProof } from '../profile/selectors'
 import { useAuth } from '../../hooks/useAuth'
 import { buildPalateProfile } from './palateProfile'
 import { usePalateInterpretation } from './usePalateInterpretation'
-import {
-  getPalateStats,
-  getBuyAgainRate,
-  getLoyaltySignal,
-  getCategoryAffinity,
-  getProofAffinity,
-  getTopOccasion,
-  getPalateEvolution,
-  getProofEvolution,
-  getTopRatedFlavorTags,
-} from './selectors'
+import { buildPalateInsightText } from './palateInsights'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './YourPalateSection.module.css'
-
-const BASELINE_MIN_POURS = 3
 
 interface YourPalateSectionProps {
   bottles: Bottle[]
@@ -30,18 +17,18 @@ interface YourPalateSectionProps {
 }
 
 export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
-  const stats = getPalateStats(pours)
+  const insightText = buildPalateInsightText(bottles, pours)
   const averageProof = getAverageProof(bottles)
   const { user } = useAuth()
   const palateProfile = buildPalateProfile(bottles, pours)
   const { state: interpretationState, interpretation } = usePalateInterpretation(user?.uid, palateProfile)
 
-  if (!stats) {
+  if (!insightText) {
     return (
       <Section title="Your Palate">
         <EmptyState
           title="Your palate starts here."
-          message="Log a few Pour Stories and we'll start showing you what you gravitate toward."
+          message="Log a few Pour Stories and we'll start showing what you've experienced and what you tend to prefer."
         />
         {typeof averageProof === 'number' ? (
           <p className={styles.footnote}>Your bar averages {averageProof.toFixed(1)} proof.</p>
@@ -50,66 +37,17 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
     )
   }
 
-  const pourCount = stats.pourCount
-  const hasBaseline = pourCount >= BASELINE_MIN_POURS
-  const tier = fipTier(stats.averageScore)
-
-  const radarValues = hasBaseline ? collectionFlavorRadarValues(bottles, pours) : undefined
-  const topTags = hasBaseline ? topFlavorTags(bottles, pours, 6) : []
-  const categoryAffinity = hasBaseline ? getCategoryAffinity(bottles, pours) : undefined
-  const proofAffinity = hasBaseline ? getProofAffinity(bottles, pours) : undefined
-  const loyalty = hasBaseline ? getLoyaltySignal(bottles, pours) : undefined
-  const buyAgain = hasBaseline ? getBuyAgainRate(pours) : undefined
-  const occasion = hasBaseline ? getTopOccasion(pours) : undefined
-  const evolution = getPalateEvolution(pours)
-  const proofEvolution = getProofEvolution(bottles, pours)
-  const topRatedFlavors = hasBaseline ? getTopRatedFlavorTags(bottles, pours) : []
-
-  const tastePatterns: string[] = []
-  if (proofAffinity) {
-    tastePatterns.push(
-      `Your highest-rated pours tend to land around ${proofAffinity.bucketLabel} (averaging ${proofAffinity.averageRating.toFixed(1)}).`,
-    )
-  }
-  if (categoryAffinity) {
-    tastePatterns.push(
-      categoryAffinity.mode === 'rating-supported'
-        ? `You seem to enjoy ${categoryAffinity.category} the most — averaging ${categoryAffinity.averageRating?.toFixed(1)} across ${categoryAffinity.pourCount} pours.`
-        : `${categoryAffinity.category} is your most poured style so far.`,
-    )
-  }
-  if (loyalty?.mostRepeated) {
-    tastePatterns.push(
-      `You've poured ${loyalty.mostRepeated.bottle.name} ${loyalty.mostRepeated.pourCount} times — more than any other bottle.`,
-    )
-  }
-  if (buyAgain) {
-    tastePatterns.push(`You'd buy roughly ${Math.round(buyAgain.rate * 100)}% of what you've poured again.`)
-  }
-  if (occasion) {
-    tastePatterns.push(`Most of your logged pours have been for "${occasion.occasion}."`)
-  }
-  if (topRatedFlavors.length > 0) {
-    const tagList = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(topRatedFlavors.map((t) => t.tag))
-    tastePatterns.push(`Your highest-rated pours tend to have ${tagList} notes.`)
-  }
-
-  const evolutionText = !evolution
-    ? undefined
-    : evolution.kind === 'steady'
-      ? 'Your ratings have stayed fairly consistent.'
-      : evolution.kind === 'improved'
-        ? `Your recent pours are averaging ${evolution.newAverage.toFixed(1)}, up from ${evolution.oldAverage.toFixed(1)} earlier on.`
-        : `Your recent pours are averaging ${evolution.newAverage.toFixed(1)}, down from ${evolution.oldAverage.toFixed(1)} earlier on.`
-
-  // Only shown once the shift is real (see PROOF_NOISE_THRESHOLD) — "steady"
-  // isn't worth a second sentence next to evolutionText's own steady case.
-  const proofEvolutionText =
-    proofEvolution && proofEvolution.kind !== 'steady'
-      ? `You used to average around ${proofEvolution.oldAverage.toFixed(0)} proof. Lately, you've been averaging closer to ${proofEvolution.newAverage.toFixed(0)} proof.`
-      : undefined
-
-  const summaryText = `You've logged ${pourCount} ${pourCount === 1 ? 'pour' : 'pours'} so far, averaging ${stats.averageScore.toFixed(1)} — ${tier.label}.`
+  const {
+    hasBaseline,
+    summaryText,
+    radarValues,
+    experiencedFlavors,
+    preferredFlavors,
+    preferredFlavorsNote,
+    tastePatterns,
+    evolutionText,
+    proofEvolutionText,
+  } = insightText
 
   return (
     <Section title="Your Palate">
@@ -123,17 +61,38 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
         </div>
       ) : null}
 
-      {topTags.length > 0 ? (
+      {experiencedFlavors.length > 0 ? (
         <div className={styles.gravitate}>
-          <div className={styles.gravitateLabel}>You seem to gravitate toward</div>
+          <div className={styles.gravitateLabel}>Flavors you&rsquo;ve experienced most</div>
           <div className={styles.chips}>
-            {topTags.map((t) => (
+            {experiencedFlavors.map((t) => (
               <Badge key={t.tag} tone="brass">
                 {t.tag}
               </Badge>
             ))}
           </div>
         </div>
+      ) : null}
+
+      {/* A distinct measurement from the "experienced" chips above — how
+          often a flavor comes up says nothing about whether it's actually
+          liked. This only ever reflects pours that cleared TOP_RATED_THRESHOLD
+          across TOP_RATED_MIN_BOTTLES+ different bottles (see
+          getTopRatedFlavorTags), so one favorite bottle poured many times
+          can't masquerade as a palate-wide preference. */}
+      {preferredFlavors.length > 0 ? (
+        <div className={styles.gravitate}>
+          <div className={styles.gravitateLabel}>Flavors you tend to prefer</div>
+          <div className={styles.chips}>
+            {preferredFlavors.map((t) => (
+              <Badge key={t.tag} tone="brass">
+                {t.tag}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : preferredFlavorsNote ? (
+        <p className={styles.footnote}>{preferredFlavorsNote}</p>
       ) : null}
 
       {tastePatterns.length > 0 ? (

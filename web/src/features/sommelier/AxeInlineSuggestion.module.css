@@ -1,0 +1,56 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--fip-space-2) var(--fip-space-3);
+  border: 1px solid var(--fip-border);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card-soft);
+  color: var(--fip-cream);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--fip-motion-fast) var(--fip-ease);
+}
+
+.card:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.mark {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--fip-radius-round);
+  flex-shrink: 0;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xs);
+  letter-spacing: 0.1em;
+  color: var(--fip-amber);
+}
+
+.message {
+  font-size: var(--fip-text-sm);
+}
+
+.arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--fip-border-strong);
+  border-radius: var(--fip-radius-round);
+  color: var(--fip-amber);
+}

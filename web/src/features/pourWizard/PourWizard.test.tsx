@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PourWizard } from './PourWizard'
+import { SommelierProvider } from '../sommelier/SommelierProvider'
 import type { Bottle, Pour } from '../../data/types'
 
 const mockAddPour = vi.fn().mockResolvedValue(undefined)
@@ -43,6 +44,12 @@ vi.mock('../photoUpload/uploadPhoto', () => ({
   deletePhotoIfSafe: (...args: unknown[]) => mockDeletePhotoIfSafe(...args),
 }))
 
+const mockAskSommelier = vi.fn()
+vi.mock('../../data/repositories/ai', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../data/repositories/ai')>()),
+  askSommelier: (...args: unknown[]) => mockAskSommelier(...args),
+}))
+
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => ({ user: { uid: 'test-uid' }, loading: false }),
 }))
@@ -76,6 +83,44 @@ async function goToSummary() {
     await goNext()
   }
 }
+
+describe('PourWizard + AXE', () => {
+  it('opens AXE on a tasting step with a read-only snapshot, and the unsaved draft survives', async () => {
+    mockAskSommelier.mockResolvedValue('Try thinking about baked goods — vanilla often reads as cake frosting.')
+    const onClose = vi.fn()
+    render(
+      <SommelierProvider>
+        <PourWizard bottleId="b1" bottleName="Eagle Rare" onClose={onClose} />
+      </SommelierProvider>,
+    )
+    // No AXE prompt on the Session step — only the sensory steps.
+    expect(screen.queryByRole('button', { name: /Need help with your tasting notes/ })).not.toBeInTheDocument()
+    await goNext()
+
+    fireEvent.change(screen.getByLabelText('Nose'), { target: { value: '2' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Sweet' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Vanilla' }))
+
+    await userEvent.click(screen.getByRole('button', { name: /Need help with your tasting notes/ }))
+    const axeDialog = screen.getByRole('dialog', { name: 'AXE' })
+    expect(axeDialog).toHaveAttribute('open')
+    await userEvent.click(screen.getByRole('button', { name: /Help me identify the aromas/ }))
+    expect(mockAskSommelier).toHaveBeenCalledWith('Help me identify the aromas I might be picking up.', [], {
+      screen: 'log-tasting',
+      bottleId: 'b1',
+      draft: { step: 'Nose', noseAromas: ['Vanilla'], palateFlavors: [], finishTags: [] },
+    })
+    expect(await screen.findByText(/vanilla often reads as cake frosting/)).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close AXE' }))
+    expect(axeDialog).not.toHaveAttribute('open')
+
+    // The wizard never closed or reset: same step, same selections.
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Nose')).toHaveValue('2')
+    expect(screen.getByRole('button', { name: 'Vanilla' })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
 
 describe('PourWizard', () => {
   it('walks all six steps, computes the correct total, and saves the pour', async () => {

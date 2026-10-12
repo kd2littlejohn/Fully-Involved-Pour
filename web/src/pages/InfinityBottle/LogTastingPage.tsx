@@ -5,6 +5,7 @@ import { TastingForm, blankTastingValue, tastingValueToInput, type TastingFormVa
 import { displayBatch } from '../../features/infinityBottle/selectors'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { useUserData } from '../../hooks/useUserData'
+import { AxeInlineSuggestion } from '../../features/sommelier/AxeInlineSuggestion'
 import styles from './LogTastingPage.module.css'
 
 export function LogTastingPage() {
@@ -43,6 +44,21 @@ export function LogTastingPage() {
     <div className={styles.page}>
       <InfinityBottleHeader backTo={`/collection/infinity/${ib.id}/tastings`} title="Log a Tasting" />
       <div className={styles.body}>
+        <div className={styles.askAxe}>
+          <AxeInlineSuggestion
+            message="Need help with your tasting notes?"
+            context={() => ({
+              screen: 'log-tasting',
+              infinityBottleId: ib.id,
+              draft: {
+                step: 'Infinity Bottle tasting',
+                noseAromas: value.noseAromas,
+                palateFlavors: value.palateFlavors,
+                finishTags: value.finishTags,
+              },
+            })}
+          />
+        </div>
         <TastingForm
           value={value}
           onChange={(patch) => setValue((prev) => ({ ...prev, ...patch }))}

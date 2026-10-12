@@ -1,5 +1,5 @@
 import type { Bottle, Pour } from '../../data/types'
-import { dominantFlavorAxis, identityLabelForAxis } from '../flavorRadar/flavorCategories'
+import { dominantFlavorAxis, identityLabelForAxis, tastedBottles } from '../flavorRadar/flavorCategories'
 import { getCategoryAffinity, getProofAffinity, getPalateStats } from '../yourPalate/selectors'
 import { getAverageProof } from './selectors'
 import { FIP_MAX } from '../fip/scoring'
@@ -32,7 +32,7 @@ export function getWhiskeyIdentity(bottles: Bottle[], pours: Pour[]): WhiskeyIde
   if (pours.length < MIN_POURS_FOR_IDENTITY) return undefined
 
   const tags: string[] = []
-  const axis = dominantFlavorAxis(bottles, pours)
+  const axis = dominantFlavorAxis(tastedBottles(bottles, pours), pours)
   if (axis) tags.push(identityLabelForAxis(axis.axis))
 
   const category = getCategoryAffinity(bottles, pours)

@@ -4,6 +4,13 @@ name: Deploy to Firebase Hosting
 # this builds web/ and deploys web/dist straight to the live site on every
 # push to main, using the service account firebase init hosting:github
 # created (see the FIREBASE_SERVICE_ACCOUNT_FULLY_INVOLVED_POUR repo secret).
+#
+# Release order: when a push also changes functions/, the Cloud Functions
+# deploy (deploy-functions.yml: tests, approval on production-functions,
+# deploy, live smoke test, log check) runs first. The website then waits
+# for its own approval on production-website and deploys only if
+# everything before it succeeded. Until then the current site keeps
+# serving, and a new web client never goes live against an old backend.
 
 on:
   push:
@@ -13,9 +20,116 @@ on:
 permissions:
   contents: read
 
+# One production release at a time; a newer push waits rather than racing.
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
 jobs:
-  build_and_deploy:
+  changes:
+    name: Detect backend changes
     runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "push" ]; then
+            # Manual runs stay website-only, as before. Functions have their
+            # own manual "Deploy Cloud Functions" workflow.
+            echo "functions=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # New branch or rewritten history: can't diff, so deploy functions to be safe.
+            echo "functions=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "$BEFORE" "$AFTER" -- functions/ firebase.json | grep -q .; then
+            echo "functions=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "functions=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  web_checks:
+    name: Web checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # jsdom 30 / undici 8 (web tests) require Node >= 22.22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - working-directory: web
+        run: npm ci
+      - name: Type check
+        working-directory: web
+        run: npx tsc -b
+      - name: Lint
+        working-directory: web
+        run: npx oxlint
+      - name: Unit tests
+        working-directory: web
+        run: npx vitest run
+
+  release_gates:
+    name: Check approval gates
+    needs: changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # GitHub auto-creates a referenced environment WITHOUT protection, so
+      # a skipped setup step would silently remove an approval. Fail
+      # before anything deploys instead.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NEEDS_FUNCTIONS: ${{ needs.changes.outputs.functions }}
+        run: |
+          envs="production-website"
+          if [ "$NEEDS_FUNCTIONS" = "true" ]; then envs="production-functions $envs"; fi
+          for env in $envs; do
+            rules=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/environments/$env" 2>/dev/null | jq -r '[.protection_rules[]?.type] | join(",")' || true)
+            if ! printf '%s' "$rules" | grep -q required_reviewers; then
+              echo "::error::The $env environment needs required reviewers before production releases (docs/DEPLOYMENT_SETUP.md)."
+              exit 1
+            fi
+            echo "$env: approval gate present."
+          done
+
+  functions:
+    name: Cloud Functions
+    needs: [changes, web_checks, release_gates]
+    if: needs.changes.outputs.functions == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-functions.yml
+    with:
+      # The first AXE release ships only askSommelier. Set the
+      # FUNCTIONS_DEPLOY_TARGET repository variable to "functions" later to
+      # ship every backend change automatically.
+      target: ${{ vars.FUNCTIONS_DEPLOY_TARGET || 'functions:askSommelier' }}
+    secrets: inherit
+
+  build_and_deploy:
+    needs: [changes, web_checks, release_gates, functions]
+    # Website deploys when checks and gates pass and the backend deploy
+    # succeeded or wasn't needed. It never deploys after a failed, rejected
+    # or cancelled backend deploy.
+    if: ${{ !cancelled() && needs.web_checks.result == 'success' && needs.release_gates.result == 'success' && (needs.functions.result == 'success' || needs.functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    # Separate approval before the site goes public. Until it's given, the
+    # current site keeps serving.
+    environment: production-website
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

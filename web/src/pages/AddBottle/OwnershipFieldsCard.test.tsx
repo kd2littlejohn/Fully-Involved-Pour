@@ -226,6 +226,6 @@ describe('OwnershipFieldsCard', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /AI Tasting Note/ }))
 
-    expect(await screen.findByText("The sommelier couldn't generate a note just now. Try again in a moment.")).toBeInTheDocument()
+    expect(await screen.findByText("AXE couldn't generate a note just now. Try again in a moment.")).toBeInTheDocument()
   })
 })

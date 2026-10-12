@@ -10,6 +10,7 @@ import { fipTier } from '../../features/fip/tiers'
 import { useUserData } from '../../hooks/useUserData'
 import type { InfinityTasting } from '../../data/types'
 import styles from './TastingsPage.module.css'
+import { parseLocalDate } from '../../features/bottleDetails/selectors'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -77,7 +78,7 @@ export function TastingsPage() {
                     {tasting.score.toFixed(1)}
                   </div>
                   <div className={styles.historyBody}>
-                    <div className={styles.historyDate}>{dateFormatter.format(new Date(tasting.date))}</div>
+                    <div className={styles.historyDate}>{dateFormatter.format(parseLocalDate(tasting.date))}</div>
                     {summary ? <div className={styles.historySummary}>{summary}</div> : null}
                   </div>
                 </button>

@@ -20,7 +20,7 @@ export function SummaryStep({ draft, updateDraft, bottle, memoryPhoto }: StepPro
   async function handleGenerateTastingNote() {
     if (generating) return
     setGenerating(true)
-    setAiStatus('Asking the sommelier…')
+    setAiStatus('Asking AXE…')
     try {
       const profile = await generateTastingProfile({
         bottleName: bottle?.name ?? 'this bottle',
@@ -37,7 +37,7 @@ export function SummaryStep({ draft, updateDraft, bottle, memoryPhoto }: StepPro
       })
       setAiStatus('✨ AI tasting note added to Nose, Palate, and Finish.')
     } catch {
-      setAiStatus("The sommelier couldn't generate a note just now. Try again in a moment.")
+      setAiStatus("AXE couldn't generate a note just now. Try again in a moment.")
     } finally {
       setGenerating(false)
     }
@@ -65,7 +65,7 @@ export function SummaryStep({ draft, updateDraft, bottle, memoryPhoto }: StepPro
 
       <div className={styles.aiRow}>
         <Button type="button" variant="ghost" onClick={handleGenerateTastingNote} disabled={generating}>
-          {generating ? 'Asking the sommelier…' : '✨ AI Tasting Note'}
+          {generating ? 'Asking AXE…' : '✨ AI Tasting Note'}
         </Button>
       </div>
       {aiStatus ? <p className={styles.aiStatus}>{aiStatus}</p> : null}

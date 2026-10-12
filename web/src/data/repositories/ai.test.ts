@@ -14,7 +14,7 @@ import {
 
 describe('ai repository (mock mode)', () => {
   it('askSommelier returns a canned reply without calling Cloud Functions', async () => {
-    const reply = await askSommelier('what should I try next', [], '')
+    const reply = await askSommelier('what should I try next', [], { screen: 'home' })
     expect(reply.length).toBeGreaterThan(0)
   })
 

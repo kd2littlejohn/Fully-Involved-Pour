@@ -1,5 +1,4 @@
 import type { Bottle, Pour } from '../../data/types'
-import type { FlavorTagRank } from '../flavorRadar/flavorCategories'
 import {
   getProofAffinity,
   getTopRatedFlavorTags,
@@ -9,6 +8,7 @@ import {
   round1,
   type ProofAffinity,
   type LoyaltyStat,
+  type FlavorPreferenceRank,
 } from './selectors'
 
 // ---------------------------------------------------------------------------
@@ -20,9 +20,14 @@ import {
 
 const MIN_QUALIFYING_NOTE_LENGTH = 10
 
+// Legacy guided-tasting pours have no `fip` at all (see selectors.ts
+// getPalateStats) — they simply don't qualify, rather than crashing the
+// whole palate pipeline.
 export function isQualifyingPour(pour: Pour): boolean {
-  if (pour.fip.noseAromas.length > 0 || pour.fip.palateFlavors.length > 0) return true
-  const notes = [pour.fip.noseNotes, pour.fip.palateNotes, pour.fip.finishNotes, pour.fip.complexityNotes]
+  const fip = pour.fip
+  if (!fip) return false
+  if ((fip.noseAromas?.length ?? 0) > 0 || (fip.palateFlavors?.length ?? 0) > 0) return true
+  const notes = [fip.noseNotes, fip.palateNotes, fip.finishNotes, fip.complexityNotes]
   return notes.some((note) => (note?.trim().length ?? 0) >= MIN_QUALIFYING_NOTE_LENGTH)
 }
 
@@ -100,7 +105,7 @@ export interface PalateProfile {
   maturity: PalateMaturity
   categoryScores: CategoryScore[]
   proofAffinity?: ProofAffinity
-  topRatedFlavors: FlavorTagRank[]
+  topRatedFlavors: FlavorPreferenceRank[]
   loyalty?: LoyaltyStat
   // No structured finish-length or mouthfeel data exists on Pour yet (only a
   // numeric fip.finish score + free-text finishNotes) — deliberately left
@@ -116,7 +121,7 @@ export function buildPalateProfile(bottles: Bottle[], pours: Pour[]): PalateProf
     maturity: getPalateMaturity(qualifyingPourCount),
     categoryScores: getCategoryScores(bottles, pours),
     proofAffinity: getProofAffinity(bottles, pours),
-    topRatedFlavors: getTopRatedFlavorTags(bottles, pours),
+    topRatedFlavors: getTopRatedFlavorTags(pours),
     loyalty: getLoyaltySignal(bottles, pours),
     finishPreference: undefined,
     mouthfeelPreference: undefined,

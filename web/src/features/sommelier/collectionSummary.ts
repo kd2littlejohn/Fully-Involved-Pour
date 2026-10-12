@@ -1,7 +1,8 @@
 import type { Bottle } from '../../data/types'
 
-// Feeds the AI sommelier a compact digest of the collection so replies can
-// reference real bottles instead of generic advice. Capped at 40 bottles to
+// Compact collection digest for Discover's recommendBottles call. (AXE no
+// longer uses this — askSommelier builds its context server-side from the
+// user's own records, see functions/axeContext.js.) Capped at 40 bottles to
 // keep the prompt small.
 export function summarizeCollectionForAi(bottles: Bottle[]): string {
   if (bottles.length === 0) return ''

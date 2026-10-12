@@ -66,7 +66,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext, multiInst
     const name = bottleContext.name.trim()
     if (name.length < 3 || generatingNotes) return
     setGeneratingNotes(true)
-    setNotesStatus('✨ Asking the sommelier…')
+    setNotesStatus('✨ Asking AXE…')
     try {
       const profile = await generateTastingProfile({
         bottleName: name,
@@ -78,7 +78,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext, multiInst
       onChange({ notes: values.notes.trim() ? values.notes : generated })
       setNotesStatus('✨ AI tasting note added below.')
     } catch {
-      setNotesStatus("The sommelier couldn't generate a note just now. Try again in a moment.")
+      setNotesStatus("AXE couldn't generate a note just now. Try again in a moment.")
     } finally {
       setGeneratingNotes(false)
     }

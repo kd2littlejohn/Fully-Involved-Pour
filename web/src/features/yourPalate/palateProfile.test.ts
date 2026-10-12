@@ -146,13 +146,17 @@ describe('buildPalateProfile', () => {
     expect(profile.proofAffinity?.bucketLabel).toBe('110+ proof')
   })
 
-  it('surfaces top-rated flavor tags only once the threshold is met, reusing getTopRatedFlavorTags as-is', () => {
-    const highRated: Pour[] = Array.from({ length: 3 }, (_, i) => {
-      const p = pour({ id: `hr${i}`, bottleId: 'b1', date: daysAgo(i), rating: 9 })
-      p.fip.palateFlavors = ['Caramel']
-      return p
-    })
-    const profile = buildPalateProfile([bourbon], highRated)
+  it('surfaces top-rated flavor tags only once the threshold is met across multiple bottles', () => {
+    // 2 pours of b1 + 1 pour of b2 — clears both TOP_RATED_MIN_POURS (3) and
+    // TOP_RATED_MIN_BOTTLES (2 distinct bottles), so Caramel legitimately
+    // counts as preferred rather than being one bottle's repeat pours.
+    const highRated: Pour[] = [
+      pour({ id: 'hr0', bottleId: 'b1', date: daysAgo(0), rating: 9 }),
+      pour({ id: 'hr1', bottleId: 'b1', date: daysAgo(1), rating: 9 }),
+      pour({ id: 'hr2', bottleId: 'b2', date: daysAgo(2), rating: 9 }),
+    ]
+    for (const p of highRated) p.fip.palateFlavors = ['Caramel']
+    const profile = buildPalateProfile([bourbon, bourbon2], highRated)
     expect(profile.topRatedFlavors.map((t) => t.tag)).toContain('Caramel')
   })
 
@@ -180,5 +184,15 @@ describe('buildPalateProfile', () => {
     const profile = buildPalateProfile([untyped], [pour({ id: 'p1', bottleId: 'b5', date: daysAgo(1), rating: 8 })])
     expect(profile.categoryScores).toEqual([])
     expect(profile.proofAffinity).toBeUndefined()
+  })
+})
+
+describe('legacy pours without a fip breakdown', () => {
+  const legacy = { id: 'old', bottleId: 'b1', date: '2025-01-01', rating: 7 } as unknown as Pour
+  it('never qualify, and never crash the profile', () => {
+    expect(isQualifyingPour(legacy)).toBe(false)
+    const profile = buildPalateProfile([{ id: 'b1', name: 'A', status: 'open', type: 'Bourbon', proof: 100 }], [legacy])
+    expect(profile.qualifyingPourCount).toBe(0)
+    expect(profile.categoryScores).toEqual([{ category: 'Bourbon', mode: 'frequency-only', pourCount: 1 }])
   })
 })

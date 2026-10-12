@@ -14,6 +14,7 @@ import {
 import { computeRevealHighlights } from '../../features/blindReveal/highlights'
 import { generateTastingSummary } from '../../features/blindSommelier/summary'
 import type { BlindComparison, BlindFinalRanking, BlindRoomSecrets, BlindTastingResponse } from '../../data/types'
+import { AxeLauncher } from '../../features/sommelier/AxeLauncher'
 import styles from './BlindRevealPage.module.css'
 
 // Combines a dimension's tapped chips with its freeform elaboration into one
@@ -327,6 +328,8 @@ export function BlindRevealPage() {
           </Button>
         </div>
       ) : null}
+      {/* Interpreting results only — the server still re-checks reveal state itself. */}
+      {resultsVisible ? <AxeLauncher /> : null}
     </div>
   )
 }

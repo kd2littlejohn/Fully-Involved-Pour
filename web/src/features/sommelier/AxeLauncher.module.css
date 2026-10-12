@@ -1,0 +1,59 @@
+/* Sits above the mobile bottom nav (64px + safe area, see AppShell) and
+   clear of it on desktop. AppShell reserves matching bottom padding so the
+   button never covers the end of a page's content. */
+.button {
+  position: fixed;
+  right: var(--fip-space-4);
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px) + var(--fip-space-3));
+  z-index: 25;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  padding: 3px;
+  border: 1px solid var(--fip-border);
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-charcoal);
+  color: var(--fip-cream);
+  box-shadow: var(--fip-shadow-soft);
+  cursor: pointer;
+  transition:
+    border-color var(--fip-motion-fast) var(--fip-ease),
+    box-shadow var(--fip-motion-fast) var(--fip-ease);
+}
+
+.button:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.active {
+  border-color: var(--fip-amber);
+  box-shadow:
+    0 0 0 2px var(--fip-amber-soft),
+    var(--fip-shadow-soft);
+}
+
+.mark {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--fip-radius-round);
+}
+
+/* Icon-only on mobile to stay out of the way; labelled on desktop. */
+.label {
+  display: none;
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding-right: var(--fip-space-3);
+}
+
+@media (min-width: 900px) {
+  .button {
+    right: var(--fip-space-6);
+    bottom: var(--fip-space-6);
+  }
+
+  .label {
+    display: inline;
+  }
+}
