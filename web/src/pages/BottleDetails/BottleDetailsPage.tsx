@@ -36,6 +36,7 @@ import { CompareTab } from './tabs/CompareTab'
 import { BottlePhotoLightbox } from './BottlePhotoLightbox'
 import styles from './BottleDetailsPage.module.css'
 import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
+import { useInventoryReturnPath } from '../../features/collection/inventoryViewState'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
   open: 'Opened',
@@ -73,6 +74,9 @@ interface BottleDetailsLocationState {
 
 export function BottleDetailsPage() {
   const { bottleId } = useParams()
+  // The user's last My Bar view (search, filters, sort, scroll) — never a
+  // reset list. See features/collection/inventoryViewState.ts.
+  const inventoryPath = useInventoryReturnPath()
   const navigate = useNavigate()
   const location = useLocation()
   const { user, loading: authLoading } = useAuth()
@@ -125,7 +129,7 @@ export function BottleDetailsPage() {
         <EmptyState
           title="We couldn't find this bottle."
           message="It may have been removed from your bar."
-          action={<LinkButton to="/collection">Back to My Bar</LinkButton>}
+          action={<LinkButton to={inventoryPath}>Back to My Bar</LinkButton>}
         />
       </>
     )
@@ -164,7 +168,7 @@ export function BottleDetailsPage() {
     setDeleting(true)
     await deleteBottle(currentBottleId)
     setDeleting(false)
-    navigate('/collection')
+    navigate(inventoryPath)
   }
 
   async function handleToggleFavorite() {
@@ -207,7 +211,7 @@ export function BottleDetailsPage() {
   return (
     <>
       <div className={styles.topRow}>
-        <Link to="/collection" className={styles.back}>
+        <Link to={inventoryPath} className={styles.back}>
           ← Back to My Bar
         </Link>
 

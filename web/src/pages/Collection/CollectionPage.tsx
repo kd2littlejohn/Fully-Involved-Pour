@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
@@ -18,11 +18,18 @@ import { RarityDonutChart } from '../../components/ui/RarityDonutChart'
 import { rarityBreakdown } from '../../features/rarity/rarityBreakdown'
 import { matchesRarityFilter, type RarityFilterValue } from '../../features/rarity/rarityFilter'
 import { selectRarityReviewQueue } from '../../features/rarity/rarityReviewQueue'
-import { RARITY_LABEL, UNCLASSIFIED_LABEL, RARITY_OPTIONS } from '../../features/rarity/rarityLevels'
+import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../features/rarity/rarityLevels'
 import { CollectionSummaryBar } from '../../features/collection/CollectionSummaryBar'
 import { CollectionFilterSheet } from '../../features/collection/CollectionFilterSheet'
 import { matchesFilter, filterLabel, ALL_FILTERS, type Filter } from '../../features/collection/collectionFilters'
 import { getInfinityIngredientBottleIds } from '../../features/collection/inventoryFilters'
+import {
+  initialInventoryView,
+  inventorySearchString,
+  parseInventoryView,
+  useInventoryScrollRestoration,
+  writeSavedInventory,
+} from '../../features/collection/inventoryViewState'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
 
@@ -54,47 +61,59 @@ export function CollectionPage() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading, deleteBottles } = useUserData()
-  const [searchParams, setSearchParams] = useSearchParams()
-  // A "View All" link elsewhere in the app (e.g. Home's Open Bottles card)
-  // can deep-link straight into a filtered view via ?filter=open — falls
-  // back to 'all' for anything else, same as visiting /collection directly.
-  const [filter, setFilterState] = useState<Filter>(() => {
-    const requested = searchParams.get('filter')
-    return ALL_FILTERS.some((f) => f.value === requested) ? (requested as Filter) : 'all'
-  })
-  const [rarityFilter, setRarityFilterState] = useState<RarityFilterValue>(() => {
-    const requested = searchParams.get('rarity')
-    if (requested === 'unclassified') return 'unclassified'
-    return RARITY_OPTIONS.some((r) => r.value === requested) ? (requested as RarityFilterValue) : null
-  })
-  const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<SortOption>('recent')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [, setSearchParams] = useSearchParams()
+  const location = useLocation()
+  // Search, filters, sort and view mode all live in the URL and a per-tab
+  // session copy (features/collection/inventoryViewState.ts), so opening a
+  // bottle and coming back, via Back, "Back to My Bar" or the nav,
+  // restores the exact list. Explicit URL params (e.g. Home's ?filter=open
+  // "View All" link) take precedence over the saved view.
+  //
+  // URL params apply immediately; the saved view needs the user's id, and
+  // useAuth starts every mount as "loading", so restoring waits for it.
+  // Until then nothing is written back, so the saved view is never
+  // overwritten by the defaults.
+  const [initial] = useState(() => parseInventoryView(new URLSearchParams(location.search)))
+  const [filter, setFilter] = useState<Filter>(initial.filter)
+  const [rarityFilter, setRarityFilter] = useState<RarityFilterValue>(initial.rarity)
+  const [query, setQuery] = useState(initial.query)
+  const [sort, setSort] = useState<SortOption>(initial.sort)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(initial.view)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    if (hydrated || authLoading) return
+    const { view, restored } = initialInventoryView(location.search, user?.uid)
+    if (restored) {
+      setFilter(view.filter)
+      setRarityFilter(view.rarity)
+      setQuery(view.query)
+      setSort(view.sort)
+      setViewMode(view.view)
+    }
+    setHydrated(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as soon as auth has resolved
+  }, [authLoading])
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [showFilterSheet, setShowFilterSheet] = useState(false)
 
-  // Keeps the current view in the URL (replacing, not pushing, so picking
-  // through filters doesn't pile up history entries) so browser/gesture
-  // Back from a bottle's own details page lands back on the same filtered
-  // view instead of a reset one.
-  function setFilter(next: Filter) {
-    setFilterState(next)
-    const params = new URLSearchParams(searchParams)
-    if (next === 'all') params.delete('filter')
-    else params.set('filter', next)
-    setSearchParams(params, { replace: true })
-  }
+  // Mirrors the view into the URL (replacing, not pushing, so typing and
+  // toggling don't pile up history entries) and into the session copy.
+  const viewSearch = inventorySearchString({ query, filter, rarity: rarityFilter, sort, view: viewMode })
+  useEffect(() => {
+    if (!hydrated) return
+    if (location.search !== viewSearch) setSearchParams(new URLSearchParams(viewSearch), { replace: true })
+    writeSavedInventory(user?.uid, { search: viewSearch })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the view itself
+  }, [hydrated, viewSearch, user?.uid])
 
-  function setRarityFilter(next: RarityFilterValue) {
-    setRarityFilterState(next)
-    const params = new URLSearchParams(searchParams)
-    if (next === null) params.delete('rarity')
-    else params.set('rarity', next)
-    setSearchParams(params, { replace: true })
-  }
+  // Returns the user to where they were in the list (e.g. the bottle they
+  // just opened). The list renders straight from cached user data, so
+  // there's no refetch to wait for.
+  useInventoryScrollRestoration(user?.uid, hydrated && Boolean(user) && !dataLoading, viewSearch)
 
   function clearFilters() {
     setFilter('all')
