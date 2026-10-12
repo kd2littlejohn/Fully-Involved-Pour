@@ -1,0 +1,242 @@
+name: Deploy Cloud Functions
+
+# Deploys Cloud Functions to fully-involved-pour with keyless Google Cloud
+# Workload Identity Federation (no service-account key stored anywhere).
+#
+# Runs two ways:
+#   - Called by deploy.yml on a push to main that changes functions/, BEFORE
+#     the website deploys. If anything here fails, the website deploy is
+#     skipped, so a new web client never goes live against an old backend.
+#   - Manually from the Actions tab (Run workflow), e.g. to redeploy one
+#     function without a website release.
+#
+# One-time setup (WIF pool, deploy service account, GitHub variables, and
+# the "production" environment's approval rule) is described in
+# docs/DEPLOYMENT_SETUP.md.
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: Firebase --only target
+        type: string
+        default: functions
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'What to deploy: "functions" (all) or e.g. "functions:askSommelier"'
+        type: string
+        default: functions:askSommelier
+      smoke_test:
+        description: Run the live AXE smoke test after deploying
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_ID: fully-involved-pour
+  REGION: us-central1
+  FIREBASE_TOOLS_VERSION: 14.27.0
+
+jobs:
+  test:
+    name: Test functions (Firestore emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install
+        run: |
+          npm install -g "firebase-tools@${FIREBASE_TOOLS_VERSION}"
+          cd functions && npm ci
+      - name: Syntax check
+        run: node --check functions/index.js && node --check functions/axeContext.js
+      - name: Run tests
+        # Emulator only: no credentials, no production access.
+        run: npm run test:functions
+
+  deploy:
+    name: Deploy ${{ inputs.target }}
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Required reviewers on this environment (set up once in GitHub) make
+    # every production backend deploy wait for an explicit approval.
+    environment: production
+    concurrency:
+      group: functions-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # lets GitHub mint the OIDC token that WIF exchanges
+    outputs:
+      deployed_ask_sommelier: ${{ steps.target.outputs.ask_sommelier }}
+      started_at: ${{ steps.target.outputs.started_at }}
+    steps:
+      - name: Check deployment configuration
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOY_SA: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [ -z "$WIF_PROVIDER" ] || [ -z "$DEPLOY_SA" ]; then
+            echo "::error::Workload Identity Federation isn't configured. Set the GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT repository variables (docs/DEPLOYMENT_SETUP.md)."
+            exit 1
+          fi
+          # Only function targets are allowed here (never hosting/rules/etc.).
+          if ! printf '%s' "$TARGET" | grep -Eq '^functions(:[A-Za-z0-9_-]+)?(,functions:[A-Za-z0-9_-]+)*$'; then
+            echo "::error::Refusing target '$TARGET': only 'functions' or 'functions:<name>[,functions:<name>]' is allowed."
+            exit 1
+          fi
+
+      - id: target
+        name: Resolve target
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [ "$TARGET" = "functions" ] || printf '%s' "$TARGET" | grep -q 'functions:askSommelier\b'; then
+            echo "ask_sommelier=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ask_sommelier=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - name: Install
+        run: |
+          npm install -g "firebase-tools@${FIREBASE_TOOLS_VERSION}"
+          cd functions && npm ci
+
+      - name: Authenticate to Google Cloud (keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Confirm the API key secret exists (metadata only)
+        # secrets:get prints versions and state, never the value. Don't ever
+        # swap this for secrets:access.
+        run: firebase functions:secrets:get ANTHROPIC_API_KEY --project "$PROJECT_ID" --non-interactive > /dev/null && echo "ANTHROPIC_API_KEY secret is present."
+
+      - name: Deploy
+        # --non-interactive without --force: if production has functions
+        # that aren't in this source, the CLI refuses to delete them and the
+        # deploy fails safely instead.
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          set +e
+          firebase deploy --only "$TARGET" --project "$PROJECT_ID" --non-interactive 2>&1 | tee deploy.log
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ]; then
+            # The functions are live in this case; only the optional
+            # container-image cleanup policy couldn't be configured.
+            if grep -q "Functions successfully deployed but could not set up cleanup policy" deploy.log; then
+              echo "::warning::Functions deployed, but the Artifact Registry cleanup policy isn't set (see docs/DEPLOYMENT_SETUP.md)."
+            else
+              echo "::error::firebase deploy failed (exit $status). The website deploy will not run."
+              exit "$status"
+            fi
+          fi
+
+      - name: Verify askSommelier is live and enforcing auth
+        if: steps.target.outputs.ask_sommelier == 'true'
+        # An unauthenticated callable request costs nothing (no model call)
+        # and must come back 401 UNAUTHENTICATED.
+        run: |
+          url="https://${REGION}-${PROJECT_ID}.cloudfunctions.net/askSommelier"
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -s -o response.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"data":{}}' "$url" || true)
+            if [ "$code" = "401" ] && grep -q '"UNAUTHENTICATED"' response.json; then
+              echo "askSommelier is live: $(cat response.json)"
+              exit 0
+            fi
+            echo "Attempt $attempt: HTTP $code; retrying in 15s"
+            sleep 15
+          done
+          echo "::error::askSommelier didn't answer 401 UNAUTHENTICATED after deploy."
+          exit 1
+
+  smoke-test:
+    name: Live AXE smoke test
+    needs: deploy
+    if: needs.deploy.outputs.deployed_ask_sommelier == 'true' && vars.AXE_SMOKE_TEST != 'false' && (github.event_name != 'workflow_dispatch' || inputs.smoke_test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # No environment here: GitHub asks for approval once per job that names
+    # an environment, and the deploy job's approval already covers this run.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: cd functions && npm ci
+      - name: Authenticate to Google Cloud (keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Ask AXE as a dedicated test user
+        # Two real model calls against a dedicated test account. Seeded data
+        # only, no real users touched. Tokens are never printed.
+        env:
+          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+        run: node functions/scripts/axe-smoke-test.js
+
+  logs:
+    name: Check askSommelier logs
+    needs: [deploy, smoke-test]
+    if: always() && needs.deploy.result == 'success' && needs.deploy.outputs.deployed_ask_sommelier == 'true' && (needs.smoke-test.result == 'success' || needs.smoke-test.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Authenticate to Google Cloud (keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Fail on errors logged since the deploy
+        # Prints counts and timestamps only, never log payloads (they can
+        # contain user content).
+        env:
+          DEPLOY_STARTED_AT: ${{ needs.deploy.outputs.started_at }}
+        run: |
+          since="$DEPLOY_STARTED_AT"
+          filter="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"asksommelier\" AND severity>=ERROR AND timestamp>=\"${since}\""
+          count=$(gcloud logging read "$filter" --project "$PROJECT_ID" --limit 50 --format 'value(timestamp)' | tee timestamps.txt | wc -l)
+          if [ "$count" -gt 0 ]; then
+            echo "::error::askSommelier logged $count error(s) since ${since}. Check Cloud Logging before releasing the website."
+            cat timestamps.txt
+            exit 1
+          fi
+          echo "No askSommelier errors since ${since}."

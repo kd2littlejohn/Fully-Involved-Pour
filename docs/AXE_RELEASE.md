@@ -2,12 +2,20 @@
 
 Branch: `claude/ecstatic-mayer-9126ud`. Firebase project: `fully-involved-pour`.
 
-**Order matters: Cloud Function first, website second.** The new web client
-relies on the updated `askSommelier`. Against the old function, AXE would
-treat every collection as empty. Older (cached PWA) clients work fine
-against the new function.
+**The release is automated.** After the one-time setup in
+[`DEPLOYMENT_SETUP.md`](DEPLOYMENT_SETUP.md), merging to `main` runs the
+whole sequence on GitHub Actions: checks, your approval, the functions
+deploy, the askSommelier liveness check, the live AXE smoke test, the log
+check, and only then the website. Follow "Releasing AXE" in that document.
+
+**Order matters: Cloud Function first, website second.** The workflow
+enforces this. The new web client relies on the updated `askSommelier`;
+against the old function, AXE would treat every collection as empty. Older
+(cached PWA) clients work fine against the new function.
 
 Nothing here changes Firestore rules, indexes, or stored data.
+
+The manual steps below are a fallback for when Actions is unavailable.
 
 ## 0. Pre-flight (local, no production changes)
 
