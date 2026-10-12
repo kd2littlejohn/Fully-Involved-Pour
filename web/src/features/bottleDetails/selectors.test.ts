@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Bottle, Memory, Pour } from '../../data/types'
+import { localIsoDate } from '../../data/localDate'
 import {
   buildBottleStoryEvents,
   buildRatingProgression,
@@ -144,7 +145,7 @@ describe('getFinishedDate', () => {
 
   it('falls back to createdAt when there are no pours or openedDate', () => {
     const finished: Bottle = { ...bottle, status: 'finished' }
-    expect(getFinishedDate(finished, [])).toEqual({ date: new Date(bottle.createdAt!).toISOString(), inferred: true })
+    expect(getFinishedDate(finished, [])).toEqual({ date: localIsoDate(bottle.createdAt!), inferred: true })
   })
 
   it('never writes an inferred date back onto the bottle object', () => {

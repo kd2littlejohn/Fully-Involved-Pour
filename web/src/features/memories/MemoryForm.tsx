@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { PhotoUploadField } from '../photoUpload/PhotoUploadField'
 import { deletePhotoIfSafe } from '../photoUpload/uploadPhoto'
 import styles from './MemoryForm.module.css'
+import { todayLocalIsoDate } from '../../data/localDate'
 
 interface MemoryFormProps {
   bottles: Bottle[]
@@ -16,7 +17,7 @@ interface MemoryFormProps {
 
 export function MemoryForm({ bottles, initial, onSubmit, onCancel }: MemoryFormProps) {
   const [title, setTitle] = useState(initial?.title ?? '')
-  const [date, setDate] = useState(initial?.date ?? new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(initial?.date ?? todayLocalIsoDate())
   const [location, setLocation] = useState(initial?.location ?? '')
   const [occasion, setOccasion] = useState(initial?.occasion ?? '')
   const [people, setPeople] = useState(initial?.people.join(', ') ?? '')

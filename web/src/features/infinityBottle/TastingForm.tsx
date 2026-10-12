@@ -8,6 +8,7 @@ import { fipTier } from '../fip/tiers'
 import { FLAVOR_DESCRIPTORS, FINISH_DESCRIPTORS } from '../flavorTaxonomy/taxonomy'
 import type { NewTastingInput } from '../../hooks/useUserData'
 import styles from './TastingForm.module.css'
+import { todayLocalIsoDate } from '../../data/localDate'
 
 export interface TastingFormValue {
   date: string
@@ -26,7 +27,7 @@ export interface TastingFormValue {
 
 export function blankTastingValue(): TastingFormValue {
   return {
-    date: new Date().toISOString().slice(0, 10),
+    date: todayLocalIsoDate(),
     score: 5,
     noseAromas: [],
     noseNotes: '',

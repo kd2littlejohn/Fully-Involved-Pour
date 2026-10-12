@@ -4,10 +4,7 @@ import { StatTile } from '../../components/ui/StatTile'
 import { buildBottleKillSummary } from './selectors'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './BottleKillCelebration.module.css'
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayLocalIsoDate } from '../../data/localDate'
 
 interface BottleKillCelebrationProps {
   bottle: Bottle
@@ -20,7 +17,7 @@ interface BottleKillCelebrationProps {
 // never on later visits, matching "recognize milestones automatically...
 // without cheesy gamification."
 export function BottleKillCelebration({ bottle, pours, onClose }: BottleKillCelebrationProps) {
-  const summary = buildBottleKillSummary(bottle, pours, todayIsoDate())
+  const summary = buildBottleKillSummary(bottle, pours, todayLocalIsoDate())
 
   const sentence =
     summary.pourCount > 0

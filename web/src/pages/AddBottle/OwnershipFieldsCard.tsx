@@ -3,6 +3,7 @@ import { Field, controlClassName } from '../../components/ui/Field'
 import type { BottleStatus, FillLevel } from '../../data/types'
 import { generateTastingProfile } from '../../data/repositories/ai'
 import styles from './FieldsCard.module.css'
+import { todayLocalIsoDate } from '../../data/localDate'
 
 export interface OwnershipFieldsValues {
   status: BottleStatus
@@ -15,10 +16,6 @@ export interface OwnershipFieldsValues {
   expectedDate: string
   finishedDate: string
   notes: string
-}
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 export interface BottleContext {
@@ -115,7 +112,7 @@ export function OwnershipFieldsCard({ values, onChange, bottleContext, multiInst
                 // status back and forth) or one carried over from a legacy
                 // finished bottle that never had one — that stays blank
                 // until the user deliberately picks a real date.
-                onChange({ status, finishedDate: status === 'finished' && !values.finishedDate ? todayIsoDate() : values.finishedDate })
+                onChange({ status, finishedDate: status === 'finished' && !values.finishedDate ? todayLocalIsoDate() : values.finishedDate })
               }}
             >
               {STATUS_OPTIONS.map((option) => (

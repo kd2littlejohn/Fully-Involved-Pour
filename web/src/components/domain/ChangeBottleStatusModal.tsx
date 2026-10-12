@@ -3,10 +3,7 @@ import { Modal } from '../ui/Modal'
 import type { Bottle, BottleStatus } from '../../data/types'
 import type { BottlePatch } from '../../hooks/useUserData'
 import styles from './ChangeBottleStatusModal.module.css'
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayLocalIsoDate } from '../../data/localDate'
 
 const STATUS_OPTIONS: { value: BottleStatus; label: string }[] = [
   { value: 'wishlist', label: 'Wish List' },
@@ -44,8 +41,8 @@ export function ChangeBottleStatusModal({ bottle, onUpdate, onClose, onStatusCha
       const patch: BottlePatch = { status }
       // Same "default to today, never overwrite a date already entered"
       // rule the full edit form's status field already follows.
-      if (status === 'open') patch.openedDate = bottle.openedDate ?? todayIsoDate()
-      if (status === 'finished') patch.finishedDate = bottle.finishedDate ?? todayIsoDate()
+      if (status === 'open') patch.openedDate = bottle.openedDate ?? todayLocalIsoDate()
+      if (status === 'finished') patch.finishedDate = bottle.finishedDate ?? todayLocalIsoDate()
       await onUpdate(bottle.id, patch)
       onStatusChanged?.(status)
       onClose()

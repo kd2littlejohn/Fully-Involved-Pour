@@ -1,5 +1,6 @@
 import { resolvePouredWith } from './pourPeople'
 import type { BuyAgain, Pour, PourPerson, PourPersonRef } from '../../data/types'
+import { todayLocalIsoDate } from '../../data/localDate'
 
 export interface PourDraft {
   date: string
@@ -34,7 +35,7 @@ export interface PourDraft {
 
 export function blankDraft(): PourDraft {
   return {
-    date: new Date().toISOString().slice(0, 10),
+    date: todayLocalIsoDate(),
     nose: 0,
     noseAromas: [],
     palate: 0,

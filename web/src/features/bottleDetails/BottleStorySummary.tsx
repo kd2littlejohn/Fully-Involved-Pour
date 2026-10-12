@@ -3,6 +3,7 @@ import { StatTile } from '../../components/ui/StatTile'
 import { Badge } from '../../components/ui/Badge'
 import { topFlavorTags } from '../flavorRadar/flavorCategories'
 import { buildRatingProgression, getFinishedDate, getPoursForBottle } from './selectors'
+import { parseLocalDate } from '../../data/localDate'
 import styles from './BottleStorySummary.module.css'
 
 function round1(n: number): number {
@@ -55,16 +56,16 @@ export function BottleStorySummary({ bottle, pours }: { bottle: Bottle; pours: P
       <div className={styles.dates}>
         {finished ? (
           <>
-            {bottle.openedDate ? <span>Opened {dateFormatter.format(new Date(bottle.openedDate))}</span> : null}
+            {bottle.openedDate ? <span>Opened {dateFormatter.format(parseLocalDate(bottle.openedDate))}</span> : null}
             <span>
-              Finished {dateFormatter.format(new Date(finished.date))}
+              Finished {dateFormatter.format(parseLocalDate(finished.date))}
               {finished.inferred ? ' (estimated)' : ''}
             </span>
           </>
         ) : (
           <>
-            <span>First Pour {dateFormatter.format(new Date(firstDate))}</span>
-            {pourCount > 1 ? <span>Last Pour {dateFormatter.format(new Date(lastDate))}</span> : null}
+            <span>First Pour {dateFormatter.format(parseLocalDate(firstDate))}</span>
+            {pourCount > 1 ? <span>Last Pour {dateFormatter.format(parseLocalDate(lastDate))}</span> : null}
           </>
         )}
       </div>

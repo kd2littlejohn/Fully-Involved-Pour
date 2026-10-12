@@ -17,10 +17,7 @@ import { generateAndSaveTastingSummary } from '../pourWizard/tastingSummaryOnSav
 import { useBottleInstancePicker } from '../pourWizard/useBottleInstancePicker'
 import type { Pour } from '../../data/types'
 import styles from './QuickPour.module.css'
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayLocalIsoDate } from '../../data/localDate'
 
 interface QuickPourProps {
   bottleId: string
@@ -72,7 +69,7 @@ export function QuickPour({ bottleId, bottleName, onClose, onSaved }: QuickPourP
       buildQuickPourInput({
         bottleId,
         bottleInstanceId,
-        date: todayIsoDate(),
+        date: todayLocalIsoDate(),
         reactionLabel: reaction.label,
         score,
         flavors,

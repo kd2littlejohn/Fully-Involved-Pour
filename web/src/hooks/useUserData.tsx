@@ -35,6 +35,7 @@ import {
   type Profile,
   type UserDoc,
 } from '../data/types'
+import { todayLocalIsoDate } from '../data/localDate'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type BottlePatch = Partial<Omit<Bottle, 'id' | 'createdAt'>>
@@ -538,7 +539,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       if (!user) return
       const bottle = userDoc.bottles.find((b) => b.id === bottleId)
       if (!bottle?.instances) return
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayLocalIsoDate()
       const nextInstances = bottle.instances.map((i) =>
         i.id === instanceId ? { ...i, status: 'open' as const, openedDate: i.openedDate ?? today } : i,
       )
@@ -1059,7 +1060,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
               bottleName: `Carried forward from ${current.name ?? 'the previous batch'}`,
               proof: estimatedProof(current),
               amountMl: carryForwardMl,
-              date: new Date().toISOString().slice(0, 10),
+              date: todayLocalIsoDate(),
               createdAt: now,
             }
           : undefined
