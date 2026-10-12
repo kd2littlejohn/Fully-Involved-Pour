@@ -67,3 +67,21 @@
   align-self: flex-start;
   margin-top: auto;
 }
+
+.details {
+  margin: 0;
+  padding-left: var(--fip-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.note {
+  margin: 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  line-height: var(--fip-leading-copy);
+}

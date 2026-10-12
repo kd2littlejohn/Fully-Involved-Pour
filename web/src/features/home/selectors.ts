@@ -1,5 +1,6 @@
 import type { Bottle, Pour } from '../../data/types'
-import { dominantFlavorAxis, identityLabelForAxis } from '../flavorRadar/flavorCategories'
+import { dominantFlavorAxis, identityLabelForAxis, pourFlavorLabels } from '../flavorRadar/flavorCategories'
+import { buildPalateInsightText, BASELINE_MIN_POURS } from '../yourPalate/palateInsights'
 import { fillLevelPercent, getPoursForBottle } from '../bottleDetails/selectors'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -87,38 +88,76 @@ export function getMaybeTonightCandidates(bottles: Bottle[], pours: Pour[], limi
   return results
 }
 
-export interface PalateInsight {
-  headline: string
-  primaryLabel: string
-  primaryPercent: number
-  secondaryLabel: string
-  secondaryPercent: number
-}
+// Home's "Your Palate Lately" card. Two honest tiers, never empty while any
+// pour exists:
+//   - 'flavor': a flavor family clearly leads the user's recent *tagged*
+//     pours. Pours with no flavor evidence (rating-only Quick Pours, legacy
+//     guided-tasting pours without a fip breakdown) are skipped when
+//     choosing the recent window instead of crowding tagged pours out.
+//   - 'summary': otherwise, the same validated, rating-based insights
+//     Profile → Your Palate shows (yourPalate/palateInsights.ts), plus a
+//     plain note about why there's no flavor headline. No flavor notes or
+//     component scores are ever invented.
+export type PalateInsight =
+  | {
+      kind: 'flavor'
+      headline: string
+      primaryLabel: string
+      primaryPercent: number
+      secondaryLabel: string
+      secondaryPercent: number
+    }
+  | {
+      kind: 'summary'
+      headline: string
+      details: string[]
+      flavorNote: string
+    }
 
-const PALATE_INSIGHT_MIN_POURS = 5
+// Same baseline Your Palate uses before it shows patterns.
+const PALATE_INSIGHT_MIN_TAGGED_POURS = BASELINE_MIN_POURS
 const PALATE_INSIGHT_RECENT_COUNT = 5
 // Below this, the "dominant" axis is barely ahead of the rest — not
 // lopsided enough to be worth calling out as a pattern.
 const PALATE_INSIGHT_MIN_SHARE = 55
+const PALATE_INSIGHT_MAX_DETAILS = 2
 
-// One honest, single headline about recent taste patterns — not the full
-// Your Palate breakdown (that's features/yourPalate, still on Profile).
-// Scoped to the most recent pours specifically ("lately"), not all-time.
+export const FLAVOR_NOTE_NEEDS_TAGS = 'Add flavor notes when you log a pour to see your flavor trends here.'
+export const FLAVOR_NOTE_BALANCED = 'No single flavor family stands out in your recent pours.'
+
 export function getPalateInsight(bottles: Bottle[], pours: Pour[]): PalateInsight | undefined {
-  if (pours.length < PALATE_INSIGHT_MIN_POURS) return undefined
-  const recent = getRecentPours(pours, PALATE_INSIGHT_RECENT_COUNT)
-  const relevantIds = new Set(recent.map((p) => p.bottleId))
-  const relevantBottles = bottles.filter((b) => relevantIds.has(b.id))
-  const dominant = dominantFlavorAxis(relevantBottles, recent)
-  if (!dominant || dominant.percent < PALATE_INSIGHT_MIN_SHARE) return undefined
+  const text = buildPalateInsightText(bottles, pours)
+  if (!text) return undefined
 
-  const label = identityLabelForAxis(dominant.axis)
+  const recentTagged = [...pours]
+    .filter((p) => typeof p.date === 'string' && pourFlavorLabels(p).size > 0)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, PALATE_INSIGHT_RECENT_COUNT)
+
+  if (recentTagged.length >= PALATE_INSIGHT_MIN_TAGGED_POURS) {
+    const relevantIds = new Set(recentTagged.map((p) => p.bottleId))
+    const relevantBottles = bottles.filter((b) => relevantIds.has(b.id))
+    const dominant = dominantFlavorAxis(relevantBottles, recentTagged)
+    if (dominant && dominant.percent >= PALATE_INSIGHT_MIN_SHARE) {
+      const label = identityLabelForAxis(dominant.axis)
+      return {
+        kind: 'flavor',
+        headline: `${label} notes have come up in most of your last ${recentTagged.length} tasted pours.`,
+        primaryLabel: label,
+        primaryPercent: dominant.percent,
+        secondaryLabel: 'All Other Profiles',
+        secondaryPercent: 100 - dominant.percent,
+      }
+    }
+  }
+
   return {
-    headline: `${label} notes have come up in most of your last ${recent.length} ${recent.length === 1 ? 'pour' : 'pours'}.`,
-    primaryLabel: label,
-    primaryPercent: dominant.percent,
-    secondaryLabel: 'All Other Profiles',
-    secondaryPercent: 100 - dominant.percent,
+    kind: 'summary',
+    headline: text.summaryText,
+    details: [text.evolutionText, text.proofEvolutionText, ...text.tastePatterns]
+      .filter((line): line is string => Boolean(line))
+      .slice(0, PALATE_INSIGHT_MAX_DETAILS),
+    flavorNote: recentTagged.length >= PALATE_INSIGHT_MIN_TAGGED_POURS ? FLAVOR_NOTE_BALANCED : FLAVOR_NOTE_NEEDS_TAGS,
   }
 }
 

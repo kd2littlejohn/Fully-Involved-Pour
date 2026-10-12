@@ -8,6 +8,28 @@ interface PalateInsightCardProps {
 }
 
 export function PalateInsightCard({ insight }: PalateInsightCardProps) {
+  if (insight.kind === 'summary') {
+    // Rating-based insights when there's no clear flavor trend yet — the
+    // same validated lines Profile → Your Palate shows.
+    return (
+      <div className={styles.card}>
+        <div className={styles.eyebrow}>Your Palate Lately</div>
+        <p className={styles.headline}>{insight.headline}</p>
+        {insight.details.length > 0 ? (
+          <ul className={styles.details}>
+            {insight.details.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
+        <p className={styles.note}>{insight.flavorNote}</p>
+        <Link to="/journal">
+          <Button variant="secondary">See My Journey</Button>
+        </Link>
+      </div>
+    )
+  }
+
   const { headline, primaryLabel, primaryPercent, secondaryLabel, secondaryPercent } = insight
 
   return (
@@ -43,8 +65,8 @@ export function PalateInsightCard({ insight }: PalateInsightCardProps) {
   )
 }
 
-// Honest empty state — no fabricated trend, matches the redesign brief's
-// "if not enough data" copy verbatim.
+// Honest empty state — only when there are no pours at all. Matches the
+// redesign brief's "if not enough data" copy verbatim.
 export function PalateInsightEmptyCard() {
   return (
     <div className={styles.card}>
