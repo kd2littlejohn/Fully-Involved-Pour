@@ -1,0 +1,349 @@
+# TEMPORARY: generated simulation of deploy.yml/deploy-functions.yml job graphs. No deploys.
+name: "SIM release gates"
+on:
+  push:
+    branches:
+    - claude/ecstatic-mayer-9126ud
+    paths:
+    - .github/workflows/sim-*.yml
+permissions:
+  contents: read
+jobs:
+  a_all_pass_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=true" >> "$GITHUB_OUTPUT"
+  a_all_pass_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "web_checks ok (simulated, no deploy)"
+  a_all_pass_release_gates:
+    needs:
+    - a_all_pass_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "release_gates ok (simulated, no deploy)"
+  a_all_pass_functions:
+    needs:
+    - a_all_pass_changes
+    - a_all_pass_web_checks
+    - a_all_pass_release_gates
+    if: needs.a_all_pass_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: none
+  a_all_pass_build_and_deploy:
+    needs:
+    - a_all_pass_changes
+    - a_all_pass_web_checks
+    - a_all_pass_release_gates
+    - a_all_pass_functions
+    if: ${{ !cancelled() && needs.a_all_pass_web_checks.result == 'success' && needs.a_all_pass_release_gates.result == 'success' && (needs.a_all_pass_functions.result == 'success' || needs.a_all_pass_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  b_web_tests_fail_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=true" >> "$GITHUB_OUTPUT"
+  b_web_tests_fail_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo simulated failure; exit 1
+  b_web_tests_fail_release_gates:
+    needs:
+    - b_web_tests_fail_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "release_gates ok (simulated, no deploy)"
+  b_web_tests_fail_functions:
+    needs:
+    - b_web_tests_fail_changes
+    - b_web_tests_fail_web_checks
+    - b_web_tests_fail_release_gates
+    if: needs.b_web_tests_fail_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: none
+  b_web_tests_fail_build_and_deploy:
+    needs:
+    - b_web_tests_fail_changes
+    - b_web_tests_fail_web_checks
+    - b_web_tests_fail_release_gates
+    - b_web_tests_fail_functions
+    if: ${{ !cancelled() && needs.b_web_tests_fail_web_checks.result == 'success' && needs.b_web_tests_fail_release_gates.result == 'success' && (needs.b_web_tests_fail_functions.result == 'success' || needs.b_web_tests_fail_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  c_fn_tests_fail_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=true" >> "$GITHUB_OUTPUT"
+  c_fn_tests_fail_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "web_checks ok (simulated, no deploy)"
+  c_fn_tests_fail_release_gates:
+    needs:
+    - c_fn_tests_fail_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "release_gates ok (simulated, no deploy)"
+  c_fn_tests_fail_functions:
+    needs:
+    - c_fn_tests_fail_changes
+    - c_fn_tests_fail_web_checks
+    - c_fn_tests_fail_release_gates
+    if: needs.c_fn_tests_fail_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: test
+  c_fn_tests_fail_build_and_deploy:
+    needs:
+    - c_fn_tests_fail_changes
+    - c_fn_tests_fail_web_checks
+    - c_fn_tests_fail_release_gates
+    - c_fn_tests_fail_functions
+    if: ${{ !cancelled() && needs.c_fn_tests_fail_web_checks.result == 'success' && needs.c_fn_tests_fail_release_gates.result == 'success' && (needs.c_fn_tests_fail_functions.result == 'success' || needs.c_fn_tests_fail_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  d_approval_reject_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=true" >> "$GITHUB_OUTPUT"
+  d_approval_reject_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "web_checks ok (simulated, no deploy)"
+  d_approval_reject_release_gates:
+    needs:
+    - d_approval_reject_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "release_gates ok (simulated, no deploy)"
+  d_approval_reject_functions:
+    needs:
+    - d_approval_reject_changes
+    - d_approval_reject_web_checks
+    - d_approval_reject_release_gates
+    if: needs.d_approval_reject_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: deploy
+  d_approval_reject_build_and_deploy:
+    needs:
+    - d_approval_reject_changes
+    - d_approval_reject_web_checks
+    - d_approval_reject_release_gates
+    - d_approval_reject_functions
+    if: ${{ !cancelled() && needs.d_approval_reject_web_checks.result == 'success' && needs.d_approval_reject_release_gates.result == 'success' && (needs.d_approval_reject_functions.result == 'success' || needs.d_approval_reject_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  e_smoke_fail_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=true" >> "$GITHUB_OUTPUT"
+  e_smoke_fail_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "web_checks ok (simulated, no deploy)"
+  e_smoke_fail_release_gates:
+    needs:
+    - e_smoke_fail_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "release_gates ok (simulated, no deploy)"
+  e_smoke_fail_functions:
+    needs:
+    - e_smoke_fail_changes
+    - e_smoke_fail_web_checks
+    - e_smoke_fail_release_gates
+    if: needs.e_smoke_fail_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: smoke-test
+  e_smoke_fail_build_and_deploy:
+    needs:
+    - e_smoke_fail_changes
+    - e_smoke_fail_web_checks
+    - e_smoke_fail_release_gates
+    - e_smoke_fail_functions
+    if: ${{ !cancelled() && needs.e_smoke_fail_web_checks.result == 'success' && needs.e_smoke_fail_release_gates.result == 'success' && (needs.e_smoke_fail_functions.result == 'success' || needs.e_smoke_fail_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  f_logs_fail_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=true" >> "$GITHUB_OUTPUT"
+  f_logs_fail_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "web_checks ok (simulated, no deploy)"
+  f_logs_fail_release_gates:
+    needs:
+    - f_logs_fail_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "release_gates ok (simulated, no deploy)"
+  f_logs_fail_functions:
+    needs:
+    - f_logs_fail_changes
+    - f_logs_fail_web_checks
+    - f_logs_fail_release_gates
+    if: needs.f_logs_fail_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: logs
+  f_logs_fail_build_and_deploy:
+    needs:
+    - f_logs_fail_changes
+    - f_logs_fail_web_checks
+    - f_logs_fail_release_gates
+    - f_logs_fail_functions
+    if: ${{ !cancelled() && needs.f_logs_fail_web_checks.result == 'success' && needs.f_logs_fail_release_gates.result == 'success' && (needs.f_logs_fail_functions.result == 'success' || needs.f_logs_fail_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  g_no_backend_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=false" >> "$GITHUB_OUTPUT"
+  g_no_backend_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "web_checks ok (simulated, no deploy)"
+  g_no_backend_release_gates:
+    needs:
+    - g_no_backend_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "release_gates ok (simulated, no deploy)"
+  g_no_backend_functions:
+    needs:
+    - g_no_backend_changes
+    - g_no_backend_web_checks
+    - g_no_backend_release_gates
+    if: needs.g_no_backend_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: none
+  g_no_backend_build_and_deploy:
+    needs:
+    - g_no_backend_changes
+    - g_no_backend_web_checks
+    - g_no_backend_release_gates
+    - g_no_backend_functions
+    if: ${{ !cancelled() && needs.g_no_backend_web_checks.result == 'success' && needs.g_no_backend_release_gates.result == 'success' && (needs.g_no_backend_functions.result == 'success' || needs.g_no_backend_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  h_gate_missing_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+    steps:
+    - id: diff
+      run: echo "functions=true" >> "$GITHUB_OUTPUT"
+  h_gate_missing_web_checks:
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "web_checks ok (simulated, no deploy)"
+  h_gate_missing_release_gates:
+    needs:
+    - h_gate_missing_changes
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo simulated failure; exit 1
+  h_gate_missing_functions:
+    needs:
+    - h_gate_missing_changes
+    - h_gate_missing_web_checks
+    - h_gate_missing_release_gates
+    if: needs.h_gate_missing_changes.outputs.functions == 'true'
+    uses: ./.github/workflows/sim-functions.yml
+    with:
+      target: functions:askSommelier
+      fail_at: none
+  h_gate_missing_build_and_deploy:
+    needs:
+    - h_gate_missing_changes
+    - h_gate_missing_web_checks
+    - h_gate_missing_release_gates
+    - h_gate_missing_functions
+    if: ${{ !cancelled() && needs.h_gate_missing_web_checks.result == 'success' && needs.h_gate_missing_release_gates.result == 'success' && (needs.h_gate_missing_functions.result == 'success' || needs.h_gate_missing_functions.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+    - run: echo "build_and_deploy ok (simulated, no deploy)"
+  verify:
+    needs:
+    - a_all_pass_functions
+    - a_all_pass_build_and_deploy
+    - b_web_tests_fail_functions
+    - b_web_tests_fail_build_and_deploy
+    - c_fn_tests_fail_functions
+    - c_fn_tests_fail_build_and_deploy
+    - d_approval_reject_functions
+    - d_approval_reject_build_and_deploy
+    - e_smoke_fail_functions
+    - e_smoke_fail_build_and_deploy
+    - f_logs_fail_functions
+    - f_logs_fail_build_and_deploy
+    - g_no_backend_functions
+    - g_no_backend_build_and_deploy
+    - h_gate_missing_functions
+    - h_gate_missing_build_and_deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - run: 'bad=0
+
+        check() { if [ "$2" = "$3" ] && [ "$4" = "$5" ]; then echo "PASS $1: functions=$2 website=$4"; else echo "FAIL $1: functions=$2 (want $3) website=$4 (want $5)"; bad=1; fi; }
+
+        check a_all_pass "${{ needs.a_all_pass_functions.result }}" success "${{ needs.a_all_pass_build_and_deploy.result }}" success
+
+        check b_web_tests_fail "${{ needs.b_web_tests_fail_functions.result }}" skipped "${{ needs.b_web_tests_fail_build_and_deploy.result }}" skipped
+
+        check c_fn_tests_fail "${{ needs.c_fn_tests_fail_functions.result }}" failure "${{ needs.c_fn_tests_fail_build_and_deploy.result }}" skipped
+
+        check d_approval_reject "${{ needs.d_approval_reject_functions.result }}" failure "${{ needs.d_approval_reject_build_and_deploy.result }}" skipped
+
+        check e_smoke_fail "${{ needs.e_smoke_fail_functions.result }}" failure "${{ needs.e_smoke_fail_build_and_deploy.result }}" skipped
+
+        check f_logs_fail "${{ needs.f_logs_fail_functions.result }}" failure "${{ needs.f_logs_fail_build_and_deploy.result }}" skipped
+
+        check g_no_backend "${{ needs.g_no_backend_functions.result }}" skipped "${{ needs.g_no_backend_build_and_deploy.result }}" success
+
+        check h_gate_missing "${{ needs.h_gate_missing_functions.result }}" skipped "${{ needs.h_gate_missing_build_and_deploy.result }}" skipped
+
+        exit $bad'
