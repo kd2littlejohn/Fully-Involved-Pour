@@ -1,3 +1,25 @@
+## v0.5.0 - AXE, Your Personal Sommelier
+
+Added
+- AXE — Your Personal Sommelier ("Guiding Your Whiskey Journey."), replacing the old, unreachable Sommelier panel. It opens as a bottom sheet on mobile and a side drawer on desktop, from a subtle "Ask AXE" button that uses the existing Glencairn compass logo, unchanged.
+- Contextual integration: AXE knows the screen you're on (Home, My Bar, Bottle Details, Journey/Bottle Stories, Discover, Profile → Your Palate, Friends, Blind Room, Infinity Bottle), with tailored intros and suggested questions. Bottle Details passes the selected bottle automatically.
+- In-workflow AXE help: "What Should I Pour?" explains the current pick without re-rolling it. The Pour Story wizard's tasting steps, Infinity Bottle Log a Tasting, and Add to Blend send a read-only snapshot of unsaved selections. AXE never changes a form, a tasting, or a blend.
+- Conversations survive closing/reopening AXE and navigating, and are cleared on sign-out or account switch.
+
+Changed
+- User-facing "sommelier" text now says AXE. Internal names, routes, the `askSommelier` callable, and stored data are unchanged.
+- `askSommelier` builds AXE's context server-side from the signed-in user's own `users/{uid}` document. Client-supplied uids and collection summaries are ignored.
+- Stored text is length-capped and treated as data, not instructions. Blind Room lineups stay hidden until the reveal, even for the host. The function now uses the existing per-user rate limiter (60/hour).
+- AXE uses the same validated palate insights as Profile → Your Palate (`palateInsights.ts`). Experienced and preferred flavors stay separate, and with too little data AXE says so instead of inventing a preference.
+
+Fixed
+- Your Palate, the Home palate card, and Palate Breakdown no longer crash on pours saved by the legacy app's guided tasting, which have a rating but no `fip` breakdown. Those pours still count toward pour count and average score, but add no component scores or flavor tags. This is read-side only: no stored pour is rewritten.
+- Infinity Bottle tasting dates (history, detail modal, score chart) no longer show one day early for viewers west of UTC.
+
+Release note: deploy Cloud Functions before the website. The new web client relies on the updated `askSommelier`. Older clients keep working with the new function.
+
+No Firebase schema, security rules, or index changes.
+
 ## v0.4.3 - Palate Tracker Accuracy
 
 Fixed
