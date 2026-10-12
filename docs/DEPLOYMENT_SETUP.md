@@ -76,8 +76,8 @@ Project number: `801004541737`.
      | Logs Viewer | the post-deploy error check |
 
 4. **Let it act as the functions' runtime account.** Service Accounts → open
-   **Default compute service account**
-   (`801004541737-compute@developer.gserviceaccount.com`) → Permissions →
+   **App Engine default service account**
+   (`fully-involved-pour@appspot.gserviceaccount.com`, which this project's functions run as) → Permissions →
    Grant access → principal `github-functions-deployer@…` → role **Service
    Account User**.
 

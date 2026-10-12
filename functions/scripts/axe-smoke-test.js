@@ -9,11 +9,18 @@
 // no token or key is ever printed. The Firebase web API key read below is a
 // public client identifier (it ships in the website), masked anyway.
 //
+// Uses google-auth-library and @google-cloud/firestore (both installed as
+// firebase-admin dependencies) rather than the Admin SDK itself: firebase-
+// admin can't parse WIF ("external_account") credentials and fails with
+// "Invalid contents in the credentials file". The custom token is signed
+// through the IAM Credentials signJwt API, so no private key is ever needed.
+//
 // Cost: two model calls per run (max 500 output tokens each).
 
 const fs = require("fs");
 const path = require("path");
-const admin = require("firebase-admin");
+const { GoogleAuth } = require("google-auth-library");
+const { Firestore } = require("@google-cloud/firestore");
 
 const PROJECT_ID = "fully-involved-pour";
 const REGION = "us-central1";
@@ -54,8 +61,29 @@ const SEEDED_DOC = {
   people: [],
 };
 
-async function idTokenForTestUser(apiKey) {
-  const customToken = await admin.auth().createCustomToken(TEST_UID, { axeSmokeTest: true });
+// A Firebase custom token is a JWT signed by a service account; signJwt
+// signs it server-side with the deploy account's Google-managed key.
+async function customTokenForTestUser(authClient, serviceAccount) {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: serviceAccount,
+    sub: serviceAccount,
+    aud: "https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit",
+    iat: now,
+    exp: now + 3600,
+    uid: TEST_UID,
+    claims: { axeSmokeTest: true },
+  };
+  const res = await authClient.request({
+    url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(serviceAccount)}:signJwt`,
+    method: "POST",
+    data: { payload: JSON.stringify(payload) },
+  });
+  if (!res.data || !res.data.signedJwt) fail("signJwt returned no token.");
+  return res.data.signedJwt;
+}
+
+async function idTokenForTestUser(apiKey, customToken) {
   const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${apiKey}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -81,14 +109,12 @@ async function askAxe(idToken, prompt, context) {
 }
 
 async function main() {
-  const serviceAccountId = process.env.GCP_SERVICE_ACCOUNT;
-  if (!serviceAccountId) fail("GCP_SERVICE_ACCOUNT isn't set.");
-  // serviceAccountId lets the Admin SDK sign the custom token via the IAM
-  // signBlob API, since keyless WIF credentials have no private key.
-  admin.initializeApp({ projectId: PROJECT_ID, serviceAccountId });
+  const serviceAccount = process.env.GCP_SERVICE_ACCOUNT;
+  if (!serviceAccount) fail("GCP_SERVICE_ACCOUNT isn't set.");
+  const authClient = await new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/cloud-platform"] }).getClient();
 
-  await admin.firestore().doc(`users/${TEST_UID}`).set({ ...SEEDED_DOC, updatedAt: Date.now() });
-  const idToken = await idTokenForTestUser(webApiKey());
+  await new Firestore({ projectId: PROJECT_ID }).doc(`users/${TEST_UID}`).set({ ...SEEDED_DOC, updatedAt: Date.now() });
+  const idToken = await idTokenForTestUser(webApiKey(), await customTokenForTestUser(authClient, serviceAccount));
 
   // 1. Identifies an owned bottle and uses the user's real tasting history.
   const bottleReply = await askAxe(idToken, "What did I think of this bottle last time?", { screen: "bottle", bottleId: BOTTLE_ID });
@@ -120,4 +146,8 @@ async function main() {
   console.log("AXE smoke test passed.");
 }
 
-main().catch((err) => fail(`Smoke test crashed: ${err && err.message ? err.message : String(err)}`));
+if (require.main === module) {
+  main().catch((err) => fail(`Smoke test crashed: ${err && err.message ? err.message : String(err)}`));
+}
+
+module.exports = { main, customTokenForTestUser, FUNCTION_URL, TEST_UID, BOTTLE_ID };
