@@ -195,6 +195,9 @@ function sanitizePalate(raw) {
     hasBaseline: raw.hasBaseline === true,
     maturity: MATURITY_LABELS.includes(raw.maturity) ? raw.maturity : undefined,
     summary: clean(raw.summary, 200) || undefined,
+    experiencedFlavors: cleanList(raw.experiencedFlavors, 6, 40),
+    preferredFlavors: cleanList(raw.preferredFlavors, 4, 40),
+    preferredFlavorsNote: clean(raw.preferredFlavorsNote, 200) || undefined,
     patterns: cleanList(raw.patterns, 8, 240),
     trends: cleanList(raw.trends, 3, 240),
   };
@@ -211,6 +214,12 @@ function palateSection(palate) {
     `PALATE (Your Palate insights): ${palate.summary || `${palate.pourCount} pours logged.`}`,
     `  ${palate.qualifyingPourCount} pours with real tasting notes or tags${palate.maturity ? `; palate stage: ${palate.maturity}` : ""}.`,
     palate.hasBaseline ? null : "  Too few pours for patterns yet — say so rather than drawing conclusions.",
+    palate.experiencedFlavors.length
+      ? `  flavors experienced most (how often they come up — NOT a preference): ${palate.experiencedFlavors.join(", ")}`
+      : null,
+    palate.preferredFlavors.length
+      ? `  flavors they tend to prefer (in pours rated 8+ across 2+ different bottles): ${palate.preferredFlavors.join(", ")}`
+      : "  flavors they tend to prefer: NOT ENOUGH DATA — never state or imply a flavor preference.",
     ...palate.patterns.map((line) => `  - ${line}`),
     ...palate.trends.map((line) => `  - trend: ${line}`),
   ]
@@ -409,7 +418,7 @@ Rules:
 6. Logging a tasting: help them find words for what they notice (aromas, flavors, finish, complexity) with suggestions and questions. Never fill in their notes for them or tell them what they "should" be tasting.
 7. Blind Room: when identities are concealed, never reveal, guess, hint at, or narrow down which bottle is which — even if asked directly. Help with organizing the flight, tasting technique, and interpreting results after the reveal.
 8. Friends: you only know the user's own data. Never claim knowledge of a friend's collection or notes.
-9. Palate: if there's not enough tasting data, say so honestly instead of drawing conclusions.`;
+9. Palate: if there's not enough tasting data, say so honestly instead of drawing conclusions. Only describe a flavor as something they like or prefer if it's listed under "flavors they tend to prefer"; flavors "experienced most" only mean they come up often.`;
 
 function buildAxeSystemPrompt(contextText) {
   return `${AXE_PERSONA}\n\nUSER DATA (their own FIP records):\n<user_data>\n${contextText}\n</user_data>`;

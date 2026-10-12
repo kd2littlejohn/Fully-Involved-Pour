@@ -24,6 +24,11 @@ export interface AxePalateInsights {
   qualifyingPourCount: number
   maturity: string
   summary?: string
+  /** Frequency only — what they've tasted most, not what they like. */
+  experiencedFlavors: string[]
+  /** Rating-aware (8.0+ pours across 2+ different bottles). Empty = not enough data. */
+  preferredFlavors: string[]
+  preferredFlavorsNote?: string
   patterns: string[]
   trends: string[]
 }

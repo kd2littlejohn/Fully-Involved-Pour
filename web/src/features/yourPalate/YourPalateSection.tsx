@@ -2,7 +2,7 @@ import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Badge } from '../../components/ui/Badge'
 import { RadarChart } from '../../components/ui/RadarChart'
-import { collectionFlavorRadarValues, topFlavorTags, FLAVOR_AXES } from '../flavorRadar/flavorCategories'
+import { FLAVOR_AXES } from '../flavorRadar/flavorCategories'
 import { getAverageProof } from '../profile/selectors'
 import { useAuth } from '../../hooks/useAuth'
 import { buildPalateProfile } from './palateProfile'
@@ -28,7 +28,7 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
       <Section title="Your Palate">
         <EmptyState
           title="Your palate starts here."
-          message="Log a few Pour Stories and we'll start showing you what you gravitate toward."
+          message="Log a few Pour Stories and we'll start showing what you've experienced and what you tend to prefer."
         />
         {typeof averageProof === 'number' ? (
           <p className={styles.footnote}>Your bar averages {averageProof.toFixed(1)} proof.</p>
@@ -37,9 +37,17 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
     )
   }
 
-  const { hasBaseline, summaryText, tastePatterns, evolutionText, proofEvolutionText } = insightText
-  const radarValues = hasBaseline ? collectionFlavorRadarValues(bottles, pours) : undefined
-  const topTags = hasBaseline ? topFlavorTags(bottles, pours, 6) : []
+  const {
+    hasBaseline,
+    summaryText,
+    radarValues,
+    experiencedFlavors,
+    preferredFlavors,
+    preferredFlavorsNote,
+    tastePatterns,
+    evolutionText,
+    proofEvolutionText,
+  } = insightText
 
   return (
     <Section title="Your Palate">
@@ -53,17 +61,38 @@ export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
         </div>
       ) : null}
 
-      {topTags.length > 0 ? (
+      {experiencedFlavors.length > 0 ? (
         <div className={styles.gravitate}>
-          <div className={styles.gravitateLabel}>You seem to gravitate toward</div>
+          <div className={styles.gravitateLabel}>Flavors you&rsquo;ve experienced most</div>
           <div className={styles.chips}>
-            {topTags.map((t) => (
+            {experiencedFlavors.map((t) => (
               <Badge key={t.tag} tone="brass">
                 {t.tag}
               </Badge>
             ))}
           </div>
         </div>
+      ) : null}
+
+      {/* A distinct measurement from the "experienced" chips above — how
+          often a flavor comes up says nothing about whether it's actually
+          liked. This only ever reflects pours that cleared TOP_RATED_THRESHOLD
+          across TOP_RATED_MIN_BOTTLES+ different bottles (see
+          getTopRatedFlavorTags), so one favorite bottle poured many times
+          can't masquerade as a palate-wide preference. */}
+      {preferredFlavors.length > 0 ? (
+        <div className={styles.gravitate}>
+          <div className={styles.gravitateLabel}>Flavors you tend to prefer</div>
+          <div className={styles.chips}>
+            {preferredFlavors.map((t) => (
+              <Badge key={t.tag} tone="brass">
+                {t.tag}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : preferredFlavorsNote ? (
+        <p className={styles.footnote}>{preferredFlavorsNote}</p>
       ) : null}
 
       {tastePatterns.length > 0 ? (

@@ -1,4 +1,4 @@
-import { topFlavorTagPercentages } from '../flavorRadar/flavorCategories'
+import { topFlavorTagPercentages, tastedBottles } from '../flavorRadar/flavorCategories'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './PalateBreakdown.module.css'
 
@@ -15,7 +15,7 @@ interface PalateBreakdownProps {
 // whole area.
 export function PalateBreakdown({ bottles, pours }: PalateBreakdownProps) {
   if (pours.length < MIN_POURS_FOR_BREAKDOWN) return null
-  const percentages = topFlavorTagPercentages(bottles, pours, 5)
+  const percentages = topFlavorTagPercentages(tastedBottles(bottles, pours), pours, 5)
   if (percentages.length === 0) return null
 
   const shown = percentages.reduce((sum, p) => sum + p.percent, 0)

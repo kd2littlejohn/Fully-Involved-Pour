@@ -303,10 +303,10 @@ describe('getProofEvolution', () => {
 })
 
 describe('getTopRatedFlavorTags', () => {
-  function pourWithTags(id: string, rating: number, tags: string[]): Pour {
+  function pourWithTags(id: string, bottleId: string, rating: number, tags: string[]): Pour {
     return {
       id,
-      bottleId: 'b1',
+      bottleId,
       date: daysAgo(1),
       rating,
       fip: { nose: 2, palate: 3, finish: 1.5, complexity: 0.75, value: 0.75, total: rating, noseAromas: [], palateFlavors: tags },
@@ -314,20 +314,54 @@ describe('getTopRatedFlavorTags', () => {
   }
 
   it('returns nothing below the minimum sample of highest-rated pours', () => {
-    const pours = [pourWithTags('p1', 9.0, ['Vanilla']), pourWithTags('p2', 8.5, ['Oak'])]
-    expect(getTopRatedFlavorTags([bourbon], pours)).toEqual([])
+    const pours = [pourWithTags('p1', 'b1', 9.0, ['Vanilla']), pourWithTags('p2', 'b2', 8.5, ['Oak'])]
+    expect(getTopRatedFlavorTags(pours)).toEqual([])
   })
 
-  it('ranks tags only from pours at or above the high-rated threshold', () => {
+  it('returns nothing when every high-rated pour is the same single bottle, however many times it was poured', () => {
+    // 4 pours clears TOP_RATED_MIN_POURS, but they're all bottle b1 — one
+    // loved bottle poured repeatedly isn't evidence of a palate-wide
+    // preference, so this must stay empty rather than crediting Vanilla/Oak.
     const pours = [
-      pourWithTags('p1', 9.0, ['Vanilla', 'Oak']),
-      pourWithTags('p2', 8.5, ['Vanilla', 'Oak']),
-      pourWithTags('p3', 8.2, ['Vanilla']),
-      pourWithTags('p4', 5.0, ['Tobacco']), // below threshold — excluded
+      pourWithTags('p1', 'b1', 9.0, ['Vanilla', 'Oak']),
+      pourWithTags('p2', 'b1', 8.5, ['Vanilla', 'Oak']),
+      pourWithTags('p3', 'b1', 8.2, ['Vanilla']),
+      pourWithTags('p4', 'b1', 9.5, ['Vanilla']),
     ]
-    const tags = getTopRatedFlavorTags([bourbon], pours).map((t) => t.tag)
+    expect(getTopRatedFlavorTags(pours)).toEqual([])
+  })
+
+  it('ranks tags only from pours at or above the high-rated threshold, once multiple bottles support it', () => {
+    const pours = [
+      pourWithTags('p1', 'b1', 9.0, ['Vanilla', 'Oak']),
+      pourWithTags('p2', 'b2', 8.5, ['Vanilla', 'Oak']),
+      pourWithTags('p3', 'b1', 8.2, ['Vanilla']),
+      pourWithTags('p4', 'b1', 5.0, ['Tobacco']), // below threshold — excluded
+    ]
+    const tags = getTopRatedFlavorTags(pours).map((t) => t.tag)
     expect(tags).toContain('Vanilla')
     expect(tags).toContain('Oak')
     expect(tags).not.toContain('Tobacco')
+  })
+
+  it('counts a flavor once per bottle, not once per pour, so a repeated bottle cannot outrank a true multi-bottle preference', () => {
+    // Vanilla: bottle b1 poured 3 times (high-rated each time) -> 3 raw
+    // mentions but 1 distinct bottle. Oak: bottles b2 and b3, 1 pour each ->
+    // 2 raw mentions but 2 distinct bottles. Oak must rank first.
+    const pours = [
+      pourWithTags('p1', 'b1', 9.0, ['Vanilla']),
+      pourWithTags('p2', 'b1', 9.0, ['Vanilla']),
+      pourWithTags('p3', 'b1', 9.0, ['Vanilla']),
+      pourWithTags('p4', 'b2', 8.5, ['Oak']),
+      pourWithTags('p5', 'b3', 8.5, ['Oak']),
+    ]
+    const ranked = getTopRatedFlavorTags(pours)
+    const oak = ranked.find((r) => r.tag === 'Oak')
+    const vanilla = ranked.find((r) => r.tag === 'Vanilla')
+    expect(oak).toBeDefined()
+    expect(vanilla).toBeDefined()
+    expect(oak!.bottleCount).toBe(2)
+    expect(vanilla!.bottleCount).toBe(1)
+    expect(ranked.indexOf(oak!)).toBeLessThan(ranked.indexOf(vanilla!))
   })
 })

@@ -1,5 +1,6 @@
 import type { Bottle, Pour } from '../../data/types'
 import { fipTier } from '../fip/tiers'
+import { collectionFlavorRadarValues, tastedBottles, topFlavorTags, type FlavorTagRank } from '../flavorRadar/flavorCategories'
 import {
   getPalateStats,
   getBuyAgainRate,
@@ -10,6 +11,7 @@ import {
   getPalateEvolution,
   getProofEvolution,
   getTopRatedFlavorTags,
+  type FlavorPreferenceRank,
   type PalateStats,
 } from './selectors'
 
@@ -19,14 +21,27 @@ export interface PalateInsightText {
   stats: PalateStats
   hasBaseline: boolean
   summaryText: string
+  /** Flavor Radar values — tasted bottles only. Undefined below the baseline. */
+  radarValues?: number[]
+  /** "Flavors you've experienced most" — frequency only, tasted bottles only; says nothing about liking. */
+  experiencedFlavors: FlavorTagRank[]
+  /** "Flavors you tend to prefer" — rating-aware, 8.0+ pours across 2+ different bottles (getTopRatedFlavorTags). */
+  preferredFlavors: FlavorPreferenceRank[]
+  /** Shown instead of preferred flavors once there's a baseline but not enough high-rated variety yet. */
+  preferredFlavorsNote?: string
   tastePatterns: string[]
   evolutionText?: string
   proofEvolutionText?: string
 }
 
-// The validated, user-facing palate insights — exactly the sentences Your
-// Palate shows (YourPalateSection), built from the tested selectors. Shared
-// so AXE explains the same insights instead of re-deriving its own view.
+export const PREFERRED_FLAVORS_PENDING_NOTE =
+  'Rate a few more pours 8+ across different bottles, and we\u2019ll start showing flavors you tend to prefer.'
+
+// The validated, user-facing palate insights — everything Your Palate shows
+// (YourPalateSection), built once from the tested selectors. AXE consumes
+// this same object (features/sommelier/axePalate.ts), so the screen and AXE
+// can never disagree or re-derive their own view. Collection-wide flavor
+// measures only count bottles that were actually poured (tastedBottles).
 // Undefined when there are no pours at all.
 export function buildPalateInsightText(bottles: Bottle[], pours: Pour[]): PalateInsightText | undefined {
   const stats = getPalateStats(pours)
@@ -43,7 +58,11 @@ export function buildPalateInsightText(bottles: Bottle[], pours: Pour[]): Palate
   const occasion = hasBaseline ? getTopOccasion(pours) : undefined
   const evolution = getPalateEvolution(pours)
   const proofEvolution = getProofEvolution(bottles, pours)
-  const topRatedFlavors = hasBaseline ? getTopRatedFlavorTags(bottles, pours) : []
+  const tasted = tastedBottles(bottles, pours)
+  const radarValues = hasBaseline ? collectionFlavorRadarValues(tasted, pours) : undefined
+  const experiencedFlavors = hasBaseline ? topFlavorTags(tasted, pours, 6) : []
+  const preferredFlavors = hasBaseline ? getTopRatedFlavorTags(pours) : []
+  const preferredFlavorsNote = hasBaseline && preferredFlavors.length === 0 ? PREFERRED_FLAVORS_PENDING_NOTE : undefined
 
   const tastePatterns: string[] = []
   if (proofAffinity) {
@@ -69,10 +88,6 @@ export function buildPalateInsightText(bottles: Bottle[], pours: Pour[]): Palate
   if (occasion) {
     tastePatterns.push(`Most of your logged pours have been for "${occasion.occasion}."`)
   }
-  if (topRatedFlavors.length > 0) {
-    const tagList = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(topRatedFlavors.map((t) => t.tag))
-    tastePatterns.push(`Your highest-rated pours tend to have ${tagList} notes.`)
-  }
 
   const evolutionText = !evolution
     ? undefined
@@ -91,5 +106,16 @@ export function buildPalateInsightText(bottles: Bottle[], pours: Pour[]): Palate
 
   const summaryText = `You've logged ${pourCount} ${pourCount === 1 ? 'pour' : 'pours'} so far, averaging ${stats.averageScore.toFixed(1)} — ${tier.label}.`
 
-  return { stats, hasBaseline, summaryText, tastePatterns, evolutionText, proofEvolutionText }
+  return {
+    stats,
+    hasBaseline,
+    summaryText,
+    radarValues,
+    experiencedFlavors,
+    preferredFlavors,
+    preferredFlavorsNote,
+    tastePatterns,
+    evolutionText,
+    proofEvolutionText,
+  }
 }

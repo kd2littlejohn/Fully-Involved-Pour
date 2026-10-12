@@ -42,6 +42,8 @@ describe('buildAxePalateInsights', () => {
       hasBaseline: false,
       qualifyingPourCount: 0,
       maturity: 'learning',
+      experiencedFlavors: [],
+      preferredFlavors: [],
       patterns: [],
       trends: [],
     })

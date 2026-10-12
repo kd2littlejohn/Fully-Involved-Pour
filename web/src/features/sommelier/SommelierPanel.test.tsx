@@ -196,7 +196,16 @@ describe('AXE — Your Personal Sommelier', () => {
     await userEvent.click(screen.getByRole('button', { name: /What does my palate say about me/ }))
     expect(mockAsk).toHaveBeenLastCalledWith('What does my palate say about me?', [], {
       screen: 'palate',
-      palate: { pourCount: 0, hasBaseline: false, qualifyingPourCount: 0, maturity: 'learning', patterns: [], trends: [] },
+      palate: {
+        pourCount: 0,
+        hasBaseline: false,
+        qualifyingPourCount: 0,
+        maturity: 'learning',
+        experiencedFlavors: [],
+        preferredFlavors: [],
+        patterns: [],
+        trends: [],
+      },
     })
   })
 })

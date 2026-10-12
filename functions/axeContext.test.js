@@ -117,6 +117,23 @@ describe("buildAxeContext", () => {
     expect(missing).toContain("don't draw palate conclusions");
   });
 
+  it("keeps experienced and preferred flavors distinct, and forbids implying a preference without data", () => {
+    const base = { pourCount: 6, qualifyingPourCount: 6, hasBaseline: true, patterns: [], trends: [] };
+    const none = buildAxeContext(
+      userDoc,
+      sanitizeAxeContext({ screen: "palate", palate: { ...base, experiencedFlavors: ["Vanilla", "Oak"], preferredFlavors: [] } }),
+    );
+    expect(none).toContain("flavors experienced most (how often they come up — NOT a preference): Vanilla, Oak");
+    expect(none).toContain("flavors they tend to prefer: NOT ENOUGH DATA — never state or imply a flavor preference.");
+
+    const some = buildAxeContext(
+      userDoc,
+      sanitizeAxeContext({ screen: "palate", palate: { ...base, experiencedFlavors: ["Vanilla"], preferredFlavors: ["Caramel"] } }),
+    );
+    expect(some).toContain("flavors they tend to prefer (in pours rated 8+ across 2+ different bottles): Caramel");
+    expect(buildAxeSystemPrompt(some)).toContain('Only describe a flavor as something they like or prefer if it\'s listed under "flavors they tend to prefer"');
+  });
+
   it("bounds client-supplied palate insights", () => {
     const ctx = sanitizeAxeContext({
       screen: "palate",
