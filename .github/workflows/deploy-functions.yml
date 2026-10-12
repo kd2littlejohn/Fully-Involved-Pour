@@ -10,8 +10,8 @@ name: Deploy Cloud Functions
 #   - Manually from the Actions tab (Run workflow), e.g. to redeploy one
 #     function without a website release.
 #
-# One-time setup (WIF pool, deploy service account, GitHub variables, and
-# the "production" environment's approval rule) is described in
+# One-time setup (WIF pool, deploy service account, and the approval rule on
+# the "production-functions" environment) is described in
 # docs/DEPLOYMENT_SETUP.md.
 
 on:
@@ -20,7 +20,7 @@ on:
       target:
         description: Firebase --only target
         type: string
-        default: functions
+        default: functions:askSommelier
   workflow_dispatch:
     inputs:
       target:
@@ -39,6 +39,10 @@ env:
   PROJECT_ID: fully-involved-pour
   REGION: us-central1
   FIREBASE_TOOLS_VERSION: 14.27.0
+  # Identifiers, not credentials. These are the names docs/DEPLOYMENT_SETUP.md
+  # asks for. Repository variables override them if a different name is used.
+  WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || 'projects/801004541737/locations/global/workloadIdentityPools/github/providers/github-actions' }}
+  DEPLOY_SA: ${{ vars.GCP_SERVICE_ACCOUNT || 'github-functions-deployer@fully-involved-pour.iam.gserviceaccount.com' }}
 
 jobs:
   test:
@@ -73,27 +77,37 @@ jobs:
     timeout-minutes: 30
     # Required reviewers on this environment (set up once in GitHub) make
     # every production backend deploy wait for an explicit approval.
-    environment: production
+    environment: production-functions
     concurrency:
       group: functions-deploy
       cancel-in-progress: false
     permissions:
       contents: read
+      actions: read # read this environment's protection rules
       id-token: write # lets GitHub mint the OIDC token that WIF exchanges
     outputs:
       deployed_ask_sommelier: ${{ steps.target.outputs.ask_sommelier }}
       started_at: ${{ steps.target.outputs.started_at }}
     steps:
-      - name: Check deployment configuration
+      - name: Require the approval gate
+        # GitHub auto-creates a referenced environment WITHOUT protection, so
+        # a missing setup step would otherwise mean "no approval". Refuse.
         env:
-          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          DEPLOY_SA: ${{ vars.GCP_SERVICE_ACCOUNT }}
-          TARGET: ${{ inputs.target }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
-          if [ -z "$WIF_PROVIDER" ] || [ -z "$DEPLOY_SA" ]; then
-            echo "::error::Workload Identity Federation isn't configured. Set the GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT repository variables (docs/DEPLOYMENT_SETUP.md)."
+          rules=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/environments/production-functions" | jq -r '[.protection_rules[]?.type] | join(",")')
+          if ! printf '%s' "$rules" | grep -q required_reviewers; then
+            echo "::error::The production-functions environment has no required reviewers, so deploying without approval is refused (docs/DEPLOYMENT_SETUP.md)."
             exit 1
           fi
+          echo "Approval gate present."
+
+      - name: Check deployment target
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
           # Only function targets are allowed here (never hosting/rules/etc.).
           if ! printf '%s' "$TARGET" | grep -Eq '^functions(:[A-Za-z0-9_-]+)?(,functions:[A-Za-z0-9_-]+)*$'; then
             echo "::error::Refusing target '$TARGET': only 'functions' or 'functions:<name>[,functions:<name>]' is allowed."
@@ -126,8 +140,8 @@ jobs:
       - name: Authenticate to Google Cloud (keyless)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
           create_credentials_file: true
           export_environment_variables: true
 
@@ -198,15 +212,15 @@ jobs:
       - name: Authenticate to Google Cloud (keyless)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
           create_credentials_file: true
           export_environment_variables: true
       - name: Ask AXE as a dedicated test user
         # Two real model calls against a dedicated test account. Seeded data
         # only, no real users touched. Tokens are never printed.
         env:
-          GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          GCP_SERVICE_ACCOUNT: ${{ env.DEPLOY_SA }}
         run: node functions/scripts/axe-smoke-test.js
 
   logs:
@@ -222,8 +236,8 @@ jobs:
       - name: Authenticate to Google Cloud (keyless)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Fail on errors logged since the deploy
         # Prints counts and timestamps only, never log payloads (they can

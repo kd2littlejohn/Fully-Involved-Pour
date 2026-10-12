@@ -6,10 +6,11 @@ name: Deploy to Firebase Hosting
 # created (see the FIREBASE_SERVICE_ACCOUNT_FULLY_INVOLVED_POUR repo secret).
 #
 # Release order: when a push also changes functions/, the Cloud Functions
-# deploy (deploy-functions.yml: tests, approval, deploy, live smoke test,
-# log check) runs first, and the website only deploys if it succeeds. A new
-# web client therefore never goes live against an old backend. Pushes that
-# don't touch functions/ deploy the website exactly as before.
+# deploy (deploy-functions.yml: tests, approval on production-functions,
+# deploy, live smoke test, log check) runs first. The website then waits
+# for its own approval on production-website and deploys only if
+# everything before it succeeded. Until then the current site keeps
+# serving, and a new web client never goes live against an old backend.
 
 on:
   push:
@@ -76,28 +77,59 @@ jobs:
         working-directory: web
         run: npx vitest run
 
+  release_gates:
+    name: Check approval gates
+    needs: changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # GitHub auto-creates a referenced environment WITHOUT protection, so
+      # a skipped setup step would silently remove an approval. Fail
+      # before anything deploys instead.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NEEDS_FUNCTIONS: ${{ needs.changes.outputs.functions }}
+        run: |
+          envs="production-website"
+          if [ "$NEEDS_FUNCTIONS" = "true" ]; then envs="production-functions $envs"; fi
+          for env in $envs; do
+            rules=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/environments/$env" 2>/dev/null | jq -r '[.protection_rules[]?.type] | join(",")' || true)
+            if ! printf '%s' "$rules" | grep -q required_reviewers; then
+              echo "::error::The $env environment needs required reviewers before production releases (docs/DEPLOYMENT_SETUP.md)."
+              exit 1
+            fi
+            echo "$env: approval gate present."
+          done
+
   functions:
     name: Cloud Functions
-    needs: [changes, web_checks]
+    needs: [changes, web_checks, release_gates]
     if: needs.changes.outputs.functions == 'true'
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/deploy-functions.yml
     with:
-      # All functions by default, so any backend change ships. Set the
-      # FUNCTIONS_DEPLOY_TARGET repository variable (e.g.
-      # "functions:askSommelier") to narrow it.
-      target: ${{ vars.FUNCTIONS_DEPLOY_TARGET || 'functions' }}
+      # The first AXE release ships only askSommelier. Set the
+      # FUNCTIONS_DEPLOY_TARGET repository variable to "functions" later to
+      # ship every backend change automatically.
+      target: ${{ vars.FUNCTIONS_DEPLOY_TARGET || 'functions:askSommelier' }}
     secrets: inherit
 
   build_and_deploy:
-    needs: [changes, web_checks, functions]
-    # Website deploys when checks pass and the backend deploy succeeded or
-    # wasn't needed. It never deploys after a failed or cancelled backend
-    # deploy.
-    if: ${{ !cancelled() && needs.web_checks.result == 'success' && (needs.functions.result == 'success' || needs.functions.result == 'skipped') }}
+    needs: [changes, web_checks, release_gates, functions]
+    # Website deploys when checks and gates pass and the backend deploy
+    # succeeded or wasn't needed. It never deploys after a failed, rejected
+    # or cancelled backend deploy.
+    if: ${{ !cancelled() && needs.web_checks.result == 'success' && needs.release_gates.result == 'success' && (needs.functions.result == 'success' || needs.functions.result == 'skipped') }}
     runs-on: ubuntu-latest
+    # Separate approval before the site goes public. Until it's given, the
+    # current site keeps serving.
+    environment: production-website
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -6,16 +6,17 @@ terminal commands:
 ```
 push to main
   ├─ Web checks (type check, lint, unit tests)
-  ├─ Detect backend changes (functions/ or firebase.json)
+  ├─ Approval gates check: both environments must have required reviewers
   ├─ If the backend changed → "Deploy Cloud Functions" (deploy-functions.yml)
-  │     tests on the emulator → waits for your approval → deploy
-  │     → verifies askSommelier is live → live AXE smoke test → log check
-  └─ Website deploy (unchanged step), only if all of the above succeeded
+  │     tests on the emulator → ⏸ approval 1 (production-functions) → deploy
+  │     → askSommelier liveness check → live AXE smoke test → log check
+  └─ ⏸ approval 2 (production-website) → website deploy (unchanged step)
 ```
 
-If anything in the backend path fails, or you reject the approval, the
-website is **not** deployed, so a new web client never runs against an old
-backend. Pull requests run `ci.yml` (web checks, plus functions and rules
+The current website keeps serving until approval 2 is given, and approval 2
+is only offered after the backend path succeeded. If a check fails, or you
+reject an approval, nothing after it runs. The first AXE release deploys
+only `askSommelier`. Pull requests run `ci.yml` (web checks, plus functions and rules
 tests on the emulator) with no credentials at all.
 
 ## How credentials work
@@ -25,8 +26,9 @@ tests on the emulator) with no credentials at all.
 | Credential | `FIREBASE_SERVICE_ACCOUNT_FULLY_INVOLVED_POUR` secret (long-lived key from `firebase init hosting:github`) | **No key.** GitHub's short-lived OIDC token, exchanged via Workload Identity Federation (WIF) |
 | Can deploy functions? | No: that account only has Hosting/Auth/viewer roles, and widening a long-lived key to backend code isn't recommended | Yes, but only from `main` of this repository |
 
-Nothing secret is stored in the repo or in GitHub variables. The two values
-you'll add are identifiers, not credentials. `ANTHROPIC_API_KEY` stays in
+Nothing secret is stored anywhere in GitHub. The workflows already contain
+the pool and service-account *names* used below (identifiers, not
+credentials), so no GitHub variables are needed. `ANTHROPIC_API_KEY` stays in
 Google Secret Manager. Workflows only check that it exists (metadata), never
 read it.
 
@@ -89,39 +91,43 @@ Project number: `801004541737`.
    attribute `repository` = `kd2littlejohn/Fully-Involved-Pour` → Save.
    Dismiss the "configure your application" download: no key file is needed.
 
-7. Copy the provider's full name from the pool's provider page. It looks like
-   `projects/801004541737/locations/global/workloadIdentityPools/github/providers/github-actions`.
+Use exactly the names above (pool `github`, provider `github-actions`,
+service account `github-functions-deployer`), because the workflows expect
+them. If you use different names, set `GCP_WORKLOAD_IDENTITY_PROVIDER` and
+`GCP_SERVICE_ACCOUNT` repository variables to match.
 
-## Step 2: GitHub (repository Settings)
+## Step 2: GitHub approval gates
 
-1. **Variables.** Secrets and variables → Actions → **Variables** tab → New
-   repository variable:
-   - `GCP_WORKLOAD_IDENTITY_PROVIDER` = the provider name from step 1.7
-   - `GCP_SERVICE_ACCOUNT` = `github-functions-deployer@fully-involved-pour.iam.gserviceaccount.com`
-   - Optional: `FUNCTIONS_DEPLOY_TARGET` = `functions:askSommelier` to deploy
-     only that function on merges (the default `functions` deploys all).
-   - Optional: `AXE_SMOKE_TEST` = `false` to skip the live smoke test. It
-     makes two model calls per backend release.
+Open https://github.com/kd2littlejohn/Fully-Involved-Pour/settings/environments/new
+and create two environments, each with **Required reviewers** = yourself and
+**Deployment branches and tags** = *Selected branches* → `main`:
 
-2. **Approval gate.** Environments → **New environment** → `production`.
-   - Required reviewers: yourself.
-   - Deployment branches and tags: *Selected branches* → `main`.
+1. `production-functions`: approves the backend deploy.
+2. `production-website`: approves making the new website public.
 
-   Every backend deploy then pauses with a **Review deployments** button on
-   the workflow run until you approve it.
+Releases refuse to run if either environment is missing its reviewers.
+
+Optional repository variables (Settings → Secrets and variables → Actions → Variables):
+- `FUNCTIONS_DEPLOY_TARGET` = `functions` after the AXE release, so any
+  backend change ships (the default deploys only `functions:askSommelier`).
+- `AXE_SMOKE_TEST` = `false` to skip the live smoke test (two model calls
+  per backend release).
 
 ## Releasing AXE (after setup)
 
 1. Open the pull request `claude/ecstatic-mayer-9126ud` → `main` and confirm
    the CI checks are green.
 2. Merge it. In the Actions tab, open **Deploy to Firebase Hosting**.
-3. When **Cloud Functions / Deploy** asks for review, click **Review
-   deployments → Approve**.
-4. Watch these go green in order: deploy, askSommelier liveness check, live
-   AXE smoke test, log check. The website deploy runs only after all of them.
-5. On fullyinvolvedpour.com, accept the update banner and try **Ask AXE**.
+3. **Approval 1:** when the run shows *Review deployments* for
+   `production-functions`, approve it.
+4. Watch these go green: deploy, askSommelier liveness check, live AXE smoke
+   test, log check.
+5. **Approval 2:** approve `production-website`. Only now does the new site
+   go public.
+6. On fullyinvolvedpour.com, accept the update banner and try **Ask AXE**.
 
-If a step fails, the website stays on the previous version. The run's
+If a step fails or you reject either approval, the website stays on the
+previous version. The run's
 summary names the failing step. Re-run the failed jobs from the Actions tab
 after fixing the cause.
 
