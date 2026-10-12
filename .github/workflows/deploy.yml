@@ -29,6 +29,9 @@ jobs:
   changes:
     name: Detect backend changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # find the last successful release
     outputs:
       functions: ${{ steps.diff.outputs.functions }}
     steps:
@@ -36,8 +39,12 @@ jobs:
         with:
           fetch-depth: 0
       - id: diff
+        # Compares against the last SUCCESSFUL release, not the previous
+        # push, so backend changes from a failed, rejected or cancelled
+        # release are never dropped by the next one.
         env:
-          BEFORE: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           AFTER: ${{ github.sha }}
           EVENT: ${{ github.event_name }}
         run: |
@@ -45,10 +52,16 @@ jobs:
             # Manual runs stay website-only, as before. Functions have their
             # own manual "Deploy Cloud Functions" workflow.
             echo "functions=false" >> "$GITHUB_OUTPUT"
-          elif [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            # New branch or rewritten history: can't diff, so deploy functions to be safe.
+            exit 0
+          fi
+          base=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/workflows/deploy.yml/runs?branch=main&event=push&status=success&per_page=1" \
+            | jq -r '.workflow_runs[0].head_sha // empty' || true)
+          echo "Last successful release: ${base:-none}"
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            # No usable baseline: deploy functions to be safe.
             echo "functions=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only "$BEFORE" "$AFTER" -- functions/ firebase.json | grep -q .; then
+          elif git diff --name-only "$base" "$AFTER" -- functions/ firebase.json | grep -q .; then
             echo "functions=true" >> "$GITHUB_OUTPUT"
           else
             echo "functions=false" >> "$GITHUB_OUTPUT"
@@ -109,8 +122,11 @@ jobs:
     name: Cloud Functions
     needs: [changes, web_checks, release_gates]
     if: needs.changes.outputs.functions == 'true'
+    # Must cover every permission the called workflow's jobs request, or
+    # GitHub refuses to start the run (startup_failure).
     permissions:
       contents: read
+      actions: read
       id-token: write
     uses: ./.github/workflows/deploy-functions.yml
     with:
