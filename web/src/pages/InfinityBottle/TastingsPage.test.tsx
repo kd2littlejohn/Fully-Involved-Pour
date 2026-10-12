@@ -141,7 +141,10 @@ describe('TastingsPage', () => {
     render(<TastingsPage />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByText('Dec 31, 2025'))
+    // A tasting logged on 2026-01-01 reads as Jan 1 in every timezone — it
+    // used to be parsed as UTC midnight and shown as "Dec 31, 2025" anywhere
+    // west of UTC (and this test only passed there).
+    await userEvent.click(screen.getByText('Jan 1, 2026'))
     expect(screen.getByText('Viewing t1')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Close' }))

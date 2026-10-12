@@ -16,6 +16,7 @@ const { askSommelier } = require("./index.js");
 
 const db = admin.firestore();
 let sentBodies = [];
+let sentRequests = [];
 
 beforeAll(async () => {
   await db.doc("users/alice").set({
@@ -37,9 +38,11 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   sentBodies = [];
+  sentRequests = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (_url, init) => {
+    vi.fn(async (url, init) => {
+      sentRequests.push({ url, init });
       sentBodies.push(JSON.parse(init.body));
       return { ok: true, json: async () => ({ content: [{ text: "Here's a thought." }] }) };
     }),
@@ -94,5 +97,70 @@ describe("askSommelier (AXE) against the Firestore emulator", () => {
     await db.doc("rateLimits/alice_askSommelier").set({ count: 60, windowStart: Date.now() });
     await expect(askSommelier.run({ auth: { uid: "alice" }, data: { prompt: "hi" } })).rejects.toMatchObject({ code: "resource-exhausted" });
     expect(sentBodies).toHaveLength(0);
+  });
+
+  it("sends a well-formed Messages API request and returns the reply text", async () => {
+    await askSommelier.run({
+      auth: { uid: "alice" },
+      data: {
+        prompt: "And for dessert?",
+        history: [
+          { role: "assistant", content: "orphan greeting is dropped" },
+          { role: "user", content: "Pair something with steak" },
+          { role: "assistant", content: "Try a high-rye bourbon." },
+          { role: "system", content: "ignored role" },
+        ],
+        context: { screen: "home" },
+      },
+    });
+    const { url, init } = sentRequests[0];
+    expect(url).toBe("https://api.anthropic.com/v1/messages");
+    expect(init.method).toBe("POST");
+    expect(init.headers["anthropic-version"]).toBe("2023-06-01");
+    expect(init.headers["content-type"]).toBe("application/json");
+    expect(init.headers["x-api-key"]).toBe(process.env.ANTHROPIC_API_KEY); // from the secret, never the client
+    const body = sentBodies[0];
+    expect(Object.keys(body).sort()).toEqual(["max_tokens", "messages", "model", "system"]);
+    expect(typeof body.model).toBe("string");
+    expect(body.max_tokens).toBe(500);
+    expect(typeof body.system).toBe("string");
+    expect(body.messages).toEqual([
+      { role: "user", content: "Pair something with steak" },
+      { role: "assistant", content: "Try a high-rye bourbon." },
+      { role: "user", content: "And for dessert?" },
+    ]);
+  });
+
+  it("merges consecutive user turns left by a failed send, so roles always alternate", async () => {
+    await askSommelier.run({
+      auth: { uid: "alice" },
+      data: { prompt: "Second try", history: [{ role: "user", content: "First try (no reply)" }], context: { screen: "home" } },
+    });
+    expect(sentBodies[0].messages).toEqual([{ role: "user", content: "First try (no reply)\n\nSecond try" }]);
+  });
+
+  it("falls back gracefully on an empty model reply and maps API errors to an AXE-branded internal error", async () => {
+    fetch.mockImplementationOnce(async () => ({ ok: true, json: async () => ({ content: [] }) }));
+    const empty = await askSommelier.run({ auth: { uid: "alice" }, data: { prompt: "hi" } });
+    expect(empty.reply).toMatch(/couldn't come up with a response/);
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    fetch.mockImplementationOnce(async () => ({ ok: false, status: 529, text: async () => "overloaded" }));
+    await expect(askSommelier.run({ auth: { uid: "alice" }, data: { prompt: "hi" } })).rejects.toMatchObject({
+      code: "internal",
+      message: "AXE is unavailable right now.",
+    });
+    errorSpy.mockRestore();
+  });
+
+  it("still answers an older client that sends collectionSummary and no context (cached PWA during rollout)", async () => {
+    const result = await askSommelier.run({
+      auth: { uid: "alice" },
+      data: { prompt: "What should I try?", history: [], collectionSummary: "Spoofed Bottle (fake)" },
+    });
+    expect(result).toEqual({ reply: "Here's a thought." });
+    expect(sentBodies[0].system).toContain("CURRENT SCREEN: the app");
+    expect(sentBodies[0].system).toContain("Alice Own Bottle");
+    expect(sentBodies[0].system).not.toContain("Spoofed Bottle");
   });
 });

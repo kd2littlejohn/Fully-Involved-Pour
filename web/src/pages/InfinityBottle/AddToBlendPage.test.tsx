@@ -11,6 +11,11 @@ vi.mock('react-router-dom', () => ({
   useParams: () => mockParams,
 }))
 
+const mockOpenAxe = vi.fn()
+vi.mock('../../features/sommelier/SommelierProvider', () => ({
+  useSommelier: () => ({ openAxe: mockOpenAxe }),
+}))
+
 const mockAddBlendAdditions = vi.fn().mockResolvedValue(undefined)
 let mockBottles: Bottle[] = []
 let mockInfinityBottles: InfinityBottle[] = []
@@ -467,5 +472,33 @@ describe('AddToBlendPage — multiple physical bottles of the same source', () =
     await userEvent.click(within(dialog).getByRole('button', { name: /Add 1 Bottle to Blend/ }))
 
     expect(mockAddBlendAdditions).toHaveBeenCalledWith('ib1', 'b1', [expect.objectContaining({ sourceBottleInstanceId: undefined })])
+  })
+})
+
+describe('AddToBlendPage — AXE', () => {
+  it('offers AXE only once something is selected, and hands it a read-only snapshot of the unsaved selections', async () => {
+    mockOpenAxe.mockClear()
+    render(<AddToBlendPage />)
+    expect(screen.queryByRole('button', { name: /Ask AXE about these selections/ })).not.toBeInTheDocument()
+
+    await selectBottle('Eagle Rare')
+    await selectBottle('Weller 107')
+    await continueToAmounts()
+    await userEvent.click(within(amountCard('Eagle Rare')).getByRole('button', { name: '60ml' }))
+    await userEvent.click(screen.getByRole('button', { name: /Ask AXE about these selections/ }))
+
+    expect(mockOpenAxe).toHaveBeenCalledWith({
+      screen: 'infinity',
+      infinityBottleId: 'ib1',
+      blendDraft: {
+        additions: [
+          { bottleName: 'Eagle Rare', amountMl: 60 },
+          { bottleName: 'Weller 107', amountMl: undefined },
+        ],
+      },
+    })
+    // Asking AXE never saves or changes the blend, and the form keeps its state.
+    expect(mockAddBlendAdditions).not.toHaveBeenCalled()
+    expect(within(amountCard('Eagle Rare')).getByRole('button', { name: '60ml' }).className).toMatch(/quickButtonActive/)
   })
 })

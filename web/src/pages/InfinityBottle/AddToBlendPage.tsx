@@ -10,6 +10,7 @@ import { Modal } from '../../components/ui/Modal'
 import { BottlePlaceholder } from '../../components/ui/BottlePlaceholder'
 import { useUserData, type NewBlendAdditionInput } from '../../hooks/useUserData'
 import type { Bottle, FillLevel } from '../../data/types'
+import { AxeInlineSuggestion } from '../../features/sommelier/AxeInlineSuggestion'
 import styles from './AddToBlendPage.module.css'
 import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 
@@ -208,6 +209,23 @@ export function AddToBlendPage() {
       <InfinityBottleHeader backTo={`/collection/infinity/${ib.id}`} title="Add to Blend" />
 
       <div className={styles.body}>
+        {/* Unsaved selections reach AXE only when the user asks — as a
+            read-only snapshot. AXE can't add, change, or save anything. */}
+        {selectedBottles.length > 0 ? (
+          <AxeInlineSuggestion
+            message="Ask AXE about these selections"
+            context={() => ({
+              screen: 'infinity',
+              infinityBottleId: ib.id,
+              blendDraft: {
+                additions: selectedBottles.map(({ selection, bottle }) => ({
+                  bottleName: bottle.name,
+                  amountMl: selection.amountMl > 0 ? Math.round(selection.amountMl) : undefined,
+                })),
+              },
+            })}
+          />
+        ) : null}
         {step === 'select' ? (
           <>
             <input

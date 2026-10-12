@@ -74,7 +74,14 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
   const blind = context.screen === "blind" && context.roomId ? await loadBlindForAxe(db, context.roomId, request.auth.uid) : undefined;
 
   const system = buildAxeSystemPrompt(buildAxeContext(userSnap.exists ? userSnap.data() : {}, context, { blind }));
-  const messages = [...history, { role: "user", content: prompt }];
+  // Roles must alternate. A failed send leaves an unanswered user turn in
+  // the client's history, so merge any consecutive same-role turns.
+  const messages = [];
+  for (const turn of [...history, { role: "user", content: prompt }]) {
+    const last = messages[messages.length - 1];
+    if (last && last.role === turn.role) last.content = `${last.content}\n\n${turn.content}`;
+    else messages.push({ ...turn });
+  }
   const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 500 });
   return { reply: reply || "I couldn't come up with a response just now — try rephrasing." };
 });

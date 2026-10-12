@@ -80,6 +80,15 @@ describe('getMaybeTonightCandidates', () => {
 })
 
 describe('getPalateInsight', () => {
+  it('ignores legacy pours with no fip breakdown instead of crashing Home', () => {
+    const bottles: Bottle[] = [{ id: 'a', name: 'A', status: 'open', createdAt: 1 }]
+    const pours = [
+      ...Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, bottleId: 'a', date: daysAgo(i), rating: 8, fip: { ...minFip(8), palateFlavors: ['Oak'] } })),
+      { id: 'legacy', bottleId: 'a', date: daysAgo(5), rating: 7 },
+    ] as unknown as Pour[]
+    expect(getPalateInsight(bottles, pours)?.primaryLabel).toBe('Oak-Forward')
+  })
+
   it('returns undefined below the minimum pour count', () => {
     const bottles: Bottle[] = [{ id: 'a', name: 'A', status: 'open', createdAt: 1 }]
     const pours: Pour[] = [

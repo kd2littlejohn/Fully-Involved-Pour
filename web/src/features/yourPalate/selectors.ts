@@ -18,19 +18,29 @@ export interface PalateStats {
 
 // Always safe to compute — pure averages, no preference claim, honest at any
 // pour count (the caller decides how much surrounding language to add).
+//
+// Pours logged by the legacy app's guided tasting (legacy/app.js
+// logGuidedTastingPour) were saved with a rating but no `fip` breakdown at
+// all. They still count toward pour count and average score, but component
+// averages only use pours that actually recorded components — a missing
+// breakdown is never treated as zeros or guessed at.
 export function getPalateStats(pours: Pour[]): PalateStats | undefined {
   if (pours.length === 0) return undefined
   const n = pours.length
-  const sum = (pick: (p: Pour) => number) => pours.reduce((s, p) => s + pick(p), 0)
+  const withFip = pours.filter((p) => p.fip)
+  const avgComponent = (pick: (fip: Pour['fip']) => number | undefined) => {
+    const values = withFip.map((p) => pick(p.fip)).filter((v): v is number => typeof v === 'number')
+    return values.length > 0 ? round1(values.reduce((s, v) => s + v, 0) / values.length) : 0
+  }
   return {
     pourCount: n,
-    averageScore: round1(sum((p) => p.rating) / n),
+    averageScore: round1(pours.reduce((s, p) => s + p.rating, 0) / n),
     averageComponents: {
-      nose: round1(sum((p) => p.fip.nose) / n),
-      palate: round1(sum((p) => p.fip.palate) / n),
-      finish: round1(sum((p) => p.fip.finish) / n),
-      complexity: round1(sum((p) => p.fip.complexity) / n),
-      value: round1(sum((p) => p.fip.value) / n),
+      nose: avgComponent((fip) => fip.nose),
+      palate: avgComponent((fip) => fip.palate),
+      finish: avgComponent((fip) => fip.finish),
+      complexity: avgComponent((fip) => fip.complexity),
+      value: avgComponent((fip) => fip.value),
     },
   }
 }

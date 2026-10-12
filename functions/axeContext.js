@@ -86,6 +86,8 @@ function sanitizeAxeContext(raw) {
     // reasons, palate facts). Bounded, and labelled as app signals in the
     // prompt — they only ever describe the caller's own data.
     facts: cleanList(input.facts, MAX_FACTS, MAX_FACT_LENGTH),
+    palate: sanitizePalate(input.palate),
+    blendDraft: sanitizeBlendDraft(input.blendDraft),
     draft: draft
       ? {
           step: clean(draft.step, 24),
@@ -182,56 +184,59 @@ function selectedBottleSection(userDoc, bottleId) {
   return lines.filter(Boolean).join("\n");
 }
 
-// Deliberately simple, server-verifiable stats straight from their pours —
-// the richer palate profile lives client-side (features/yourPalate) and
-// arrives as bounded app-computed facts instead.
-function palateSection(userDoc) {
-  const rated = userDoc.pours.filter((p) => p && typeof p.rating === "number");
-  if (rated.length < 3) {
-    return `PALATE: only ${rated.length} rated pour${rated.length === 1 ? "" : "s"} logged — not enough tasting data to draw palate conclusions yet.`;
-  }
-  const byId = new Map(userDoc.bottles.map((b) => [b.id, b]));
-  const avg = rated.reduce((sum, p) => sum + p.rating, 0) / rated.length;
-  const typeStats = {};
-  const flavorCounts = {};
-  const proofs = [];
-  for (const pour of rated) {
-    const bottle = byId.get(pour.bottleId);
-    const type = bottle && bottle.type ? clean(bottle.type, 30) : null;
-    if (type) {
-      typeStats[type] = typeStats[type] || { count: 0, total: 0 };
-      typeStats[type].count += 1;
-      typeStats[type].total += pour.rating;
-    }
-    if (pour.rating >= 8) {
-      const fip = pour.fip || {};
-      for (const tag of [...cleanList(fip.noseAromas), ...cleanList(fip.palateFlavors)]) {
-        flavorCounts[tag] = (flavorCounts[tag] || 0) + 1;
-      }
-    }
-    if (bottle && typeof bottle.proof === "number") proofs.push({ date: String(pour.date || ""), proof: bottle.proof });
-  }
-  const topTypes = Object.entries(typeStats)
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 4)
-    .map(([type, s]) => `${type} (${s.count} pours, avg ${(s.total / s.count).toFixed(1)})`);
-  const topFlavors = Object.entries(flavorCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-    .map(([tag]) => tag);
-  proofs.sort((a, b) => b.date.localeCompare(a.date));
-  const recent = proofs.slice(0, 5);
-  const avgProof = (list) => list.reduce((s, p) => s + p.proof, 0) / list.length;
+const MATURITY_LABELS = ["learning", "taking-shape", "developing", "established"];
+
+function sanitizePalate(raw) {
+  if (!raw || typeof raw !== "object") return undefined;
+  const count = (value) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0);
+  return {
+    pourCount: count(raw.pourCount),
+    qualifyingPourCount: count(raw.qualifyingPourCount),
+    hasBaseline: raw.hasBaseline === true,
+    maturity: MATURITY_LABELS.includes(raw.maturity) ? raw.maturity : undefined,
+    summary: clean(raw.summary, 200) || undefined,
+    patterns: cleanList(raw.patterns, 8, 240),
+    trends: cleanList(raw.trends, 3, 240),
+  };
+}
+
+// Your Palate's own validated insights, computed client-side by the same
+// tested pipeline the Your Palate screen renders (web/src/features/
+// yourPalate/palateInsights.ts) — AXE repeats them; it never re-derives
+// palate math of its own. They only ever describe the caller's own pours.
+function palateSection(palate) {
+  if (!palate) return "PALATE: palate insights weren't provided for this question — don't draw palate conclusions.";
+  if (palate.pourCount === 0) return "PALATE: no pours logged yet — not enough tasting data for any palate conclusions.";
   return [
-    `PALATE (from ${rated.length} rated pours, avg rating ${avg.toFixed(1)}/10):`,
-    topTypes.length ? `  most-poured types: ${topTypes.join("; ")}` : null,
-    topFlavors.length ? `  flavors tagged most in pours they rated 8+: ${topFlavors.join(", ")}` : null,
-    proofs.length >= 5
-      ? `  proof: last ${recent.length} pours avg ${avgProof(recent).toFixed(0)} vs all-time avg ${avgProof(proofs).toFixed(0)}`
-      : null,
+    `PALATE (Your Palate insights): ${palate.summary || `${palate.pourCount} pours logged.`}`,
+    `  ${palate.qualifyingPourCount} pours with real tasting notes or tags${palate.maturity ? `; palate stage: ${palate.maturity}` : ""}.`,
+    palate.hasBaseline ? null : "  Too few pours for patterns yet — say so rather than drawing conclusions.",
+    ...palate.patterns.map((line) => `  - ${line}`),
+    ...palate.trends.map((line) => `  - trend: ${line}`),
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function sanitizeBlendDraft(raw) {
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.additions)) return undefined;
+  const additions = raw.additions
+    .filter((a) => a && typeof a === "object")
+    .slice(0, 20)
+    .map((a) => ({
+      bottleName: clean(a.bottleName, 80),
+      amountMl: typeof a.amountMl === "number" && Number.isFinite(a.amountMl) && a.amountMl > 0 ? Math.min(Math.round(a.amountMl), 5000) : undefined,
+    }))
+    .filter((a) => a.bottleName);
+  return additions.length > 0 ? { additions } : undefined;
+}
+
+function blendDraftSection(blendDraft) {
+  return [
+    "UNSAVED BLEND SELECTIONS (picked on the Add to Blend form, NOT added to the blend yet):",
+    ...blendDraft.additions.map((a) => `  - ${a.bottleName}${a.amountMl ? ` ${a.amountMl}ml` : " (amount not set yet)"}`),
+    "  Only the user can add these; never say they've been added.",
+  ].join("\n");
 }
 
 function journalSection(userDoc) {
@@ -355,13 +360,16 @@ function buildAxeContext(rawUserDoc, context, extras = {}) {
     sections.push(selectedBottleSection(userDoc, context.bottleId));
   }
   if (["home", "palate", "pour-recommendation", "collection", "discover"].includes(screen)) {
-    sections.push(palateSection(userDoc));
+    sections.push(palateSection(context.palate));
   }
   if (["journal", "home"].includes(screen)) {
     sections.push(journalSection(userDoc));
   }
   if (screen === "infinity" || (screen === "log-tasting" && context.infinityBottleId)) {
     sections.push(infinitySection(userDoc, context.infinityBottleId));
+  }
+  if (screen === "infinity" && context.blendDraft) {
+    sections.push(blendDraftSection(context.blendDraft));
   }
   if (screen === "friends") {
     sections.push(

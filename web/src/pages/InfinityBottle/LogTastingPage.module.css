@@ -7,3 +7,7 @@
 .body {
   padding: 0 var(--fip-shell-x);
 }
+
+.askAxe {
+  margin-bottom: var(--fip-space-4);
+}

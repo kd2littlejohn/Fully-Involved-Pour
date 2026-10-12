@@ -182,3 +182,13 @@ describe('buildPalateProfile', () => {
     expect(profile.proofAffinity).toBeUndefined()
   })
 })
+
+describe('legacy pours without a fip breakdown', () => {
+  const legacy = { id: 'old', bottleId: 'b1', date: '2025-01-01', rating: 7 } as unknown as Pour
+  it('never qualify, and never crash the profile', () => {
+    expect(isQualifyingPour(legacy)).toBe(false)
+    const profile = buildPalateProfile([{ id: 'b1', name: 'A', status: 'open', type: 'Bourbon', proof: 100 }], [legacy])
+    expect(profile.qualifyingPourCount).toBe(0)
+    expect(profile.categoryScores).toEqual([{ category: 'Bourbon', mode: 'frequency-only', pourCount: 1 }])
+  })
+})

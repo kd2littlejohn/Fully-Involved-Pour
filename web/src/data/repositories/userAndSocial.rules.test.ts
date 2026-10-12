@@ -86,7 +86,13 @@ describe('users/{uid}', () => {
 // exercising the existing users/{uid} rule with rarity fields specifically
 // — there is no separate rarity collection or rule to add. -----------------
 describe('bottle rarity write protection', () => {
-  const rareBottle = { id: 'b1', name: 'Pappy 23', status: 'open', createdAt: 1, rarity: 'unicorn', raritySource: 'manual', rarityConfidence: undefined, rarityReason: undefined, rarityConfirmedAt: 1 }
+  // Exactly what the app writes for a manual confirmation. Production's
+  // Firestore client is created with ignoreUndefinedProperties (see
+  // data/firebase.ts), so rarityFields.ts's `rarityConfidence: undefined` /
+  // `rarityReason: undefined` are dropped before the write. The rules-test
+  // client has no such setting — leaving them in made the SDK reject every
+  // write here client-side, so these assertions never reached the rules.
+  const rareBottle = { id: 'b1', name: 'Pappy 23', status: 'open', createdAt: 1, rarity: 'unicorn', raritySource: 'manual', rarityConfirmedAt: 1 }
 
   it('the owner can confirm rarity on their own bottle', async () => {
     await seedUserDoc(USER_A)

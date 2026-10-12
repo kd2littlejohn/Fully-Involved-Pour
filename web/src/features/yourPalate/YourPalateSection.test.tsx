@@ -159,4 +159,19 @@ describe('YourPalateSection', () => {
 
     expect(screen.queryByText('What FIP Is Learning')).not.toBeInTheDocument()
   })
+
+  // Regression: pours saved by the legacy app's guided tasting have a rating
+  // but no `fip` object at all. One of them used to crash the whole section
+  // (TypeError reading fip.nose), so Your Palate showed nothing.
+  it('still renders real insights when the history includes legacy pours with no fip breakdown', () => {
+    const legacyPour = { id: 'legacy', bottleId: 'b1', date: daysAgo(40), rating: 7, notes: 'Guided tasting' } as unknown as Pour
+    const pours = [
+      legacyPour,
+      pour({ id: 'p1', bottleId: 'b1', date: daysAgo(3), rating: 8 }),
+      pour({ id: 'p2', bottleId: 'b1', date: daysAgo(2), rating: 9 }),
+    ]
+    render(<YourPalateSection bottles={[bourbon]} pours={pours} />)
+    expect(screen.getByText("You've logged 3 pours so far, averaging 8.0 — Working Fire.")).toBeInTheDocument()
+    expect(screen.queryByText('Your palate starts here.')).not.toBeInTheDocument()
+  })
 })

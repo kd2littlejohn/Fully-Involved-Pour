@@ -161,12 +161,16 @@ describe('AXE — Your Personal Sommelier', () => {
       screen: 'pour-recommendation',
       bottleId: 'b2',
       facts: ['Highly rated'],
+      palate: expect.objectContaining({ pourCount: 0 }),
     })
 
     await userEvent.click(screen.getByRole('button', { name: 'go-bar' }))
     await userEvent.type(screen.getByLabelText('Ask AXE anything'), 'And now?')
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
-    expect(mockAsk).toHaveBeenLastCalledWith('And now?', expect.any(Array), { screen: 'collection' })
+    expect(mockAsk).toHaveBeenLastCalledWith('And now?', expect.any(Array), {
+      screen: 'collection',
+      palate: expect.objectContaining({ pourCount: 0 }),
+    })
   })
 
   it('shows an AXE-branded error when a reply fails', async () => {
@@ -183,5 +187,16 @@ describe('AXE — Your Personal Sommelier', () => {
     await userEvent.click(openButton())
     expect(screen.getByText('House Blend')).toBeInTheDocument()
     expect(screen.getByText("Let's talk about your blend.")).toBeInTheDocument()
+  })
+
+  it('sends Your Palate insights on palate screens and leaves them out elsewhere', async () => {
+    mockAsk.mockResolvedValue('ok')
+    renderAt('/profile')
+    await userEvent.click(openButton())
+    await userEvent.click(screen.getByRole('button', { name: /What does my palate say about me/ }))
+    expect(mockAsk).toHaveBeenLastCalledWith('What does my palate say about me?', [], {
+      screen: 'palate',
+      palate: { pourCount: 0, hasBaseline: false, qualifyingPourCount: 0, maturity: 'learning', patterns: [], trends: [] },
+    })
   })
 })

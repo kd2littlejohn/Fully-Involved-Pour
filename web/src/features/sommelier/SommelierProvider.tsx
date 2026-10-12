@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { askSommelier, type SommelierTurn } from '../../data/repositories/ai'
 import { useAuth } from '../../hooks/useAuth'
+import { useUserData } from '../../hooks/useUserData'
+import { buildAxePalateInsights, PALATE_SCREENS } from './axePalate'
 import { contextKey, type AxeContext } from './axeContext'
 import { AxeSheet } from './AxeSheet'
 
@@ -46,6 +48,7 @@ const SommelierContext = createContext<SommelierState>({
 // Story wizard) can open it without remounting what's underneath.
 export function SommelierProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
+  const { userDoc } = useUserData()
   const [messages, setMessages] = useState<SommelierTurn[]>([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,7 +89,10 @@ export function SommelierProvider({ children }: { children: ReactNode }) {
       setMessages([...history, { role: 'user', content: trimmed }])
       setSending(true)
       try {
-        const reply = await askSommelier(trimmed, history, context)
+        const requestContext = PALATE_SCREENS.has(context.screen)
+          ? { ...context, palate: buildAxePalateInsights(userDoc.bottles, userDoc.pours) }
+          : context
+        const reply = await askSommelier(trimmed, history, requestContext)
         setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
       } catch {
         setError("AXE couldn't respond just now. Try again in a moment.")
@@ -94,7 +100,7 @@ export function SommelierProvider({ children }: { children: ReactNode }) {
         setSending(false)
       }
     },
-    [messages, sending, context],
+    [messages, sending, context, userDoc.bottles, userDoc.pours],
   )
 
   const reset = useCallback(() => {

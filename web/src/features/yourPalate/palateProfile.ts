@@ -20,9 +20,14 @@ import {
 
 const MIN_QUALIFYING_NOTE_LENGTH = 10
 
+// Legacy guided-tasting pours have no `fip` at all (see selectors.ts
+// getPalateStats) — they simply don't qualify, rather than crashing the
+// whole palate pipeline.
 export function isQualifyingPour(pour: Pour): boolean {
-  if (pour.fip.noseAromas.length > 0 || pour.fip.palateFlavors.length > 0) return true
-  const notes = [pour.fip.noseNotes, pour.fip.palateNotes, pour.fip.finishNotes, pour.fip.complexityNotes]
+  const fip = pour.fip
+  if (!fip) return false
+  if ((fip.noseAromas?.length ?? 0) > 0 || (fip.palateFlavors?.length ?? 0) > 0) return true
+  const notes = [fip.noseNotes, fip.palateNotes, fip.finishNotes, fip.complexityNotes]
   return notes.some((note) => (note?.trim().length ?? 0) >= MIN_QUALIFYING_NOTE_LENGTH)
 }
 

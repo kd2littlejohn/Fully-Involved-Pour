@@ -99,11 +99,14 @@ function accumulate(bottles: Bottle[], pours: Pour[]): FlavorAccumulator {
     addRecord(acc, bottle.flavors ?? [], [bottle.notes])
   }
   for (const pour of pours) {
-    addRecord(acc, [...pour.fip.noseAromas, ...pour.fip.palateFlavors, ...(pour.fip.finishTags ?? [])], [
-      pour.fip.noseNotes,
-      pour.fip.palateNotes,
-      pour.fip.finishNotes,
-      pour.fip.complexityNotes,
+    // Legacy guided-tasting pours carry no `fip` breakdown — nothing to add.
+    const fip = pour.fip
+    if (!fip) continue
+    addRecord(acc, [...(fip.noseAromas ?? []), ...(fip.palateFlavors ?? []), ...(fip.finishTags ?? [])], [
+      fip.noseNotes,
+      fip.palateNotes,
+      fip.finishNotes,
+      fip.complexityNotes,
     ])
   }
   return acc

@@ -6,6 +6,7 @@ import { TastingForm, tastingValueToInput, type TastingFormValue } from './Tasti
 import { useUserData } from '../../hooks/useUserData'
 import type { InfinityTasting } from '../../data/types'
 import styles from './TastingDetailModal.module.css'
+import { parseLocalDate } from '../bottleDetails/selectors'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
@@ -90,7 +91,7 @@ export function TastingDetailModal({ infinityBottleId, batchId, tasting, onClose
   const tier = fipTier(tasting.score)
 
   return (
-    <Modal title={dateFormatter.format(new Date(tasting.date))} onClose={onClose}>
+    <Modal title={dateFormatter.format(parseLocalDate(tasting.date))} onClose={onClose}>
       <div className={styles.scoreRow}>
         <span className={styles.score} style={{ color: tier.color }}>
           {tasting.score.toFixed(1)}

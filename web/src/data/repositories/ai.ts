@@ -17,6 +17,23 @@ export interface SommelierTurn {
 // app-computed signals travel over the wire — askSommelier (functions/
 // index.js) reads the user's actual records server-side under their own
 // auth uid, so private data is never assembled into prompt text here.
+// Your Palate's own validated insights (see features/sommelier/axePalate.ts).
+export interface AxePalateInsights {
+  pourCount: number
+  hasBaseline: boolean
+  qualifyingPourCount: number
+  maturity: string
+  summary?: string
+  patterns: string[]
+  trends: string[]
+}
+
+// An Infinity Bottle selection the user hasn't saved yet — sent only when
+// they explicitly open AXE from the Add to Blend form. Read-only for AXE.
+export interface AxeBlendDraft {
+  additions: { bottleName: string; amountMl?: number }[]
+}
+
 export interface AxeRequestContext {
   screen: string
   bottleId?: string
@@ -24,6 +41,8 @@ export interface AxeRequestContext {
   roomId?: string
   friendUsername?: string
   facts?: string[]
+  palate?: AxePalateInsights
+  blendDraft?: AxeBlendDraft
   draft?: {
     step?: string
     noseAromas?: string[]
