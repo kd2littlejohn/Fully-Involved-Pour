@@ -1,0 +1,15 @@
+# TEMPORARY permission-propagation repro. Removed next commit.
+name: SIM perm reusable
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  needs_actions_read:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - run: echo ok
