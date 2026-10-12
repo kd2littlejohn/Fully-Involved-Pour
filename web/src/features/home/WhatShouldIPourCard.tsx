@@ -7,6 +7,7 @@ import { StartAPourButton } from '../startAPour/StartAPourButton'
 import type { Bottle, Pour } from '../../data/types'
 import styles from './WhatShouldIPourCard.module.css'
 import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
+import { AxeInlineSuggestion } from '../sommelier/AxeInlineSuggestion'
 
 interface WhatShouldIPourCardProps {
   uid: string | undefined
@@ -58,6 +59,18 @@ export function WhatShouldIPourCard({ uid, bottles, pours }: WhatShouldIPourCard
             <Button variant="ghost" onClick={showAnother}>
               Show Me Another
             </Button>
+          </div>
+
+          {/* Explains the pick already on screen — opening AXE never re-rolls it. */}
+          <div className={styles.askAxe}>
+            <AxeInlineSuggestion
+              message="Curious why this one? Ask AXE."
+              context={{
+                screen: 'pour-recommendation',
+                bottleId: result.bottle.id,
+                facts: [...result.reasons, ...result.tags.map((tag) => `Signal: ${tag}`)],
+              }}
+            />
           </div>
         </>
       )}

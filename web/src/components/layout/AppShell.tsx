@@ -5,6 +5,7 @@ import { MobileTopBar } from './MobileTopBar'
 import { BottomNav } from './BottomNav'
 import { DevModeBadge } from './DevModeBadge'
 import { RouteFallback } from './RouteFallback'
+import { AxeLauncher } from '../../features/sommelier/AxeLauncher'
 import styles from './AppShell.module.css'
 
 export function AppShell() {
@@ -19,6 +20,7 @@ export function AppShell() {
         </Suspense>
       </main>
       <BottomNav />
+      <AxeLauncher />
     </div>
   )
 }

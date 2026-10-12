@@ -3,6 +3,7 @@ const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const { handleSuggestBottleRarity } = require("./rarityLogic");
 const { assertNotRateLimited } = require("./rateLimit");
+const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require("./axeContext");
 
 admin.initializeApp();
 
@@ -28,7 +29,7 @@ async function callClaude(apiKey, { system, prompt, maxTokens, content, messages
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Anthropic API error", response.status, errorText);
-    throw new HttpsError("internal", "The AI sommelier is unavailable right now.");
+    throw new HttpsError("internal", "AXE is unavailable right now.");
   }
 
   const data = await response.json();
@@ -37,16 +38,22 @@ async function callClaude(apiKey, { system, prompt, maxTokens, content, messages
 
 const SOMMELIER_PERSONA = `You are a refined, knowledgeable whiskey sommelier helping someone manage their personal bourbon and whiskey collection in an app called "Fully Involved Pour" (tagline: "Where there's proof, there's fire."). Speak with warmth and expertise, like a trusted sommelier, not a chatbot. Be concise: 2-4 sentences. Reference their actual collection naturally when it's given to you. Never invent specific bottle data you weren't given.`;
 
+const AXE_MAX_CALLS_PER_HOUR = 60;
+
+// AXE — Your Personal Sommelier (the user-facing name for this endpoint).
+// The callable keeps its original askSommelier identifier so existing
+// clients and deployments keep working. Context is built server-side from
+// the caller's own users/{uid} document — see axeContext.js.
 exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
   if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Sign in to ask the sommelier.");
+    throw new HttpsError("unauthenticated", "Sign in to ask AXE.");
   }
 
-  const prompt = String(request.data?.prompt || "").trim();
-  const collectionSummary = String(request.data?.collectionSummary || "").slice(0, 4000);
+  const prompt = String(request.data?.prompt || "").trim().slice(0, 2000);
   if (!prompt) {
     throw new HttpsError("invalid-argument", "A question or prompt is required.");
   }
+  await assertNotRateLimited(request.auth.uid, "askSommelier", { maxCalls: AXE_MAX_CALLS_PER_HOUR });
 
   // Prior turns from this chat, so the assistant actually remembers what was asked
   // before instead of answering each message in isolation. Sanitized and capped so a
@@ -56,12 +63,36 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
     .filter((turn) => turn && (turn.role === "user" || turn.role === "assistant") && typeof turn.content === "string")
     .slice(-16)
     .map((turn) => ({ role: turn.role, content: turn.content.slice(0, 2000) }));
+  // The Messages API requires the first turn to be the user's.
+  while (history.length > 0 && history[0].role !== "user") history.shift();
 
-  const system = `${SOMMELIER_PERSONA}\n\nHere is a summary of their current collection:\n${collectionSummary || "(their collection is empty so far)"}`;
+  // Older clients still send a client-built collectionSummary — ignored now;
+  // everything personal is read below under the authenticated uid.
+  const context = sanitizeAxeContext(request.data?.context);
+  const db = admin.firestore();
+  const userSnap = await db.doc(`users/${request.auth.uid}`).get();
+  const blind = context.screen === "blind" && context.roomId ? await loadBlindForAxe(db, context.roomId, request.auth.uid) : undefined;
+
+  const system = buildAxeSystemPrompt(buildAxeContext(userSnap.exists ? userSnap.data() : {}, context, { blind }));
   const messages = [...history, { role: "user", content: prompt }];
-  const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 400 });
+  const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 500 });
   return { reply: reply || "I couldn't come up with a response just now — try rephrasing." };
 });
+
+// Mirrors the Firestore rules' own Blind Room boundary: only a member (host
+// or participant) gets the room at all, and the secrets document is only
+// read once the room is revealed/completed — never before, not even for
+// the host, so AXE can't leak a lineup mid-tasting.
+async function loadBlindForAxe(db, roomId, uid) {
+  const roomSnap = await db.doc(`blindRooms/${roomId}`).get();
+  if (!roomSnap.exists) return { isMember: false };
+  const room = roomSnap.data();
+  const isMember = room.hostUid === uid || (await db.doc(`blindRooms/${roomId}/participants/${uid}`).get()).exists;
+  if (!isMember) return { isMember: false };
+  const revealed = room.state === "revealed" || room.state === "completed";
+  const secrets = revealed ? (await db.doc(`blindRoomSecrets/${roomId}`).get()).data() : undefined;
+  return { isMember: true, room, revealed, secrets };
+}
 
 exports.lookupBottleInfo = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {
   if (!request.auth) {

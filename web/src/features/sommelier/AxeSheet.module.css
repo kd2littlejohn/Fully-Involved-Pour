@@ -1,0 +1,153 @@
+/* AXE container — bottom sheet on mobile, side drawer on desktop.
+   Built only from existing FIP tokens (styles/tokens.css). */
+
+.sheet {
+  /* Mobile bottom sheet */
+  position: fixed;
+  inset: auto 0 var(--axe-keyboard, 0px) 0;
+  width: 100%;
+  max-width: none;
+  max-height: min(88dvh, calc(var(--axe-viewport, 100dvh) - var(--fip-space-6)));
+  margin: 0;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  background: var(--fip-card-elevated);
+  color: var(--fip-cream);
+  border: 1px solid var(--fip-border);
+  border-bottom: none;
+  border-radius: var(--fip-radius-xl) var(--fip-radius-xl) 0 0;
+  box-shadow: var(--fip-shadow-lift);
+  overflow: hidden;
+  z-index: 40;
+}
+
+.sheet[open] {
+  display: flex;
+  animation: axe-rise var(--fip-motion) var(--fip-ease);
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+.sheet::backdrop {
+  background: rgba(15, 24, 34, 0.72);
+}
+
+.grabber {
+  width: 40px;
+  height: 4px;
+  margin: var(--fip-space-2) auto 0;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-border-subtle);
+  flex-shrink: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-3) var(--fip-space-4) var(--fip-space-3) var(--fip-space-5);
+  border-bottom: 1px solid var(--fip-border-subtle);
+  flex-shrink: 0;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  flex-shrink: 0;
+}
+
+.brand {
+  flex: 1;
+  min-width: 0;
+}
+
+.wordmark {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  letter-spacing: 0.08em;
+  color: var(--fip-amber);
+  line-height: 1.1;
+}
+
+.tagline {
+  margin-top: 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  color: var(--fip-muted);
+}
+
+.close {
+  background: transparent;
+  border: none;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xl);
+  line-height: 1;
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--fip-radius-round);
+}
+
+.close:hover {
+  color: var(--fip-cream);
+}
+
+@keyframes axe-rise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Desktop side drawer — sits beside the page instead of replacing it. */
+@media (min-width: 900px) {
+  .sheet {
+    /* Below the desktop TopNav (~73px) so primary navigation stays visible. */
+    inset: calc(73px + var(--fip-space-4)) var(--fip-space-4) var(--fip-space-4) auto;
+    width: min(420px, calc(100vw - var(--fip-space-8)));
+    max-height: none;
+    height: auto;
+    border: 1px solid var(--fip-border);
+    border-radius: var(--fip-radius-xl);
+  }
+
+  .sheet[open] {
+    animation-name: axe-slide;
+  }
+
+  .grabber {
+    display: none;
+  }
+
+  .sheet::backdrop {
+    background: rgba(15, 24, 34, 0.45);
+  }
+}
+
+@keyframes axe-slide {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open] {
+    animation: none;
+  }
+}

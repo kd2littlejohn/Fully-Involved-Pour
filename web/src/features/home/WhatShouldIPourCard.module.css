@@ -81,3 +81,7 @@
   padding-top: var(--fip-space-4);
   border-top: 1px solid var(--fip-border-subtle);
 }
+
+.askAxe {
+  margin-top: var(--fip-space-4);
+}

@@ -13,15 +13,36 @@ export interface SommelierTurn {
 // canned responses instead so the UI flow stays testable without real
 // Anthropic API cost.
 
-export async function askSommelier(prompt: string, history: SommelierTurn[], collectionSummary: string): Promise<string> {
+// What AXE is told about where the user is. Only identifiers and small,
+// app-computed signals travel over the wire — askSommelier (functions/
+// index.js) reads the user's actual records server-side under their own
+// auth uid, so private data is never assembled into prompt text here.
+export interface AxeRequestContext {
+  screen: string
+  bottleId?: string
+  infinityBottleId?: string
+  roomId?: string
+  friendUsername?: string
+  facts?: string[]
+  draft?: {
+    step?: string
+    noseAromas?: string[]
+    palateFlavors?: string[]
+    finishTags?: string[]
+  }
+}
+
+// AXE — Your Personal Sommelier. Still the askSommelier callable under the
+// hood; only the user-facing name changed.
+export async function askSommelier(prompt: string, history: SommelierTurn[], context: AxeRequestContext): Promise<string> {
   if (isMockAuthEnabled()) {
     return "That sounds like a great pour. Based on what's in your collection, I'd reach for something with a bit more oak and spice next — but trust your own palate over mine."
   }
-  const callable = httpsCallable<{ prompt: string; history: SommelierTurn[]; collectionSummary: string }, { reply: string }>(
+  const callable = httpsCallable<{ prompt: string; history: SommelierTurn[]; context: AxeRequestContext }, { reply: string }>(
     functions,
     'askSommelier',
   )
-  const result = await callable({ prompt, history, collectionSummary })
+  const result = await callable({ prompt, history, context })
   return result.data.reply
 }
 

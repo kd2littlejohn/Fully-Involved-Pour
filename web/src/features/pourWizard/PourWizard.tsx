@@ -19,6 +19,7 @@ import { PalateStep } from './steps/PalateStep'
 import { FinishStep } from './steps/FinishStep'
 import { ComplexityStep } from './steps/ComplexityStep'
 import { SummaryStep } from './steps/SummaryStep'
+import { AxeInlineSuggestion } from '../sommelier/AxeInlineSuggestion'
 import styles from './PourWizard.module.css'
 
 const STEPS = [
@@ -29,6 +30,8 @@ const STEPS = [
   { label: 'Complexity', Component: ComplexityStep },
   { label: 'Summary', Component: SummaryStep },
 ]
+
+const TASTING_STEPS = new Set(['Nose', 'Palate', 'Finish', 'Complexity'])
 
 interface PourWizardProps {
   bottleId: string
@@ -56,6 +59,7 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
   const [memoryPhotoRemoved, setMemoryPhotoRemoved] = useState(false)
 
   const isLastStep = stepIndex === STEPS.length - 1
+  const stepLabel = STEPS[stepIndex]?.label ?? ''
   const Step = STEPS[stepIndex]?.Component ?? SessionStep
 
   function handleSave() {
@@ -192,6 +196,27 @@ export function PourWizard({ bottleId, bottleName, existingPour, onClose, onSave
           },
         }}
       />
+
+      {/* Optional help on the sensory steps. AXE opens on top of this
+          wizard (which stays mounted, draft intact) and only gets a
+          read-only snapshot of what's been selected so far. */}
+      {TASTING_STEPS.has(stepLabel) ? (
+        <div className={styles.askAxe}>
+          <AxeInlineSuggestion
+            message="Need help with your tasting notes?"
+            context={() => ({
+              screen: 'log-tasting',
+              bottleId,
+              draft: {
+                step: stepLabel,
+                noseAromas: draft.noseAromas,
+                palateFlavors: draft.palateFlavors,
+                finishTags: draft.finishTags,
+              },
+            })}
+          />
+        </div>
+      ) : null}
 
       <div className={styles.actions}>
         {isEditing ? (

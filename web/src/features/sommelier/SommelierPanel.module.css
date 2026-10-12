@@ -1,44 +1,118 @@
 .panel {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
   gap: var(--fip-space-4);
+  padding: var(--fip-space-5);
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.title {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-cream);
+  line-height: 1.2;
+}
+
+.introText {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.contextCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--fip-space-3) var(--fip-space-4);
+  border: 1px solid var(--fip-border-strong);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-amber-soft);
+}
+
+.contextEyebrow {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  color: var(--fip-amber);
+}
+
+.contextLabel {
+  font-size: var(--fip-text-md);
+  font-weight: 600;
+  color: var(--fip-cream);
+  overflow-wrap: anywhere;
 }
 
 .starters {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--fip-space-2);
 }
 
 .starter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  min-height: 44px;
   padding: var(--fip-space-2) var(--fip-space-4);
   border: 1px solid var(--fip-border);
-  border-radius: var(--fip-radius-round);
+  border-radius: var(--fip-radius-md);
   background: var(--fip-card);
   color: var(--fip-cream);
   font-size: var(--fip-text-sm);
+  text-align: left;
   cursor: pointer;
+  transition: border-color var(--fip-motion-fast) var(--fip-ease);
 }
 
-.starter:hover {
+.starter:hover:not(:disabled) {
   border-color: var(--fip-border-strong);
+}
+
+.starter:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.chevron {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-lg);
+  line-height: 1;
 }
 
 .messages {
   display: flex;
   flex-direction: column;
   gap: var(--fip-space-3);
-  max-height: 420px;
-  overflow-y: auto;
 }
 
 .userMessage,
 .assistantMessage {
-  max-width: 85%;
+  max-width: 88%;
   padding: var(--fip-space-3) var(--fip-space-4);
   border-radius: var(--fip-radius-md);
   font-size: var(--fip-text-sm);
   line-height: var(--fip-leading-copy);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .userMessage {
@@ -54,16 +128,78 @@
   color: var(--fip-cream);
 }
 
-.form {
-  display: flex;
-  gap: var(--fip-space-2);
+.reset {
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 44px;
 }
 
-.form input {
+.reset:hover {
+  color: var(--fip-cream-soft);
+}
+
+.form {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-3) var(--fip-space-4);
+  padding-bottom: calc(var(--fip-space-3) + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--fip-border-subtle);
+  background: var(--fip-card-elevated);
+  flex-shrink: 0;
+}
+
+.input {
   flex: 1;
+  min-width: 0;
+  padding-inline: var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  /* 16px+ keeps iOS Safari from zooming the page on focus. */
+  font-size: var(--fip-text-md);
+}
+
+.send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-amber);
+  color: var(--fip-black);
+  cursor: pointer;
+  transition: background var(--fip-motion-fast) var(--fip-ease);
+}
+
+.send:hover:not(:disabled) {
+  background: var(--fip-amber-hover);
+}
+
+.send:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .error {
   color: var(--fip-error);
   font-size: var(--fip-text-sm);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

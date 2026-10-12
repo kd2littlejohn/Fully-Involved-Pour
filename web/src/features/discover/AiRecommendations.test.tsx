@@ -75,11 +75,11 @@ describe('AiRecommendations', () => {
   })
 
   it('shows an error message when the request fails', async () => {
-    mockRecommend.mockRejectedValue(new Error('The AI sommelier is unavailable right now.'))
+    mockRecommend.mockRejectedValue(new Error('AXE is unavailable right now.'))
     renderPanel()
 
     await userEvent.click(screen.getByRole('button', { name: /Get AI Recommendations/ }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('The AI sommelier is unavailable right now.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('AXE is unavailable right now.')
   })
 })
