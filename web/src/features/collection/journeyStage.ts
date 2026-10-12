@@ -1,4 +1,5 @@
 import type { Bottle } from '../../data/types'
+import { parseLocalDate } from '../../data/localDate'
 
 export interface JourneyStage {
   label: string
@@ -20,7 +21,7 @@ export function bottleJourneyStage(bottle: Bottle): JourneyStage | undefined {
     return { label: 'New', color: 'var(--fip-success)' }
   }
 
-  const daysOpen = (Date.now() - new Date(bottle.openedDate).getTime()) / DAY_MS
+  const daysOpen = (Date.now() - parseLocalDate(bottle.openedDate).getTime()) / DAY_MS
 
   if (daysOpen < 7) return { label: 'New', color: 'var(--fip-success)' }
   if (daysOpen < 30) return { label: 'Opening Up', color: 'var(--fip-warning)' }

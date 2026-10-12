@@ -1,4 +1,5 @@
 import { Badge } from '../ui/Badge'
+import { parseDisplayDate } from '../../data/localDate'
 import styles from './Timeline.module.css'
 
 export interface TimelineEvent {
@@ -37,7 +38,7 @@ export function Timeline({ events, onEventClick }: TimelineProps) {
         const content = (
           <>
             <span className={styles.dot} />
-            <div className={styles.date}>{dateFormatter.format(new Date(event.date))}</div>
+            <div className={styles.date}>{dateFormatter.format(parseDisplayDate(event.date))}</div>
             <div className={styles.labelRow}>
               <div className={styles.label}>{event.label}</div>
               {event.tags?.map((tag) => (

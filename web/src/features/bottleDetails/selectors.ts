@@ -1,17 +1,9 @@
 import type { Bottle, FillLevel, Memory, Pour } from '../../data/types'
 import { resolveDistillery } from '../../data/distillery/search'
+import { localIsoDate } from '../../data/localDate'
 
-// A plain `new Date('2026-06-14')` parses as UTC midnight; formatting that
-// in a timezone behind UTC (most of North America) can display the day
-// *before* the one actually stored, since Intl formatters render in local
-// time. Every one of this bottle's own date-only fields (purchaseDate,
-// openedDate, ratings, pour dates) is a YYYY-MM-DD string with no time
-// component, so parsing the parts directly as a local date is the correct
-// read regardless of the viewer's timezone.
-export function parseLocalDate(isoDate: string): Date {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1)
-}
+// Re-exported for existing callers; see data/localDate.ts.
+export { parseLocalDate } from '../../data/localDate'
 
 export function mashBillSummary(bottle: Bottle): string | undefined {
   const parts: string[] = []
@@ -154,7 +146,7 @@ export function getFinishedDate(bottle: Bottle, pours: Pour[]): FinishedDateInfo
   const latestPour = getPoursForBottle(pours, bottle.id)[0]
   if (latestPour) return { date: latestPour.date, inferred: true }
   if (bottle.openedDate) return { date: bottle.openedDate, inferred: true }
-  if (bottle.createdAt) return { date: new Date(bottle.createdAt).toISOString(), inferred: true }
+  if (bottle.createdAt) return { date: localIsoDate(bottle.createdAt), inferred: true }
   return undefined
 }
 
@@ -211,8 +203,12 @@ export function buildBottleStoryEvents(bottle: Bottle, pours: Pour[], memories: 
   const curated = chronological.length > LONG_HISTORY_POUR_THRESHOLD
   const events: BottleStoryEvent[] = []
 
+  // createdAt is the exact instant the bottle was added; the timeline shows
+  // and orders calendar days, so it becomes the viewer's local day here
+  // (a UTC ISO string would sort an evening addition after the next day's
+  // opening and pours).
   if (bottle.createdAt) {
-    events.push({ id: 'added', date: new Date(bottle.createdAt).toISOString(), label: 'Added to your bar' })
+    events.push({ id: 'added', date: localIsoDate(bottle.createdAt), label: 'Added to your bar' })
   }
   if (bottle.openedDate) {
     events.push({ id: 'opened', date: bottle.openedDate, label: 'Opened' })

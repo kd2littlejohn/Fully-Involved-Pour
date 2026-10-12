@@ -13,6 +13,7 @@ import type { Bottle, FillLevel } from '../../data/types'
 import { AxeInlineSuggestion } from '../../features/sommelier/AxeInlineSuggestion'
 import styles from './AddToBlendPage.module.css'
 import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
+import { todayLocalIsoDate } from '../../data/localDate'
 
 const FILL_LEVEL_LABEL: Record<FillLevel, string> = {
   full: 'Full',
@@ -160,7 +161,7 @@ export function AddToBlendPage() {
         bottleName: bottle.name,
         proof: bottle.proof,
         amountMl: Math.round(selection.amountMl),
-        date: new Date().toISOString().slice(0, 10),
+        date: todayLocalIsoDate(),
         note: selection.note.trim() || undefined,
         createdAt: 0,
       })),
@@ -173,7 +174,7 @@ export function AddToBlendPage() {
     setSaving(true)
     setSaveError(null)
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayLocalIsoDate()
       const inputs: NewBlendAdditionInput[] = selectedBottles.map(({ selection, bottle }) => ({
         sourceBottleId: bottle.id,
         sourceBottleInstanceId: selection.sourceBottleInstanceId,

@@ -9,6 +9,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { OverflowMenu, type OverflowMenuItem } from '../../components/ui/OverflowMenu'
 import styles from './YourBottlesSection.module.css'
+import { todayLocalIsoDate } from '../../data/localDate'
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -27,10 +28,6 @@ function instanceMetaLines(instance: BottleInstance): string[] {
   if (instance.openedDate) lines.push(`Opened ${formatDate(instance.openedDate)}`)
   if (instance.finishedDate) lines.push(`Finished ${formatDate(instance.finishedDate)}`)
   return lines
-}
-
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 interface YourBottlesSectionProps {
@@ -97,7 +94,7 @@ export function YourBottlesSection({ bottle, pours }: YourBottlesSectionProps) {
   // automatically.
   async function handleFinish(instance: BottleInstance) {
     const sealedCount = instances.filter((i) => i.id !== instance.id && i.status === 'sealed').length
-    await updateBottleInstance(bottle.id, instance.id, { status: 'finished', finishedDate: instance.finishedDate ?? todayIsoDate() })
+    await updateBottleInstance(bottle.id, instance.id, { status: 'finished', finishedDate: instance.finishedDate ?? todayLocalIsoDate() })
     if (sealedCount > 0) setFinishPrompt({ sealedCount })
   }
 
