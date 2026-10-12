@@ -109,8 +109,11 @@ jobs:
     name: Cloud Functions
     needs: [changes, web_checks, release_gates]
     if: needs.changes.outputs.functions == 'true'
+    # Must cover every permission the called workflow's jobs request, or
+    # GitHub refuses to start the run (startup_failure).
     permissions:
       contents: read
+      actions: read
       id-token: write
     uses: ./.github/workflows/deploy-functions.yml
     with:
