@@ -86,7 +86,7 @@ describe('users/{uid}', () => {
 // exercising the existing users/{uid} rule with rarity fields specifically
 // — there is no separate rarity collection or rule to add. -----------------
 describe('bottle rarity write protection', () => {
-  const rareBottle = { id: 'b1', name: 'Pappy 23', status: 'open', createdAt: 1, rarity: 'unicorn', raritySource: 'manual', rarityConfidence: undefined, rarityReason: undefined, rarityConfirmedAt: 1 }
+  const rareBottle = { id: 'b1', name: 'Pappy 23', status: 'open', createdAt: 1, rarity: 'unicorn', raritySource: 'manual', rarityConfirmedAt: 1 }
 
   it('the owner can confirm rarity on their own bottle', async () => {
     await seedUserDoc(USER_A)

@@ -141,7 +141,7 @@ describe('TastingsPage', () => {
     render(<TastingsPage />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByText('Dec 31, 2025'))
+    await userEvent.click(screen.getByText('Jan 1, 2026'))
     expect(screen.getByText('Viewing t1')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Close' }))

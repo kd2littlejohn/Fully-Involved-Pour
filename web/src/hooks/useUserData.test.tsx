@@ -984,8 +984,10 @@ describe('useUserData — Infinity Bottle', () => {
 
     await result.current.completeBatch('ib1', 'b1')
 
-    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1))
-    expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.status).toBe('complete')
+    // Wait on the status itself: the batch count is already 1 before the
+    // call, so waiting on it alone wouldn't wait for the state update.
+    await waitFor(() => expect(result.current.userDoc.infinityBottles[0]?.batches[0]?.status).toBe('complete'))
+    expect(result.current.userDoc.infinityBottles[0]?.batches).toHaveLength(1)
   })
 
   it('startNewBatch archives the current batch and starts a fresh empty active one when no carry-forward is given', async () => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { Button } from '../../components/ui/Button'
 import { fipTier } from '../fip/tiers'
+import { parseLocalDate } from '../bottleDetails/selectors'
 import { TastingForm, tastingValueToInput, type TastingFormValue } from './TastingForm'
 import { useUserData } from '../../hooks/useUserData'
 import type { InfinityTasting } from '../../data/types'
@@ -90,7 +91,7 @@ export function TastingDetailModal({ infinityBottleId, batchId, tasting, onClose
   const tier = fipTier(tasting.score)
 
   return (
-    <Modal title={dateFormatter.format(new Date(tasting.date))} onClose={onClose}>
+    <Modal title={dateFormatter.format(parseLocalDate(tasting.date))} onClose={onClose}>
       <div className={styles.scoreRow}>
         <span className={styles.score} style={{ color: tier.color }}>
           {tasting.score.toFixed(1)}

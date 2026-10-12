@@ -7,6 +7,7 @@ import { averageScore, batchDisplayName, currentScore, displayBatch, scoreEvolut
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { fipTier } from '../../features/fip/tiers'
+import { parseLocalDate } from '../../features/bottleDetails/selectors'
 import { useUserData } from '../../hooks/useUserData'
 import type { InfinityTasting } from '../../data/types'
 import styles from './TastingsPage.module.css'
@@ -77,7 +78,7 @@ export function TastingsPage() {
                     {tasting.score.toFixed(1)}
                   </div>
                   <div className={styles.historyBody}>
-                    <div className={styles.historyDate}>{dateFormatter.format(new Date(tasting.date))}</div>
+                    <div className={styles.historyDate}>{dateFormatter.format(parseLocalDate(tasting.date))}</div>
                     {summary ? <div className={styles.historySummary}>{summary}</div> : null}
                   </div>
                 </button>
