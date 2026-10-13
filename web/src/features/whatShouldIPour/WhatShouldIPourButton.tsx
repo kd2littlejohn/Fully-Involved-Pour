@@ -47,7 +47,9 @@ function formatLastPoured(bottle: Bottle, pours: Pour[]): string {
   return `Last poured ${days} days ago`
 }
 
-export function WhatShouldIPourButton() {
+// trigger 'link': a quiet text link (Home's Tonight's Pick, where the
+// default pick is already on screen and choosing by mood is secondary).
+export function WhatShouldIPourButton({ trigger = 'card' }: { trigger?: 'card' | 'link' } = {}) {
   const { userDoc } = useUserData()
   const [open, setOpen] = useState(false)
   const [moodId, setMoodId] = useState<MoodId | null>(null)
@@ -153,12 +155,13 @@ export function WhatShouldIPourButton() {
 
   return (
     <>
-      <SecondaryActionCard
-        icon={LIGHTBULB_ICON}
-        title="What Should I Pour?"
-        subtitle="Get a recommendation"
-        onClick={handleOpen}
-      />
+      {trigger === 'link' ? (
+        <button type="button" className={styles.linkTrigger} onClick={handleOpen}>
+          Pick by mood
+        </button>
+      ) : (
+        <SecondaryActionCard icon={LIGHTBULB_ICON} title="What Should I Pour?" subtitle="Get a recommendation" onClick={handleOpen} />
+      )}
 
       {open ? (
         <Modal title="What Should I Pour?" onClose={() => setOpen(false)}>

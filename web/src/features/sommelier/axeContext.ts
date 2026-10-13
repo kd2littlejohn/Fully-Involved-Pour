@@ -214,3 +214,21 @@ const SCREEN_COPY: Record<AxeScreen, AxeScreenCopy> = {
 export function copyFor(screen: AxeScreen): AxeScreenCopy {
   return SCREEN_COPY[screen]
 }
+
+// Asking about an AXE Insight: AXE answers from that insight's verified
+// facts (looked up server-side by insightId), wherever it was opened from.
+const INSIGHT_COPY: AxeScreenCopy = {
+  label: 'This insight',
+  title: "Let's dig into what I noticed.",
+  intro: "I'll stick to the facts behind this insight, and tell you plainly when there isn't enough data to say more.",
+  suggestions: [
+    q('Why do you think that?', 'Why do you think that? Walk me through the evidence.'),
+    q('How sure are you?', 'How confident are you in this, and what would make it clearer?'),
+    q('What should I pour to explore it?', 'What could I pour from my bar to explore this further?'),
+    q('What does this say about my palate?'),
+  ],
+}
+
+export function copyForContext(context: AxeContext): AxeScreenCopy {
+  return context.insightId ? INSIGHT_COPY : copyFor(context.screen)
+}

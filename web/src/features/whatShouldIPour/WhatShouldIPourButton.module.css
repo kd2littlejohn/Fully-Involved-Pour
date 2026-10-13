@@ -164,3 +164,21 @@
 .backLink:hover {
   color: var(--fip-cream-soft);
 }
+
+.linkTrigger {
+  min-height: 44px;
+  padding: 0 var(--fip-space-2);
+  border: 0;
+  background: none;
+  color: var(--fip-cream-soft);
+  font: inherit;
+  font-size: var(--fip-text-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--fip-border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.linkTrigger:hover {
+  color: var(--fip-cream);
+}

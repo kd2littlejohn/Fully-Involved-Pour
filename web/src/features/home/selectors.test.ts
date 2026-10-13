@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   getMaybeTonightCandidates,
   getPalateInsight,
@@ -21,6 +21,23 @@ function minFip(rating: number) {
 }
 
 describe('getMaybeTonightCandidates', () => {
+  it("never repeats the bottle already featured as Tonight's Pick", () => {
+    const bottles: Bottle[] = [
+      { id: 'a', name: 'Picked', status: 'sealed', createdAt: 1 },
+      { id: 'b', name: 'Other', status: 'sealed', createdAt: 2 },
+    ]
+    expect(getMaybeTonightCandidates(bottles, [], 3, ['a']).map((c) => c.bottle.id)).toEqual(['b'])
+  })
+
+  it('counts days since the last pour in local calendar days', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 20, 23, 30)) // Oct 20, 11:30pm local
+    const bottles: Bottle[] = [{ id: 'a', name: 'Stale', status: 'open', createdAt: 1 }]
+    const pours: Pour[] = [{ id: 'p', bottleId: 'a', date: '2026-10-01', rating: 8, fip: minFip(8) }]
+    expect(getMaybeTonightCandidates(bottles, pours)[0]?.reason).toBe("You haven't poured this in 19 days.")
+    vi.useRealTimers()
+  })
+
   it('includes a sealed bottle with an honest "still sealed" reason', () => {
     const bottles: Bottle[] = [{ id: 'a', name: 'Sealed Bottle', status: 'sealed', createdAt: 1 }]
     const result = getMaybeTonightCandidates(bottles, [])
@@ -210,13 +227,15 @@ describe('getOpenBottles', () => {
 })
 
 describe('getCollectionSnapshot', () => {
-  it('counts totals by status', () => {
+  it('counts only bottles actually in the bar (open + sealed) as "In Your Bar"', () => {
     const bottles: Bottle[] = [
       { id: 'a', name: 'Open', status: 'open', createdAt: 1 },
       { id: 'b', name: 'Sealed', status: 'sealed', createdAt: 1 },
       { id: 'c', name: 'Wishlist', status: 'wishlist', createdAt: 1 },
+      { id: 'd', name: 'Incoming', status: 'incoming', createdAt: 1 },
+      { id: 'e', name: 'Finished', status: 'finished', createdAt: 1 },
     ]
-    expect(getCollectionSnapshot(bottles)).toEqual({ total: 3, open: 1, sealed: 1, needingAttention: 0 })
+    expect(getCollectionSnapshot(bottles)).toEqual({ inBar: 2, open: 1, sealed: 1, needingAttention: 0 })
   })
 
   it('flags open bottles that are empty or down to a quarter as needing attention', () => {

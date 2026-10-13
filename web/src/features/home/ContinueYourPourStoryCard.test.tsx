@@ -31,7 +31,7 @@ describe('ContinueYourPourStoryCard', () => {
     expect(screen.getByText(/No pours logged yet/)).toBeInTheDocument()
   })
 
-  it('shows the recent score, last pour date, pour count, and note from the latest real pour', () => {
+  it('shows the latest score, its local-calendar date, and the pour count in one compact row', () => {
     const pours: Pour[] = [
       { id: 'p1', bottleId: 'b1', date: '2026-06-01', rating: 8.0, fip: minFip(8.0) },
       { id: 'p2', bottleId: 'b1', date: '2026-07-01', rating: 8.6, memory: 'Great porch pour.', fip: minFip(8.6) },
@@ -39,15 +39,10 @@ describe('ContinueYourPourStoryCard', () => {
     renderCard(pours)
 
     expect(screen.getByText('8.6')).toBeInTheDocument()
-    expect(screen.getByText(/Last poured/)).toBeInTheDocument()
-    expect(screen.getByText('2 pours')).toBeInTheDocument()
-    expect(screen.getByText('Great porch pour.')).toBeInTheDocument()
-  })
-
-  it('falls back to pour.notes for the recent note when memory is unset (Quick Pour case)', () => {
-    const pours: Pour[] = [{ id: 'p1', bottleId: 'b1', date: '2026-07-01', rating: 8.6, notes: 'Solid nightcap.', fip: minFip(8.6) }]
-    renderCard(pours)
-    expect(screen.getByText('Solid nightcap.')).toBeInTheDocument()
+    // The stored calendar day, never shifted by a UTC parse.
+    expect(screen.getByText('Last tasted Jul 1, 2026 · 2 pours')).toBeInTheDocument()
+    // Compact: the note stays on the bottle's own page.
+    expect(screen.queryByText('Great porch pour.')).not.toBeInTheDocument()
   })
 
   it('offers a Pour Again action', () => {

@@ -18,13 +18,12 @@ export function MaybeTonightCard({ candidate }: MaybeTonightCardProps) {
         {bottlePhotoUrl(bottle) ? <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" /> : <BottlePlaceholder name={bottle.name} compact />}
       </Link>
       <div className={styles.body}>
-        <Link to={`/collection/${bottle.id}`} className={styles.name}>
+        <Link to={`/collection/${bottle.id}`} className={styles.name} title={bottle.name}>
           {bottle.name}
         </Link>
-        {bottle.distillery ? <div className={styles.distillery}>{bottle.distillery}</div> : null}
         <p className={styles.reason}>{reason}</p>
         <div className={styles.action}>
-          <StartAPourButton bottleId={bottle.id} label="Start Pour" variant="secondary" />
+          <StartAPourButton bottleId={bottle.id} label="Pour" variant="secondary" />
         </div>
       </div>
     </div>

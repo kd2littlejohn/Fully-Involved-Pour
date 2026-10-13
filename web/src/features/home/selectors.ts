@@ -2,8 +2,9 @@ import type { Bottle, Pour } from '../../data/types'
 import { dominantFlavorAxis, identityLabelForAxis, pourFlavorLabels } from '../flavorRadar/flavorCategories'
 import { buildPalateInsightText, BASELINE_MIN_POURS } from '../yourPalate/palateInsights'
 import { fillLevelPercent, getPoursForBottle } from '../bottleDetails/selectors'
+import { todayLocalIsoDate } from '../../data/localDate'
+import { daysBetween } from '../axeInsights/engine'
 
-const DAY_MS = 24 * 60 * 60 * 1000
 const STALE_POUR_DAYS = 14
 
 export function getFeaturedOpenBottle(bottles: Bottle[]): Bottle | undefined {
@@ -34,21 +35,24 @@ export interface MaybeTonightCandidate {
 // suggesting tonight: a bottle that's gone quiet outranks one that's simply
 // unopened, which outranks a favorite or a highly-rated bottle that's
 // already getting regular attention.
-export function getMaybeTonightCandidates(bottles: Bottle[], pours: Pour[], limit = 3): MaybeTonightCandidate[] {
+// `excludeIds`: bottles already featured elsewhere on Home (Tonight's
+// Pick), so the alternatives are actually alternatives.
+export function getMaybeTonightCandidates(bottles: Bottle[], pours: Pour[], limit = 3, excludeIds: string[] = []): MaybeTonightCandidate[] {
   const lastPourDateByBottle = new Map<string, string>()
   for (const pour of pours) {
     const existing = lastPourDateByBottle.get(pour.bottleId)
     if (!existing || pour.date > existing) lastPourDateByBottle.set(pour.bottleId, pour.date)
   }
 
-  const now = Date.now()
+  // Calendar-day math on local dates (pour dates are local calendar days).
+  const today = todayLocalIsoDate()
   // Wishlist/incoming/finished have nothing to pour tonight (not yet owned,
   // not yet arrived, or already done) — same pourable definition used
   // elsewhere (StartAPourButton's bottle picker, BottleCard's menu).
   const pourable = bottles.filter((b) => b.status === 'sealed' || b.status === 'open')
 
   const results: MaybeTonightCandidate[] = []
-  const used = new Set<string>()
+  const used = new Set<string>(excludeIds)
   function addCandidate(bottle: Bottle, reason: string) {
     if (used.has(bottle.id) || results.length >= limit) return
     used.add(bottle.id)
@@ -59,7 +63,7 @@ export function getMaybeTonightCandidates(bottles: Bottle[], pours: Pour[], limi
     .filter((b) => b.status === 'open')
     .map((bottle) => {
       const lastDate = lastPourDateByBottle.get(bottle.id)
-      const days = lastDate ? Math.floor((now - new Date(lastDate).getTime()) / DAY_MS) : undefined
+      const days = lastDate ? daysBetween(lastDate, today) : undefined
       return { bottle, days }
     })
     .filter((x) => x.days === undefined || x.days >= STALE_POUR_DAYS)
@@ -186,7 +190,9 @@ export function getOpenBottles(bottles: Bottle[], pours: Pour[]): OpenBottleSumm
 }
 
 export interface CollectionSnapshot {
-  total: number
+  // Bottles actually on the shelf: open + sealed. Wishlist and incoming
+  // aren't owned yet and finished bottles are gone, so none count here.
+  inBar: number
   open: number
   sealed: number
   // Open bottles that are empty (should be marked Finished) or down to
@@ -200,10 +206,11 @@ export function getCollectionSnapshot(bottles: Bottle[]): CollectionSnapshot {
   const open = bottles.filter((b) => b.status === 'open')
   const needingAttention = open.filter((b) => b.fillLevel === 'empty' || b.fillLevel === 'quarter').length
 
+  const sealed = bottles.filter((b) => b.status === 'sealed').length
   return {
-    total: bottles.length,
+    inBar: open.length + sealed,
     open: open.length,
-    sealed: bottles.filter((b) => b.status === 'sealed').length,
+    sealed,
     needingAttention,
   }
 }

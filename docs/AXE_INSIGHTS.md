@@ -1,6 +1,6 @@
 # AXE Insights: architecture
 
-Status: Batches 1–3 (engine; events and cache; AXE explanations) are built and tested. Batch 4 (Home) is not started.
+Status: Batches 1–4 are built and tested (engine; events and cache; AXE explanations; Home dashboard). Not yet deployed.
 
 ## Phase 0: what already exists
 
@@ -86,8 +86,33 @@ The same code bundles to dependency-free CommonJS (verified: 54 KB, runs in plai
 
 **Follow-ups** use the existing chat. `askAboutInsight(insightId, prompt?)` on `SommelierProvider` sends only the id. `askSommelier` resolves it in the caller's own cache (`loadInsightForChat`) and adds an "AXE insight they're asking about" section with the verified facts, confidence, period and bottles. An unknown id or another user's id resolves to "no longer current". AXE still has no tools: it can't change records, and its persona forbids claiming it did.
 
-## Planned: Batch 4
-- **Batch 4 (Home).** A compact AXE Insight card replaces "Your Palate", with an expanded view (facts, window, confidence wording, bottles) and "Ask AXE" passing the verified facts into the existing sheet.
+## Batch 4: Home dashboard
+
+**Order:** greeting, Tonight's Pick, Quick Actions, Continue Your Journey, Open Bottles, Maybe Tonight, Your Bar Snapshot, AXE Insight. Friends' Recent Pours left Home; the full feed is on Friends ("Recent Friend Activity").
+
+- **Hero:** about 45% shorter on phones (`clamp(64px, 18.5vw, 168px)`), artwork uncropped at its own proportions, centered, edges faded. The greeting is compact (no "Home" eyebrow).
+- **Tonight's Pick** (`WhatShouldIPourCard`):
+  - portrait image, two-line name, distillery and proof, a short reason;
+  - "Pour This" and "Another Pick", plus "Ask AXE why" and "Pick by mood" links;
+  - the pick stays persisted per user (`useHomeRecommendation`). A "no explanation" answer is now remembered too, so returning to Home never asks the model again for the same pick.
+- **Quick Actions:** Pour (the shared Pour hub), Ask AXE (the existing sheet), My Bar.
+- **Continue Your Journey:** a compact row showing the last tasting date as a local calendar day, the rating, and Pour Again.
+- **Open Bottles:** consistent card size, two-line names, local dates.
+- **Maybe Tonight:** up to 3 alternatives, never repeating Tonight's Pick, with day counts in local calendar days.
+- **Your Bar Snapshot:** "In Your Bar" = open + sealed (it used to count wishlist, incoming and finished bottles as "Total"), plus Open, Sealed, and "Low or Empty" (formerly "Needs Attention").
+- **AXE Insight** (`features/axeInsights/AxeInsightCard.tsx`, `useAxeInsight.ts`):
+  - renders from the local cache at once;
+  - asks the server only when there's no cache, an event is pending, the cache is older than 12 h, or the client's own fingerprints for palate, flavor and collection differ from the cache's;
+  - shows the deterministic wording until a validated AXE explanation exists (at most one request per insight);
+  - labels "Updating…" while a refresh runs, or "From your tastings as of …" when behind and unable to refresh.
+- **Expanded view** (`AxeInsightDetail`, the existing Modal, a bottom sheet on phones): the full explanation, verified facts, confidence wording, the period looked at, the tastings behind it (from evidence ids), related bottles, and actions.
+- **Ask AXE** opens the existing sheet with the insight id and insight-specific suggestions.
+
+## Production deployment requirements
+
+- Merging deploys `askSommelier` and `syncAxeInsights` (approval: `production-functions`), then the website (approval: `production-website`).
+- No Firestore rules deploy is required: the insights cache is server-only, and client access is already denied by default.
+- After deploy, run a controlled live test on a real account: log or edit a pour, open Home, check the insight, its expanded facts, the AXE wording, and a follow-up question.
 
 ## Decisions (approved)
 

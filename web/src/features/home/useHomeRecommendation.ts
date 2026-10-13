@@ -104,12 +104,14 @@ export function useHomeRecommendation(uid: string | undefined, bottles: Bottle[]
       tags: currentResult.tags,
     })
       .then((text) => {
-        if (cancelled || !text) return
+        if (cancelled) return
         setState((prev) => {
           // Guards against a slow response landing after a newer pick
           // replaced it — belt-and-suspenders alongside `cancelled` below.
           if (!prev?.result || prev.result.bottle.id !== currentResult.bottle.id) return prev
-          const next = { ...prev, explanation: text }
+          // "No explanation" is remembered too (as ''), so returning to Home
+          // doesn't ask the model again for the same pick.
+          const next = { ...prev, explanation: text ?? '' }
           if (uid) writePersisted(uid, next)
           return next
         })

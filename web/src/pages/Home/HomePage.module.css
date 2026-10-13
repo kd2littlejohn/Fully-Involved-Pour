@@ -1,25 +1,48 @@
-/* Full, uncropped hero artwork — width:100%/height:auto at the image's own
-   ~3:1 ratio, never object-fit:cover, so the compass mark, wordmark, and
-   the full lounge scene on the right are always entirely visible on every
-   phone width. The dark background is a safety net for any edge rounding,
-   not a crop mask. */
+/* Hero: the approved artwork, never cropped or stretched. At full width
+   its ~3:1 ratio made it ~130px tall on a phone; it's now held to about
+   55% of that (and capped on wide screens) at its own proportions,
+   centered on the artwork's own near-black so the edges disappear. That
+   lifts Tonight's Pick toward the top of the first screen. */
 .hero {
+  display: flex;
+  justify-content: center;
   width: 100%;
+  height: clamp(64px, 18.5vw, 168px);
   background: var(--fip-black);
   overflow: hidden;
 }
 
 .heroImage {
   display: block;
-  width: 100%;
-  height: auto;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
   object-fit: contain;
+  /* Fade the artwork's left/right edges into the bar. */
+  mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+}
+
+.greeting {
+  padding: var(--fip-space-4) var(--fip-shell-x) var(--fip-space-4);
+}
+
+.greetingTitle {
+  margin: 0;
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-cream);
+  line-height: var(--fip-leading-tight);
+}
+
+.greetingSubtitle {
+  margin: var(--fip-space-1) 0 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
 }
 
 .journeyStack {
   display: flex;
   flex-direction: column;
-  gap: var(--fip-space-4);
+  gap: var(--fip-space-3);
 }
 
 .emptyActions {

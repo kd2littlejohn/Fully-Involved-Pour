@@ -15,6 +15,9 @@
 }
 
 .viewAll {
+  /* 44px tall tap area without changing the header's layout. */
+  padding: 11px 0;
+  margin: -11px 0;
   font-size: var(--fip-text-sm);
   color: var(--fip-copper);
   text-decoration: none;

@@ -1,17 +1,17 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PageHeader } from '../../components/layout/PageHeader'
 import { Section, SectionRow } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { WhatShouldIPourCard } from '../../features/home/WhatShouldIPourCard'
+import { QuickActions } from '../../features/home/QuickActions'
 import { OpenBottleCard } from '../../features/home/OpenBottleCard'
 import { ContinueYourPourStoryCard } from '../../features/home/ContinueYourPourStoryCard'
 import { MaybeTonightCard } from '../../features/home/MaybeTonightCard'
 import { LastBlindCard } from '../../features/home/LastBlindCard'
-import { FriendsRecentPoursCard } from '../../features/home/FriendsRecentPoursCard'
-import { PalateInsightCard, PalateInsightEmptyCard } from '../../features/home/PalateInsightCard'
 import { CollectionSnapshot } from '../../features/home/CollectionSnapshot'
+import { AxeInsightCard } from '../../features/axeInsights/AxeInsightCard'
 import { useLastBlindSummary } from '../../features/home/useLastBlindSummary'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -20,17 +20,15 @@ import {
   getMaybeTonightCandidates,
   getOpenBottles,
   getCollectionSnapshot,
-  getPalateInsight,
   greetingForHour,
 } from '../../features/home/selectors'
 import homeHeroImage from '../../assets/home-hero.webp'
 import styles from './HomePage.module.css'
 
 // The approved hero banner — the real FIP compass mark, wordmark, and
-// lounge photography, never regenerated. Rendered at its native ~3:1 ratio
-// (width:100%, height:auto) so the whole thing is always visible; never
-// object-fit:cover, which would crop the logo or the glass/decanter on the
-// right at narrow widths.
+// lounge photography, never regenerated or cropped. Shown at a reduced
+// height (see HomePage.module.css) so Tonight's Pick sits near the top of a
+// phone screen; the artwork keeps its own proportions, centered.
 function HomeHero() {
   return (
     <div className={styles.hero}>
@@ -43,10 +41,23 @@ function HomeHero() {
   )
 }
 
+function Greeting({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className={styles.greeting}>
+      <h1 className={styles.greetingTitle}>{title}</h1>
+      {subtitle ? <p className={styles.greetingSubtitle}>{subtitle}</p> : null}
+    </div>
+  )
+}
+
+// Home is a personal dashboard, in this order: greeting, Tonight's Pick,
+// Quick Actions, Continue Your Journey, Open Bottles, Maybe Tonight, Your
+// Bar Snapshot, AXE Insight. Friends' activity lives on Friends.
 export function HomePage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, loading: dataLoading } = useUserData()
   const { summary: lastBlind } = useLastBlindSummary(user?.uid)
+  const [pickedId, setPickedId] = useState<string | undefined>(undefined)
 
   const greeting = greetingForHour(new Date().getHours())
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
@@ -55,7 +66,7 @@ export function HomePage() {
     return (
       <>
         <HomeHero />
-        <PageHeader eyebrow="Home" title={`${greeting}.`} />
+        <Greeting title={`${greeting}.`} />
       </>
     )
   }
@@ -64,7 +75,7 @@ export function HomePage() {
     return (
       <>
         <HomeHero />
-        <PageHeader eyebrow="Home" title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
+        <Greeting title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
         <EmptyState
           title="Your whiskey journey starts here."
           message="Sign in to start building your bar and capturing every pour."
@@ -76,41 +87,42 @@ export function HomePage() {
 
   const { bottles, pours } = userDoc
   const featuredBottle = getFeaturedOpenBottle(bottles)
-  const maybeTonight = getMaybeTonightCandidates(bottles, pours)
+  const maybeTonight = getMaybeTonightCandidates(bottles, pours, 3, pickedId ? [pickedId] : [])
   const openBottles = getOpenBottles(bottles, pours)
   const collectionSnapshot = getCollectionSnapshot(bottles)
-  const palateInsight = getPalateInsight(bottles, pours)
 
   return (
     <>
       <HomeHero />
-      <PageHeader
-        eyebrow="Home"
-        title={name ? `${greeting}, ${name}.` : `${greeting}.`}
-        subtitle="What are you pouring tonight?"
-      />
+      <Greeting title={name ? `${greeting}, ${name}.` : `${greeting}.`} subtitle="What are you pouring tonight?" />
 
       {bottles.length === 0 ? (
-        <EmptyState
-          title="Your whiskey journey starts here."
-          message="Add a bottle to begin building your bar."
-          action={
-            <Link to="/bottles/new">
-              <Button>Add a Bottle</Button>
-            </Link>
-          }
-        />
+        <>
+          <EmptyState
+            title="Your whiskey journey starts here."
+            message="Add a bottle to begin building your bar."
+            action={
+              <Link to="/bottles/new">
+                <Button>Add a Bottle</Button>
+              </Link>
+            }
+          />
+          <Section title="AXE Insight">
+            <AxeInsightCard uid={user.uid} bottles={bottles} pours={pours} />
+          </Section>
+        </>
       ) : (
         <>
-          <WhatShouldIPourCard uid={user.uid} bottles={bottles} pours={pours} />
+          <WhatShouldIPourCard uid={user.uid} bottles={bottles} pours={pours} onPickChange={setPickedId} />
 
-          {maybeTonight.length > 0 ? (
-            <Section title="Maybe Tonight" viewAllHref="/collection">
-              <SectionRow>
-                {maybeTonight.map((candidate) => (
-                  <MaybeTonightCard key={candidate.bottle.id} candidate={candidate} />
-                ))}
-              </SectionRow>
+          <QuickActions />
+
+          {featuredBottle || lastBlind ? (
+            <Section title="Continue Your Journey">
+              <div className={styles.journeyStack}>
+                {featuredBottle ? <ContinueYourPourStoryCard bottle={featuredBottle} pours={pours} /> : null}
+                {lastBlind ? <LastBlindCard summary={lastBlind} /> : null}
+              </div>
             </Section>
           ) : null}
 
@@ -124,25 +136,22 @@ export function HomePage() {
             </Section>
           ) : null}
 
-          {featuredBottle || lastBlind ? (
-            <Section title="Continue Your Journey">
-              <div className={styles.journeyStack}>
-                {featuredBottle ? <ContinueYourPourStoryCard bottle={featuredBottle} pours={pours} /> : null}
-                {lastBlind ? <LastBlindCard summary={lastBlind} /> : null}
-              </div>
+          {maybeTonight.length > 0 ? (
+            <Section title="Maybe Tonight" viewAllHref="/collection">
+              <SectionRow>
+                {maybeTonight.map((candidate) => (
+                  <MaybeTonightCard key={candidate.bottle.id} candidate={candidate} />
+                ))}
+              </SectionRow>
             </Section>
           ) : null}
 
-          <Section title="Friends' Recent Pours" viewAllHref="/friends">
-            <FriendsRecentPoursCard />
-          </Section>
-
-          <Section title="Your Palate">
-            {palateInsight ? <PalateInsightCard insight={palateInsight} /> : <PalateInsightEmptyCard />}
-          </Section>
-
-          <Section title="Collection Snapshot" viewAllHref="/collection">
+          <Section title="Your Bar Snapshot" viewAllHref="/collection">
             <CollectionSnapshot snapshot={collectionSnapshot} />
+          </Section>
+
+          <Section title="AXE Insight">
+            <AxeInsightCard uid={user.uid} bottles={bottles} pours={pours} />
           </Section>
         </>
       )}

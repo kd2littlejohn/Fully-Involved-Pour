@@ -98,16 +98,33 @@ export function readCachedAxeInsights(uid: string): AxeInsightsView | null {
   }
 }
 
+type Listener = (view: AxeInsightsView) => void
+const listeners = new Map<string, Set<Listener>>()
+
+// Home listens so a background sync (after a save) shows up without a remount.
+export function subscribeAxeInsights(uid: string, listener: Listener): () => void {
+  const set = listeners.get(uid) ?? new Set<Listener>()
+  set.add(listener)
+  listeners.set(uid, set)
+  return () => set.delete(listener)
+}
+
 // Only ever moves forward: an older generation never replaces a newer one,
 // even if responses arrive out of order.
 function writeCachedAxeInsights(uid: string, view: AxeInsightsView): void {
+  const current = readCachedAxeInsights(uid)
+  if (current && current.generation > view.generation) return
   try {
-    const current = readCachedAxeInsights(uid)
-    if (current && current.generation > view.generation) return
     localStorage.setItem(CACHE_PREFIX + uid, JSON.stringify(view))
   } catch {
     // Best-effort cache.
   }
+  for (const listener of listeners.get(uid) ?? []) listener(view)
+}
+
+// A coalesced request is already waiting to be sent for this user.
+export function isAxeInsightsSyncQueued(uid: string): boolean {
+  return timers.has(uid)
 }
 
 export function pendingAxeInsightsReason(uid: string): AxeInsightsReason | null {
