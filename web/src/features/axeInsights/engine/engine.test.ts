@@ -432,4 +432,33 @@ describe('reconcileInsights', () => {
     const reordered = input({ bottles: bottles.map((b) => Object.fromEntries(Object.entries(b).reverse()) as unknown as Bottle) })
     expect(inputFingerprints(reordered)).toEqual(a)
   })
+
+  it('never leaves Home empty because of repetition protection', () => {
+    const s1 = first()
+    // Every candidate was "just shown", and the current one has lost its support.
+    const allIds = Object.values(s1.categories).flatMap((c) => c.candidates.map((x) => ({ id: x.id, bottleIds: x.subjectBottleIds, on: TODAY })))
+    const cooled: AxeInsightState = { ...s1, history: allIds, selected: { ...s1.selected!, candidate: { ...s1.selected!.candidate, id: 'gone' } } }
+    const r = reconcileInsights(cooled, input(), opts)
+    expect(r.state.selected).not.toBeNull()
+  })
+
+  it('keeps the current insight when asked for another but nothing else is eligible', () => {
+    const s1 = first()
+    const allIds = Object.values(s1.categories).flatMap((c) => c.candidates.map((x) => ({ id: x.id, bottleIds: x.subjectBottleIds, on: TODAY })))
+    const r = reconcileInsights({ ...s1, history: allIds }, input(), { ...opts, requestNew: true })
+    expect(r.state.selected!.candidate.id).toBe(s1.selected!.candidate.id)
+    expect(r.changed).toBe(false)
+  })
+
+  it('caps stored evidence ids while reporting the full sample size', () => {
+    const many = Array.from({ length: 60 }, (_, i) => pour(i % 2 ? 'r1' : 'r2', `2026-0${1 + Math.floor(i / 20)}-${String((i % 20) + 1).padStart(2, '0')}`, 9, {}, `m${i}`))
+    const lots = [...many, pour('bb', '2026-05-01', 7, {}, 'b1'), pour('bb', '2026-05-02', 7, {}, 'b2')]
+    const c = computeCategoryCandidates({ bottles, pours: lots, today: TODAY }, ['palate-evolution'])['palate-evolution'].find(
+      (x) => x.kind === 'style-preference',
+    )!
+    expect(c.evidence.pourIds.length).toBe(40)
+    expect(c.sampleSize).toBe(62)
+    expect(c.evidence.pourIds).toContain('m59') // keeps the most recent
+  })
 })
+

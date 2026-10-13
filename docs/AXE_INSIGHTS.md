@@ -1,6 +1,6 @@
 # AXE Insights: architecture
 
-Status: Batch 1 (engine) is built and tested. Batches 2–4 are not started.
+Status: Batch 1 (engine) and Batch 2 (events, cache, palate consistency) are built and tested. Batches 3–4 are not started.
 
 ## Phase 0: what already exists
 
@@ -38,16 +38,36 @@ Status: Batch 1 (engine) is built and tested. Batches 2–4 are not started.
 
 The same code bundles to dependency-free CommonJS (verified: 54 KB, runs in plain Node), so Cloud Functions runs the identical engine.
 
-## Planned: Batches 2–4
+## Batch 2: events, cache, consistency
 
-- **Batch 2 (events and cache).** A build step bundles the engine into `functions/generated/axeInsightsEngine.js` (committed; CI fails if it's stale). The server reads the caller's own `users/{uid}` (uid from auth only) plus their blind results, runs `reconcileInsights` in a transaction that refuses to overwrite a newer `generation` or `sourceRevision`, and writes `users/{uid}/axeInsights/current` only when `changed`. Firestore rule: owner may read; nobody may write (Admin SDK only).
+**Flow.** A save that touches `pours` or `bottles` (`saveUserDoc`), a host's reveal, or a participant opening a reveal calls `requestAxeInsightsSync` (`web/src/data/repositories/axeInsights.ts`). Calls are coalesced per user for 2.5 s, and the strongest reason wins. The `syncAxeInsights` callable (`functions/index.js` → `functions/axeInsights.js`) then:
+
+1. takes the uid from auth only; the payload is just `{reason, today}`, and `today` is accepted only within a day of UTC;
+2. reads the user's blind results (only revealed rooms and their own locked ranking and score; up to 10 rooms) on a blind-reveal event or when the cached copy is over 24 h old;
+3. in one transaction, reads `users/{uid}` and `users/{uid}/axeInsights/current`, refuses to replace a result whose `sourceRevision` (user doc update time) is newer, runs `reconcileInsights`, and writes only when something meaningful changed;
+4. returns the selected insight plus `generation`, `sourceRevision`, `calculatedAt` and `inputFingerprints`.
+
+**Server engine.** `npm run build:axe-engine` (in `web/`) bundles the engine into `functions/generated/axeInsightsEngine.js` (committed, reproducible). CI rebuilds it and fails if the committed copy is stale.
+
+**Guarantees.**
+- Duplicate events are a no-op (no new generation, no write).
+- Concurrent events serialize through the transaction: exactly one applies a change.
+- Stale requests can't overwrite newer results: the server has a monotonic `sourceRevision`, and the client cache only moves forward by `generation`.
+- A failed request leaves a pending marker that is retried on the next app load. Any later request recalculates from stored data, so a missed event self-heals.
+- Rate limit: 120/hour. Past it, the cached insight is returned without recalculating.
+
+**Security.** `firestore.rules` denies every client read and write on `users/{uid}/axeInsights/*`, including the owner's. This matches the default for subcollections, so it is in force whether or not rules are deployed. Reads go through the callable.
+
+**Palate consistency.** `PREFERENCE_MIN_MARGIN = 0.5` now lives in `yourPalate/selectors.ts`. `getProofAffinity` returns nothing without a 0.5-point lead over all other pours with a proof. `getCategoryAffinity` falls back to the plain "most poured" fact. Your Palate, Profile identity, palate profile and AXE all use it.
+
+**Deploy.** The default functions target is now `functions:askSommelier,functions:syncAxeInsights`, with a liveness check (401 for unauthenticated calls) for the new function.
+
+## Planned: Batches 3–4
 - **Batch 3 (AXE explanations).** Lazily, when the selected insight has no explanation for its fingerprint: a minimal payload (category, facts, sample size, confidence, bottle names, allowed actions) goes to the model, which must return JSON. The server rejects any number that isn't a fact or bottle that isn't in the evidence, then caches the result per fingerprint. Otherwise it uses the deterministic copy. Uses the existing rate limiter.
 - **Batch 4 (Home).** A compact AXE Insight card replaces "Your Palate", with an expanded view (facts, window, confidence wording, bottles) and "Ask AXE" passing the verified facts into the existing sheet.
 
-## Decisions needed before Batch 2
+## Decisions (approved)
 
-1. **How events reach the server.**
-   - Recommended: a callable (`syncAxeInsights`) fired from the existing save path in `useUserData` (debounced, so one tasting save is one call) and from Blind Room reveal, plus Home's reconciliation check. The client sends no statistics; the server recomputes from stored data. It deploys with the existing workflow.
-   - Alternative: a Firestore `onDocumentWritten` trigger. It catches every write automatically, but 2nd-gen Firestore triggers need Eventarc enabled and extra IAM roles that the deploy service account doesn't have, which means console setup steps.
-2. **Firestore rules aren't deployed by any workflow.** With the callable design, Home can read the insight through the callable, so no rules deploy is required: client writes are already denied by default. Adding rules deployment to the workflow is possible but would be a new production change.
-3. **Home order.** The requested order (greeting, Tonight's Pick, Quick Actions, Continue Your Journey, Maybe Tonight, Your Bar Snapshot, AXE Insight) has no place for the current **Open Bottles** and **Friends' Recent Pours** sections, and Home has no **Quick Actions** row today.
+- Event processing: authenticated callable, triggered after successful saves; no Firestore trigger.
+- The cache is server-owned and read through the callable; no rules deploy is required.
+- Home (Batch 4): Tonight's Pick, a compact Quick Actions row, Continue Your Journey, simplified Open Bottles, Maybe Tonight (2–3), Your Bar Snapshot, one AXE Insight card. Friends' Recent Pours moves to Friends.

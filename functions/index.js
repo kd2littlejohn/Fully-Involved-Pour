@@ -4,6 +4,7 @@ const admin = require("firebase-admin");
 const { handleSuggestBottleRarity } = require("./rarityLogic");
 const { assertNotRateLimited } = require("./rateLimit");
 const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require("./axeContext");
+const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
 
 admin.initializeApp();
 
@@ -84,6 +85,29 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
   }
   const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 500 });
   return { reply: reply || "I couldn't come up with a response just now — try rephrasing." };
+});
+
+// AXE Insights (see axeInsights.js): recalculates the caller's insight
+// from their own stored data and returns the current one. Called after
+// tasting / inventory / blind-reveal saves and when Home opens. No model
+// call happens here, so the cap is generous; past it, the cached insight
+// is returned without recalculating rather than failing.
+const AXE_INSIGHTS_MAX_CALLS_PER_HOUR = 120;
+
+exports.syncAxeInsights = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to see AXE insights.");
+  }
+  const db = admin.firestore();
+  try {
+    await assertNotRateLimited(request.auth.uid, "syncAxeInsights", { maxCalls: AXE_INSIGHTS_MAX_CALLS_PER_HOUR });
+  } catch (err) {
+    if (err && err.code === "resource-exhausted") {
+      return { ...(await readAxeInsights(db, request.auth.uid)), changed: false, limited: true };
+    }
+    throw err;
+  }
+  return syncAxeInsights(db, request.auth.uid, request.data);
 });
 
 // Mirrors the Firestore rules' own Blind Room boundary: only a member (host

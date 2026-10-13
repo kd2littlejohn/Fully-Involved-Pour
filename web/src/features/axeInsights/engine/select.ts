@@ -1,4 +1,4 @@
-import { MAX_CANDIDATES_PER_CATEGORY, SURFACE_COOLDOWN_DAYS } from './config'
+import { MAX_CANDIDATES_PER_CATEGORY, MAX_EVIDENCE_IDS, SURFACE_COOLDOWN_DAYS } from './config'
 import { candidateFingerprint, candidatesFingerprint, inputFingerprints } from './fingerprint'
 import { daysBetween, normalizeInput } from './normalize'
 import { palateEvolutionCandidates } from './categories/palateEvolution'
@@ -76,9 +76,19 @@ export function computeCategoryCandidates(input: InsightInput, categories: reado
         list = journeyMilestoneCandidates(normalized, input.blindTastings)
         break
     }
-    result[category] = rank(list).slice(0, MAX_CANDIDATES_PER_CATEGORY)
+    result[category] = rank(list).slice(0, MAX_CANDIDATES_PER_CATEGORY).map(boundEvidence)
   }
   return result
+}
+
+// Evidence lists are chronological, so the tail is the most recent.
+function boundEvidence(candidate: InsightCandidate): InsightCandidate {
+  const { pourIds, bottleIds, roomIds } = candidate.evidence
+  if (pourIds.length <= MAX_EVIDENCE_IDS && bottleIds.length <= MAX_EVIDENCE_IDS) return candidate
+  return {
+    ...candidate,
+    evidence: { pourIds: pourIds.slice(-MAX_EVIDENCE_IDS), bottleIds: bottleIds.slice(-MAX_EVIDENCE_IDS), roomIds },
+  }
 }
 
 export function rank(candidates: InsightCandidate[]): InsightCandidate[] {

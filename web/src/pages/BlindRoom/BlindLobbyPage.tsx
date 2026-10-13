@@ -14,6 +14,7 @@ import {
   setParticipantReady,
   startBlind,
 } from '../../data/repositories/blindRoom'
+import { notifyBlindRevealed } from '../../data/repositories/axeInsights'
 import styles from './BlindLobbyPage.module.css'
 
 function inviteMessage(roomName: string, pourCount: number, knowledgeMode: string, code: string): string {
@@ -100,6 +101,7 @@ export function BlindLobbyPage() {
     if (!room) return
     setBusy(true)
     await revealBlind(room.id)
+    if (user) notifyBlindRevealed(user.uid, room.id)
     refresh()
     setBusy(false)
   }

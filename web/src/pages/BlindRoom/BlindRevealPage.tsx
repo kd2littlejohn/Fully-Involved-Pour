@@ -16,6 +16,7 @@ import { generateTastingSummary } from '../../features/blindSommelier/summary'
 import type { BlindComparison, BlindFinalRanking, BlindRoomSecrets, BlindTastingResponse } from '../../data/types'
 import { AxeLauncher } from '../../features/sommelier/AxeLauncher'
 import styles from './BlindRevealPage.module.css'
+import { notifyBlindRevealed } from '../../data/repositories/axeInsights'
 
 // Combines a dimension's tapped chips with its freeform elaboration into one
 // display line, e.g. "Vanilla, Caramel — really lingers on the back end."
@@ -49,6 +50,11 @@ export function BlindRevealPage() {
   const fetchedRef = useRef(false)
 
   const resultsVisible = room?.state === 'revealed' || room?.state === 'completed'
+
+  // This user's blind results are now readable: let AXE Insights pick them up.
+  useEffect(() => {
+    if (user && roomId && resultsVisible) notifyBlindRevealed(user.uid, roomId)
+  }, [user, roomId, resultsVisible])
 
   useEffect(() => {
     if (fetchedRef.current || !roomId || !resultsVisible || participants.length === 0) return

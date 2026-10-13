@@ -36,6 +36,7 @@ import {
   type UserDoc,
 } from '../data/types'
 import { todayLocalIsoDate } from '../data/localDate'
+import { recoverPendingAxeInsightsSync } from '../data/repositories/axeInsights'
 
 export type NewBottleInput = Omit<Bottle, 'id' | 'createdAt'>
 export type BottlePatch = Partial<Omit<Bottle, 'id' | 'createdAt'>>
@@ -315,6 +316,13 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
     if (!user || mockMode || dataLoading || profileLoading) return
     void syncSharedCollection(user.uid, userDoc, profile?.privacy ?? DEFAULT_PRIVACY_SETTINGS)
   }, [user, mockMode, dataLoading, profileLoading, userDoc, profile?.privacy])
+
+  // AXE Insights recovery: an insight update that failed (offline, closed
+  // tab before it was sent) is retried once the user's data has loaded.
+  useEffect(() => {
+    if (!user || mockMode || dataLoading) return
+    recoverPendingAxeInsightsSync(user.uid)
+  }, [user, mockMode, dataLoading])
 
   const addBottle = useCallback(
     async (input: NewBottleInput) => {

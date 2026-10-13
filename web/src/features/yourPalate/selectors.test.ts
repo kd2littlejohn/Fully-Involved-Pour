@@ -365,3 +365,51 @@ describe('getTopRatedFlavorTags', () => {
     expect(ranked.indexOf(oak!)).toBeLessThan(ranked.indexOf(vanilla!))
   })
 })
+
+// Shared evidence rule (PREFERENCE_MIN_MARGIN): Your Palate, Profile and
+// AXE Insights all read these two selectors, so a tie can never be shown
+// as a preference anywhere.
+describe('preference lead rule (0.5 points over everything else)', () => {
+  const four = (a: number, b: number, c: number, d: number) => [
+    pour({ id: 'p1', bottleId: 'b1', date: daysAgo(1), rating: a }), // Bourbon, 90-100
+    pour({ id: 'p2', bottleId: 'b2', date: daysAgo(2), rating: b }), // Bourbon, 90-100
+    pour({ id: 'p3', bottleId: 'b3', date: daysAgo(3), rating: c }), // Rye, 110+
+    pour({ id: 'p4', bottleId: 'b4', date: daysAgo(4), rating: d }), // Rye, 110+
+  ]
+  const shelf = [bourbon, bourbon2, rye, rye2]
+
+  it('treats an exact tie as no proof preference and no style preference', () => {
+    const pours = four(8, 8, 8, 8)
+    expect(getProofAffinity(shelf, pours)).toBeUndefined()
+    const style = getCategoryAffinity(shelf, pours)
+    expect(style?.mode).toBe('frequency-only')
+    expect(style?.averageRating).toBeUndefined()
+  })
+
+  it('treats a lead under 0.5 as no preference', () => {
+    const pours = four(8, 8.2, 8.5, 8.5) // 8.5 vs 8.1: a 0.4 lead
+    expect(getProofAffinity(shelf, pours)).toBeUndefined()
+    expect(getCategoryAffinity(shelf, pours)?.mode).toBe('frequency-only')
+  })
+
+  it('counts a lead of exactly 0.5, and reports what it was compared against', () => {
+    const pours = four(8, 8, 8.5, 8.5)
+    expect(getProofAffinity(shelf, pours)).toEqual({ bucketLabel: '110+ proof', averageRating: 8.5, pourCount: 2, othersAverage: 8 })
+    expect(getCategoryAffinity(shelf, pours)).toEqual({ mode: 'rating-supported', category: 'Rye', pourCount: 2, averageRating: 8.5, othersAverage: 8 })
+  })
+
+  it('compares against every other pour, including ranges with too few pours to compete', () => {
+    const lone: Bottle = { id: 'b5', name: 'Stagg', status: 'open', type: 'Bourbon', proof: 105 } // 100-110, one pour
+    // 110+ (8.5) vs everything else: (8 + 8 + 9.6) / 3 = 8.5, no lead.
+    const pours = [...four(8, 8, 8.5, 8.5), pour({ id: 'p5', bottleId: 'b5', date: daysAgo(5), rating: 9.6 })]
+    expect(getProofAffinity([...shelf, lone], pours)).toBeUndefined()
+  })
+
+  it('still needs two ranges or styles with 2+ pours each (insufficient data)', () => {
+    const pours = [pour({ id: 'p1', bottleId: 'b1', date: daysAgo(1), rating: 6 }), pour({ id: 'p3', bottleId: 'b3', date: daysAgo(3), rating: 9.5 })]
+    expect(getProofAffinity(shelf, pours)).toBeUndefined()
+    expect(getCategoryAffinity(shelf, pours)?.mode).toBe('frequency-only')
+    expect(getProofAffinity(shelf, [])).toBeUndefined()
+    expect(getCategoryAffinity(shelf, [])).toBeUndefined()
+  })
+})

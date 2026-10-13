@@ -105,12 +105,25 @@ export function getLoyaltySignal(bottles: Bottle[], pours: Pour[]): LoyaltyStat 
 // ranked instead of just the single best one.
 export const MIN_BUCKETS_FOR_COMPARISON = 2
 export const MIN_POURS_PER_BUCKET = 2
+// A style or proof range only counts as preferred when its average rating
+// beats the average of everything else you've rated (in that dimension)
+// by at least this many FIP points. Without it, a tie, or a 0.1-point
+// edge, would be presented as a preference. Shared by Your Palate, Profile
+// identity and AXE Insights, so they can never disagree.
+export const PREFERENCE_MIN_MARGIN = 0.5
+
+function averageOf(entries: { count: number; ratingSum: number }[]): number {
+  const count = entries.reduce((s, e) => s + e.count, 0)
+  return entries.reduce((s, e) => s + e.ratingSum, 0) / count
+}
 
 export interface CategoryAffinity {
   mode: 'rating-supported' | 'frequency-only'
   category: string
   pourCount: number
   averageRating?: number
+  // Average rating across every other style (rating-supported mode only).
+  othersAverage?: number
 }
 
 export function getCategoryAffinity(bottles: Bottle[], pours: Pour[]): CategoryAffinity | undefined {
@@ -130,7 +143,12 @@ export function getCategoryAffinity(bottles: Bottle[], pours: Pour[]): CategoryA
     const [category, stats] = eligible.reduce((best, cur) =>
       cur[1].ratingSum / cur[1].count > best[1].ratingSum / best[1].count ? cur : best,
     )
-    return { mode: 'rating-supported', category, pourCount: stats.count, averageRating: round1(stats.ratingSum / stats.count) }
+    const averageRating = round1(stats.ratingSum / stats.count)
+    const othersAverage = round1(averageOf([...byCategory.entries()].filter(([c]) => c !== category).map(([, v]) => v)))
+    // Without a real lead, fall through to the plain "most poured" fact.
+    if (averageRating - othersAverage >= PREFERENCE_MIN_MARGIN) {
+      return { mode: 'rating-supported', category, pourCount: stats.count, averageRating, othersAverage }
+    }
   }
 
   const [category, stats] = [...byCategory.entries()].reduce((best, cur) => (cur[1].count > best[1].count ? cur : best))
@@ -160,6 +178,8 @@ export interface ProofAffinity {
   bucketLabel: string
   averageRating: number
   pourCount: number
+  // Average rating across pours in every other proof range.
+  othersAverage: number
 }
 
 export function getProofAffinity(bottles: Bottle[], pours: Pour[]): ProofAffinity | undefined {
@@ -180,7 +200,10 @@ export function getProofAffinity(bottles: Bottle[], pours: Pour[]): ProofAffinit
   const [bucketLabel, stats] = eligible.reduce((best, cur) =>
     cur[1].ratingSum / cur[1].count > best[1].ratingSum / best[1].count ? cur : best,
   )
-  return { bucketLabel, averageRating: round1(stats.ratingSum / stats.count), pourCount: stats.count }
+  const averageRating = round1(stats.ratingSum / stats.count)
+  const othersAverage = round1(averageOf([...byBucket.entries()].filter(([b]) => b !== bucketLabel).map(([, v]) => v)))
+  if (averageRating - othersAverage < PREFERENCE_MIN_MARGIN) return undefined
+  return { bucketLabel, averageRating, pourCount: stats.count, othersAverage }
 }
 
 // ---------------------------------------------------------------------------
