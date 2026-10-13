@@ -1,12 +1,18 @@
-/* Cinematic hero. Three layers, all from the one approved image:
+/* Home root: on phones it is the stacking context the portrait hero art
+   sits in, behind every card (see the phone rules at the end). */
+.home {
+  position: relative;
+}
+
+/* Cinematic hero, wider screens (>=600px). Three layers, all from the one approved image:
    1. .heroAtmosphere: the artwork scaled to cover the full width, blurred
       and darkened, so its warm amber light fills the band edge to edge.
    2. .heroShade: a vignette that fades the atmosphere into the page
       background at the bottom and sides (no visible band edge).
    3. .heroImage: the sharp, uncropped artwork at its own proportions,
       feathered with a radial mask so it melts into the atmosphere.
-   The greeting sits inside the same stage, over the fade. Compact: the
-   artwork stays ~45% shorter than full width on phones. */
+   The greeting sits inside the same stage, over the fade. Phones use the
+   portrait artwork instead (rules at the end). */
 .heroStage {
   position: relative;
   isolation: isolate;
@@ -97,6 +103,67 @@
 @media (prefers-reduced-transparency: reduce) {
   .heroAtmosphere {
     filter: brightness(0.35);
+  }
+}
+
+/* Phones: the portrait artwork as a full-bleed background layer.
+   - Pulled up by the top bar's height, so it starts at the very top of the
+     screen with the (transparent) bar over it.
+   - Full width at its own proportions (948x1659), never cropped or faded:
+     no masks, no opacity, no vignette.
+   - Positioned behind the page's content, so it continues down behind the
+     greeting and the top of Tonight's Pick. The artwork's own dark lower
+     fade does the blending; .hero::after only matches its last pixels to
+     the exact page colour, so there is no bottom edge.
+   - The greeting stays in flow, starting just below the table (92% of the
+     width = ~53% of the artwork's height), over the dark rug. */
+@media (max-width: 599px) {
+  .home {
+    isolation: isolate;
+    overflow: clip;
+    margin-top: calc(-1 * var(--fip-mobile-bar-h));
+  }
+
+  .heroStage {
+    position: static;
+    isolation: auto;
+    overflow: visible;
+    background: none;
+  }
+
+  .heroAtmosphere,
+  .heroShade {
+    display: none;
+  }
+
+  .hero {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: -1;
+    display: block;
+    height: auto;
+    padding: 0;
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 12%;
+    background: linear-gradient(to bottom, rgba(17, 22, 28, 0), var(--fip-black));
+    pointer-events: none;
+  }
+
+  .heroImage {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .greeting {
+    padding-top: 92%;
   }
 }
 
