@@ -13,8 +13,99 @@
   line-height: var(--fip-leading-copy);
 }
 
-.chips {
+
+/* Personal summary: the read-only face of the Your Take tab. */
+.takeCard {
+  margin-bottom: var(--fip-space-6);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-xl);
+  border: 1px solid var(--fip-border-subtle);
+  background:
+    radial-gradient(120% 90% at 0% 0%, var(--fip-amber-soft), transparent 55%),
+    var(--fip-card);
+}
+
+.takeHeader {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--fip-space-2);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-3);
+}
+
+.takeTitle {
+  margin: 0;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+}
+
+.takeLink {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fip-cream-soft);
+  font: inherit;
+  font-size: var(--fip-text-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.takeLink:hover {
+  color: var(--fip-amber);
+}
+
+.takeGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--fip-space-3);
+  align-items: start;
+}
+
+.takeScoreValue {
+  font-family: var(--fip-font-display);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--fip-amber);
+}
+
+.takeScoreMax {
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream-soft);
+}
+
+.takeScoreLabel {
+  margin-top: var(--fip-space-1);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  color: var(--fip-muted);
+}
+
+.takeFact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  min-width: 0;
+}
+
+.takeFactLabel {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.takeFactValue {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  background: var(--fip-amber-soft);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  white-space: nowrap;
+}
+
+.takeFactEmpty {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
 }

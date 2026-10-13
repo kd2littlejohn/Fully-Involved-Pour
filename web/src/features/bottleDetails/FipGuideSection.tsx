@@ -6,6 +6,9 @@ import styles from './FipGuideSection.module.css'
 interface FipGuideSectionProps {
   state: FipGuideLoadState
   guide: FipGuide | undefined
+  // Bottle Details shows the guide itself (Guide tab) and the general
+  // reference profile (Flavor Profile tab) separately; 'all' renders both.
+  part?: 'all' | 'guide' | 'profile'
 }
 
 // Canonical, reusable-across-users AI content — see fipGuide.ts for the
@@ -13,10 +16,11 @@ interface FipGuideSectionProps {
 // Bottle Info's Availability row so both read one fetch, not two). Renders
 // nothing (not an error, not a placeholder) when the bottle isn't
 // confidently recognized, per "do not fabricate low-confidence facts."
-export function FipGuideSection({ state, guide }: FipGuideSectionProps) {
+export function FipGuideSection({ state, guide, part = 'all' }: FipGuideSectionProps) {
   const [storyOpen, setStoryOpen] = useState(false)
 
   if (state === 'loading') {
+    if (part === 'profile') return null
     return (
       <div className={styles.card}>
         <p className={styles.sectionLabel}>FIP Guide</p>
@@ -33,8 +37,9 @@ export function FipGuideSection({ state, guide }: FipGuideSectionProps) {
   const hasStory = Boolean(guide.story && guide.story.trim().length > 0)
   const hasExpect = guide.expectSummary.trim().length > 0 || guide.expectFlavors.length > 0
   const hasVerdict = guide.verdict.trim().length > 0
-  const hasProfile = guide.expectFlavors.length > 0
-  const hasGuideContent = hasStory || special.length > 0 || hasExpect || buyIf.length > 0 || passIf.length > 0 || hasVerdict
+  const hasProfile = part !== 'guide' && guide.expectFlavors.length > 0
+  const hasGuideContent =
+    part !== 'profile' && (hasStory || special.length > 0 || hasExpect || buyIf.length > 0 || passIf.length > 0 || hasVerdict)
 
   if (!hasGuideContent && !hasProfile) return null
 

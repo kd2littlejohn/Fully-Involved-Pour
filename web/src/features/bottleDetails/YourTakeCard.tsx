@@ -1,24 +1,11 @@
 import { TapChip } from '../../components/ui/TapChip'
 import { StatTile } from '../../components/ui/StatTile'
-import type { Bottle, BottleBuyAgain, WouldReplace } from '../../data/types'
+import type { Bottle } from '../../data/types'
 import type { BottlePatch } from '../../hooks/useUserData'
 import { fipTier } from '../../features/fip/tiers'
 import { parseLocalDate, type PourHistorySummary } from './selectors'
+import { BUY_AGAIN_OPTIONS, REPLACE_OPTIONS } from './yourTakeOptions'
 import styles from './YourTakeCard.module.css'
-
-const BUY_AGAIN_OPTIONS: { value: BottleBuyAgain; label: string }[] = [
-  { value: 'absolutely', label: 'Absolutely' },
-  { value: 'at-msrp', label: 'At MSRP' },
-  { value: 'maybe', label: 'Maybe' },
-  { value: 'probably-not', label: 'Probably Not' },
-  { value: 'no', label: 'No' },
-]
-
-const REPLACE_OPTIONS: { value: WouldReplace; label: string }[] = [
-  { value: 'yes', label: 'Yes' },
-  { value: 'maybe', label: 'Maybe' },
-  { value: 'no', label: 'No' },
-]
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 

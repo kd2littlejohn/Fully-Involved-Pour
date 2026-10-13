@@ -1,14 +1,12 @@
 import type { Bottle, BottleStatus, Pour } from '../../../data/types'
 import { mashBillSummary, parseLocalDate } from '../../../features/bottleDetails/selectors'
-import { useFipGuide } from '../../../features/bottleDetails/useFipGuide'
-import { FipGuideSection } from '../../../features/bottleDetails/FipGuideSection'
-import { PalateMatchBadge } from '../../../features/palateMatch/PalateMatchBadge'
+import type { FipGuide } from '../../../data/repositories/fipGuide'
+import { buyAgainLabel, replaceLabel } from '../../../features/bottleDetails/yourTakeOptions'
+import { fipTier } from '../../../features/fip/tiers'
 import { bottleJourneyStage } from '../../../features/collection/journeyStage'
 import { SpecList, type SpecRow } from '../../../components/ui/SpecList'
-import { Badge } from '../../../components/ui/Badge'
-import { FlavorRadar } from '../../../features/flavorRadar/FlavorRadar'
-import { flavorRadarValues } from '../../../features/flavorRadar/flavorCategories'
 import { YourBottlesSection } from '../YourBottlesSection'
+import { GalleryTab } from './GalleryTab'
 import { confirmedRarityOf } from '../../../features/rarity/rarityFields'
 import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../../features/rarity/rarityLevels'
 import styles from './OverviewTab.module.css'
@@ -31,8 +29,19 @@ const FILL_LEVEL_LABEL: Record<string, string> = {
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
-export function OverviewTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }) {
-  const { state: guideState, guide } = useFipGuide(bottle)
+interface OverviewTabProps {
+  bottle: Bottle
+  pours: Pour[]
+  guide: FipGuide | undefined
+  score: number | undefined
+  pourCount: number
+  onOpenYourTake: () => void
+}
+
+// Overview: a short personal summary, then the bottle's facts, your copy of
+// it, notes and photos. Flavor, tasting history and the FIP Guide each have
+// their own tab.
+export function OverviewTab({ bottle, pours, guide, score, pourCount, onOpenYourTake }: OverviewTabProps) {
   const journeyStage = bottleJourneyStage(bottle)
 
   // Canonical facts about the bottle itself — the same regardless of who
@@ -73,12 +82,40 @@ export function OverviewTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }
   if (bottle.shelf) yourBottleRows.push({ label: 'Shelf', value: bottle.shelf })
   if (bottle.fillLevel) yourBottleRows.push({ label: 'Fill Level', value: FILL_LEVEL_LABEL[bottle.fillLevel] ?? bottle.fillLevel })
 
-  const radarValues = flavorRadarValues(bottle, pours)
+  const tier = typeof score === 'number' ? fipTier(score) : undefined
+  const buyAgain = buyAgainLabel(bottle.buyAgain)
+  const replace = replaceLabel(bottle.wouldReplace)
 
   return (
     <>
-      <FipGuideSection state={guideState} guide={guide} />
-      <PalateMatchBadge bottle={bottle} />
+      <div className={styles.takeCard}>
+        <div className={styles.takeHeader}>
+          <h3 className={styles.takeTitle}>Your Take</h3>
+          <button type="button" className={styles.takeLink} onClick={onOpenYourTake}>
+            {pourCount > 0 ? `Based on ${pourCount} ${pourCount === 1 ? 'tasting' : 'tastings'}` : 'Add your take'}
+            <span aria-hidden="true"> ›</span>
+          </button>
+        </div>
+        <div className={styles.takeGrid}>
+          <div className={styles.takeScore}>
+            <div className={styles.takeScoreValue}>
+              {typeof score === 'number' ? score.toFixed(1) : '—'}
+              <span className={styles.takeScoreMax}> / 10</span>
+            </div>
+            <div className={styles.takeScoreLabel} style={tier ? { color: tier.color } : undefined}>
+              {tier ? tier.label : 'Not rated yet'}
+            </div>
+          </div>
+          <div className={styles.takeFact}>
+            <span className={styles.takeFactLabel}>Buy Again</span>
+            <span className={buyAgain ? styles.takeFactValue : styles.takeFactEmpty}>{buyAgain ?? 'Not set'}</span>
+          </div>
+          <div className={styles.takeFact}>
+            <span className={styles.takeFactLabel}>Replace It</span>
+            <span className={replace ? styles.takeFactValue : styles.takeFactEmpty}>{replace ?? 'Not set'}</span>
+          </div>
+        </div>
+      </div>
 
       {bottleInfoRows.length > 0 ? (
         <div className={styles.section}>
@@ -94,32 +131,17 @@ export function OverviewTab({ bottle, pours }: { bottle: Bottle; pours: Pour[] }
 
       {bottle.instances && bottle.instances.length > 0 ? <YourBottlesSection bottle={bottle} pours={pours} /> : null}
 
-      {radarValues ? (
-        <div className={styles.section}>
-          <h3 className={styles.heading}>Your Flavor Profile</h3>
-          <FlavorRadar bottle={bottle} pours={pours} />
-        </div>
-      ) : null}
-
-      {bottle.flavors && bottle.flavors.length > 0 ? (
-        <div className={styles.section}>
-          <h3 className={styles.heading}>Flavor Notes</h3>
-          <div className={styles.chips}>
-            {bottle.flavors.map((flavor) => (
-              <Badge key={flavor} tone="brass">
-                {flavor}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       {bottle.notes ? (
         <div className={styles.section}>
           <h3 className={styles.heading}>Notes</h3>
           <p className={styles.notes}>{bottle.notes}</p>
         </div>
       ) : null}
+
+      <div className={styles.section}>
+        <h3 className={styles.heading}>Photos</h3>
+        <GalleryTab bottle={bottle} />
+      </div>
     </>
   )
 }

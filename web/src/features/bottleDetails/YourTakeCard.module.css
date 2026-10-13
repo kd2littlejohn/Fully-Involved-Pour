@@ -4,7 +4,8 @@
   border-radius: var(--fip-radius-lg);
   box-shadow: var(--fip-shadow-card);
   padding: var(--fip-space-5);
-  margin: 0 var(--fip-shell-x) var(--fip-space-6);
+  /* Sits inside the Your Take tab panel, which provides the side gutters. */
+  margin: 0 0 var(--fip-space-6);
 }
 
 .heading {
@@ -80,9 +81,15 @@
 
 .statsRow {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--fip-space-3);
   margin-bottom: var(--fip-space-4);
+}
+
+/* Dates are long; keep them to one or two lines inside the tiles. */
+.statsRow > div > div:first-child {
+  font-size: var(--fip-text-md);
+  line-height: 1.25;
 }
 
 .journeyButton {
