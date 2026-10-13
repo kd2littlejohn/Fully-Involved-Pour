@@ -237,6 +237,17 @@ describe("Blind Room results", () => {
     expect(res.selected.copy.body).toContain("Blind, you preferred Maker's Mark over Rittenhouse");
   });
 
+  it("stores the reveal instant and dates it in the caller's timezone", async () => {
+    await seedRoom("ins-room1");
+    await call("ins-alice", { reason: "blind-reveal", timeZone: "America/Los_Angeles" });
+    const cached = (await cacheOf("ins-alice")).blind.tastings[0];
+    expect(typeof cached.revealedAt).toBe("number");
+    expect(cached).not.toHaveProperty("date");
+    const res = await call("ins-alice", { timeZone: "America/Los_Angeles" });
+    const expected = insights.localCalendarDate(cached.revealedAt, "America/Los_Angeles");
+    expect(res.selected.facts.find((f) => f.key === "blindDate").value).toBe(expected);
+  });
+
   it("ignores unrevealed rooms, unlocked rankings and other people's rooms", async () => {
     await seedRoom("ins-room1", { state: "active" });
     await seedRoom("ins-room2", { locked: false });
@@ -244,6 +255,42 @@ describe("Blind Room results", () => {
     const tastings = await insights.loadBlindTastings(db, "ins-alice");
     expect(tastings.map((t) => t.roomId)).toEqual(["ins-room2"]);
     expect(tastings[0].pours.every((p) => p.blindRank === undefined)).toBe(true);
+  });
+});
+
+describe("local calendar days (FIP convention) at timezone boundaries", () => {
+  it("dates a blind reveal by the user's own calendar day", () => {
+    const lateEveningPacific = Date.parse("2026-10-12T03:30:00Z"); // Oct 11, 8:30pm in LA
+    expect(insights.localCalendarDate(lateEveningPacific, "America/Los_Angeles")).toBe("2026-10-11");
+    expect(insights.localCalendarDate(lateEveningPacific, "America/New_York")).toBe("2026-10-11");
+    expect(insights.localCalendarDate(lateEveningPacific, "Asia/Tokyo")).toBe("2026-10-12");
+    expect(insights.localCalendarDate(Date.parse("2026-10-12T10:30:00Z"), "Pacific/Kiritimati")).toBe("2026-10-13"); // UTC+14
+    expect(insights.localCalendarDate(Date.parse("2026-10-12T10:30:00Z"), "Pacific/Pago_Pago")).toBe("2026-10-11"); // UTC-11
+  });
+
+  it("handles the US DST transitions", () => {
+    // Spring forward (2026-03-08, 2am local): 07:59Z is 11:59pm PST on Mar 7; 08:30Z is 12:30am PST on Mar 8.
+    expect(insights.localCalendarDate(Date.parse("2026-03-08T07:59:00Z"), "America/Los_Angeles")).toBe("2026-03-07");
+    expect(insights.localCalendarDate(Date.parse("2026-03-08T08:30:00Z"), "America/Los_Angeles")).toBe("2026-03-08");
+    // Fall back (2026-11-01, 2am local): 06:59Z is 11:59pm PDT on Oct 31; 08:30Z is 1:30am PDT on Nov 1.
+    expect(insights.localCalendarDate(Date.parse("2026-11-01T06:59:00Z"), "America/Los_Angeles")).toBe("2026-10-31");
+    expect(insights.localCalendarDate(Date.parse("2026-11-01T08:30:00Z"), "America/Los_Angeles")).toBe("2026-11-01");
+  });
+
+  it("uses the timezone for 'today' and rejects unknown or malformed zones", () => {
+    const now = Date.parse("2026-10-12T03:30:00Z");
+    expect(insights.resolveToday(undefined, now, "America/Los_Angeles")).toBe("2026-10-11");
+    expect(insights.validTimeZone("Mars/Olympus_Mons")).toBeUndefined();
+    expect(insights.validTimeZone("../../etc/passwd")).toBeUndefined();
+    expect(insights.validTimeZone("x".repeat(80))).toBeUndefined();
+    expect(insights.sanitizeRequest({ timeZone: "Not/AZone" }).timeZone).toBeUndefined();
+    expect(insights.sanitizeRequest({ timeZone: "Europe/London" }).timeZone).toBe("Europe/London");
+  });
+
+  it("keeps the reveal instant in the cache and converts it per request", () => {
+    const tastings = [{ roomId: "r", revealedAt: Date.parse("2026-10-12T03:30:00Z"), pours: [] }];
+    expect(insights.withLocalDates(tastings, "America/Los_Angeles")[0]).toEqual({ roomId: "r", date: "2026-10-11", pours: [] });
+    expect(insights.withLocalDates(tastings, "Asia/Tokyo")[0].date).toBe("2026-10-12");
   });
 });
 

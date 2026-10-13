@@ -40,10 +40,33 @@ function utcDate(ms) {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-// The client's local calendar date makes "today" match the user's day.
-// Accepted only within a day of UTC (every real timezone is), otherwise
-// the server's UTC date is used. Not a statistic; only affects freshness.
-function resolveToday(hint, now) {
+// FIP convention: dates are the user's LOCAL calendar day (see
+// web/src/data/localDate.ts). The client sends its IANA timezone; the
+// server converts instants (now, a blind reveal time) into that zone's
+// calendar day. Unknown or malformed zones fall back to the client's own
+// calendar date hint (accepted only within a day of UTC, which every real
+// zone is), then to UTC.
+const TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+){0,3}$/;
+
+function validTimeZone(value) {
+  if (typeof value !== "string" || value.length > 64 || !TIME_ZONE.test(value)) return undefined;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
+function localCalendarDate(ms, timeZone) {
+  if (!timeZone) return utcDate(ms);
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(ms));
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function resolveToday(hint, now, timeZone) {
+  if (timeZone) return localCalendarDate(now, timeZone);
   if (typeof hint !== "string" || !DATE_ONLY.test(hint)) return utcDate(now);
   const diff = Math.abs(Date.parse(`${hint}T00:00:00Z`) - Date.parse(`${utcDate(now)}T00:00:00Z`));
   return Number.isFinite(diff) && diff <= 24 * 60 * 60 * 1000 ? hint : utcDate(now);
@@ -52,7 +75,7 @@ function resolveToday(hint, now) {
 function sanitizeRequest(data) {
   const raw = data && typeof data === "object" ? data : {};
   const reason = REASONS.includes(raw.reason) ? raw.reason : "data-changed";
-  return { reason, requestNew: reason === "request-new", today: raw.today };
+  return { reason, requestNew: reason === "request-new", today: raw.today, timeZone: validTimeZone(raw.timeZone) };
 }
 
 // Fixed-width so plain string comparison orders revisions correctly.
@@ -97,7 +120,8 @@ async function loadBlindTastings(db, uid) {
     results.push({
       roomId: id,
       roomName: typeof room.name === "string" ? room.name.slice(0, 80) : undefined,
-      date: typeof when === "number" ? utcDate(when) : undefined,
+      // The instant; it becomes a local calendar day per request (withLocalDates).
+      revealedAt: typeof when === "number" ? when : undefined,
       pours: secrets.pours
         .filter((p) => p && typeof p.label === "string" && typeof p.bottleId === "string")
         .map((p) => ({
@@ -110,6 +134,15 @@ async function loadBlindTastings(db, uid) {
     });
   }
   return results;
+}
+
+// Blind results are cached with their reveal instant; the engine wants
+// the user's local calendar day, computed fresh for the request's zone.
+function withLocalDates(tastings, timeZone) {
+  return (tastings || []).map(({ revealedAt, ...rest }) => ({
+    ...rest,
+    date: typeof revealedAt === "number" ? localCalendarDate(revealedAt, timeZone) : undefined,
+  }));
 }
 
 // Firestore rejects `undefined` values; the engine uses them for absent
@@ -131,6 +164,7 @@ function publicView(doc) {
     calculatedAt: state.calculatedAt,
     inputFingerprints: state.inputFingerprints,
     selected: state.selected ? state.selected.candidate : null,
+    selectedFingerprint: state.selected ? state.selected.fingerprint : null,
   };
 }
 
@@ -140,8 +174,8 @@ async function readAxeInsights(db, uid) {
 }
 
 async function syncAxeInsights(db, uid, data, now = Date.now()) {
-  const { reason, requestNew, today: todayHint } = sanitizeRequest(data);
-  const today = resolveToday(todayHint, now);
+  const { reason, requestNew, today: todayHint, timeZone } = sanitizeRequest(data);
+  const today = resolveToday(todayHint, now, timeZone);
   const ref = insightRef(db, uid);
   const userRef = db.doc(`users/${uid}`);
 
@@ -150,8 +184,13 @@ async function syncAxeInsights(db, uid, data, now = Date.now()) {
   // reveal, which arrives as its own event.
   const before = await ref.get();
   const cachedBlind = before.exists ? before.data().blind : undefined;
+  // (Caches written before reveal instants were stored are refreshed too.)
   const refreshBlind =
-    reason === "blind-reveal" || !cachedBlind || typeof cachedBlind.fetchedAt !== "number" || now - cachedBlind.fetchedAt > BLIND_REFRESH_MS;
+    reason === "blind-reveal" ||
+    !cachedBlind ||
+    typeof cachedBlind.fetchedAt !== "number" ||
+    now - cachedBlind.fetchedAt > BLIND_REFRESH_MS ||
+    (cachedBlind.tastings || []).some((t) => t.date !== undefined && t.revealedAt === undefined);
   const blindTastings = refreshBlind ? await loadBlindTastings(db, uid) : cachedBlind.tastings || [];
 
   return db.runTransaction(async (tx) => {
@@ -169,7 +208,7 @@ async function syncAxeInsights(db, uid, data, now = Date.now()) {
     const input = {
       bottles: Array.isArray(userDoc.bottles) ? userDoc.bottles : [],
       pours: Array.isArray(userDoc.pours) ? userDoc.pours : [],
-      blindTastings,
+      blindTastings: withLocalDates(blindTastings, timeZone),
       today,
     };
     const result = reconcileInsights(previous, input, { now, sourceRevision, requestNew });
@@ -187,4 +226,15 @@ async function syncAxeInsights(db, uid, data, now = Date.now()) {
   });
 }
 
-module.exports = { syncAxeInsights, readAxeInsights, loadBlindTastings, resolveToday, sanitizeRequest, publicView, BLIND_REFRESH_MS };
+module.exports = {
+  syncAxeInsights,
+  readAxeInsights,
+  loadBlindTastings,
+  resolveToday,
+  localCalendarDate,
+  validTimeZone,
+  withLocalDates,
+  sanitizeRequest,
+  publicView,
+  BLIND_REFRESH_MS,
+};

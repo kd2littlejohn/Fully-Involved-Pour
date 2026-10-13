@@ -2,7 +2,13 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { isMockAuthEnabled } from '../devMode'
 import { todayLocalIsoDate } from '../localDate'
-import type { InsightCandidate, InsightCategory } from '../../features/axeInsights/engine'
+import {
+  deterministicExplanation,
+  EXPLANATION_VERSION,
+  type InsightCandidate,
+  type InsightCategory,
+  type InsightExplanation,
+} from '../../features/axeInsights/engine'
 
 // Client side of AXE Insights (server: functions/axeInsights.js). The
 // client never computes or sends statistics: it only says *that* something
@@ -26,6 +32,7 @@ export interface AxeInsightsView {
   calculatedAt?: number
   inputFingerprints?: Record<InsightCategory, string>
   selected: InsightCandidate | null
+  selectedFingerprint?: string | null
   changed?: boolean
   stale?: boolean
   limited?: boolean
@@ -33,7 +40,50 @@ export interface AxeInsightsView {
 
 const CACHE_PREFIX = 'fip:axeInsights:'
 const PENDING_PREFIX = 'fip:axeInsights:pending:'
+const BACKOFF_PREFIX = 'fip:axeInsights:backoff:'
 export const SYNC_DEBOUNCE_MS = 2500
+
+// If the function is unavailable (not deployed yet, outage, offline), the
+// app keeps working from its cached insight and stops calling for a while:
+// 1 min, 5 min, 30 min, 2 h, then every 6 h, reset by the next success.
+// The event stays pending, so nothing is lost while backing off.
+export const BACKOFF_STEPS_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 3_600_000, 6 * 3_600_000]
+
+interface Backoff {
+  failures: number
+  until: number
+}
+
+function readBackoff(uid: string): Backoff | null {
+  try {
+    const raw = localStorage.getItem(BACKOFF_PREFIX + uid)
+    return raw ? (JSON.parse(raw) as Backoff) : null
+  } catch {
+    return null
+  }
+}
+
+function writeBackoff(uid: string, backoff: Backoff | null): void {
+  try {
+    if (backoff) localStorage.setItem(BACKOFF_PREFIX + uid, JSON.stringify(backoff))
+    else localStorage.removeItem(BACKOFF_PREFIX + uid)
+  } catch {
+    // Best-effort.
+  }
+}
+
+export function isAxeInsightsBackingOff(uid: string, now = Date.now()): boolean {
+  const backoff = readBackoff(uid)
+  return Boolean(backoff && now < backoff.until)
+}
+
+function localTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined
+  } catch {
+    return undefined
+  }
+}
 
 // Stronger reasons win when events coalesce: a blind reveal must re-read
 // blind results even if a plain data change arrived in the same window.
@@ -77,23 +127,39 @@ function setPending(uid: string, reason: AxeInsightsReason | null): void {
   }
 }
 
-const callable = () => httpsCallable<{ reason: AxeInsightsReason; today: string }, AxeInsightsView>(functions, 'syncAxeInsights')
+const callable = () =>
+  httpsCallable<{ reason: AxeInsightsReason; today: string; timeZone?: string }, AxeInsightsView>(functions, 'syncAxeInsights')
 
-// One immediate request. Resolves with the server's view (also cached), or
-// with the cached view if the request fails, leaving a pending marker.
+// One request. Resolves with the server's view (also cached). On failure,
+// or while backing off after one, resolves with the cached view instead
+// and leaves the event pending: the UI never breaks on this call.
 export async function syncAxeInsights(uid: string, reason: AxeInsightsReason): Promise<AxeInsightsView | null> {
   if (isMockAuthEnabled()) return readCachedAxeInsights(uid)
-  try {
-    const { data } = await callable()({ reason, today: todayLocalIsoDate() })
-    writeCachedAxeInsights(uid, data)
-    setPending(uid, null)
-    return readCachedAxeInsights(uid)
-  } catch (err) {
-    console.error('syncAxeInsights failed', err)
-    const pending = pendingAxeInsightsReason(uid)
-    if (!pending || REASON_RANK[reason] > REASON_RANK[pending]) setPending(uid, reason === 'home' ? 'recover' : reason)
+  if (isAxeInsightsBackingOff(uid)) {
+    rememberPending(uid, reason)
     return readCachedAxeInsights(uid)
   }
+  try {
+    const { data } = await callable()({ reason, today: todayLocalIsoDate(), timeZone: localTimeZone() })
+    writeCachedAxeInsights(uid, data)
+    setPending(uid, null)
+    writeBackoff(uid, null)
+    return readCachedAxeInsights(uid)
+  } catch (err) {
+    const failures = (readBackoff(uid)?.failures ?? 0) + 1
+    const delay = BACKOFF_STEPS_MS[Math.min(failures, BACKOFF_STEPS_MS.length) - 1]!
+    writeBackoff(uid, { failures, until: Date.now() + delay })
+    // One quiet line per failure window, not an error per save.
+    console.warn(`AXE insights unavailable; retrying in ${Math.round(delay / 60_000)} min`, err)
+    rememberPending(uid, reason)
+    return readCachedAxeInsights(uid)
+  }
+}
+
+function rememberPending(uid: string, reason: AxeInsightsReason): void {
+  const asPending = reason === 'home' ? 'recover' : reason
+  const pending = pendingAxeInsightsReason(uid)
+  if (!pending || REASON_RANK[asPending] > REASON_RANK[pending]) setPending(uid, asPending)
 }
 
 const timers = new Map<string, { timer: ReturnType<typeof setTimeout>; reason: AxeInsightsReason }>()
@@ -118,7 +184,7 @@ export function requestAxeInsightsSync(uid: string, reason: AxeInsightsReason): 
 // Retry whatever didn't make it last time (failed request, closed tab).
 export function recoverPendingAxeInsightsSync(uid: string): void {
   const pending = pendingAxeInsightsReason(uid)
-  if (pending && !timers.has(uid)) void syncAxeInsights(uid, pending)
+  if (pending && !timers.has(uid) && !isAxeInsightsBackingOff(uid)) void syncAxeInsights(uid, pending)
 }
 
 const notifiedRooms = new Set<string>()
@@ -131,4 +197,90 @@ export function notifyBlindRevealed(uid: string, roomId: string): void {
   if (notifiedRooms.has(key)) return
   notifiedRooms.add(key)
   requestAxeInsightsSync(uid, 'blind-reveal')
+}
+
+// ---------------------------------------------------------------------------
+// AXE explanations (askSommelier { mode: 'explain-insight' }). The server
+// validates and caches them per insight fingerprint; this keeps a local copy
+// per fingerprint so Home never asks again on navigation or refresh. Until
+// (or unless) one exists, the engine's deterministic copy is shown: the
+// card never depends on the model.
+// ---------------------------------------------------------------------------
+
+export interface AxeExplanationResult {
+  explanation: InsightExplanation
+  source: 'ai' | 'deterministic'
+}
+
+interface CachedExplanation {
+  fingerprint: string
+  version: number
+  explanation: InsightExplanation
+}
+
+const EXPLANATION_PREFIX = 'fip:axeInsights:explanation:'
+const attemptedThisSession = new Set<string>()
+const inFlight = new Map<string, Promise<AxeExplanationResult>>()
+
+function readCachedExplanation(uid: string, fingerprint: string): InsightExplanation | null {
+  try {
+    const raw = localStorage.getItem(EXPLANATION_PREFIX + uid)
+    const cached = raw ? (JSON.parse(raw) as CachedExplanation) : null
+    return cached && cached.fingerprint === fingerprint && cached.version === EXPLANATION_VERSION ? cached.explanation : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedExplanation(uid: string, fingerprint: string, explanation: InsightExplanation): void {
+  try {
+    const entry: CachedExplanation = { fingerprint, version: EXPLANATION_VERSION, explanation }
+    localStorage.setItem(EXPLANATION_PREFIX + uid, JSON.stringify(entry))
+  } catch {
+    // Best-effort.
+  }
+}
+
+// Synchronous: what to show right now (cached AI wording, else deterministic).
+export function currentAxeExplanation(uid: string, view: AxeInsightsView): AxeExplanationResult | null {
+  if (!view.selected) return null
+  const cached = view.selectedFingerprint ? readCachedExplanation(uid, view.selectedFingerprint) : null
+  return cached ? { explanation: cached, source: 'ai' } : { explanation: deterministicExplanation(view.selected), source: 'deterministic' }
+}
+
+const explainCallable = () =>
+  httpsCallable<
+    { mode: 'explain-insight' },
+    { status: string; source: 'ai' | 'deterministic' | 'none'; fingerprint: string | null; explanation: InsightExplanation | null }
+  >(functions, 'askSommelier')
+
+// Asks AXE for wording at most once per insight per session, and never for
+// an insight that already has a cached explanation.
+export function explainAxeInsight(uid: string, view: AxeInsightsView): Promise<AxeExplanationResult | null> {
+  const fallback = currentAxeExplanation(uid, view)
+  const fingerprint = view.selectedFingerprint
+  if (!fallback || !fingerprint || fallback.source === 'ai' || isMockAuthEnabled()) return Promise.resolve(fallback)
+  const key = `${uid}:${fingerprint}`
+  const running = inFlight.get(key)
+  if (running) return running
+  if (attemptedThisSession.has(key)) return Promise.resolve(fallback)
+  attemptedThisSession.add(key)
+
+  const request = explainCallable()({ mode: 'explain-insight' })
+    .then(({ data }) => {
+      // Only keep wording for the insight we asked about, and only AI
+      // wording ("pending"/"budget"/"fallback" may succeed another day).
+      if (data.source === 'ai' && data.explanation && data.fingerprint === fingerprint) {
+        writeCachedExplanation(uid, fingerprint, data.explanation)
+        return { explanation: data.explanation, source: 'ai' as const }
+      }
+      return fallback
+    })
+    .catch((err) => {
+      console.warn('AXE explanation unavailable; showing the standard wording', err)
+      return fallback
+    })
+    .finally(() => inFlight.delete(key))
+  inFlight.set(key, request)
+  return request
 }

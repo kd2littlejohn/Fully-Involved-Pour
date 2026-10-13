@@ -15,3 +15,16 @@ export {
   type ReconcileResult,
   type SurfacedRecord,
 } from './select'
+export {
+  EXPLANATION_VERSION,
+  EXPLANATION_LIMITS,
+  buildExplanationPayload,
+  deterministicExplanation,
+  parseExplanationJson,
+  validateExplanation,
+  type ExplanationPayload,
+  type ExplanationRejection,
+  type ExplanationValidation,
+  type InsightExplanation,
+  type ValidationContext,
+} from './explanation'

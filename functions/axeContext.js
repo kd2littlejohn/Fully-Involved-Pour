@@ -67,6 +67,14 @@ function cleanList(list, maxItems = MAX_TAGS, maxLength = 40) {
     .slice(0, maxItems);
 }
 
+// AXE Insight ids look like "palate-evolution:style-preference:rye" or
+// "flavor-discovery:top-rated-flavors:vanilla|baking spice".
+const INSIGHT_ID_PATTERN = /^[a-z0-9][a-z0-9:|_ .'&-]{0,199}$/i;
+
+function optionalInsightId(value) {
+  return typeof value === "string" && INSIGHT_ID_PATTERN.test(value) ? value : undefined;
+}
+
 function optionalId(value) {
   return typeof value === "string" && ID_PATTERN.test(value) ? value : undefined;
 }
@@ -82,6 +90,9 @@ function sanitizeAxeContext(raw) {
     infinityBottleId: optionalId(input.infinityBottleId),
     roomId: optionalId(input.roomId),
     friendUsername: optionalId(input.friendUsername),
+    // An AXE Insight the user is asking about. Only the id travels; the
+    // insight itself is read from the caller's own server-side cache.
+    insightId: optionalInsightId(input.insightId),
     // Deterministic, app-computed signals for this screen (recommendation
     // reasons, palate facts). Bounded, and labelled as app signals in the
     // prompt — they only ever describe the caller's own data.
@@ -351,6 +362,36 @@ function normalizeUserDoc(raw) {
 
 // Returns the <user_data> text for a request. Only the sections relevant to
 // the current screen are included, keeping prompts small.
+const CONFIDENCE_GUIDE = {
+  descriptive: "descriptive (a fact about what happened, not a pattern; don't generalize from it)",
+  tentative: "tentative (a possible pattern from a small sample; speak in maybes)",
+  established: "established (enough records to state plainly, without exaggerating)",
+};
+
+// The AXE Insight under discussion: its verified facts are the only
+// statistics AXE may use about it.
+function insightSection(insight) {
+  if (!insight) return null;
+  if (!insight.found) {
+    return "AXE INSIGHT THEY'RE ASKING ABOUT: no longer current (their data changed since). Say so briefly and don't reconstruct it from memory.";
+  }
+  const c = insight.candidate;
+  const facts = (c.facts || []).map((f) => `- ${clean(f.label, 80)}: ${clean(String(f.value), 80)}${f.unit ? ` ${f.unit}` : ""}`);
+  const lines = [
+    "AXE INSIGHT THEY'RE ASKING ABOUT (computed by FIP from their own records; complete and verified. Do not compute, estimate or add any other statistic about it):",
+    `Insight: ${clean(c.copy && c.copy.headline, 160)} ${clean(c.copy && c.copy.body, 320)}`,
+    `Confidence: ${CONFIDENCE_GUIDE[c.confidence] || clean(c.confidence, 20)}; based on ${Number(c.sampleSize) || 0} record(s).`,
+    `Period: ${clean(c.window && c.window.label, 120)}${c.window && c.window.from ? ` (${clean(c.window.from, 10)} to ${clean(c.window.to, 10)})` : ""}`,
+    "Verified facts:",
+    ...facts,
+  ];
+  if (insight.bottleNames && insight.bottleNames.length > 0) lines.push(`Bottles involved: ${insight.bottleNames.slice(0, 8).map((n) => clean(n, 80)).join(", ")}`);
+  lines.push(
+    "Answer follow-ups from these facts, plus general whiskey knowledge clearly labelled as general. If a question needs data that isn't here, say so and point them to Your Palate or the bottle's page. Never present a hunch as one of their statistics.",
+  );
+  return lines.join("\n");
+}
+
 function buildAxeContext(rawUserDoc, context, extras = {}) {
   const userDoc = normalizeUserDoc(rawUserDoc);
   const screen = context.screen;
@@ -398,6 +439,8 @@ function buildAxeContext(rawUserDoc, context, extras = {}) {
       ].join("\n"),
     );
   }
+  const insight = insightSection(extras.insight);
+  if (insight) sections.push(insight);
   if (context.facts.length > 0) {
     sections.push(`APP-COMPUTED SIGNALS FOR THIS SCREEN:\n${context.facts.map((f) => `- ${f}`).join("\n")}`);
   }

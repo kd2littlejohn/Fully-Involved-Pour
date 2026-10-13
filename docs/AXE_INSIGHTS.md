@@ -1,6 +1,6 @@
 # AXE Insights: architecture
 
-Status: Batch 1 (engine) and Batch 2 (events, cache, palate consistency) are built and tested. Batches 3–4 are not started.
+Status: Batches 1–3 (engine; events and cache; AXE explanations) are built and tested. Batch 4 (Home) is not started.
 
 ## Phase 0: what already exists
 
@@ -62,8 +62,31 @@ The same code bundles to dependency-free CommonJS (verified: 54 KB, runs in plai
 
 **Deploy.** The default functions target is now `functions:askSommelier,functions:syncAxeInsights`, with a liveness check (401 for unauthenticated calls) for the new function.
 
-## Planned: Batches 3–4
-- **Batch 3 (AXE explanations).** Lazily, when the selected insight has no explanation for its fingerprint: a minimal payload (category, facts, sample size, confidence, bottle names, allowed actions) goes to the model, which must return JSON. The server rejects any number that isn't a fact or bottle that isn't in the evidence, then caches the result per fingerprint. Otherwise it uses the deterministic copy. Uses the existing rate limiter.
+## Batch 3: AXE explanations and follow-ups
+
+**Pre-work.**
+- Blind Room dates follow FIP's local-calendar-day rule. The client sends its IANA timezone; the server stores each reveal's instant and converts it to that zone's calendar day per request. "Today" uses the same zone. Unknown or malformed zones fall back safely.
+- The release path now always deploys `askSommelier` and `syncAxeInsights`, whatever `FUNCTIONS_DEPLOY_TARGET` is set to. A manual run deploys exactly what was asked. The website job waits for the backend job.
+- If `syncAxeInsights` is unavailable, the client keeps the cached insight, backs off (1 min, 5 min, 30 min, 2 h, 6 h), keeps the event pending, and logs one warning per window.
+
+**Explanations** reuse `askSommelier` with `{mode: "explain-insight"}`: the same endpoint, Anthropic configuration (`callClaude`), AXE persona, auth and rate limit. The new code is in `functions/axeInsightExplain.js`.
+- The model sees only `buildExplanationPayload`: category, kind, confidence, sample size, period, verified facts, the insight's bottle names, allowed actions and the deterministic wording as a reference. Strings are stripped of `<>`.
+- The output must be JSON (`headline`, `body`, optional `expanded`, `factKeys`, optional `actionId`). `validateExplanation`, in the shared engine, rejects:
+  - any number that isn't exactly a fact value, and any number word or vague quantity that isn't backed by one;
+  - percentages without a percent fact;
+  - collection bottles that aren't part of the insight;
+  - preference claims except for rating-backed kinds;
+  - certainty words unless confidence is established;
+  - unknown fact keys or actions;
+  - claims of having changed data;
+  - over-length text.
+- On rejection, model error, budget or lease contention, the engine's deterministic copy is returned.
+- Cache: `explanations[fingerprint]` with `EXPLANATION_VERSION` in the insight doc, so the same insight never regenerates. Up to 2 paid attempts per insight, a 60 s lease so concurrent requests make one call, a budget of 8 generations per user per day (`axeInsightExplain`), plus askSommelier's 60/hour limit.
+- Client: `currentAxeExplanation` (synchronous: cached AI wording, else deterministic) and `explainAxeInsight` (at most once per insight per session; cached per fingerprint in localStorage).
+
+**Follow-ups** use the existing chat. `askAboutInsight(insightId, prompt?)` on `SommelierProvider` sends only the id. `askSommelier` resolves it in the caller's own cache (`loadInsightForChat`) and adds an "AXE insight they're asking about" section with the verified facts, confidence, period and bottles. An unknown id or another user's id resolves to "no longer current". AXE still has no tools: it can't change records, and its persona forbids claiming it did.
+
+## Planned: Batch 4
 - **Batch 4 (Home).** A compact AXE Insight card replaces "Your Palate", with an expanded view (facts, window, confidence wording, bottles) and "Ask AXE" passing the verified facts into the existing sheet.
 
 ## Decisions (approved)

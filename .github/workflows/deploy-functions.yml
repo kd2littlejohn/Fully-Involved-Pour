@@ -116,15 +116,29 @@ jobs:
 
       - id: target
         name: Resolve target
+        # On the release path (called from deploy.yml), the functions the web
+        # app calls are always included, whatever FUNCTIONS_DEPLOY_TARGET
+        # says, so a website release can never go out ahead of a backend
+        # function it depends on. A manual run deploys exactly what was asked.
         env:
           TARGET: ${{ inputs.target }}
+          EVENT: ${{ github.event_name }}
+          REQUIRED_FUNCTIONS: askSommelier syncAxeInsights
         run: |
-          if [ "$TARGET" = "functions" ] || printf '%s' "$TARGET" | grep -q 'functions:askSommelier\b'; then
+          EFFECTIVE="$TARGET"
+          if [ "$EVENT" != "workflow_dispatch" ] && [ "$TARGET" != "functions" ]; then
+            for fn in $REQUIRED_FUNCTIONS; do
+              printf '%s' "$EFFECTIVE" | grep -q "functions:$fn\b" || EFFECTIVE="$EFFECTIVE,functions:$fn"
+            done
+          fi
+          echo "Deploying: $EFFECTIVE"
+          echo "value=$EFFECTIVE" >> "$GITHUB_OUTPUT"
+          if [ "$EFFECTIVE" = "functions" ] || printf '%s' "$EFFECTIVE" | grep -q 'functions:askSommelier\b'; then
             echo "ask_sommelier=true" >> "$GITHUB_OUTPUT"
           else
             echo "ask_sommelier=false" >> "$GITHUB_OUTPUT"
           fi
-          if [ "$TARGET" = "functions" ] || printf '%s' "$TARGET" | grep -q 'functions:syncAxeInsights\b'; then
+          if [ "$EFFECTIVE" = "functions" ] || printf '%s' "$EFFECTIVE" | grep -q 'functions:syncAxeInsights\b'; then
             echo "axe_insights=true" >> "$GITHUB_OUTPUT"
           else
             echo "axe_insights=false" >> "$GITHUB_OUTPUT"
@@ -160,7 +174,7 @@ jobs:
         # that aren't in this source, the CLI refuses to delete them and the
         # deploy fails safely instead.
         env:
-          TARGET: ${{ inputs.target }}
+          TARGET: ${{ steps.target.outputs.value }}
         run: |
           set +e
           firebase deploy --only "$TARGET" --project "$PROJECT_ID" --non-interactive 2>&1 | tee deploy.log

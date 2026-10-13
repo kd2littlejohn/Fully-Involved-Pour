@@ -1959,19 +1959,197 @@ function reconcileInsights(previous, input, options) {
 	};
 }
 //#endregion
+//#region src/features/axeInsights/engine/explanation.ts
+const EXPLANATION_VERSION = 1;
+const EXPLANATION_LIMITS = {
+	headline: 100,
+	body: 320,
+	expanded: 600
+};
+function buildExplanationPayload(candidate, bottleNames) {
+	return {
+		category: candidate.category,
+		kind: candidate.kind,
+		confidence: candidate.confidence,
+		sampleSize: candidate.sampleSize,
+		period: [candidate.window.label, candidate.window.from && candidate.window.to ? `(${candidate.window.from} to ${candidate.window.to})` : ""].filter(Boolean).join(" "),
+		facts: candidate.facts,
+		bottles: bottleNames.slice(0, 8),
+		allowedActions: candidate.actions.map((a) => ({
+			id: a.id,
+			label: a.label
+		})),
+		reference: {
+			headline: candidate.copy.headline,
+			body: candidate.copy.body
+		}
+	};
+}
+function deterministicExplanation(candidate) {
+	return {
+		headline: candidate.copy.headline,
+		body: candidate.copy.body,
+		expanded: candidate.copy.expanded,
+		factKeys: candidate.facts.map((f) => f.key),
+		actionId: candidate.actions[0]?.id
+	};
+}
+const PREFERENCE_KINDS = /* @__PURE__ */ new Set([
+	"style-preference",
+	"top-rated-flavors",
+	"blind-vs-sighted"
+]);
+function allowsPreference(candidate) {
+	if (PREFERENCE_KINDS.has(candidate.kind)) return true;
+	return candidate.kind === "proof-shift" && candidate.facts.some((f) => f.key === "bestProofRange");
+}
+const PREFERENCE_CLAIM = /\b(you(?:'ve|’ve)? (?:really |clearly |obviously )?(?:prefer|love|favou?r|adore)|your (?:favou?rites?|preferences?|go-to|palate prefers)|preferred|preference|you like [^.]{0,40}\b(?:best|most))\b/i;
+const CERTAINTY = /\b(always|never|definitely|certainly|clearly|undoubtedly|without (?:a )?doubt|proves?|proven|guaranteed)\b/i;
+const CLAIMS_EDIT = /\b(?:I|AXE)(?:'ve|’ve| have)? (?:added|logged|updated|deleted|removed|changed|saved|edited|recorded)\b/i;
+const PERCENT = /%|\bpercent\b/i;
+const NUMBER = /\d+(?:\.\d+)?/g;
+const NUMBER_WORDS = {
+	one: 1,
+	two: 2,
+	three: 3,
+	four: 4,
+	five: 5,
+	six: 6,
+	seven: 7,
+	eight: 8,
+	nine: 9,
+	ten: 10,
+	eleven: 11,
+	twelve: 12,
+	dozen: 12,
+	twenty: 20,
+	hundred: 100,
+	thousand: 1e3,
+	half: null,
+	twice: 2,
+	double: 2,
+	triple: 3,
+	couple: 2,
+	few: null,
+	several: null
+};
+const VAGUE_QUANTITY = /* @__PURE__ */ new Set([
+	"half",
+	"few",
+	"several"
+]);
+function allowedNumbers(candidate) {
+	const out = /* @__PURE__ */ new Set([String(candidate.sampleSize)]);
+	const add = (n) => {
+		out.add(String(n));
+		out.add(n.toFixed(1));
+	};
+	for (const f of candidate.facts) if (typeof f.value === "number") add(f.value);
+	else {
+		for (const n of f.value.match(NUMBER) ?? []) out.add(String(Number(n)));
+		if (isCalendarDate(f.value)) for (const n of formatCalendarDate(f.value).match(NUMBER) ?? []) out.add(n);
+	}
+	if (candidate.window.from) for (const n of formatCalendarDate(candidate.window.from).match(NUMBER) ?? []) out.add(n);
+	if (candidate.window.to) for (const n of formatCalendarDate(candidate.window.to).match(NUMBER) ?? []) out.add(n);
+	return out;
+}
+function stringFacts(candidate) {
+	return candidate.facts.filter((f) => typeof f.value === "string").map((f) => String(f.value).toLowerCase());
+}
+function parseExplanationJson(text) {
+	const start = text.indexOf("{");
+	const end = text.lastIndexOf("}");
+	if (start < 0 || end <= start) return void 0;
+	try {
+		return JSON.parse(text.slice(start, end + 1));
+	} catch {
+		return;
+	}
+}
+function validateExplanation(raw, candidate, ctx) {
+	if (raw === void 0) return {
+		ok: false,
+		reasons: ["not-json"]
+	};
+	if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {
+		ok: false,
+		reasons: ["bad-shape"]
+	};
+	const r = raw;
+	const headline = typeof r.headline === "string" ? r.headline.trim() : "";
+	const body = typeof r.body === "string" ? r.body.trim() : "";
+	const expanded = typeof r.expanded === "string" && r.expanded.trim() ? r.expanded.trim() : void 0;
+	const factKeys = Array.isArray(r.factKeys) ? r.factKeys : null;
+	const actionId = r.actionId === void 0 || r.actionId === null || r.actionId === "" ? void 0 : r.actionId;
+	if (!headline || !body || !factKeys || factKeys.length === 0 || !factKeys.every((k) => typeof k === "string")) return {
+		ok: false,
+		reasons: ["bad-shape"]
+	};
+	const reasons = /* @__PURE__ */ new Set();
+	if (headline.length > EXPLANATION_LIMITS.headline || body.length > EXPLANATION_LIMITS.body || (expanded?.length ?? 0) > EXPLANATION_LIMITS.expanded) reasons.add("too-long");
+	const knownKeys = new Set(candidate.facts.map((f) => f.key));
+	if (!factKeys.every((k) => knownKeys.has(k))) reasons.add("unknown-fact-key");
+	if (actionId !== void 0 && !candidate.actions.some((a) => a.id === actionId)) reasons.add("disallowed-action");
+	const text = [
+		headline,
+		body,
+		expanded ?? ""
+	].join("\n");
+	const lower = text.toLowerCase();
+	const numbers = allowedNumbers(candidate);
+	for (const n of text.match(NUMBER) ?? []) if (!numbers.has(n) && !numbers.has(String(Number(n)))) reasons.add("unsupported-number");
+	for (const word of lower.match(/\b[a-z]+\b/g) ?? []) {
+		if (!(word in NUMBER_WORDS)) continue;
+		const value = NUMBER_WORDS[word];
+		if (word === "one") continue;
+		if (VAGUE_QUANTITY.has(word) || value === null || !numbers.has(String(value))) reasons.add("unsupported-quantity");
+	}
+	if (PERCENT.test(text) && !candidate.facts.some((f) => f.unit === "percent")) reasons.add("unsupported-percent");
+	const allowedNames = /* @__PURE__ */ new Set([...ctx.insightBottleNames.map((n) => n.toLowerCase()), ...stringFacts(candidate)]);
+	for (const name of ctx.collectionBottleNames) {
+		const n = name.trim().toLowerCase();
+		if (n.length < 3 || allowedNames.has(n)) continue;
+		if ([...allowedNames].some((a) => a.includes(n))) continue;
+		if (new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text)) reasons.add("unsupported-bottle");
+	}
+	if (!allowsPreference(candidate) && PREFERENCE_CLAIM.test(text)) reasons.add("unsupported-preference");
+	if (candidate.confidence !== "established" && CERTAINTY.test(text)) reasons.add("overstated-certainty");
+	if (CLAIMS_EDIT.test(text)) reasons.add("claims-edit");
+	if (reasons.size > 0) return {
+		ok: false,
+		reasons: [...reasons]
+	};
+	return {
+		ok: true,
+		explanation: {
+			headline,
+			body,
+			expanded,
+			factKeys,
+			actionId
+		}
+	};
+}
+//#endregion
 exports.AXE_INSIGHTS_SCHEMA_VERSION = AXE_INSIGHTS_SCHEMA_VERSION;
 exports.EVIDENCE = EVIDENCE;
+exports.EXPLANATION_LIMITS = EXPLANATION_LIMITS;
+exports.EXPLANATION_VERSION = EXPLANATION_VERSION;
 exports.INSIGHT_CATEGORIES = INSIGHT_CATEGORIES;
+exports.buildExplanationPayload = buildExplanationPayload;
 exports.candidateFingerprint = candidateFingerprint;
 exports.candidatesFingerprint = candidatesFingerprint;
 exports.computeCategoryCandidates = computeCategoryCandidates;
 exports.confidenceForSample = confidenceForSample;
 exports.confidenceForTrend = confidenceForTrend;
 exports.daysBetween = daysBetween;
+exports.deterministicExplanation = deterministicExplanation;
 exports.formatCalendarDate = formatCalendarDate;
 exports.hash = hash;
 exports.inputFingerprints = inputFingerprints;
 exports.isCalendarDate = isCalendarDate;
 exports.normalizeInput = normalizeInput;
+exports.parseExplanationJson = parseExplanationJson;
 exports.rank = rank;
 exports.reconcileInsights = reconcileInsights;
+exports.validateExplanation = validateExplanation;

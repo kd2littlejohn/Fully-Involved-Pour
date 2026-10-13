@@ -21,6 +21,11 @@ interface SommelierState {
    * (the current What Should I Pour pick, an in-progress tasting form).
    */
   openAxe: (override?: AxeContext) => void
+  /**
+   * Opens AXE about one AXE Insight: AXE answers from that insight's
+   * verified facts (looked up server-side by id). Sends `prompt` if given.
+   */
+  askAboutInsight: (insightId: string, prompt?: string) => void
   closeAxe: () => void
   /** Reported by AxeRouteContext as the route changes. Pure state — never sends anything. */
   setRouteContext: (context: AxeContext) => void
@@ -37,6 +42,7 @@ const SommelierContext = createContext<SommelierState>({
   isOpen: false,
   context: DEFAULT_CONTEXT,
   openAxe: () => {},
+  askAboutInsight: () => {},
   closeAxe: () => {},
   setRouteContext: () => {},
 })
@@ -80,8 +86,8 @@ export function SommelierProvider({ children }: { children: ReactNode }) {
 
   const context = override ?? routeContext
 
-  const send = useCallback(
-    async (prompt: string) => {
+  const sendWith = useCallback(
+    async (prompt: string, activeContext: AxeContext) => {
       const trimmed = prompt.trim()
       if (!trimmed || sending) return
       setError(null)
@@ -89,9 +95,9 @@ export function SommelierProvider({ children }: { children: ReactNode }) {
       setMessages([...history, { role: 'user', content: trimmed }])
       setSending(true)
       try {
-        const requestContext = PALATE_SCREENS.has(context.screen)
-          ? { ...context, palate: buildAxePalateInsights(userDoc.bottles, userDoc.pours) }
-          : context
+        const requestContext = PALATE_SCREENS.has(activeContext.screen)
+          ? { ...activeContext, palate: buildAxePalateInsights(userDoc.bottles, userDoc.pours) }
+          : activeContext
         const reply = await askSommelier(trimmed, history, requestContext)
         setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
       } catch {
@@ -100,8 +106,10 @@ export function SommelierProvider({ children }: { children: ReactNode }) {
         setSending(false)
       }
     },
-    [messages, sending, context, userDoc.bottles, userDoc.pours],
+    [messages, sending, userDoc.bottles, userDoc.pours],
   )
+
+  const send = useCallback((prompt: string) => sendWith(prompt, context), [sendWith, context])
 
   const reset = useCallback(() => {
     setMessages([])
@@ -113,11 +121,21 @@ export function SommelierProvider({ children }: { children: ReactNode }) {
     setIsOpen(true)
   }, [])
 
+  const askAboutInsight = useCallback(
+    (insightId: string, prompt?: string) => {
+      const insightContext: AxeContext = { ...routeContext, insightId }
+      setOverride(insightContext)
+      setIsOpen(true)
+      if (prompt) void sendWith(prompt, insightContext)
+    },
+    [routeContext, sendWith],
+  )
+
   const closeAxe = useCallback(() => setIsOpen(false), [])
 
   const value = useMemo(
-    () => ({ messages, sending, error, send, reset, isOpen, context, openAxe, closeAxe, setRouteContext }),
-    [messages, sending, error, send, reset, isOpen, context, openAxe, closeAxe, setRouteContext],
+    () => ({ messages, sending, error, send, reset, isOpen, context, openAxe, askAboutInsight, closeAxe, setRouteContext }),
+    [messages, sending, error, send, reset, isOpen, context, openAxe, askAboutInsight, closeAxe, setRouteContext],
   )
 
   return (
