@@ -1,0 +1,40 @@
+/* One scrollable line on narrow phones rather than wrapping or pushing the
+   page wider than the screen. */
+.row {
+  display: flex;
+  gap: var(--fip-space-2);
+  overflow-x: auto;
+  padding: 0 var(--fip-shell-x) var(--fip-space-4);
+  scrollbar-width: none;
+}
+
+.row::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 0 var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border-subtle);
+  background: var(--fip-card);
+  color: var(--fip-cream-soft);
+  font: inherit;
+  font-size: var(--fip-text-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--fip-motion) var(--fip-ease),
+    background var(--fip-motion) var(--fip-ease);
+}
+
+.chip:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.chipActive {
+  background: var(--fip-amber);
+  border-color: var(--fip-amber);
+  color: var(--fip-black);
+  font-weight: 600;
+}

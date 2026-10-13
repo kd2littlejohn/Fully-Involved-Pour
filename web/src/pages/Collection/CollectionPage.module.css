@@ -7,7 +7,50 @@
 }
 
 .searchRow {
+  display: flex;
+  gap: var(--fip-space-2);
   padding: 0 var(--fip-shell-x) var(--fip-space-3);
+}
+
+.searchField {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--fip-space-4);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fip-cream-soft);
+  pointer-events: none;
+}
+
+.searchRow .searchInput {
+  width: 100%;
+  min-height: 48px;
+  padding-left: calc(var(--fip-space-4) + 18px + var(--fip-space-3));
+  border-radius: var(--fip-radius-lg);
+}
+
+.filterButton {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--fip-radius-lg);
+  border: 1px solid var(--fip-border-subtle);
+  background: var(--fip-card);
+  color: var(--fip-cream-soft);
+  cursor: pointer;
+}
+
+.filterButton:hover {
+  border-color: var(--fip-border-strong);
+  color: var(--fip-cream);
 }
 
 .activeFilterPill {
@@ -45,32 +88,46 @@
   margin: 0;
 }
 
-.searchRow input {
-  width: 100%;
-}
-
-/* Stacked rows, not one wide flex row — a phone-width viewport has no room
-   for filter chips + sort + view toggle + Select + Infinity Bottle + Add a
-   Bottle all fighting for the same line. Each row below is its own
-   min-width:0 flex context so it can wrap or scroll internally instead of
-   pushing the page wider than the viewport. */
+/* One line of controls that scrolls sideways on phones instead of
+   wrapping into several rows above the bottles. */
 .toolbar {
   display: flex;
-  flex-direction: column;
-  gap: var(--fip-space-3);
+  align-items: center;
+  gap: var(--fip-space-2);
+  overflow-x: auto;
   padding: 0 var(--fip-shell-x) var(--fip-space-4);
   min-width: 0;
+  scrollbar-width: none;
 }
 
-/* Row 1: More Filters / Explore Whiskey / sort. Row 2: view toggle, Select,
-   Infinity Bottle, Add a Bottle — wraps cleanly onto a 3rd line rather than
-   overflowing if it doesn't fit. */
-.toolbarRow {
-  display: flex;
+.toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.toolbar > * {
+  flex: 0 0 auto;
+}
+
+.toolButton {
+  min-height: 40px;
+  padding: 0 var(--fip-space-4);
+  font-size: var(--fip-text-sm);
+  white-space: nowrap;
+}
+
+.toolLink {
+  display: inline-flex;
   align-items: center;
-  gap: var(--fip-space-3);
-  flex-wrap: wrap;
-  min-width: 0;
+  min-height: 40px;
+  padding: 0 var(--fip-space-3);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.toolLink:hover {
+  color: var(--fip-cream);
 }
 
 /* A deterministic 2-up grid on phones — auto-fill's column count can drift

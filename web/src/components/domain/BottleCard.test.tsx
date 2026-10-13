@@ -161,8 +161,7 @@ describe('BottleCard', () => {
     const withDetails: Bottle = { ...eagleRare, type: 'Bourbon', proof: 90 }
     mockData([withDetails])
     renderCard(withDetails)
-    expect(screen.getByText('Buffalo Trace · Bourbon')).toBeInTheDocument()
-    expect(screen.getByText('90 Proof')).toBeInTheDocument()
+    expect(screen.getByText('90 Proof · Bourbon')).toBeInTheDocument()
   })
 
   it('shows a fill-level bar for a single open bottle with a recorded fill level', () => {
@@ -170,6 +169,21 @@ describe('BottleCard', () => {
     mockData([withFill])
     renderCard(withFill)
     expect(screen.getByRole('progressbar', { name: 'Fill level' })).toHaveAttribute('aria-valuenow', '25')
+  })
+
+  it('shows the fill-level bar for opened bottles only', () => {
+    const sealed: Bottle = { ...eagleRare, status: 'sealed', fillLevel: 'full' }
+    mockData([sealed])
+    renderCard(sealed)
+    expect(screen.queryByRole('progressbar', { name: 'Fill level' })).not.toBeInTheDocument()
+  })
+
+  it('shows a batch identifier from the name as its own line', () => {
+    const stagg: Bottle = { ...eagleRare, name: 'Stagg Kentucky Straight Bourbon Batch 25A' }
+    mockData([stagg])
+    renderCard(stagg)
+    expect(screen.getByText('Stagg Kentucky Straight Bourbon')).toBeInTheDocument()
+    expect(screen.getByText('Batch 25A')).toBeInTheDocument()
   })
 
   it('shows a quantity badge for a plain bottle with quantity greater than one', () => {

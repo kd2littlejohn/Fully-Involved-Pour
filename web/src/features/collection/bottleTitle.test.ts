@@ -41,4 +41,22 @@ describe('splitBottleTitle', () => {
       subtitle: 'Kentucky Straight',
     })
   })
+
+  it('splits a trailing batch or release identifier', () => {
+    expect(splitBottleTitle('Stagg Kentucky Straight Bourbon Batch 25A')).toEqual({
+      title: 'Stagg Kentucky Straight Bourbon',
+      subtitle: 'Batch 25A',
+    })
+    expect(splitBottleTitle("Booker's Batch 2024-03")).toEqual({ title: "Booker's", subtitle: 'Batch 2024-03' })
+    expect(splitBottleTitle('Old Forester Birthday Bourbon Release #4')).toEqual({
+      title: 'Old Forester Birthday Bourbon',
+      subtitle: 'Release #4',
+    })
+  })
+
+  it('never splits ordinary words that only look like release terms', () => {
+    expect(splitBottleTitle('Elijah Craig Small Batch')).toEqual({ title: 'Elijah Craig Small Batch' })
+    expect(splitBottleTitle('Batch 25A')).toEqual({ title: 'Batch 25A' })
+    expect(splitBottleTitle('Limited Edition')).toEqual({ title: 'Limited Edition' })
+  })
 })

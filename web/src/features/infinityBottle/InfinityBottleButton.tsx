@@ -5,10 +5,10 @@ import { Button } from '../../components/ui/Button'
 // breakdown, tastings, batch management — see pages/InfinityBottle/) — kept
 // as a plain navigate-on-click Button in the same toolbar slot it's always
 // occupied on CollectionPage, matching how "Add a Bottle" navigates there.
-export function InfinityBottleButton() {
+export function InfinityBottleButton({ className }: { className?: string }) {
   const navigate = useNavigate()
   return (
-    <Button variant="secondary" onClick={() => navigate('/collection/infinity')}>
+    <Button variant="secondary" className={className} onClick={() => navigate('/collection/infinity')}>
       Infinity Bottle
     </Button>
   )

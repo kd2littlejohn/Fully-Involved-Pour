@@ -3,7 +3,7 @@
   width: min(220px, 100%);
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
-  border: 1px solid var(--fip-border-subtle);
+  border: 1px solid rgba(200, 121, 63, 0.2);
   box-shadow: var(--fip-shadow-card);
   transition:
     border-color var(--fip-motion) var(--fip-ease),
@@ -28,6 +28,7 @@
   flex-direction: column;
   gap: var(--fip-space-3);
   padding: var(--fip-space-4);
+  height: 100%;
 }
 
 .bodyLink {
@@ -48,9 +49,15 @@
 
 .menuOverlay {
   position: absolute;
-  top: var(--fip-space-3);
-  right: var(--fip-space-3);
+  top: var(--fip-space-2);
+  right: var(--fip-space-2);
   z-index: 1;
+}
+
+/* Over the photo, the menu trigger needs its own dark disc to stay legible. */
+.menuOverlay button[aria-haspopup] {
+  background: rgba(17, 22, 28, 0.6);
+  border-color: rgba(243, 231, 209, 0.18);
 }
 
 .checkbox {
@@ -76,37 +83,55 @@
   border-color: var(--fip-amber);
 }
 
-/* Bottle photography is the dominant element. The photo sets its own
-   height from its natural aspect ratio (width: 100%, height: auto) — no
-   fixed box, backdrop, or crop — so portrait, square, and landscape bottle
-   photos each fill the card's width edge to edge. The negative margin
-   bleeds it out past .body's padding to the card's real left/right/top
-   edges, rounded to match the card. The no-photo BottlePlaceholder fallback
-   has no intrinsic size, so it keeps a 4:5 box of its own. */
-.imageWrap {
+/* Bottle photography is the dominant element: a fixed 4:5 frame (the
+   same shape the photo standardizer produces) bled out to the card's
+   top/left/right edges. The real photo is contained whole inside it; the
+   blurred, darkened copy behind fills whatever the photo's own shape
+   leaves, so the frame always reads as one continuous photograph. A soft
+   fade at the bottom carries it into the card's text area. */
+.media {
+  position: relative;
+  aspect-ratio: 4 / 5;
   margin: calc(-1 * var(--fip-space-4)) calc(-1 * var(--fip-space-4)) 0;
   border-radius: var(--fip-radius-lg) var(--fip-radius-lg) 0 0;
   overflow: hidden;
-}
-
-.imageWrap:has(> div) {
-  aspect-ratio: 4 / 5;
+  isolation: isolate;
+  background: var(--fip-oak-deep);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--fip-oak-deep);
+}
+
+.media::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 16%;
+  background: linear-gradient(to bottom, rgba(27, 34, 42, 0), rgba(27, 34, 42, 0.75));
+  pointer-events: none;
+}
+
+.mediaBackdrop {
+  position: absolute;
+  inset: -12%;
+  z-index: -1;
+  width: 124%;
+  height: 124%;
+  object-fit: cover;
+  filter: blur(16px) brightness(0.5) saturate(1.2);
 }
 
 .image {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
 }
 
 .titleBlock {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 /* Long bottle names shouldn't overwhelm the card — clamp to 3 lines rather
@@ -114,31 +139,60 @@
 .name {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-md);
-  line-height: var(--fip-leading-tight);
+  color: var(--fip-cream);
+  line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+/* Batch / release: the detail that tells two bottles of the same
+   expression apart, so it gets the accent colour. */
 .subtitle {
-  color: var(--fip-copper);
-  font-size: var(--fip-text-xs);
-  font-style: italic;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.distillery {
-  color: var(--fip-muted);
-  font-size: var(--fip-text-sm);
-}
-
-.proof {
+.specs {
   color: var(--fip-muted);
   font-size: var(--fip-text-xs);
+}
+
+.fill {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
+.fill > :first-child {
+  flex: 1;
+}
+
+.fillLabel {
+  flex: 0 0 auto;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.favoriteMark {
+  position: absolute;
+  top: var(--fip-space-3);
+  left: var(--fip-space-3);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--fip-radius-round);
+  background: rgba(17, 22, 28, 0.6);
+  color: var(--fip-amber);
 }
 
 .quantityBadge {
@@ -155,7 +209,19 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--fip-space-2);
+  gap: 6px;
+}
+
+/* Compact pill badges on the card (the shared Badge/RarityBadge keep
+   their uppercase label style everywhere else). */
+.footer > span,
+.statusButton > span {
+  padding: 3px 10px;
+  border-radius: var(--fip-radius-round);
+  font-size: 0.75rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .instanceSummary {
