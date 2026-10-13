@@ -22,7 +22,10 @@ interface ExplainPourRecommendationResult {
 // resolves. Never blocks the reveal itself.
 export async function explainPourRecommendation(input: PourRecommendationExplanationInput): Promise<string | null> {
   if (isMockAuthEnabled()) {
-    return `${input.moodLabel} calls for ${input.bottleName} tonight — ${(input.reasons[0] ?? 'it fits the moment').toLowerCase()}`
+    // Dev-preview placeholder only. Home passes moodLabel "tonight", which
+    // read as "tonight calls for X tonight".
+    const lead = input.moodLabel === 'tonight' ? `${input.bottleName} fits tonight` : `${input.moodLabel} calls for ${input.bottleName} tonight`
+    return `${lead} — ${(input.reasons[0] ?? 'it fits the moment').toLowerCase()}`
   }
 
   const callable = httpsCallable<PourRecommendationExplanationInput, ExplainPourRecommendationResult>(functions, 'explainPourRecommendation')

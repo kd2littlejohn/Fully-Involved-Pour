@@ -4,6 +4,8 @@ const admin = require("firebase-admin");
 const { handleSuggestBottleRarity } = require("./rarityLogic");
 const { assertNotRateLimited } = require("./rateLimit");
 const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require("./axeContext");
+const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
+const { explainAxeInsight, loadInsightForChat } = require("./axeInsightExplain");
 
 admin.initializeApp();
 
@@ -49,6 +51,16 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
     throw new HttpsError("unauthenticated", "Sign in to ask AXE.");
   }
 
+  // AXE Insight explanation (axeInsightExplain.js): AXE rephrasing the
+  // user's current, verified insight. Same rate limit as chat, plus its
+  // own daily generation budget inside.
+  if (request.data?.mode === "explain-insight") {
+    await assertNotRateLimited(request.auth.uid, "askSommelier", { maxCalls: AXE_MAX_CALLS_PER_HOUR });
+    return explainAxeInsight(admin.firestore(), request.auth.uid, {
+      callModel: (args) => callClaude(anthropicApiKey.value(), args),
+    });
+  }
+
   const prompt = String(request.data?.prompt || "").trim().slice(0, 2000);
   if (!prompt) {
     throw new HttpsError("invalid-argument", "A question or prompt is required.");
@@ -72,8 +84,9 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
   const db = admin.firestore();
   const userSnap = await db.doc(`users/${request.auth.uid}`).get();
   const blind = context.screen === "blind" && context.roomId ? await loadBlindForAxe(db, context.roomId, request.auth.uid) : undefined;
+  const insight = context.insightId ? await loadInsightForChat(db, request.auth.uid, context.insightId) : undefined;
 
-  const system = buildAxeSystemPrompt(buildAxeContext(userSnap.exists ? userSnap.data() : {}, context, { blind }));
+  const system = buildAxeSystemPrompt(buildAxeContext(userSnap.exists ? userSnap.data() : {}, context, { blind, insight }));
   // Roles must alternate. A failed send leaves an unanswered user turn in
   // the client's history, so merge any consecutive same-role turns.
   const messages = [];
@@ -84,6 +97,29 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
   }
   const reply = await callClaude(anthropicApiKey.value(), { system, messages, maxTokens: 500 });
   return { reply: reply || "I couldn't come up with a response just now — try rephrasing." };
+});
+
+// AXE Insights (see axeInsights.js): recalculates the caller's insight
+// from their own stored data and returns the current one. Called after
+// tasting / inventory / blind-reveal saves and when Home opens. No model
+// call happens here, so the cap is generous; past it, the cached insight
+// is returned without recalculating rather than failing.
+const AXE_INSIGHTS_MAX_CALLS_PER_HOUR = 120;
+
+exports.syncAxeInsights = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in to see AXE insights.");
+  }
+  const db = admin.firestore();
+  try {
+    await assertNotRateLimited(request.auth.uid, "syncAxeInsights", { maxCalls: AXE_INSIGHTS_MAX_CALLS_PER_HOUR });
+  } catch (err) {
+    if (err && err.code === "resource-exhausted") {
+      return { ...(await readAxeInsights(db, request.auth.uid)), changed: false, limited: true };
+    }
+    throw err;
+  }
+  return syncAxeInsights(db, request.auth.uid, request.data);
 });
 
 // Mirrors the Firestore rules' own Blind Room boundary: only a member (host

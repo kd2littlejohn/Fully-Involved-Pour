@@ -1,0 +1,129 @@
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+  color: var(--fip-cream);
+  line-height: var(--fip-leading-tight);
+}
+
+.body {
+  margin: 0;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.provenance {
+  margin: 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.section {
+  padding-top: var(--fip-space-3);
+  border-top: 1px solid var(--fip-border-subtle);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--fip-space-2);
+  font-size: var(--fip-text-xs);
+  font-weight: inherit;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  color: var(--fip-amber);
+}
+
+.facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.fact {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fip-space-3);
+  font-size: var(--fip-text-sm);
+}
+
+.fact dt {
+  color: var(--fip-cream-soft);
+  min-width: 0;
+}
+
+.fact dd {
+  margin: 0;
+  color: var(--fip-cream);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  margin: var(--fip-space-2) 0 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  line-height: var(--fip-leading-copy);
+}
+
+.records,
+.bottles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--fip-space-2);
+  font-size: var(--fip-text-sm);
+}
+
+.recordName {
+  color: var(--fip-cream);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recordDate {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.bottleLink {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-3);
+  padding-top: var(--fip-space-3);
+}
+
+.actionLink {
+  text-decoration: none;
+}
+
+.recordScore {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-md);
+  font-variant-numeric: tabular-nums;
+}

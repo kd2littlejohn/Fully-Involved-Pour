@@ -36,6 +36,14 @@ jobs:
         run: npx vitest run
       - working-directory: web
         run: npm run build
+      - name: Cloud Functions copy of the AXE Insights engine is up to date
+        working-directory: web
+        run: |
+          npm run build:axe-engine
+          git diff --exit-code -- ../functions/generated/ || {
+            echo "::error::functions/generated/axeInsightsEngine.js is stale. Run 'npm run build:axe-engine' in web/ and commit the result."
+            exit 1
+          }
 
   emulator:
     name: Functions + Firestore rules (emulator)

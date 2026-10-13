@@ -82,3 +82,18 @@ describe('combined palate behavior', () => {
     expect('fip' in pours[0]!).toBe(false)
   })
 })
+
+describe('Your Palate and AXE share the preference lead rule', () => {
+  it('shows no proof or style preference line on a tie', () => {
+    const shelf: Bottle[] = [
+      { id: 'b1', name: 'Eagle Rare', status: 'open', type: 'Bourbon', proof: 90 },
+      { id: 'b2', name: 'Weller', status: 'open', type: 'Bourbon', proof: 95 },
+      { id: 'b3', name: 'Rye One', status: 'open', type: 'Rye', proof: 115 },
+      { id: 'b4', name: 'Rye Two', status: 'open', type: 'Rye', proof: 120 },
+    ]
+    const pours = [pour('p1', 'b1', 8, 1), pour('p2', 'b2', 8, 2), pour('p3', 'b3', 8, 3), pour('p4', 'b4', 8, 4)]
+    const text = buildPalateInsightText(shelf, pours)!
+    expect(text.tastePatterns.join(' ')).not.toMatch(/highest-rated pours tend to land|seem to enjoy/)
+    expect(text.tastePatterns.join(' ')).toMatch(/most poured style/)
+  })
+})

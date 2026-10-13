@@ -108,8 +108,9 @@ and create two environments, each with **Required reviewers** = yourself and
 Releases refuse to run if either environment is missing its reviewers.
 
 Optional repository variables (Settings → Secrets and variables → Actions → Variables):
-- `FUNCTIONS_DEPLOY_TARGET` = `functions` after the AXE release, so any
-  backend change ships (the default deploys only `functions:askSommelier`).
+- `FUNCTIONS_DEPLOY_TARGET` = `functions` so any backend change ships (the
+  default deploys `functions:askSommelier,functions:syncAxeInsights`). If
+  this variable is set to a list, it must include `functions:syncAxeInsights`.
 - `AXE_SMOKE_TEST` = `false` to skip the live smoke test (two model calls
   per backend release).
 
@@ -135,7 +136,7 @@ after fixing the cause.
 
 Any merge that changes `functions/` repeats the same path automatically.
 To redeploy without a code change: Actions → **Deploy Cloud Functions** →
-**Run workflow** (branch `main`). Target defaults to `functions:askSommelier`.
+**Run workflow** (branch `main`). Target defaults to `functions:askSommelier,functions:syncAxeInsights`.
 
 ## Notes
 

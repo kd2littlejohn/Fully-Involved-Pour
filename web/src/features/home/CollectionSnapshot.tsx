@@ -7,13 +7,13 @@ interface CollectionSnapshotProps {
 }
 
 export function CollectionSnapshot({ snapshot }: CollectionSnapshotProps) {
-  const { total, open, sealed, needingAttention } = snapshot
+  const { inBar, open, sealed, needingAttention } = snapshot
 
   return (
-    <Link to="/collection" className={styles.card}>
+    <Link to="/collection" className={styles.card} aria-label={`Your bar: ${inBar} bottles, ${open} open, ${sealed} sealed, ${needingAttention} low or empty`}>
       <div className={styles.stat}>
-        <div className={styles.value}>{total}</div>
-        <div className={styles.label}>Total</div>
+        <div className={styles.value}>{inBar}</div>
+        <div className={styles.label}>In Your Bar</div>
       </div>
       <div className={styles.stat}>
         <div className={styles.value}>{open}</div>
@@ -25,7 +25,7 @@ export function CollectionSnapshot({ snapshot }: CollectionSnapshotProps) {
       </div>
       <div className={styles.stat}>
         <div className={needingAttention > 0 ? `${styles.value} ${styles.valueAttention}` : styles.value}>{needingAttention}</div>
-        <div className={styles.label}>Needs Attention</div>
+        <div className={styles.label}>Low or Empty</div>
       </div>
     </Link>
   )

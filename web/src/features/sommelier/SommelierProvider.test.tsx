@@ -86,4 +86,42 @@ describe('SommelierProvider', () => {
 
     expect(screen.queryByText(/Try something oaky/)).not.toBeInTheDocument()
   })
+
+  it('asks about an AXE Insight through the existing chat, sending only its id', async () => {
+    mockAskSommelier.mockReset().mockResolvedValue('Because your Rye pours average 9.0.')
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' } })
+    function InsightConsumer() {
+      const { askAboutInsight, send, messages, isOpen, context } = useSommelier()
+      return (
+        <div>
+          <button type="button" onClick={() => askAboutInsight('palate-evolution:style-preference:rye', 'Why do you think that?')}>
+            Ask about insight
+          </button>
+          <button type="button" onClick={() => void send('And what else?')}>
+            Follow up
+          </button>
+          <p>open: {String(isOpen)}</p>
+          <p>insight: {context.insightId ?? 'none'}</p>
+          <p>count: {messages.length}</p>
+        </div>
+      )
+    }
+    render(
+      <SommelierProvider>
+        <InsightConsumer />
+      </SommelierProvider>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Ask about insight' }))
+    expect(await screen.findByText('count: 2')).toBeInTheDocument()
+    expect(screen.getByText('open: true')).toBeInTheDocument()
+    expect(mockAskSommelier).toHaveBeenLastCalledWith('Why do you think that?', [], expect.objectContaining({ insightId: 'palate-evolution:style-preference:rye' }))
+    // The insight's facts never travel from the client: only the id.
+    expect(Object.keys(mockAskSommelier.mock.calls[0]![2])).not.toContain('facts')
+
+    // Follow-ups keep the same insight context.
+    await userEvent.click(screen.getByRole('button', { name: 'Follow up' }))
+    expect(await screen.findByText('count: 4')).toBeInTheDocument()
+    expect(mockAskSommelier).toHaveBeenLastCalledWith('And what else?', expect.any(Array), expect.objectContaining({ insightId: 'palate-evolution:style-preference:rye' }))
+  })
 })
+

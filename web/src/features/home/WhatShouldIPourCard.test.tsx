@@ -48,21 +48,21 @@ describe('WhatShouldIPourCard', () => {
     await waitFor(() => expect(screen.getByText('Add a sealed or opened bottle to your bar to get a recommendation.')).toBeInTheDocument())
   })
 
-  it('recommends the only eligible bottle with a View Bottle link', async () => {
+  it('recommends the only eligible bottle, linking to it from the image', async () => {
     renderCard()
     await waitFor(() => expect(screen.getAllByText('Eagle Rare').length).toBeGreaterThan(0))
-    expect(screen.getByRole('link', { name: 'View Bottle' })).toHaveAttribute('href', '/collection/b1')
+    expect(screen.getByRole('link', { name: 'View Eagle Rare' })).toHaveAttribute('href', '/collection/b1')
   })
 
   it('still offers a way to choose by mood underneath the default pick', async () => {
     renderCard()
-    await waitFor(() => expect(screen.getByRole('button', { name: /^What Should I Pour\?/ })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Pick by mood' })).toBeInTheDocument())
   })
 
-  it('picks again without erroring when Show Me Another is pressed', async () => {
+  it('picks again without erroring when Another Pick is pressed', async () => {
     renderCard([bottles[0]!, { id: 'b2', name: 'Weller 12', status: 'sealed' }])
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Show Me Another' })).toBeInTheDocument())
-    await userEvent.click(screen.getByRole('button', { name: 'Show Me Another' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Another Pick' })).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Another Pick' }))
     expect(screen.getByText(/Eagle Rare|Weller 12/)).toBeInTheDocument()
   })
 
@@ -89,13 +89,13 @@ describe('WhatShouldIPourCard', () => {
         </MemoryRouter>
       </SommelierProvider>,
     )
-    await waitFor(() => expect(screen.getByRole('link', { name: 'View Bottle' })).toBeInTheDocument())
-    const pickedHref = screen.getByRole('link', { name: 'View Bottle' }).getAttribute('href')
+    await waitFor(() => expect(screen.getByRole('link', { name: /^View / })).toBeInTheDocument())
+    const pickedHref = screen.getByRole('link', { name: /^View / }).getAttribute('href')
     const persisted = localStorage.getItem('fip-home-recommendation:u1')
 
-    await userEvent.click(screen.getByRole('button', { name: /Curious why this one\? Ask AXE/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ask AXE why' }))
     expect(mockAskSommelier).not.toHaveBeenCalled()
-    expect(screen.getByRole('link', { name: 'View Bottle' })).toHaveAttribute('href', pickedHref)
+    expect(screen.getByRole('link', { name: /^View / })).toHaveAttribute('href', pickedHref)
     expect(localStorage.getItem('fip-home-recommendation:u1')).toBe(persisted)
 
     await userEvent.click(screen.getByRole('button', { name: /Why this pour tonight/ }))
@@ -105,6 +105,37 @@ describe('WhatShouldIPourCard', () => {
       [],
       expect.objectContaining({ screen: 'pour-recommendation', bottleId: pickedId }),
     )
-    expect(screen.getByRole('link', { name: 'View Bottle' })).toHaveAttribute('href', pickedHref)
+    expect(screen.getByRole('link', { name: /^View / })).toHaveAttribute('href', pickedHref)
+  })
+
+  it("shows the bottle's proof and labels the card Tonight's Pick", async () => {
+    renderCard([{ id: 'b1', name: 'Eagle Rare', status: 'open', proof: 90, distillery: 'Buffalo Trace' }])
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Tonight’s Pick' })).toBeInTheDocument())
+    expect(screen.getByText('Buffalo Trace · 90 proof')).toBeInTheDocument()
+  })
+
+  it('keeps the same pick across a remount (navigation) and only changes on Another Pick', async () => {
+    const many: Bottle[] = [
+      { id: 'b1', name: 'Eagle Rare', status: 'open' },
+      { id: 'b2', name: 'Weller 12', status: 'open' },
+      { id: 'b3', name: 'Blantons', status: 'open' },
+    ]
+    const first = renderCard(many)
+    await waitFor(() => expect(screen.getByRole('link', { name: /^View / })).toBeInTheDocument())
+    const picked = screen.getByRole('link', { name: /^View / }).getAttribute('href')
+    first.unmount()
+    renderCard(many)
+    await waitFor(() => expect(screen.getByRole('link', { name: /^View / })).toHaveAttribute('href', picked))
+    expect(mockExplainPourRecommendation).toHaveBeenCalledTimes(1)
+  })
+
+  it("reports the featured bottle so Home can keep it out of Maybe Tonight", async () => {
+    const onPickChange = vi.fn()
+    render(
+      <MemoryRouter>
+        <WhatShouldIPourCard uid="u1" bottles={bottles} pours={[]} onPickChange={onPickChange} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(onPickChange).toHaveBeenLastCalledWith('b1'))
   })
 })

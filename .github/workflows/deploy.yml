@@ -130,10 +130,10 @@ jobs:
       id-token: write
     uses: ./.github/workflows/deploy-functions.yml
     with:
-      # The first AXE release ships only askSommelier. Set the
-      # FUNCTIONS_DEPLOY_TARGET repository variable to "functions" later to
-      # ship every backend change automatically.
-      target: ${{ vars.FUNCTIONS_DEPLOY_TARGET || 'functions:askSommelier' }}
+      # AXE (askSommelier) and AXE Insights (syncAxeInsights). Set the
+      # FUNCTIONS_DEPLOY_TARGET repository variable to "functions" to ship
+      # every backend change automatically.
+      target: ${{ vars.FUNCTIONS_DEPLOY_TARGET || 'functions:askSommelier,functions:syncAxeInsights' }}
     secrets: inherit
 
   build_and_deploy:

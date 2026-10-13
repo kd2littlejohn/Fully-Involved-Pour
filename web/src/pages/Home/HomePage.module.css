@@ -1,25 +1,109 @@
-/* Full, uncropped hero artwork — width:100%/height:auto at the image's own
-   ~3:1 ratio, never object-fit:cover, so the compass mark, wordmark, and
-   the full lounge scene on the right are always entirely visible on every
-   phone width. The dark background is a safety net for any edge rounding,
-   not a crop mask. */
-.hero {
-  width: 100%;
-  background: var(--fip-black);
+/* Cinematic hero. Three layers, all from the one approved image:
+   1. .heroAtmosphere: the artwork scaled to cover the full width, blurred
+      and darkened, so its warm amber light fills the band edge to edge.
+   2. .heroShade: a vignette that fades the atmosphere into the page
+      background at the bottom and sides (no visible band edge).
+   3. .heroImage: the sharp, uncropped artwork at its own proportions,
+      feathered with a radial mask so it melts into the atmosphere.
+   The greeting sits inside the same stage, over the fade. Compact: the
+   artwork stays ~45% shorter than full width on phones. */
+.heroStage {
+  position: relative;
+  isolation: isolate;
   overflow: hidden;
+  background: var(--fip-black);
+}
+
+.heroAtmosphere {
+  position: absolute;
+  inset: -12% -6% 0;
+  z-index: -2;
+  background-size: cover;
+  background-position: 35% 40%;
+  filter: blur(30px) saturate(1.3) brightness(1);
+  transform: scale(1.15);
+}
+
+.heroShade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(75% 60% at 50% 26%, transparent 0%, rgba(17, 22, 28, 0.35) 55%, var(--fip-black) 100%),
+    linear-gradient(
+      to bottom,
+      rgba(17, 22, 28, 0.85) 0%,
+      rgba(17, 22, 28, 0) 18%,
+      rgba(17, 22, 28, 0) 42%,
+      rgba(17, 22, 28, 0.7) 72%,
+      var(--fip-black) 100%
+    );
+}
+
+.hero {
+  display: flex;
+  justify-content: center;
+  height: clamp(72px, 21vw, 176px);
+  padding-top: var(--fip-space-2);
 }
 
 .heroImage {
   display: block;
-  width: 100%;
-  height: auto;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
   object-fit: contain;
+  /* Feather all four edges; the logo, wordmark and tagline sit inside
+     the solid area, so they stay fully crisp. */
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0%, #000 16%, #000 89%, transparent 100%),
+    linear-gradient(to right, transparent 0%, #000 22%, #000 76%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, #000 16%, #000 89%, transparent 100%),
+    linear-gradient(to right, transparent 0%, #000 22%, #000 76%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.greeting {
+  position: relative;
+  padding: var(--fip-space-3) var(--fip-shell-x) var(--fip-space-5);
+}
+
+.greetingTitle {
+  margin: 0;
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-cream);
+  line-height: var(--fip-leading-tight);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+}
+
+.greetingSubtitle {
+  margin: var(--fip-space-1) 0 0;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+}
+
+/* Wide screens: keep the light gathered around the artwork rather than
+   spread across the whole width. */
+@media (min-width: 900px) {
+  .heroShade {
+    background:
+      radial-gradient(42% 75% at 50% 28%, transparent 0%, rgba(17, 22, 28, 0.55) 60%, var(--fip-black) 100%),
+      linear-gradient(to bottom, rgba(17, 22, 28, 0.85) 0%, rgba(17, 22, 28, 0) 18%, rgba(17, 22, 28, 0) 42%, rgba(17, 22, 28, 0.7) 72%, var(--fip-black) 100%);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .heroAtmosphere {
+    filter: brightness(0.35);
+  }
 }
 
 .journeyStack {
   display: flex;
   flex-direction: column;
-  gap: var(--fip-space-4);
+  gap: var(--fip-space-3);
 }
 
 .emptyActions {

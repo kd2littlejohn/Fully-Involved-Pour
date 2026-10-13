@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { controlClassName } from '../../components/ui/Field'
 import { useUserData } from '../../hooks/useUserData'
-import { copyFor, type AxeContext } from './axeContext'
+import { copyForContext, type AxeContext } from './axeContext'
 import { useSommelier } from './SommelierProvider'
 import styles from './SommelierPanel.module.css'
 
@@ -9,7 +9,7 @@ import styles from './SommelierPanel.module.css'
 // (the server re-reads the real record itself, see functions/axeContext.js).
 function useContextLabel(context: AxeContext): string {
   const { userDoc } = useUserData()
-  const copy = copyFor(context.screen)
+  const copy = copyForContext(context)
   if (context.bottleId) {
     const bottle = userDoc.bottles.find((b) => b.id === context.bottleId)
     if (bottle) return bottle.name
@@ -29,7 +29,7 @@ export function SommelierPanel() {
   const { messages, sending, error, send, reset, context } = useSommelier()
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-  const copy = copyFor(context.screen)
+  const copy = copyForContext(context)
   const contextLabel = useContextLabel(context)
 
   useEffect(() => {

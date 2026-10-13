@@ -22,15 +22,15 @@ function renderCard() {
 }
 
 describe('MaybeTonightCard', () => {
-  it('shows the bottle name, distillery, and honest reason', () => {
+  it('shows the bottle name and its honest reason, kept secondary (no distillery line)', () => {
     renderCard()
     expect(screen.getByText('Stagg Barrel Proof 25A')).toBeInTheDocument()
-    expect(screen.getByText('Buffalo Trace')).toBeInTheDocument()
     expect(screen.getByText('Still sealed.')).toBeInTheDocument()
+    expect(screen.queryByText('Buffalo Trace')).not.toBeInTheDocument()
   })
 
-  it('offers a Start Pour action for the bottle', () => {
+  it('offers a Pour action for the bottle', () => {
     renderCard()
-    expect(screen.getByRole('button', { name: 'Start Pour' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pour' })).toBeInTheDocument()
   })
 })

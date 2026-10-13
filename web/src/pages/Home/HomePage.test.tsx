@@ -40,6 +40,12 @@ vi.mock('../../features/friends/useSharedBlindActivity', () => ({
   useSharedBlindActivity: (...args: unknown[]) => mockUseSharedBlindActivity(...args),
 }))
 
+// The AXE Insight card's data hook is covered by its own tests.
+const mockUseAxeInsight = vi.fn()
+vi.mock('../../features/axeInsights/useAxeInsight', () => ({
+  useAxeInsight: (...args: unknown[]) => mockUseAxeInsight(...args),
+}))
+
 function renderHome() {
   return render(
     <MemoryRouter>
@@ -64,6 +70,7 @@ beforeEach(() => {
   mockUseFriends.mockReturnValue({ friends: [], loading: false, reload: vi.fn() })
   mockUseNotifications.mockReturnValue({ notifications: [], loading: false, markRead: vi.fn() })
   mockUseSharedBlindActivity.mockReturnValue({ items: [], loading: false })
+  mockUseAxeInsight.mockReturnValue({ view: null, explanation: null, loading: false, freshness: 'current' })
 })
 
 describe('HomePage', () => {
@@ -88,31 +95,77 @@ describe('HomePage', () => {
     expect(screen.getByText('Add a bottle to begin building your bar.')).toBeInTheDocument()
   })
 
-  it('shows the full uncropped hero artwork above the greeting', () => {
+  it('shows the uncropped hero artwork above the greeting', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
     expect(screen.getByAltText(/Fully Involved Pour/)).toBeInTheDocument()
   })
 
-  it('leads with the What Should I Pour? recommendation as the primary card', () => {
+  it("leads with Tonight's Pick as the primary card", () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
 
-    // Appears both as the primary card's own eyebrow and as the embedded
-    // "choose by mood" trigger's title — both are legitimate, so this just
-    // confirms the primary card rendered at all.
-    expect(screen.getAllByText('What Should I Pour?').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Eagle Rare').length).toBeGreaterThan(0)
-    expect(screen.getByRole('link', { name: 'View Bottle' })).toHaveAttribute('href', '/collection/b1')
-    expect(screen.getByRole('button', { name: 'Show Me Another' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tonight’s Pick' })).toBeInTheDocument()
+    const pick = within(screen.getByRole('region', { name: 'Tonight’s Pick' }))
+    expect(pick.getByRole('link', { name: 'View Eagle Rare' })).toHaveAttribute('href', '/collection/b1')
+    expect(pick.getByRole('button', { name: 'Another Pick' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ask AXE why' })).toBeInTheDocument()
   })
 
-  it('shows a Maybe Tonight section for a sealed, owned bottle', () => {
-    signIn([{ id: 'b1', name: "Blanton's", status: 'sealed', createdAt: 1 }])
+  it('lays the dashboard out in the approved order', () => {
+    const bottles: Bottle[] = [
+      { id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1, openedDate: '2026-06-01' },
+      { id: 'b2', name: 'Weller 12', status: 'open', createdAt: 2, openedDate: '2026-05-01' },
+      { id: 'b3', name: 'Blanton’s', status: 'sealed', createdAt: 3 },
+      { id: 'b4', name: 'Stagg', status: 'sealed', createdAt: 4 },
+    ]
+    signIn(bottles, [
+      { id: 'p1', bottleId: 'b1', date: '2026-07-01', rating: 8.6, fip: { nose: 2, palate: 3, finish: 1.6, complexity: 1, value: 1, total: 8.6, noseAromas: [], palateFlavors: [] } },
+    ])
     renderHome()
 
-    expect(screen.getByText('Maybe Tonight')).toBeInTheDocument()
-    expect(screen.getAllByText("Blanton's").length).toBeGreaterThan(0)
+    const order = ['Tonight’s Pick', 'Quick actions', 'Continue Your Journey', 'Open Bottles', 'Maybe Tonight', 'Your Bar Snapshot', 'AXE Insight']
+    const nodes = [
+      screen.getByRole('heading', { name: 'Tonight’s Pick' }),
+      screen.getByRole('navigation', { name: 'Quick actions' }),
+      screen.getByText('Continue Your Journey'),
+      screen.getByText('Open Bottles'),
+      screen.getByText('Maybe Tonight'),
+      screen.getByText('Your Bar Snapshot'),
+      screen.getAllByText('AXE Insight')[0]!,
+    ]
+    for (let i = 1; i < nodes.length; i++) {
+      expect(nodes[i - 1]!.compareDocumentPosition(nodes[i]!) & Node.DOCUMENT_POSITION_FOLLOWING, `${order[i - 1]} before ${order[i]}`).toBeTruthy()
+    }
+  })
+
+  it('offers Pour, Ask AXE and My Bar as quick actions', () => {
+    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
+    renderHome()
+    const quick = within(screen.getByRole('navigation', { name: 'Quick actions' }))
+    expect(quick.getByRole('button', { name: 'Pour' })).toBeInTheDocument()
+    expect(quick.getByRole('button', { name: 'Ask AXE' })).toBeInTheDocument()
+    expect(quick.getByRole('link', { name: 'My Bar' })).toHaveAttribute('href', '/collection')
+  })
+
+  it("shows Maybe Tonight alternatives without repeating Tonight's Pick", () => {
+    signIn([
+      { id: 'b1', name: 'Blanton’s', status: 'sealed', createdAt: 1 },
+      { id: 'b2', name: 'Stagg', status: 'sealed', createdAt: 2 },
+    ])
+    renderHome()
+
+    const picked = within(screen.getByRole('region', { name: 'Tonight’s Pick' })).getByRole('link', { name: /^View / }).getAttribute('href')
+    const section = screen.getByText('Maybe Tonight').closest('section') as HTMLElement
+    const alternatives = within(section).getAllByRole('link').map((a) => a.getAttribute('href'))
+    expect(alternatives).not.toContain(picked)
+    expect(alternatives.length).toBeGreaterThan(0)
+  })
+
+  it('hides Maybe Tonight when the only pourable bottle is already Tonight’s Pick', () => {
+    signIn([{ id: 'b1', name: 'Blanton’s', status: 'sealed', createdAt: 1 }])
+    renderHome()
+    expect(screen.queryByText('Maybe Tonight')).not.toBeInTheDocument()
   })
 
   it('shows an Open Bottles carousel with a View All link into the filtered My Bar view', () => {
@@ -145,8 +198,7 @@ describe('HomePage', () => {
     renderHome()
 
     expect(screen.getByText('Continue Your Journey')).toBeInTheDocument()
-    expect(screen.getByText('1 pour')).toBeInTheDocument()
-    expect(screen.getAllByText('Great catch-up.').length).toBeGreaterThan(0)
+    expect(screen.getByText('Last tasted Jul 1, 2026 · 1 pour')).toBeInTheDocument()
   })
 
   it('hides the Continue Your Journey section when there is no featured bottle or blind result', () => {
@@ -187,47 +239,20 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: 'View Details' })).toHaveAttribute('href', '/blind/room-1/reveal')
   })
 
-  it("shows an empty state for Friends' Recent Pours when the user has no friends", () => {
+  it("no longer shows Friends' Recent Pours on Home (that activity lives on Friends)", () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
-
-    expect(screen.getByText("Friends' Recent Pours")).toBeInTheDocument()
-    expect(screen.getByText('Whiskey is better shared.')).toBeInTheDocument()
+    expect(screen.queryByText("Friends' Recent Pours")).not.toBeInTheDocument()
+    expect(mockUseNotifications).not.toHaveBeenCalled()
   })
 
-  it("shows friend activity rows in Friends' Recent Pours when there is activity", () => {
-    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
-    mockUseFriends.mockReturnValue({ friends: [{ uid: 'f1', displayName: 'Dave', username: 'dave' }], loading: false, reload: vi.fn() })
-    mockUseNotifications.mockReturnValue({
-      notifications: [
-        {
-          id: 'n1',
-          recipientId: 'u1',
-          actorId: 'f1',
-          actorDisplayName: 'Dave',
-          actorUsername: 'dave',
-          type: 'tagged-in-pour',
-          refId: 'moment-1',
-          read: false,
-          createdAt: Date.now(),
-          refBottleName: 'Weller 12',
-        },
-      ],
-      loading: false,
-      markRead: vi.fn(),
-    })
-
-    renderHome()
-
-    expect(screen.getAllByText(/Dave/).length).toBeGreaterThan(0)
-  })
-
-  it('shows a Palate Insight empty-state card when there is not enough tasting data', () => {
+  it('replaces the long Your Palate section with one AXE Insight card', () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()
-
-    expect(screen.getByText('Your Palate')).toBeInTheDocument()
-    expect(screen.getByText('Keep logging pours and your palate trends will appear here.')).toBeInTheDocument()
+    expect(screen.queryByText('Your Palate')).not.toBeInTheDocument()
+    expect(screen.getAllByText('AXE Insight')).toHaveLength(1)
+    expect(screen.getByText('Your journey starts with a pour.')).toBeInTheDocument()
+    expect(mockUseAxeInsight).toHaveBeenCalledWith('u1', expect.any(Array), expect.any(Array))
   })
 
   it('shows the Collection Snapshot with real totals', () => {
@@ -238,11 +263,12 @@ describe('HomePage', () => {
     ])
     renderHome()
 
-    const heading = screen.getByText('Collection Snapshot')
+    const heading = screen.getByText('Your Bar Snapshot')
     const section = heading.closest('section')
     expect(section).not.toBeNull()
     const scoped = within(section as HTMLElement)
-    expect(scoped.getByText('3')).toBeInTheDocument() // total
-    expect(scoped.getAllByText('1')).toHaveLength(2) // open, sealed
+    // The wishlist bottle isn't in the bar.
+    expect(scoped.getByRole('link', { name: 'Your bar: 2 bottles, 1 open, 1 sealed, 0 low or empty' })).toHaveAttribute('href', '/collection')
+    expect(scoped.getByText('In Your Bar')).toBeInTheDocument()
   })
 })

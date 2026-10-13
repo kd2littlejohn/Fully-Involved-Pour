@@ -1,7 +1,7 @@
 .card {
   display: flex;
   flex-direction: column;
-  flex: 0 0 150px;
+  flex: 0 0 136px;
   border-radius: var(--fip-radius-lg);
   background: var(--fip-card);
   border: 1px solid var(--fip-border-subtle);
@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 110px;
+  height: 120px;
   background: var(--fip-oak-deep);
   overflow: hidden;
 }
@@ -32,16 +32,22 @@
   padding: var(--fip-space-3);
 }
 
+.body {
+  flex: 1;
+}
+
+/* Two lines, always reserved, so every card in the row is the same height. */
 .name {
   font-family: var(--fip-font-display);
   font-size: var(--fip-text-sm);
   color: var(--fip-cream);
   line-height: var(--fip-leading-tight);
-}
-
-.distillery {
-  color: var(--fip-amber);
-  font-size: var(--fip-text-xs);
+  min-height: calc(2em * var(--fip-leading-tight));
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .meta {

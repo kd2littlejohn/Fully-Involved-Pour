@@ -45,6 +45,9 @@ export interface AxeRequestContext {
   infinityBottleId?: string
   roomId?: string
   friendUsername?: string
+  // An AXE Insight the user is asking about. Only the id is sent; the
+  // server reads the verified insight from the user's own cache.
+  insightId?: string
   facts?: string[]
   palate?: AxePalateInsights
   blendDraft?: AxeBlendDraft

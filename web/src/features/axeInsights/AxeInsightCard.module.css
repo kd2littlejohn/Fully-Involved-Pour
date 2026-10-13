@@ -1,0 +1,117 @@
+/* AXE's card: the same elevated card surface as Tonight's Pick, with a
+   copper edge glow so it reads as AXE speaking rather than another list. */
+.card {
+  /* Sits inside a Section, which already provides the side gutters. */
+  margin: 0;
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-xl);
+  background:
+    radial-gradient(120% 80% at 100% 0%, var(--fip-amber-soft), transparent 60%),
+    var(--fip-card-elevated);
+  border: 1px solid var(--fip-border);
+  box-shadow: var(--fip-shadow-card);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  margin-bottom: var(--fip-space-3);
+}
+
+.mark {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--fip-radius-round);
+  flex: 0 0 auto;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.brandName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-sm);
+  color: var(--fip-amber);
+  letter-spacing: var(--fip-tracking-label);
+}
+
+.brandTagline {
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.category {
+  margin: 0 0 var(--fip-space-1);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  color: var(--fip-copper);
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  color: var(--fip-cream);
+  line-height: var(--fip-leading-tight);
+  overflow-wrap: anywhere;
+}
+
+/* One or two sentences; anything longer lives in Explore Insight. */
+.body {
+  margin: var(--fip-space-2) 0 0;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.muted,
+.status {
+  display: block;
+  margin: var(--fip-space-2) 0 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fip-space-3);
+  margin-top: var(--fip-space-4);
+}
+
+.actionLink {
+  text-decoration: none;
+}
+
+.askAxe {
+  min-height: 44px;
+  padding: 0 var(--fip-space-2);
+  border: 0;
+  background: none;
+  color: var(--fip-amber);
+  font: inherit;
+  font-size: var(--fip-text-sm);
+  cursor: pointer;
+}
+
+.askAxe::after {
+  content: ' \2192';
+}
+
+.askAxe:hover {
+  color: var(--fip-cream);
+}
