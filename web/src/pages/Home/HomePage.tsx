@@ -25,27 +25,28 @@ import {
 import homeHeroImage from '../../assets/home-hero.webp'
 import styles from './HomePage.module.css'
 
-// The approved hero banner — the real FIP compass mark, wordmark, and
-// lounge photography, never regenerated or cropped. Shown at a reduced
-// height (see HomePage.module.css) so Tonight's Pick sits near the top of a
-// phone screen; the artwork keeps its own proportions, centered.
-function HomeHero() {
+// Cinematic hero: the approved FIP artwork (compass mark, wordmark,
+// tagline, lounge photography), never regenerated or cropped. A blurred,
+// darkened copy of the same image fills the full width as atmosphere and
+// fades into the page, the sharp artwork sits on top with feathered edges,
+// and the greeting sits inside that atmosphere. No rectangle, no hard
+// edges: the same "no frame" treatment as the bottle-detail hero photo.
+function HomeHero({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className={styles.hero}>
-      <img
-        className={styles.heroImage}
-        src={homeHeroImage}
-        alt="Fully Involved Pour — drink what you enjoy, share what matters."
-      />
-    </div>
-  )
-}
-
-function Greeting({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div className={styles.greeting}>
-      <h1 className={styles.greetingTitle}>{title}</h1>
-      {subtitle ? <p className={styles.greetingSubtitle}>{subtitle}</p> : null}
+    <div className={styles.heroStage}>
+      <div className={styles.heroAtmosphere} style={{ backgroundImage: `url(${homeHeroImage})` }} aria-hidden="true" />
+      <div className={styles.heroShade} aria-hidden="true" />
+      <div className={styles.hero}>
+        <img
+          className={styles.heroImage}
+          src={homeHeroImage}
+          alt="Fully Involved Pour — drink what you enjoy, share what matters."
+        />
+      </div>
+      <div className={styles.greeting}>
+        <h1 className={styles.greetingTitle}>{title}</h1>
+        {subtitle ? <p className={styles.greetingSubtitle}>{subtitle}</p> : null}
+      </div>
     </div>
   )
 }
@@ -65,8 +66,7 @@ export function HomePage() {
   if (authLoading || dataLoading) {
     return (
       <>
-        <HomeHero />
-        <Greeting title={`${greeting}.`} />
+        <HomeHero title={`${greeting}.`} />
       </>
     )
   }
@@ -74,8 +74,7 @@ export function HomePage() {
   if (!user) {
     return (
       <>
-        <HomeHero />
-        <Greeting title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
+        <HomeHero title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
         <EmptyState
           title="Your whiskey journey starts here."
           message="Sign in to start building your bar and capturing every pour."
@@ -93,8 +92,7 @@ export function HomePage() {
 
   return (
     <>
-      <HomeHero />
-      <Greeting title={name ? `${greeting}, ${name}.` : `${greeting}.`} subtitle="What are you pouring tonight?" />
+      <HomeHero title={name ? `${greeting}, ${name}.` : `${greeting}.`} subtitle="What are you pouring tonight?" />
 
       {bottles.length === 0 ? (
         <>
