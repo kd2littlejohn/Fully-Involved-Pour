@@ -23,25 +23,29 @@ import {
   greetingForHour,
 } from '../../features/home/selectors'
 import homeHeroImage from '../../assets/home-hero.webp'
+import homeHeroMobileImage from '../../assets/home-hero-mobile.webp'
 import styles from './HomePage.module.css'
 
+const HERO_ALT = 'Fully Involved Pour — drink what you enjoy, share what matters.'
+
 // Cinematic hero: the approved FIP artwork (compass mark, wordmark,
-// tagline, lounge photography), never regenerated or cropped. A blurred,
-// darkened copy of the same image fills the full width as atmosphere and
-// fades into the page, the sharp artwork sits on top with feathered edges,
-// and the greeting sits inside that atmosphere. No rectangle, no hard
-// edges: the same "no frame" treatment as the bottle-detail hero photo.
+// tagline, lounge photography), never regenerated, cropped or stretched.
+// - Phones: the portrait artwork is a full-bleed background layer at its
+//   own proportions, running up behind the top bar and down behind the
+//   greeting and Tonight's Pick. Its own dark lower fade carries it into
+//   the page; only the last few pixels blend to the exact page colour.
+// - Wider screens (>=600px): the landscape artwork, sharp with feathered
+//   edges over a blurred copy of itself that fills the width.
 function HomeHero({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className={styles.heroStage}>
       <div className={styles.heroAtmosphere} style={{ backgroundImage: `url(${homeHeroImage})` }} aria-hidden="true" />
       <div className={styles.heroShade} aria-hidden="true" />
       <div className={styles.hero}>
-        <img
-          className={styles.heroImage}
-          src={homeHeroImage}
-          alt="Fully Involved Pour — drink what you enjoy, share what matters."
-        />
+        <picture>
+          <source media="(min-width: 600px)" srcSet={homeHeroImage} width={2000} height={667} />
+          <img className={styles.heroImage} src={homeHeroMobileImage} alt={HERO_ALT} width={948} height={1659} />
+        </picture>
       </div>
       <div className={styles.greeting}>
         <h1 className={styles.greetingTitle}>{title}</h1>
@@ -65,22 +69,22 @@ export function HomePage() {
 
   if (authLoading || dataLoading) {
     return (
-      <>
+      <div className={styles.home}>
         <HomeHero title={`${greeting}.`} />
-      </>
+      </div>
     )
   }
 
   if (!user) {
     return (
-      <>
+      <div className={styles.home}>
         <HomeHero title={`${greeting}.`} subtitle="Drink what you enjoy. Share what matters." />
         <EmptyState
           title="Your whiskey journey starts here."
           message="Sign in to start building your bar and capturing every pour."
           action={<SignInButton />}
         />
-      </>
+      </div>
     )
   }
 
@@ -91,7 +95,7 @@ export function HomePage() {
   const collectionSnapshot = getCollectionSnapshot(bottles)
 
   return (
-    <>
+    <div className={styles.home}>
       <HomeHero title={name ? `${greeting}, ${name}.` : `${greeting}.`} subtitle="What are you pouring tonight?" />
 
       {bottles.length === 0 ? (
@@ -153,6 +157,6 @@ export function HomePage() {
           </Section>
         </>
       )}
-    </>
+    </div>
   )
 }

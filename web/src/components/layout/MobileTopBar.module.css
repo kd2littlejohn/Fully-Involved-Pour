@@ -1,8 +1,13 @@
 .bar {
+  /* Transparent and above the page, so Home's hero artwork can run up
+     behind it (Home pulls its hero up by this height). */
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--fip-space-3) var(--fip-shell-x);
+  height: var(--fip-mobile-bar-h);
+  padding: 0 var(--fip-shell-x);
 }
 
 @media (min-width: 900px) {

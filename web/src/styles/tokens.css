@@ -87,6 +87,8 @@
 
   /* Layout */
   --fip-page-max: 1500px;
+  /* Mobile top bar (compass mark + avatar); Home's hero sits behind it. */
+  --fip-mobile-bar-h: 64px;
   --fip-content-max: 1220px;
   --fip-readable-max: 760px;
   --fip-shell-x: max(24px, calc((100% - var(--fip-content-max)) / 2));
