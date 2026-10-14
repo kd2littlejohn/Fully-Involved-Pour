@@ -123,5 +123,62 @@ describe('SommelierProvider', () => {
     expect(await screen.findByText('count: 4')).toBeInTheDocument()
     expect(mockAskSommelier).toHaveBeenLastCalledWith('And what else?', expect.any(Array), expect.objectContaining({ insightId: 'palate-evolution:style-preference:rye' }))
   })
-})
 
+  it('ask() opens AXE and sends a free-form question from the route context, never a stale insight context', async () => {
+    mockAskSommelier.mockReset().mockResolvedValue('Try the Rye.')
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' } })
+    function AskConsumer() {
+      const { ask, askAboutInsight, setRouteContext, isOpen, messages, error } = useSommelier()
+      return (
+        <div>
+          <button type="button" onClick={() => setRouteContext({ screen: 'home' })}>
+            Route
+          </button>
+          <button type="button" onClick={() => askAboutInsight('i1')}>
+            Insight
+          </button>
+          <button type="button" onClick={() => ask('What should I open?')}>
+            Ask anything
+          </button>
+          <p>open: {String(isOpen)}</p>
+          <p>count: {messages.length}</p>
+          <p>error: {error ?? 'none'}</p>
+        </div>
+      )
+    }
+    render(
+      <SommelierProvider>
+        <AskConsumer />
+      </SommelierProvider>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Route' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Insight' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ask anything' }))
+    expect(await screen.findByText('count: 2')).toBeInTheDocument()
+    expect(screen.getByText('open: true')).toBeInTheDocument()
+    expect(mockAskSommelier).toHaveBeenLastCalledWith('What should I open?', [], { screen: 'home', palate: expect.anything() })
+  })
+
+  it('ask() surfaces a friendly error when AXE is unavailable', async () => {
+    mockAskSommelier.mockReset().mockRejectedValue(new Error('unavailable'))
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' } })
+    function AskConsumer() {
+      const { ask, error } = useSommelier()
+      return (
+        <div>
+          <button type="button" onClick={() => ask('Hello?')}>
+            Ask anything
+          </button>
+          <p>error: {error ?? 'none'}</p>
+        </div>
+      )
+    }
+    render(
+      <SommelierProvider>
+        <AskConsumer />
+      </SommelierProvider>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Ask anything' }))
+    expect(await screen.findByText(/^error: AXE couldn't respond just now/)).toBeInTheDocument()
+  })
+})

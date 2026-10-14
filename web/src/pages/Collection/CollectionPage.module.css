@@ -253,3 +253,7 @@
   color: var(--fip-cream-soft);
   font-size: var(--fip-text-sm);
 }
+
+.askAxe {
+  margin-top: var(--fip-space-6);
+}

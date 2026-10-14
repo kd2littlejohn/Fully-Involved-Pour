@@ -22,6 +22,7 @@ import { BlindProfileCard } from '../../features/profile/BlindProfileCard'
 import { MilestonesRow } from '../../features/profile/MilestonesRow'
 import { PalateBreakdown } from '../../features/profile/PalateBreakdown'
 import { YourPalateSection } from '../../features/yourPalate/YourPalateSection'
+import { AxeInlineSuggestion } from '../../features/sommelier/AxeInlineSuggestion'
 import styles from './ProfilePage.module.css'
 
 export function ProfilePage() {
@@ -114,6 +115,9 @@ export function ProfilePage() {
 
       <div ref={palateRef} className={styles.palateAnchor}>
         <YourPalateSection bottles={bottles} pours={pours} />
+        <div className={styles.palateAskAxe}>
+          <AxeInlineSuggestion message="Ask AXE what your palate says about you." context={{ screen: 'palate' }} />
+        </div>
       </div>
       <div className={styles.palateBreakdownWrap}>
         <PalateBreakdown bottles={bottles} pours={pours} />

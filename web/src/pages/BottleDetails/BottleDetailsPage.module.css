@@ -340,6 +340,10 @@ button.statusPill:hover {
   white-space: nowrap;
 }
 
+.askAxe {
+  padding: 0 var(--fip-shell-x) var(--fip-space-4);
+}
+
 .infoCards {
   display: grid;
   /* One row: as many columns as there are cards (set inline, 1-4). */

@@ -17,3 +17,7 @@
 .palateAnchor {
   scroll-margin-top: var(--fip-space-4);
 }
+
+.palateAskAxe {
+  margin-top: var(--fip-space-3);
+}

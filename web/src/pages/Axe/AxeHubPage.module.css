@@ -32,6 +32,68 @@
   font-size: var(--fip-text-sm);
 }
 
+/* "Ask AXE anything…": a single line that sends into the AXE chat. */
+.askForm {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-4);
+  padding: 4px 4px 4px var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border-strong);
+  background: rgba(17, 22, 28, 0.6);
+}
+
+.askForm:focus-within {
+  border-color: var(--fip-amber);
+}
+
+.askInput {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 0;
+  background: none;
+  color: var(--fip-cream);
+  font: inherit;
+  font-size: var(--fip-text-md);
+}
+
+.askInput::placeholder {
+  color: var(--fip-muted);
+}
+
+.askInput:focus {
+  outline: none;
+}
+
+.askSend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-amber);
+  color: var(--fip-black);
+  cursor: pointer;
+}
+
+.insight {
+  margin-top: var(--fip-space-6);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--fip-space-3);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
 /* Six cards, two per row on phones, three on wider screens; every card
    the same size. */
 .actions {

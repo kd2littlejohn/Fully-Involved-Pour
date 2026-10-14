@@ -8,6 +8,7 @@ import { FipScoreBadge } from '../../components/ui/FipScoreBadge'
 import { StartPourStoryButton } from '../pourWizard/StartPourStoryButton'
 import { SecondaryActionCard } from '../../components/ui/SecondaryActionCard'
 import { useUserData } from '../../hooks/useUserData'
+import { useSommelier } from '../sommelier/SommelierProvider'
 import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
 import { explainPourRecommendation } from '../../data/repositories/pourRecommendationExplanation'
 import { getRecommendation, type RecommendationResult } from './scoring'
@@ -56,6 +57,7 @@ export function WhatShouldIPourButton({
   renderTrigger,
 }: { trigger?: 'card' | 'link'; renderTrigger?: (open: () => void) => ReactNode } = {}) {
   const { userDoc } = useUserData()
+  const { openAxe } = useSommelier()
   const [open, setOpen] = useState(false)
   const [moodId, setMoodId] = useState<MoodId | null>(null)
   const [result, setResult] = useState<RecommendationResult | null>(null)
@@ -241,9 +243,27 @@ export function WhatShouldIPourButton({
                 </Button>
               </div>
 
-              <button type="button" className={styles.backLink} onClick={chooseDifferentMood}>
-                Choose a different mood
-              </button>
+              <div className={styles.links}>
+                {/* Explains the pick on screen; opening AXE never re-rolls it. */}
+                <button
+                  type="button"
+                  className={styles.askAxeLink}
+                  aria-haspopup="dialog"
+                  onClick={() => {
+                    setOpen(false)
+                    openAxe({
+                      screen: 'pour-recommendation',
+                      bottleId: result.bottle.id,
+                      facts: [...result.reasons, ...result.tags.map((tag) => `Signal: ${tag}`)],
+                    })
+                  }}
+                >
+                  Ask AXE why
+                </button>
+                <button type="button" className={styles.backLink} onClick={chooseDifferentMood}>
+                  Choose a different mood
+                </button>
+              </div>
             </div>
           )}
         </Modal>

@@ -34,6 +34,7 @@ import {
   writeSavedInventory,
 } from '../../features/collection/inventoryViewState'
 import type { Bottle } from '../../data/types'
+import { AxeInlineSuggestion } from '../../features/sommelier/AxeInlineSuggestion'
 import styles from './CollectionPage.module.css'
 
 // Rarity levels the quick chips cover; any other rarity picked on the chart
@@ -423,6 +424,12 @@ export function CollectionPage() {
               ))}
             </div>
           )}
+
+          {!selectMode ? (
+            <div className={styles.askAxe}>
+              <AxeInlineSuggestion message="Ask AXE about your bar: what to open, what's similar, what's missing." context={{ screen: 'collection' }} />
+            </div>
+          ) : null}
 
           {showFilterSheet ? (
             <CollectionFilterSheet

@@ -26,6 +26,12 @@ interface SommelierState {
    * verified facts (looked up server-side by id). Sends `prompt` if given.
    */
   askAboutInsight: (insightId: string, prompt?: string) => void
+  /**
+   * Opens AXE and sends `prompt` from the current screen's route context —
+   * a free-form question typed outside the chat (the AXE Hub's
+   * "Ask AXE anything…").
+   */
+  ask: (prompt: string) => void
   closeAxe: () => void
   /** Reported by AxeRouteContext as the route changes. Pure state — never sends anything. */
   setRouteContext: (context: AxeContext) => void
@@ -43,6 +49,7 @@ const SommelierContext = createContext<SommelierState>({
   context: DEFAULT_CONTEXT,
   openAxe: () => {},
   askAboutInsight: () => {},
+  ask: () => {},
   closeAxe: () => {},
   setRouteContext: () => {},
 })
@@ -131,11 +138,20 @@ export function SommelierProvider({ children }: { children: ReactNode }) {
     [routeContext, sendWith],
   )
 
+  const ask = useCallback(
+    (prompt: string) => {
+      setOverride(null)
+      setIsOpen(true)
+      void sendWith(prompt, routeContext)
+    },
+    [routeContext, sendWith],
+  )
+
   const closeAxe = useCallback(() => setIsOpen(false), [])
 
   const value = useMemo(
-    () => ({ messages, sending, error, send, reset, isOpen, context, openAxe, askAboutInsight, closeAxe, setRouteContext }),
-    [messages, sending, error, send, reset, isOpen, context, openAxe, askAboutInsight, closeAxe, setRouteContext],
+    () => ({ messages, sending, error, send, reset, isOpen, context, openAxe, askAboutInsight, ask, closeAxe, setRouteContext }),
+    [messages, sending, error, send, reset, isOpen, context, openAxe, askAboutInsight, ask, closeAxe, setRouteContext],
   )
 
   return (

@@ -7,6 +7,11 @@ import type { Bottle, Pour } from '../../data/types'
 
 const mockUseAuth = vi.fn()
 const mockUseUserData = vi.fn()
+const mockOpenAxe = vi.fn()
+
+vi.mock('../../features/sommelier/SommelierProvider', () => ({
+  useSommelier: () => ({ openAxe: mockOpenAxe }),
+}))
 
 vi.mock('../../hooks/useAuth', () => ({
   useAuth: () => mockUseAuth(),
@@ -93,6 +98,14 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([eagleRare])
     renderPage('does-not-exist')
     expect(screen.getByText("We couldn't find this bottle.")).toBeInTheDocument()
+  })
+
+  it('opens AXE about this bottle from its inline entry, without changing the bottle', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+    await userEvent.click(screen.getByRole('button', { name: /Ask about this bottle/ }))
+    expect(mockOpenAxe).toHaveBeenCalledWith({ screen: 'bottle', bottleId: 'b1' })
+    expect(mockUpdateBottle).not.toHaveBeenCalled()
   })
 
   it('renders the Overview tab by default with bottle details', () => {

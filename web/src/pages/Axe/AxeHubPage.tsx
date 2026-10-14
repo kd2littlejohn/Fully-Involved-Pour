@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -7,6 +7,7 @@ import { usePourQuickActions } from '../../features/startAPour/usePourQuickActio
 import { WhatShouldIPourButton } from '../../features/whatShouldIPour/WhatShouldIPourButton'
 import { useSommelier } from '../../features/sommelier/SommelierProvider'
 import { AxeWordmark } from '../../features/sommelier/AxeMark'
+import { AxeInsightCard } from '../../features/axeInsights/AxeInsightCard'
 import styles from './AxeHubPage.module.css'
 
 interface AxeHubLocationState {
@@ -16,16 +17,29 @@ interface AxeHubLocationState {
 
 // The AXE Hub: the centre tab. A personal front door to everything AXE and
 // every Pour workflow. Each card opens what already exists (the Pour menu,
-// What Should I Pour?, Your Palate, My Bar, Discover, the AXE chat); the
-// Hub itself has no workflow or AI of its own, so it works the same when
-// AI services are down.
+// What Should I Pour?, Your Palate, My Bar, Discover, the AXE chat), the
+// question box sends into that same chat, and the insight is Home's cached
+// AXE Insight. The Hub generates nothing on its own, so it renders and
+// every card works the same when AI services are down.
 export function AxeHubPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
   const { userDoc } = useUserData()
-  const { openAxe } = useSommelier()
+  const { openAxe, ask } = useSommelier()
   const pourMenu = usePourQuickActions()
+  const [question, setQuestion] = useState('')
+
+  function handleAsk(event: FormEvent) {
+    event.preventDefault()
+    const trimmed = question.trim()
+    if (!trimmed) {
+      openAxe()
+      return
+    }
+    ask(trimmed)
+    setQuestion('')
+  }
 
   const greeting = greetingForHour(new Date().getHours())
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
@@ -51,6 +65,23 @@ export function AxeHubPage() {
           {name ? `${greeting}, ${name}.` : `${greeting}.`}
         </h1>
         <p className={styles.greetingSubtitle}>What can I help you discover tonight?</p>
+        <form className={styles.askForm} onSubmit={handleAsk} aria-label="Ask AXE">
+          <input
+            className={styles.askInput}
+            type="text"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Ask AXE anything…"
+            aria-label="Ask AXE anything"
+            enterKeyHint="send"
+            autoComplete="off"
+          />
+          <button type="submit" className={styles.askSend} aria-label="Send to AXE" aria-haspopup="dialog">
+            <svg {...ICON_PROPS} width={20} height={20} aria-hidden="true">
+              <path d="M5 12h13M13 6l6 6-6 6" />
+            </svg>
+          </button>
+        </form>
       </section>
 
       <div className={styles.actions}>
@@ -70,6 +101,15 @@ export function AxeHubPage() {
         <HubCard icon={ICONS.discover} title="Discover Something New" subtitle="Explore beyond your collection." onClick={() => navigate('/discover')} />
         <HubCard icon={ICONS.chat} title="Ask AXE" subtitle="Your personal whiskey guide." onClick={() => openAxe()} haspopup />
       </div>
+
+      {user ? (
+        <section className={styles.insight} aria-labelledby="axe-hub-insight">
+          <h2 id="axe-hub-insight" className={styles.sectionTitle}>
+            Tonight&rsquo;s Insight
+          </h2>
+          <AxeInsightCard uid={user.uid} bottles={userDoc.bottles} pours={userDoc.pours} />
+        </section>
+      ) : null}
 
       {pourMenu.modal}
     </div>
