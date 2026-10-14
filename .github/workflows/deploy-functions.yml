@@ -20,13 +20,13 @@ on:
       target:
         description: Firebase --only target
         type: string
-        default: functions:askSommelier,functions:syncAxeInsights
+        default: functions:askSommelier,functions:syncAxeInsights,functions:partyAction
   workflow_dispatch:
     inputs:
       target:
         description: 'What to deploy: "functions" (all) or e.g. "functions:askSommelier"'
         type: string
-        default: functions:askSommelier,functions:syncAxeInsights
+        default: functions:askSommelier,functions:syncAxeInsights,functions:partyAction
       smoke_test:
         description: Run the live AXE smoke test after deploying
         type: boolean
@@ -65,7 +65,7 @@ jobs:
           npm install -g "firebase-tools@${FIREBASE_TOOLS_VERSION}"
           cd functions && npm ci
       - name: Syntax check
-        run: node --check functions/index.js && node --check functions/axeContext.js && node --check functions/axeInsights.js && node --check functions/generated/axeInsightsEngine.js
+        run: node --check functions/index.js && node --check functions/axeContext.js && node --check functions/axeInsights.js && node --check functions/generated/axeInsightsEngine.js && for f in functions/party/*.js; do node --check "$f"; done
       - name: Run tests
         # Emulator only: no credentials, no production access.
         run: npm run test:functions
@@ -123,7 +123,7 @@ jobs:
         env:
           TARGET: ${{ inputs.target }}
           EVENT: ${{ github.event_name }}
-          REQUIRED_FUNCTIONS: askSommelier syncAxeInsights
+          REQUIRED_FUNCTIONS: askSommelier syncAxeInsights partyAction
         run: |
           EFFECTIVE="$TARGET"
           if [ "$EVENT" != "workflow_dispatch" ] && [ "$TARGET" != "functions" ]; then

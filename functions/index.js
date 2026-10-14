@@ -6,6 +6,7 @@ const { assertNotRateLimited } = require("./rateLimit");
 const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require("./axeContext");
 const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
 const { explainAxeInsight, loadInsightForChat } = require("./axeInsightExplain");
+const { handlePartyAction } = require("./party/service");
 
 admin.initializeApp();
 
@@ -121,6 +122,11 @@ exports.syncAxeInsights = onCall({ cors: true }, async (request) => {
   }
   return syncAxeInsights(db, request.auth.uid, request.data);
 });
+
+// Blind Room Party Mode (party/service.js): one callable for every party
+// write — hosts, guests (anonymous Firebase identities) and presentation
+// displays. Clients have no direct write access to any party collection.
+exports.partyAction = onCall({ cors: true }, (request) => handlePartyAction(admin.firestore(), request));
 
 // Mirrors the Firestore rules' own Blind Room boundary: only a member (host
 // or participant) gets the room at all, and the secrets document is only
