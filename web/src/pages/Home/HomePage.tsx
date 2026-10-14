@@ -47,6 +47,16 @@ function HomeHero({ title, subtitle }: { title: string; subtitle?: string }) {
           <img className={styles.heroImage} src={homeHeroMobileImage} alt={HERO_ALT} width={948} height={1659} />
         </picture>
       </div>
+      {/* Brand line, laid over the hero's open dark wall (upper left). Absolutely
+          positioned, so it never adds height or moves the greeting. */}
+      <div className={styles.tagline}>
+        <p className={styles.taglineHeadline}>
+          <span>Discover More.</span>
+          <span>Savor More.</span>
+          <span className={styles.taglineGold}>Share More.</span>
+        </p>
+        <p className={styles.taglineText}>Discover new favorites, savor the experience, and capture the moments worth sharing.</p>
+      </div>
       <div className={styles.greeting}>
         <h1 className={styles.greetingTitle}>{title}</h1>
         {subtitle ? <p className={styles.greetingSubtitle}>{subtitle}</p> : null}

@@ -101,6 +101,17 @@ describe('HomePage', () => {
     expect(screen.getByAltText(/Fully Involved Pour/)).toBeInTheDocument()
   })
 
+  it('shows the brand line in the hero as real text, before the greeting', () => {
+    signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
+    renderHome()
+    const share = screen.getByText('Share More.')
+    expect(screen.getByText('Discover More.')).toBeInTheDocument()
+    expect(screen.getByText('Savor More.')).toBeInTheDocument()
+    expect(screen.getByText('Discover new favorites, savor the experience, and capture the moments worth sharing.')).toBeInTheDocument()
+    const greeting = screen.getByRole('heading', { level: 1 })
+    expect(share.compareDocumentPosition(greeting) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("leads with Tonight's Pick as the primary card", () => {
     signIn([{ id: 'b1', name: 'Eagle Rare', status: 'open', createdAt: 1 }])
     renderHome()

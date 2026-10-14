@@ -71,6 +71,44 @@
   mask-composite: intersect;
 }
 
+/* Brand line over the hero's open upper-left wall. Out of the flow
+   (absolute), so the hero keeps its height and nothing below it moves. */
+.tagline {
+  position: absolute;
+  z-index: 1;
+  top: var(--fip-space-3);
+  left: var(--fip-shell-x);
+  max-width: min(44%, 400px);
+}
+
+.taglineHeadline {
+  margin: 0;
+  font-family: var(--fip-font-display);
+  font-size: clamp(1.05rem, 0.55rem + 1.5vw, 2rem);
+  line-height: 1.08;
+  color: var(--fip-cream);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.65);
+}
+
+.taglineHeadline > span {
+  display: block;
+  white-space: nowrap;
+}
+
+/* Aged gold: a softer, older gold than the UI's amber accent. */
+.taglineGold {
+  color: #c9a256;
+}
+
+.taglineText {
+  max-width: 36ch;
+  margin: var(--fip-space-2) 0 0;
+  color: var(--fip-cream-soft);
+  font-size: clamp(0.75rem, 0.66rem + 0.3vw, 0.9375rem);
+  line-height: 1.45;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
+}
+
 .greeting {
   position: relative;
   padding: var(--fip-space-3) var(--fip-shell-x) var(--fip-space-5);
@@ -88,6 +126,18 @@
   margin: var(--fip-space-1) 0 0;
   color: var(--fip-cream-soft);
   font-size: var(--fip-text-sm);
+}
+
+/* Small tablets: the hero band is short, so the supporting text gets
+   more width (two lines) and stays clear of the greeting. */
+@media (min-width: 600px) and (max-width: 899px) {
+  .tagline {
+    max-width: 60%;
+  }
+
+  .taglineText {
+    max-width: 54ch;
+  }
 }
 
 /* Wide screens: keep the light gathered around the artwork rather than
@@ -164,6 +214,20 @@
 
   .greeting {
     padding-top: 92%;
+  }
+
+  /* Over the cleaned wall left of the plant, below the top bar. */
+  .tagline {
+    top: calc(var(--fip-mobile-bar-h) + 4vw);
+    max-width: 48vw;
+  }
+
+  .taglineHeadline {
+    font-size: clamp(1.25rem, 6.6vw, 1.8rem);
+  }
+
+  .taglineText {
+    font-size: clamp(0.75rem, 3.3vw, 0.875rem);
   }
 }
 
