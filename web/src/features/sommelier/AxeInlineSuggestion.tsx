@@ -1,6 +1,6 @@
-import compassMark from '../../assets/compass-mark.png'
 import type { AxeContext } from './axeContext'
 import { useSommelier } from './SommelierProvider'
+import { AxeSymbol } from './AxeMark'
 import styles from './AxeInlineSuggestion.module.css'
 
 interface AxeInlineSuggestionProps {
@@ -21,7 +21,7 @@ export function AxeInlineSuggestion({ message, context }: AxeInlineSuggestionPro
       onClick={() => openAxe(typeof context === 'function' ? context() : context)}
       aria-haspopup="dialog"
     >
-      <img className={styles.mark} src={compassMark} alt="" aria-hidden="true" />
+      <AxeSymbol size={30} className={styles.mark} />
       <span className={styles.text}>
         <span className={styles.brand}>AXE</span>
         <span className={styles.message}>{message}</span>

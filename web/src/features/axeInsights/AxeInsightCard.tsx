@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import compassMark from '../../assets/compass-mark.png'
 import { Button } from '../../components/ui/Button'
 import type { Bottle, Pour } from '../../data/types'
 import { usePourHub } from '../startAPour/usePourHub'
 import { useSommelier } from '../sommelier/SommelierProvider'
+import { AxeSymbol } from '../sommelier/AxeMark'
 import { AxeInsightDetail } from './AxeInsightDetail'
 import { CATEGORY_LABEL } from './insightDisplay'
 import { useAxeInsight } from './useAxeInsight'
@@ -31,10 +31,9 @@ export function AxeInsightCard({ uid, bottles, pours }: AxeInsightCardProps) {
 
   const brand = (
     <div className={styles.brand}>
-      <img className={styles.mark} src={compassMark} alt="" aria-hidden="true" />
+      <AxeSymbol size={24} className={styles.mark} />
       <div className={styles.brandText}>
         <span className={styles.brandName}>AXE</span>
-        <span className={styles.brandTagline}>Your Personal Sommelier</span>
       </div>
     </div>
   )

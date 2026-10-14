@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import compassMark from '../../assets/compass-mark.png'
 import { useAuth } from '../../hooks/useAuth'
 import { resolveRouteContext } from './axeContext'
 import { useSommelier } from './SommelierProvider'
+import { AxeSymbol } from './AxeMark'
 import styles from './AxeLauncher.module.css'
 
 // Keeps AXE's context in step with the current route. Reporting a route is
@@ -18,9 +18,9 @@ export function AxeRouteContext() {
   return null
 }
 
-// The subtle "Ask AXE" entry point — the real FIP compass mark (the same
-// asset TopNav uses, never redrawn), floating above the bottom nav on
-// mobile and in the corner on desktop. No idle animation, no auto-open;
+// The floating "Ask AXE" entry point. Only full-screen flows without the
+// bottom nav (the Blind reveal) use it: inside the app shell AXE is the
+// centre nav tab, so nothing floats over content. No idle animation, no auto-open;
 // the only "active" cue is a gold ring while AXE is open.
 export function AskAxeButton() {
   const { user } = useAuth()
@@ -35,13 +35,13 @@ export function AskAxeButton() {
       aria-expanded={isOpen}
       aria-haspopup="dialog"
     >
-      <img className={styles.mark} src={compassMark} alt="" aria-hidden="true" />
+      <AxeSymbol size={34} className={styles.mark} />
       <span className={styles.label}>Ask AXE</span>
     </button>
   )
 }
 
-export function AxeLauncher() {
+export function AxeLauncher({ floating = true }: { floating?: boolean } = {}) {
   const { closeAxe } = useSommelier()
   // Leaving every screen that has a launcher (e.g. into a full-screen flow
   // like the Blind tasting itself) closes AXE rather than leaving a drawer
@@ -50,7 +50,7 @@ export function AxeLauncher() {
   return (
     <>
       <AxeRouteContext />
-      <AskAxeButton />
+      {floating ? <AskAxeButton /> : null}
     </>
   )
 }

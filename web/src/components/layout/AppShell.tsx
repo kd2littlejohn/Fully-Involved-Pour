@@ -20,7 +20,8 @@ export function AppShell() {
         </Suspense>
       </main>
       <BottomNav />
-      <AxeLauncher />
+      {/* AXE lives in the centre nav tab; nothing floats over content. */}
+      <AxeLauncher floating={false} />
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { useEffect, useRef, type KeyboardEvent, type MouseEvent, type SyntheticEvent } from 'react'
-import compassMark from '../../assets/compass-mark.png'
 import { useSommelier } from './SommelierProvider'
 import { SommelierPanel } from './SommelierPanel'
 import styles from './AxeSheet.module.css'
+import { AxeSymbol } from './AxeMark'
 
 const DESKTOP_QUERY = '(min-width: 900px)'
 
@@ -113,7 +113,7 @@ export function AxeSheet() {
     >
       <div className={styles.grabber} aria-hidden="true" />
       <header className={styles.header}>
-        <img className={styles.logo} src={compassMark} alt="" aria-hidden="true" />
+        <AxeSymbol size={40} className={styles.logo} />
         <div className={styles.brand}>
           <h2 id="axe-title" className={styles.wordmark}>
             AXE

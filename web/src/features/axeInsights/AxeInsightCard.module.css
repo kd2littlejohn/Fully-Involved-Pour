@@ -20,9 +20,8 @@
 }
 
 .mark {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--fip-radius-round);
+  width: 24px;
+  height: 24px;
   flex: 0 0 auto;
 }
 
@@ -40,12 +39,6 @@
   letter-spacing: var(--fip-tracking-label);
 }
 
-.brandTagline {
-  font-size: var(--fip-text-xs);
-  color: var(--fip-muted);
-  letter-spacing: var(--fip-tracking-label);
-  text-transform: uppercase;
-}
 
 .category {
   margin: 0 0 var(--fip-space-1);

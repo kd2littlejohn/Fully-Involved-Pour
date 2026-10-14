@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AxeLauncher } from './AxeLauncher'
 import { AxeInlineSuggestion } from './AxeInlineSuggestion'
 import { SommelierProvider } from './SommelierProvider'
-import compassMark from '../../assets/compass-mark.png'
+import fipMonogram from '../../assets/brand/fip-icon.svg'
 
 const mockAsk = vi.fn()
 
@@ -76,7 +76,7 @@ beforeEach(() => {
 })
 
 describe('AXE — Your Personal Sommelier', () => {
-  it('opens from the Ask AXE entry point with the original FIP compass logo and AXE branding', async () => {
+  it('opens from the Ask AXE entry point with the AXE symbol and AXE branding', async () => {
     renderAt('/')
     expect(dialog().open).toBe(false)
 
@@ -86,9 +86,10 @@ describe('AXE — Your Personal Sommelier', () => {
     expect(openButton()).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('heading', { name: 'AXE' })).toBeInTheDocument()
     expect(screen.getByText('Your Personal Sommelier')).toBeInTheDocument()
-    // The entry point and header both use the repository's real logo asset.
+    // The entry point and header both use the approved artwork from AxeMark
+    // (the FIP monogram until the AXE symbol file is supplied).
     const logos = Array.from(document.querySelectorAll('img')).map((img) => img.getAttribute('src'))
-    expect(logos.filter((src) => src === compassMark).length).toBeGreaterThanOrEqual(2)
+    expect(logos.filter((src) => src === fipMonogram).length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('Where will your palate take you tonight?')).toBeInTheDocument()
   })
 
@@ -207,5 +208,19 @@ describe('AXE — Your Personal Sommelier', () => {
         trends: [],
       },
     })
+  })
+
+  it('inside the app shell (floating={false}) nothing floats over content, but route context still tracks', async () => {
+    render(
+      <SommelierProvider>
+        <MemoryRouter initialEntries={['/collection']}>
+          <AxeLauncher floating={false} />
+          <AxeInlineSuggestion message="Ask about your bar" context={{ screen: 'collection' }} />
+        </MemoryRouter>
+      </SommelierProvider>,
+    )
+    expect(screen.queryByRole('button', { name: /Ask AXE, your personal sommelier/ })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Ask about your bar/ }))
+    expect(dialog().open).toBe(true)
   })
 })
