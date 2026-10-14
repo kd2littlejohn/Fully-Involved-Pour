@@ -36,9 +36,10 @@ export default defineConfig({
         background_color: '#11161C',
         theme_color: '#11161C',
         icons: [
-          { src: 'logo-badge-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: 'logo-badge-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: 'logo-badge-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          // FIP monogram app icons, rendered from src/assets/brand/*.svg.
+          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       // Runtime caching strategy (network-first pages, Firebase bypass, etc.)

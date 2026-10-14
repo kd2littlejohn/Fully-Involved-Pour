@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import compassMark from '../../assets/compass-mark-transparent.png'
+import fipIcon from '../../assets/brand/fip-icon.svg'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import styles from './MobileTopBar.module.css'
@@ -26,7 +26,7 @@ export function MobileTopBar() {
   return (
     <div className={styles.bar}>
       <NavLink to="/" className={styles.brand} end aria-label="Home">
-        <img className={styles.brandMark} src={compassMark} alt="" aria-hidden="true" />
+        <img className={styles.brandMark} src={fipIcon} alt="" aria-hidden="true" width={40} height={40} />
       </NavLink>
       <NavLink to="/profile" className={styles.profile} aria-label={user ? `${displayName}'s profile` : 'Sign in'}>
         {profile?.photoURL ? (

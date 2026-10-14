@@ -22,8 +22,9 @@
 }
 
 .brandMark {
-  width: 40px;
-  height: 40px;
+  display: block;
+  width: 44px;
+  height: 44px;
 }
 
 .profile {

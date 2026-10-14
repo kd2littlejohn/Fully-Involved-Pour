@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import compassMark from '../../assets/compass-mark.png'
+import fipHorizontalLogo from '../../assets/brand/fip-horizontal.svg'
 import { NAV_ITEMS } from './navItems'
 import { PourNavButton } from '../../features/startAPour/PourNavButton'
 import { useAuth } from '../../hooks/useAuth'
@@ -27,8 +27,7 @@ export function TopNav() {
   return (
     <header className={styles.bar}>
       <NavLink to="/" className={styles.brand} end>
-        <img className={styles.brandMark} src={compassMark} alt="" aria-hidden="true" />
-        <span className={styles.brandWord}>Fully Involved Pour</span>
+        <img className={styles.brandLogo} src={fipHorizontalLogo} alt="Fully Involved Pour" width={207} height={100} />
       </NavLink>
       <ul className={styles.links}>
         {NAV_ITEMS.slice(0, 2).map((item) => (
