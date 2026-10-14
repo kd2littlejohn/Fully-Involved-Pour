@@ -151,8 +151,26 @@
   margin-top: var(--fip-space-4);
 }
 
-.backLink {
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--fip-space-4);
   margin-top: var(--fip-space-3);
+}
+
+.askAxeLink {
+  min-height: 44px;
+  background: none;
+  border: none;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backLink {
+  min-height: 44px;
   background: none;
   border: none;
   color: var(--fip-stone);

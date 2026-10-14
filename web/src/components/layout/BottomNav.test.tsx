@@ -1,5 +1,4 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { BottomNav } from './BottomNav'
@@ -43,11 +42,11 @@ function renderNav(initialEntry = '/') {
 }
 
 describe('BottomNav', () => {
-  it('renders the five destinations in order: Home, My Bar, Pour, Journey, Friends', () => {
+  it('renders the five destinations in order: Home, My Bar, AXE, Journey, Friends', () => {
     renderNav()
     const nav = screen.getByRole('navigation', { name: 'Primary' })
     const items = Array.from(nav.children).map((el) => el.textContent?.trim())
-    expect(items).toEqual(['Home', 'My Bar', '🥃Pour', 'Journey', 'Friends'])
+    expect(items).toEqual(['Home', 'My Bar', 'AXE', 'Journey', 'Friends'])
   })
 
   it('shows a badge on Friends when there are incoming friend requests', () => {
@@ -91,28 +90,14 @@ describe('BottomNav', () => {
     expect(screen.getByRole('link', { name: /Journey/ }).className).toMatch(/linkActive/)
   })
 
-  it('opens the Pour quick-action sheet with actions the user can perform when Pour is tapped', async () => {
+  it('makes AXE the centre destination, linking to the AXE Hub', () => {
     renderNav()
-    await userEvent.click(screen.getByRole('button', { name: /Pour/ }))
-
-    expect(screen.getByRole('heading', { name: 'Pour' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Record a Pour/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Start a Blind Tasting/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Add a Bottle/ })).toBeInTheDocument()
-    // Only one open bottle exists, so "Update an Open Bottle" is offered,
-    // but there's no Infinity Bottle yet, so that action is left out.
-    expect(screen.getByRole('button', { name: /Update an Open Bottle/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Add to an Infinity Bottle/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'AXE' })).toHaveAttribute('href', '/axe')
+    expect(screen.queryByRole('button', { name: /Pour/ })).not.toBeInTheDocument()
   })
 
-  it('opens Quick Pour via the bottle picker when Record a Pour is chosen', async () => {
-    renderNav()
-    await userEvent.click(screen.getByRole('button', { name: /Pour/ }))
-    await userEvent.click(screen.getByRole('button', { name: /Record a Pour/ }))
-
-    expect(screen.getByText('Which bottle?')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Eagle Rare/ }))
-
-    expect(screen.getByText('Quick Pour view — Eagle Rare')).toBeInTheDocument()
+  it('marks AXE active on the Hub', () => {
+    renderNav('/axe')
+    expect(screen.getByRole('link', { name: 'AXE' }).className).toMatch(/bottomActive/)
   })
 })

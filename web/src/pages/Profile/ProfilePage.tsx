@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -20,12 +22,20 @@ import { BlindProfileCard } from '../../features/profile/BlindProfileCard'
 import { MilestonesRow } from '../../features/profile/MilestonesRow'
 import { PalateBreakdown } from '../../features/profile/PalateBreakdown'
 import { YourPalateSection } from '../../features/yourPalate/YourPalateSection'
+import { AxeInlineSuggestion } from '../../features/sommelier/AxeInlineSuggestion'
 import styles from './ProfilePage.module.css'
 
 export function ProfilePage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, profile, loading: dataLoading } = useUserData()
   const { stats: blindStats } = useBlindProfileStats(user?.uid)
+  // The AXE Hub's "Explore My Palate" lands here and scrolls to Your Palate.
+  const location = useLocation()
+  const palateRef = useRef<HTMLDivElement>(null)
+  const wantsPalate = (location.state as { scrollTo?: string } | null)?.scrollTo === 'palate'
+  useEffect(() => {
+    if (wantsPalate && !dataLoading) palateRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [wantsPalate, dataLoading, location.key])
 
   if (authLoading) {
     return <PageHeader eyebrow="Profile" title="My Journey" />
@@ -103,7 +113,12 @@ export function ProfilePage() {
         />
       </Section>
 
-      <YourPalateSection bottles={bottles} pours={pours} />
+      <div ref={palateRef} className={styles.palateAnchor}>
+        <YourPalateSection bottles={bottles} pours={pours} />
+        <div className={styles.palateAskAxe}>
+          <AxeInlineSuggestion message="Ask AXE what your palate says about you." context={{ screen: 'palate' }} />
+        </div>
+      </div>
       <div className={styles.palateBreakdownWrap}>
         <PalateBreakdown bottles={bottles} pours={pours} />
       </div>

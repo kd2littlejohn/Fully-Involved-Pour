@@ -40,6 +40,7 @@ import { BottlePhotoLightbox } from './BottlePhotoLightbox'
 import styles from './BottleDetailsPage.module.css'
 import { bottlePhotoUrl } from '../../features/photoUpload/bottlePhotoUrl'
 import { useInventoryReturnPath } from '../../features/collection/inventoryViewState'
+import { AxeInlineSuggestion } from '../../features/sommelier/AxeInlineSuggestion'
 
 const STATUS_LABEL: Record<BottleStatus, string> = {
   open: 'Opened',
@@ -423,6 +424,10 @@ function BottleDetailsContent({ bottle, inventoryPath }: { bottle: Bottle; inven
             </Button>
           ) : null}
         </div>
+      </div>
+
+      <div className={styles.askAxe}>
+        <AxeInlineSuggestion message="Ask about this bottle: notes, pairings, how it compares." context={{ screen: 'bottle', bottleId: bottle.id }} />
       </div>
 
       {infoCards.length > 0 ? (

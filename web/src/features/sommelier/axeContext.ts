@@ -28,6 +28,10 @@ export interface AxeContext extends AxeRequestContext {
 // Order matters — most specific first, mirroring router.tsx.
 const ROUTE_PATTERNS: { pattern: string; build: (params: Record<string, string | undefined>) => AxeContext }[] = [
   { pattern: '/', build: () => ({ screen: 'home' }) },
+  // The AXE Hub shares Home's broad context (palate + recent tastings);
+  // /pour only ever redirects there.
+  { pattern: '/axe', build: () => ({ screen: 'home' }) },
+  { pattern: '/pour', build: () => ({ screen: 'home' }) },
   { pattern: '/collection/rarity-review', build: () => ({ screen: 'collection' }) },
   { pattern: '/collection/infinity', build: () => ({ screen: 'infinity' }) },
   { pattern: '/collection/infinity/:id/tastings/new', build: (p) => ({ screen: 'log-tasting', infinityBottleId: p.id }) },

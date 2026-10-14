@@ -28,6 +28,7 @@ const BatchManagementPage = lazy(() =>
   import('./pages/InfinityBottle/BatchManagementPage').then((m) => ({ default: m.BatchManagementPage })),
 )
 const JournalPage = lazy(() => import('./pages/Journal/JournalPage').then((m) => ({ default: m.JournalPage })))
+const AxeHubPage = lazy(() => import('./pages/Axe/AxeHubPage').then((m) => ({ default: m.AxeHubPage })))
 const DiscoverPage = lazy(() => import('./pages/Discover/DiscoverPage').then((m) => ({ default: m.DiscoverPage })))
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage').then((m) => ({ default: m.ProfilePage })))
 const EditProfilePage = lazy(() => import('./pages/Profile/EditProfilePage').then((m) => ({ default: m.EditProfilePage })))
@@ -102,6 +103,11 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
       // case anything external picks up the new name.
       { path: '/journey', element: <Navigate to="/journal" replace /> },
       { path: '/discover', element: <DiscoverPage /> },
+      // The AXE Hub: the centre nav destination.
+      { path: '/axe', element: <AxeHubPage /> },
+      // The old centre tab was "Pour" (a menu, never a page); anything that
+      // still links to /pour lands in the Hub with the same Pour menu open.
+      { path: '/pour', element: <Navigate to="/axe" replace state={{ openPour: true }} /> },
       { path: '/profile', element: <ProfilePage /> },
       // Browsable like Bottle Details — bottom nav stays visible while
       // looking at Friends or a friend's profile. Reached via Profile ->

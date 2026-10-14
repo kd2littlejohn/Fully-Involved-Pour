@@ -3,11 +3,11 @@ export interface NavItem {
   path: string
 }
 
-// Route destinations for the primary nav. "Pour" (the center action) isn't
-// a route — it opens the Pour hub modal (see PourNavButton/usePourHub) — so
-// it isn't listed here; TopNav/BottomNav splice PourNavButton in between
-// index 1 ("My Bar") and index 2 ("Journey") to get the required order:
-// Home | My Bar | Pour | Journey | Friends.
+// Route destinations for the primary nav. The centre action, AXE (the AXE
+// Hub at /axe, which replaced the old Pour tab and holds every Pour
+// workflow), has its own prominent button (AxeNavButton), so it isn't
+// listed here; TopNav/BottomNav splice it in between index 1 ("My Bar") and
+// index 2 ("Journey"): Home | My Bar | AXE | Journey | Friends.
 //
 // "Discover" was removed from this list per the 2026-08-15 nav redesign —
 // it's no longer a permanent bottom-nav destination, but the /discover

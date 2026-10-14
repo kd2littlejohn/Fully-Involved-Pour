@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -8,6 +8,7 @@ import { FipScoreBadge } from '../../components/ui/FipScoreBadge'
 import { StartPourStoryButton } from '../pourWizard/StartPourStoryButton'
 import { SecondaryActionCard } from '../../components/ui/SecondaryActionCard'
 import { useUserData } from '../../hooks/useUserData'
+import { useSommelier } from '../sommelier/SommelierProvider'
 import { getCurrentScore, getPoursForBottle } from '../bottleDetails/selectors'
 import { explainPourRecommendation } from '../../data/repositories/pourRecommendationExplanation'
 import { getRecommendation, type RecommendationResult } from './scoring'
@@ -49,8 +50,14 @@ function formatLastPoured(bottle: Bottle, pours: Pour[]): string {
 
 // trigger 'link': a quiet text link (Home's Tonight's Pick, where the
 // default pick is already on screen and choosing by mood is secondary).
-export function WhatShouldIPourButton({ trigger = 'card' }: { trigger?: 'card' | 'link' } = {}) {
+// renderTrigger: any other entry point (the AXE Hub card) draws its own
+// trigger and gets this same mood picker and recommendation flow.
+export function WhatShouldIPourButton({
+  trigger = 'card',
+  renderTrigger,
+}: { trigger?: 'card' | 'link'; renderTrigger?: (open: () => void) => ReactNode } = {}) {
   const { userDoc } = useUserData()
+  const { openAxe } = useSommelier()
   const [open, setOpen] = useState(false)
   const [moodId, setMoodId] = useState<MoodId | null>(null)
   const [result, setResult] = useState<RecommendationResult | null>(null)
@@ -155,7 +162,9 @@ export function WhatShouldIPourButton({ trigger = 'card' }: { trigger?: 'card' |
 
   return (
     <>
-      {trigger === 'link' ? (
+      {renderTrigger ? (
+        renderTrigger(handleOpen)
+      ) : trigger === 'link' ? (
         <button type="button" className={styles.linkTrigger} onClick={handleOpen}>
           Pick by mood
         </button>
@@ -234,9 +243,27 @@ export function WhatShouldIPourButton({ trigger = 'card' }: { trigger?: 'card' |
                 </Button>
               </div>
 
-              <button type="button" className={styles.backLink} onClick={chooseDifferentMood}>
-                Choose a different mood
-              </button>
+              <div className={styles.links}>
+                {/* Explains the pick on screen; opening AXE never re-rolls it. */}
+                <button
+                  type="button"
+                  className={styles.askAxeLink}
+                  aria-haspopup="dialog"
+                  onClick={() => {
+                    setOpen(false)
+                    openAxe({
+                      screen: 'pour-recommendation',
+                      bottleId: result.bottle.id,
+                      facts: [...result.reasons, ...result.tags.map((tag) => `Signal: ${tag}`)],
+                    })
+                  }}
+                >
+                  Ask AXE why
+                </button>
+                <button type="button" className={styles.backLink} onClick={chooseDifferentMood}>
+                  Choose a different mood
+                </button>
+              </div>
             </div>
           )}
         </Modal>

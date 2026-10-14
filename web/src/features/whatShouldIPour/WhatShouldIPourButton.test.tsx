@@ -6,6 +6,11 @@ import type { Bottle, Pour } from '../../data/types'
 
 const mockUseUserData = vi.fn()
 const mockExplainPourRecommendation = vi.fn()
+const mockOpenAxe = vi.fn()
+
+vi.mock('../sommelier/SommelierProvider', () => ({
+  useSommelier: () => ({ openAxe: mockOpenAxe }),
+}))
 
 vi.mock('../../hooks/useUserData', () => ({
   useUserData: () => mockUseUserData(),
@@ -106,6 +111,19 @@ describe('WhatShouldIPourButton', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Choose a different mood' }))
 
     expect(screen.getByText('What are you in the mood for?')).toBeInTheDocument()
+  })
+
+  it('Ask AXE why closes the picker and opens AXE about this pick (never re-rolls, never writes)', async () => {
+    mockOpenAxe.mockClear()
+    mockData([bold, mild], pours)
+    render(<WhatShouldIPourButton />)
+
+    await userEvent.click(screen.getByRole('button', { name: /^What Should I Pour\?/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'High Proof' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ask AXE why' }))
+
+    expect(mockOpenAxe).toHaveBeenCalledWith(expect.objectContaining({ screen: 'pour-recommendation', bottleId: 'bold' }))
+    expect(screen.queryByText('Why this one?')).not.toBeInTheDocument()
   })
 
   it('Pour This opens the existing Pour Story flow with the bottle preselected', async () => {

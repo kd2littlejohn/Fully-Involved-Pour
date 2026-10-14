@@ -33,9 +33,8 @@
 }
 
 .mark {
-  width: 42px;
-  height: 42px;
-  border-radius: var(--fip-radius-round);
+  width: 34px;
+  height: 34px;
 }
 
 /* Icon-only on mobile to stay out of the way; labelled on desktop. */

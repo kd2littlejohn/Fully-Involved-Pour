@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import compassMark from '../../assets/compass-mark.png'
 import { usePourHub } from '../startAPour/usePourHub'
 import { useSommelier } from '../sommelier/SommelierProvider'
 import styles from './QuickActions.module.css'
+import { AxeSymbol } from '../sommelier/AxeMark'
 
 // Three one-tap shortcuts under Tonight's Pick. Each opens what already
 // exists: the shared Pour hub (same as the nav's Pour), the AXE sheet, and
@@ -23,7 +23,7 @@ export function QuickActions() {
         Pour
       </button>
       <button type="button" className={styles.action} onClick={() => openAxe()} aria-haspopup="dialog">
-        <img className={styles.mark} src={compassMark} alt="" aria-hidden="true" />
+        <AxeSymbol size={24} className={styles.mark} />
         Ask AXE
       </button>
       <Link to="/collection" className={styles.action}>
