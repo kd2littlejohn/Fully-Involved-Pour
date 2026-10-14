@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { PageHeader } from '../../components/layout/PageHeader'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { controlClassName } from '../../components/ui/Field'
@@ -21,6 +20,7 @@ import { selectRarityReviewQueue } from '../../features/rarity/rarityReviewQueue
 import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../features/rarity/rarityLevels'
 import { CollectionSummaryBar } from '../../features/collection/CollectionSummaryBar'
 import { CollectionOverview } from '../../features/collection/CollectionOverview'
+import { MyBarHero } from '../../features/collection/MyBarHero'
 import { QuickFilterChips } from '../../features/collection/QuickFilterChips'
 import { CollectionFilterSheet } from '../../features/collection/CollectionFilterSheet'
 import { matchesFilter, filterLabel, ALL_FILTERS, type Filter } from '../../features/collection/collectionFilters'
@@ -186,13 +186,13 @@ export function CollectionPage() {
   }
 
   if (authLoading || dataLoading) {
-    return <PageHeader eyebrow="My Bar" title="Your bottles." />
+    return <MyBarHero />
   }
 
   if (!user) {
     return (
       <>
-        <PageHeader eyebrow="My Bar" title="Your bottles." subtitle="Manage and explore the bottles you own." />
+        <MyBarHero subtitle="Manage and explore the bottles you own." />
         <EmptyState
           title="Your whiskey journey starts here."
           message="Sign in to start building your bar."
@@ -204,7 +204,17 @@ export function CollectionPage() {
 
   return (
     <>
-      <PageHeader eyebrow="My Bar" title="Your bottles." subtitle="Manage and explore the bottles you own." />
+      <MyBarHero subtitle="Manage and explore the bottles you own.">
+        {userDoc.bottles.length > 0 ? (
+          <CollectionOverview summary={summary} defaultExpanded={rarityFilter !== null && !QUICK_RARITIES.has(rarityFilter)}>
+            <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
+            <p className={styles.rarityDisclaimer}>
+              Rarity reflects how hard a bottle is to find — availability, allocation, and release scarcity — never how good it tastes.
+            </p>
+            <CollectionSummaryBar summary={summary} active={filter} onSelect={setFilter} />
+          </CollectionOverview>
+        ) : null}
+      </MyBarHero>
 
       {userDoc.bottles.length === 0 ? (
         <EmptyState
@@ -214,13 +224,6 @@ export function CollectionPage() {
         />
       ) : (
         <>
-          <CollectionOverview summary={summary} defaultExpanded={rarityFilter !== null && !QUICK_RARITIES.has(rarityFilter)}>
-            <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
-            <p className={styles.rarityDisclaimer}>
-              Rarity reflects how hard a bottle is to find — availability, allocation, and release scarcity — never how good it tastes.
-            </p>
-            <CollectionSummaryBar summary={summary} active={filter} onSelect={setFilter} />
-          </CollectionOverview>
 
           <div className={styles.searchRow}>
             <div className={styles.searchField}>

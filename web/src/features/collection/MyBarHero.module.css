@@ -1,0 +1,126 @@
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+}
+
+.art {
+  position: absolute;
+  z-index: -1;
+  display: block;
+  pointer-events: none;
+}
+
+.content {
+  padding: 0 var(--fip-shell-x) var(--fip-space-2);
+}
+
+.eyebrow {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.title {
+  margin: var(--fip-space-2) 0 0;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-3xl);
+  line-height: var(--fip-leading-tight);
+  color: var(--fip-cream);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+
+.subtitle {
+  margin: var(--fip-space-2) 0 0;
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-md);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.6);
+}
+
+/* The summary brings its own gutters for use elsewhere; here the content
+   column already provides them. */
+.summary {
+  margin-top: var(--fip-space-5);
+}
+
+.summary > div {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.summary > div > div:last-child {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Over the art, the summary card lets a little of it through. */
+.summary button[aria-expanded] {
+  background: rgba(27, 34, 42, 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* Phones: full-width art from the very top (behind the transparent top
+   bar), at its own proportions; the title starts over its lower edge,
+   below the glass and decanter. */
+@media (max-width: 699px) {
+  .hero {
+    margin-top: calc(-1 * var(--fip-mobile-bar-h));
+  }
+
+  .art {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 80%, transparent 100%);
+  }
+
+  .content {
+    /* 74% of the width ~= 91% of the art's height (820 x 667). */
+    padding-top: 74%;
+  }
+}
+
+/* Wider screens: art on the right at full hero height, feathered on its
+   left and bottom edges; title and summary on the left. */
+@media (min-width: 700px) {
+  .hero {
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+  }
+
+  .art {
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: auto;
+    max-width: 70%;
+    object-fit: cover;
+    object-position: right center;
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0%, #000 35%),
+      linear-gradient(to bottom, #000 0%, #000 82%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to right, transparent 0%, #000 35%),
+      linear-gradient(to bottom, #000 0%, #000 82%, transparent 100%);
+    mask-composite: intersect;
+  }
+
+  .content {
+    flex: 1;
+    max-width: calc(var(--fip-shell-x) + min(600px, 52vw));
+    padding: var(--fip-space-8) 0 var(--fip-space-6) var(--fip-shell-x);
+  }
+}
+
+@media (min-width: 700px) and (max-width: 899px) {
+  .hero {
+    margin-top: calc(-1 * var(--fip-mobile-bar-h));
+    padding-top: var(--fip-mobile-bar-h);
+  }
+}

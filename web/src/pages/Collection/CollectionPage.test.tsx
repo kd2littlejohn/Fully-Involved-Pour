@@ -488,6 +488,13 @@ describe('CollectionPage — compact header and quick filter chips', () => {
     return within(screen.getByRole('group', { name: 'Quick filters' }))
   }
 
+  it('shows the title and collection summary together in the My Bar hero', () => {
+    renderChips()
+    const title = screen.getByRole('heading', { level: 1, name: 'Your bottles.' })
+    const hero = title.parentElement!
+    expect(within(hero).getByRole('button', { name: /Collection insights/ })).toBeInTheDocument()
+  })
+
   it('shows total, open and sealed counts, with the rarity chart collapsed until expanded', async () => {
     renderChips()
     const summary = screen.getByRole('button', { name: '3 bottles, 1 open, 2 sealed. Collection insights' })
