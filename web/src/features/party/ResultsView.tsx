@@ -78,7 +78,6 @@ export function ResultsView({ results, myParticipantKey, presentation = false, s
           <thead>
             <tr>
               <th scope="col">Rank</th>
-              <th scope="col">Sample</th>
               <th scope="col">Bottle</th>
               <th scope="col">Average</th>
               <th scope="col">Ratings</th>
@@ -90,11 +89,10 @@ export function ResultsView({ results, myParticipantKey, presentation = false, s
               <tr key={sample.label} className={sample.isChampion ? r.championRow : undefined}>
                 <td>{sample.rank ? ordinal(sample.rank) : '—'}</td>
                 <td>
-                  <span className={`${styles.sampleBadge} ${styles.sampleBadgeSmall}`}>{sample.label}</span>
-                </td>
-                <td>
                   <div className={r.bottleCell}>
-                    <BottleImage sample={sample} size="sm" />
+                    <span className={`${styles.sampleBadge} ${styles.sampleBadgeSmall}`} aria-label={`Sample ${sample.label}`}>
+                      {sample.label}
+                    </span>
                     <span>
                       {sample.bottle.name}
                       {sample.isPeoplesChoice ? <span className={`${styles.pill} ${styles.pillLive} ${r.inlinePill}`}>People’s Choice</span> : null}

@@ -3,6 +3,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_MOCK_AUTH?: string
+  readonly VITE_FIREBASE_EMULATORS?: string
 }
 
 interface ImportMeta {

@@ -25,7 +25,9 @@
 //   partyGuestKeys/{hash}              recovery code hash -> guest (server-only)
 //   partyClaims/{hash}                 guest-to-account claim tokens (server-only)
 const { HttpsError } = require("firebase-functions/v2/https");
-const admin = require("firebase-admin");
+// Modular import: available before (and independent of) initializeApp,
+// unlike the admin.firestore namespace inside the Functions runtime.
+const { FieldValue } = require("firebase-admin/firestore");
 const { assertNotRateLimited } = require("../rateLimit");
 const { computeCategoryResults, computeRecap } = require("./scoring");
 const v = require("./validation");
@@ -51,7 +53,6 @@ const RATE_LIMITS = {
   claim: { maxCalls: 10, windowMs: HOUR },
 };
 
-const FieldValue = admin.firestore.FieldValue;
 
 function denied(message) {
   return new HttpsError("permission-denied", message || "You don't have access to do that.");
