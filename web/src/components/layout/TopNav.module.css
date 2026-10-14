@@ -21,16 +21,12 @@
   text-decoration: none;
 }
 
-.brandMark {
-  width: 28px;
-  height: 28px;
-}
-
-.brandWord {
-  font-family: var(--fip-font-display);
-  font-size: var(--fip-text-lg);
-  color: var(--fip-cream);
-  letter-spacing: 0.02em;
+/* The horizontal FIP lockup (monogram | FULLY INVOLVED POUR), a
+   transparent SVG, so no box shows behind it on the dark bar. */
+.brandLogo {
+  display: block;
+  height: 56px;
+  width: auto;
 }
 
 .links {
