@@ -146,6 +146,7 @@
 
 .grid > * {
   min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 359px) {
@@ -158,6 +159,13 @@
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: var(--fip-space-4);
+  }
+}
+
+/* Wide screens: fewer, larger cards so the photography leads. */
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   }
 }
 
