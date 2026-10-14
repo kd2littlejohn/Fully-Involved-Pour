@@ -488,6 +488,17 @@ describe('CollectionPage — compact header and quick filter chips', () => {
     return within(screen.getByRole('group', { name: 'Quick filters' }))
   }
 
+  it('shows the My Bar hero with real text, then the summary, the Legacy prompt and search, in that order', () => {
+    renderChips()
+    const title = screen.getByRole('heading', { level: 1, name: 'Your Bottles.' })
+    const summary = screen.getByRole('button', { name: /Collection insights/ })
+    const legacy = screen.getByRole('button', { name: 'Choose a Legacy Bottle' })
+    const search = screen.getByLabelText('Search your bar')
+    expect(title.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(summary.compareDocumentPosition(legacy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(legacy.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('shows total, open and sealed counts, with the rarity chart collapsed until expanded', async () => {
     renderChips()
     const summary = screen.getByRole('button', { name: '3 bottles, 1 open, 2 sealed. Collection insights' })
