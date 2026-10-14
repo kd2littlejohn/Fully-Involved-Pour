@@ -2,7 +2,7 @@ import { useEffect, useRef, type KeyboardEvent, type MouseEvent, type SyntheticE
 import { useSommelier } from './SommelierProvider'
 import { SommelierPanel } from './SommelierPanel'
 import styles from './AxeSheet.module.css'
-import { AxeSymbol } from './AxeMark'
+import { AXE_ASSETS, AxeChatTitle, AxeSymbol } from './AxeMark'
 
 const DESKTOP_QUERY = '(min-width: 900px)'
 
@@ -113,11 +113,9 @@ export function AxeSheet() {
     >
       <div className={styles.grabber} aria-hidden="true" />
       <header className={styles.header}>
-        <AxeSymbol size={40} className={styles.logo} />
+        {AXE_ASSETS.compactWordmark ? null : <AxeSymbol size={40} className={styles.logo} />}
         <div className={styles.brand}>
-          <h2 id="axe-title" className={styles.wordmark}>
-            AXE
-          </h2>
+          <AxeChatTitle id="axe-title" className={styles.wordmark} />
           <p className={styles.tagline}>Your Personal Sommelier</p>
         </div>
         <button type="button" className={styles.close} onClick={closeAxe} aria-label="Close AXE">

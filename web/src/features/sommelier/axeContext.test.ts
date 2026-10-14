@@ -6,6 +6,8 @@ import { matchRoutes } from 'react-router-dom'
 describe('resolveRouteContext', () => {
   it.each([
     ['/', { screen: 'home' }],
+    ['/axe', { screen: 'hub' }],
+    ['/pour', { screen: 'hub' }],
     ['/collection', { screen: 'collection' }],
     ['/collection/rarity-review', { screen: 'collection' }],
     ['/collection/b1', { screen: 'bottle', bottleId: 'b1' }],
@@ -39,7 +41,7 @@ describe('resolveRouteContext', () => {
 
   it('gives every screen an intro and four suggested questions', () => {
     const screens: AxeScreen[] = [
-      'home', 'collection', 'bottle', 'pour-recommendation', 'log-tasting', 'palate',
+      'home', 'hub', 'collection', 'bottle', 'pour-recommendation', 'log-tasting', 'palate',
       'blind', 'friends', 'journal', 'infinity', 'discover', 'general',
     ]
     for (const screen of screens) {
@@ -48,5 +50,10 @@ describe('resolveRouteContext', () => {
       expect(copy.intro).toBeTruthy()
       expect(copy.suggestions).toHaveLength(4)
     }
+  })
+
+  it('labels the AXE Hub as its own source, never as Home', () => {
+    expect(copyFor('hub').label).toBe('AXE Hub')
+    expect(copyFor('home').label).toBe('Home')
   })
 })

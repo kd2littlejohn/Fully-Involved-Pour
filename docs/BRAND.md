@@ -20,3 +20,43 @@ with an FIP gold gradient. On light backgrounds prefer `fip-engraving.svg` in a 
 gold tagline in `fip-primary.svg` is low-contrast on light.
 
 Brand tagline: Drink What You Enjoy. Share What Matters.
+
+## AXE artwork (pending: supplied by the FIP team)
+
+AXE, the in-app personal sommelier, has its own mark. The approved files haven't been delivered
+yet. Do not draw, trace or approximate them; the app uses an interim treatment until they arrive.
+
+### Files needed
+
+Add exactly these three files to `web/src/assets/brand/` (lower-case names, as written):
+
+| File | What it is | Where it appears | Rendered size |
+| --- | --- | --- | --- |
+| `axe-symbol.svg` | The gold Glencairn glass and flame only. **No letters, no circle, no compass, no background.** | Centre AXE nav tab, desktop AXE nav pill, AXE insight card, inline "Ask AXE" prompts (bottle detail, My Bar, Your Palate, tasting forms), Home's Ask AXE quick action, the Blind reveal's Ask AXE button, chat header (until the compact wordmark arrives) | Square box, 22–40 px, sometimes on a dark disc |
+| `axe-wordmark.svg` | Full wordmark: the symbol with "AXE" and "Your Personal Sommelier" | AXE Hub header | 96–128 px tall, width follows the artwork, centred, phones from 320 px wide |
+| `axe-wordmark-compact.svg` | Compact wordmark: "AXE" (with or without the symbol), no tagline | AXE chat header title | 32 px tall, width follows the artwork |
+
+### Requirements for each file
+
+- **Transparent background**: no background rectangle, no solid fill behind the artwork.
+- **Pure vector**: outlined text (no live fonts), no embedded PNG or JPEG.
+- **Readable on the app's dark background** (`#11161c`).
+- **Tight artboard**: the `viewBox` hugs the artwork, with at most a few percent of padding.
+  - `axe-symbol.svg` uses a **square** `viewBox` with the artwork centred, so it sits correctly
+    in the round nav tab.
+- **Detail that holds up at 22 px** for the symbol.
+- Optional: matching transparent PNGs at 2× and 3× for use outside the app. The app itself only
+  needs the SVGs.
+
+### How the swap works
+
+All AXE artwork comes from `web/src/features/sommelier/AxeMark.tsx`. It looks for the three files
+above and picks each one up automatically at build time, so no code changes are needed. Until a
+file is present, its surface keeps the interim treatment:
+
+- **Symbol:** the approved FIP monogram (`fip-icon.svg`), which contains the same glass and flame.
+- **Wordmarks:** "AXE" set in the display font (with "Your Personal Sommelier" on the Hub).
+
+When the files land, also update `web/src/features/sommelier/AxeMark.test.tsx`, which asserts the
+interim state. Then run the web checks and review the Hub, chat header, nav tab and an insight
+card at 320 px, 390 px and desktop.

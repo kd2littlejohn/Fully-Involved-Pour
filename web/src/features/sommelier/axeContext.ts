@@ -9,6 +9,7 @@ import type { AxeRequestContext } from '../../data/repositories/ai'
 
 export type AxeScreen =
   | 'home'
+  | 'hub'
   | 'collection'
   | 'bottle'
   | 'pour-recommendation'
@@ -28,10 +29,10 @@ export interface AxeContext extends AxeRequestContext {
 // Order matters — most specific first, mirroring router.tsx.
 const ROUTE_PATTERNS: { pattern: string; build: (params: Record<string, string | undefined>) => AxeContext }[] = [
   { pattern: '/', build: () => ({ screen: 'home' }) },
-  // The AXE Hub shares Home's broad context (palate + recent tastings);
-  // /pour only ever redirects there.
-  { pattern: '/axe', build: () => ({ screen: 'home' }) },
-  { pattern: '/pour', build: () => ({ screen: 'home' }) },
+  // The AXE Hub is its own screen (with Home's broad palate + journey
+  // context server-side); /pour only ever redirects there.
+  { pattern: '/axe', build: () => ({ screen: 'hub' }) },
+  { pattern: '/pour', build: () => ({ screen: 'hub' }) },
   { pattern: '/collection/rarity-review', build: () => ({ screen: 'collection' }) },
   { pattern: '/collection/infinity', build: () => ({ screen: 'infinity' }) },
   { pattern: '/collection/infinity/:id/tastings/new', build: (p) => ({ screen: 'log-tasting', infinityBottleId: p.id }) },
@@ -200,6 +201,18 @@ const SCREEN_COPY: Record<AxeScreen, AxeScreenCopy> = {
       q("What styles haven't I explored?"),
       q('Find something like my favorites'),
       q('What would round out my bar?'),
+    ],
+  },
+  hub: {
+    label: 'AXE Hub',
+    title: 'What can I help you discover tonight?',
+    intro:
+      "I'm AXE, your personal sommelier. Ask me what to pour, what your palate says, what's waiting in your bar, or where to explore next.",
+    suggestions: [
+      q('Find My Pour', 'Help me find my pour for tonight from what I have.'),
+      q('Explore My Palate', 'What does my tasting history say about my palate?'),
+      q('Rediscover My Bar', "Which of my bottles haven't I poured in a while?"),
+      q('Something New', 'Suggest something new to try beyond my collection.'),
     ],
   },
   general: {
