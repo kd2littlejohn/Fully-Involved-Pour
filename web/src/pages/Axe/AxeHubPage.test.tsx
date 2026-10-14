@@ -59,11 +59,26 @@ describe('AxeHubPage', () => {
     localStorage.clear()
   })
 
-  it('greets the user by name with the existing greeting logic', () => {
+  it('greets the user by name under the AXE hero artwork', () => {
     renderHub()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Good (morning|afternoon|evening), Kevin\.$/)
-    expect(screen.getByText('What can I help you discover tonight?')).toBeInTheDocument()
     expect(within(screen.getByRole('banner')).getByAltText('AXE, Your Personal Sommelier')).toBeInTheDocument()
+  })
+
+  it.each([
+    [9, 'Good morning, Kevin.', 'What can I help you discover this morning?'],
+    [14, 'Good afternoon, Kevin.', 'What can I help you discover this afternoon?'],
+    [21, 'Good evening, Kevin.', 'What can I help you discover tonight?'],
+  ])('at %i:00 the greeting and the supporting line agree', (hour, greeting, prompt) => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 14, hour, 0))
+    try {
+      renderHub()
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(greeting)
+      expect(screen.getByText(prompt)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows the six actions', () => {

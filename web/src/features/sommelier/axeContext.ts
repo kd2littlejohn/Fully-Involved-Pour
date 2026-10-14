@@ -205,7 +205,7 @@ const SCREEN_COPY: Record<AxeScreen, AxeScreenCopy> = {
   },
   hub: {
     label: 'AXE Hub',
-    title: 'What can I help you discover tonight?',
+    title: 'What would you like to discover?',
     intro:
       "I'm AXE, your personal sommelier. Ask me what to pour, what your palate says, what's waiting in your bar, or where to explore next.",
     suggestions: [

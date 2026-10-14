@@ -2,11 +2,11 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'rea
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
-import { greetingForHour } from '../../features/home/selectors'
+import { greetingForHour, partOfDayForHour } from '../../features/home/selectors'
 import { usePourQuickActions } from '../../features/startAPour/usePourQuickActions'
 import { WhatShouldIPourButton } from '../../features/whatShouldIPour/WhatShouldIPourButton'
 import { useSommelier } from '../../features/sommelier/SommelierProvider'
-import { AxeWordmark } from '../../features/sommelier/AxeMark'
+import axeHero from '../../assets/axe-hero.webp'
 import { AxeInsightCard } from '../../features/axeInsights/AxeInsightCard'
 import styles from './AxeHubPage.module.css'
 
@@ -41,7 +41,8 @@ export function AxeHubPage() {
     setQuestion('')
   }
 
-  const greeting = greetingForHour(new Date().getHours())
+  const hour = new Date().getHours()
+  const greeting = greetingForHour(hour)
   const name = userDoc.greetingName || user?.displayName?.split(' ')[0]
 
   const handledKey = useRef<string | null>(null)
@@ -56,15 +57,18 @@ export function AxeHubPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <AxeWordmark />
+      {/* Cinematic hero: the approved AXE artwork, whole and at its own
+          proportions, feathered into a warm glow and running up behind the
+          transparent phone top bar like Home's hero. */}
+      <header className={styles.hero}>
+        <img className={styles.heroImage} src={axeHero} alt="AXE, Your Personal Sommelier" width={1046} height={518} />
       </header>
 
       <section className={styles.greeting} aria-labelledby="axe-hub-greeting">
         <h1 id="axe-hub-greeting" className={styles.greetingTitle}>
           {name ? `${greeting}, ${name}.` : `${greeting}.`}
         </h1>
-        <p className={styles.greetingSubtitle}>What can I help you discover tonight?</p>
+        <p className={styles.greetingSubtitle}>What can I help you discover {partOfDayForHour(hour)}?</p>
         <form className={styles.askForm} onSubmit={handleAsk} aria-label="Ask AXE">
           <input
             className={styles.askInput}

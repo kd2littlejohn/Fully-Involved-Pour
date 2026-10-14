@@ -24,6 +24,15 @@ export function greetingForHour(hour: number): string {
   return 'Good evening'
 }
 
+// The part of the day matching greetingForHour, for supporting copy, so a
+// "Good afternoon" is never followed by "...tonight?".
+export function partOfDayForHour(hour: number): 'this morning' | 'this afternoon' | 'tonight' {
+  if (hour < 5) return 'tonight'
+  if (hour < 12) return 'this morning'
+  if (hour < 18) return 'this afternoon'
+  return 'tonight'
+}
+
 export interface MaybeTonightCandidate {
   bottle: Bottle
   reason: string
