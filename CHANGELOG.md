@@ -1,3 +1,24 @@
+## Unreleased - Blind Room Party Mode
+
+Added
+- Blind Room Party Mode: a hosted blind tasting for a whole room, alongside the existing Solo and Friends blinds (unchanged). The Party hub (Blind Room → Party Mode) has Create, Join, Resume and Past Parties.
+- Tasting Category Library: 20 predefined categories plus the host's own saved custom categories. Search, tag filters, rename, reorder, duplicate a round, remove before voting, and saved setups. Up to 24 rounds per party, and 2–12 bottles per round (head-to-head included).
+- Guided Create a Party flow: details and optional cover, categories, bottles from My Bar or entered manually (snapshots only, so inventory and history are never touched), blind letters shuffled or picked by hand, and scoring/reveal settings.
+- Guests join by QR code, link or code with just a nickname. No account, email or app install. Each guest gets a recovery code for switching devices.
+- Quick Score (one 0–10 enjoyment rating) and Detailed Score (nose, palate, finish, complexity, notes) on one shared draft. Rankings use overall enjoyment only, so both methods count equally.
+- Host-entered paper ballots that count the same as digital ones. Duplicate detection, exclude/restore, edit and delete with confirmation, and an audit log. Printable scorecards sized to each round's actual bottles.
+- Live host dashboard: invite/QR (full screen), close or expire joins, rotate the code, guest list with removal, ballot counts, and Draft → Ready → Voting Open → Voting Closed → Revealed controls. Nothing reveals automatically.
+- Results: podium with shared ties, averages that skip missing scores and show their rating counts, People's Choice from explicit favorites, data-backed awards (Category Champion, People's Choice, Best Value when every rated bottle has a price, Biggest Surprise from real predictions), and per-taster comparisons.
+- Party Recap built from revealed rounds only, shareable as an image or PDF. TV/Party Display mode as a read-only, token-scoped session with a host-driven reveal.
+- AXE after a reveal (optional): preset questions answered from the round's published results and the guest's own ballot only.
+- Optional "keep my results" for guests: links their guest identity to a new FIP account, or claims their records into an existing one.
+
+Changed
+- Anonymous Firebase identities (party guests) are treated as signed out everywhere else in the app.
+- `firebase.json` now configures the auth and functions emulators, and the web app can target local emulators with `VITE_FIREBASE_EMULATORS=true` (dev only).
+
+Release notes: see docs/PARTY_MODE.md. Enable **Anonymous** sign-in in Firebase Authentication, deploy Firestore rules, indexes and Storage rules, then deploy the `partyAction` and `askSommelier` functions before the website. Existing collections and stored data are unchanged.
+
 ## v0.5.0 - AXE, Your Personal Sommelier
 
 Added

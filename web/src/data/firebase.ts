@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { initializeFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
-import { getFunctions } from 'firebase/functions'
+import { connectAuthEmulator, getAuth, GoogleAuthProvider } from 'firebase/auth'
+import { connectFirestoreEmulator, initializeFirestore } from 'firebase/firestore'
+import { connectStorageEmulator, getStorage } from 'firebase/storage'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 
 // Same project/config as the live app (index.html/app.js) — do not change
 // without also updating the production Firebase console settings.
@@ -25,3 +25,14 @@ export const db = initializeFirestore(firebaseApp, { ignoreUndefinedProperties: 
 export const storage = getStorage(firebaseApp)
 export const functions = getFunctions(firebaseApp)
 export const googleProvider = new GoogleAuthProvider()
+
+// Local end-to-end testing against the Firebase emulators (auth, Firestore,
+// Functions, Storage) — opt-in with VITE_FIREBASE_EMULATORS=true on the dev
+// server. `import.meta.env.DEV` folds to false in production builds, so
+// this can never point a real user's app at localhost.
+if (import.meta.env.DEV && import.meta.env.VITE_FIREBASE_EMULATORS === 'true') {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001)
+  connectStorageEmulator(storage, '127.0.0.1', 9199)
+}

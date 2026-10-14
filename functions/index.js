@@ -6,6 +6,8 @@ const { assertNotRateLimited } = require("./rateLimit");
 const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require("./axeContext");
 const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
 const { explainAxeInsight, loadInsightForChat } = require("./axeInsightExplain");
+const { handlePartyAction } = require("./party/service");
+const { buildPartyAxePrompt, loadPartyAxeContext } = require("./party/axe");
 
 admin.initializeApp();
 
@@ -59,6 +61,18 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
     return explainAxeInsight(admin.firestore(), request.auth.uid, {
       callModel: (args) => callClaude(anthropicApiKey.value(), args),
     });
+  }
+
+  // Blind Room Party Mode (party/axe.js): a preset question about a
+  // revealed round. Party guests are usually anonymous identities, so
+  // they get a tighter cap than FIP accounts.
+  if (request.data?.mode === "party-insight") {
+    const anonymous = request.auth.token?.firebase?.sign_in_provider === "anonymous";
+    await assertNotRateLimited(request.auth.uid, "askSommelierParty", { maxCalls: anonymous ? 8 : AXE_MAX_CALLS_PER_HOUR });
+    const partyContext = await loadPartyAxeContext(admin.firestore(), request.auth.uid, request.data);
+    const { system, prompt } = buildPartyAxePrompt(partyContext, request.data.question);
+    const reply = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 400 });
+    return { reply: reply || "I couldn't come up with a response just now — try again in a moment." };
   }
 
   const prompt = String(request.data?.prompt || "").trim().slice(0, 2000);
@@ -121,6 +135,11 @@ exports.syncAxeInsights = onCall({ cors: true }, async (request) => {
   }
   return syncAxeInsights(db, request.auth.uid, request.data);
 });
+
+// Blind Room Party Mode (party/service.js): one callable for every party
+// write — hosts, guests (anonymous Firebase identities) and presentation
+// displays. Clients have no direct write access to any party collection.
+exports.partyAction = onCall({ cors: true }, (request) => handlePartyAction(admin.firestore(), request));
 
 // Mirrors the Firestore rules' own Blind Room boundary: only a member (host
 // or participant) gets the room at all, and the secrets document is only

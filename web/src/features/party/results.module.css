@@ -1,0 +1,178 @@
+.podium {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--fip-space-3);
+  align-items: end;
+}
+
+.podiumItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+}
+
+.first {
+  background: linear-gradient(170deg, rgba(228, 154, 58, 0.22), rgba(42, 29, 18, 0.95) 55%);
+  border-color: var(--fip-border-strong);
+  order: -1;
+}
+
+@media (min-width: 720px) {
+  .first {
+    order: 0;
+    padding-top: var(--fip-space-8);
+    padding-bottom: var(--fip-space-6);
+  }
+  .podium {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.place {
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--fip-amber);
+}
+
+.bottleImage {
+  width: 96px;
+  height: 120px;
+  object-fit: contain;
+  border-radius: var(--fip-radius-md);
+  background: radial-gradient(circle at 50% 70%, rgba(228, 154, 58, 0.2), var(--fip-oak-deep));
+}
+
+.bottleImageSmall {
+  width: 32px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: var(--fip-radius-sm);
+  background: var(--fip-oak-deep);
+  flex: 0 0 auto;
+}
+
+.bottleImageEmpty {
+  display: grid;
+  place-items: center;
+  font-family: var(--fip-font-display);
+  font-size: 1.5rem;
+  color: var(--fip-amber);
+}
+
+.bottleName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  line-height: var(--fip-leading-tight);
+}
+
+.average {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-2xl);
+  color: var(--fip-amber-hover);
+}
+
+.averageOf {
+  font-family: var(--fip-font-body);
+  font-size: var(--fip-text-xs);
+  color: var(--fip-muted);
+}
+
+.awards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--fip-space-3);
+}
+
+.award {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-1);
+  padding: var(--fip-space-3) var(--fip-space-4);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: var(--fip-radius-md);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fip-text-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--fip-space-2) var(--fip-space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--fip-border-subtle);
+  white-space: nowrap;
+}
+
+.table thead th {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--fip-tracking-label);
+  background: var(--fip-card-soft);
+}
+
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.championRow {
+  background: rgba(228, 154, 58, 0.08);
+}
+
+.mineRow {
+  background: rgba(228, 154, 58, 0.12);
+}
+
+.bottleCell {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  white-space: normal;
+}
+
+.inlinePill {
+  margin-left: var(--fip-space-2);
+}
+
+.presentation .bottleImage {
+  width: 160px;
+  height: 200px;
+}
+
+.presentation .bottleName {
+  font-size: var(--fip-text-2xl);
+}
+
+.presentation .average {
+  font-size: var(--fip-text-3xl);
+}
+
+.presentation .table {
+  font-size: var(--fip-text-lg);
+}

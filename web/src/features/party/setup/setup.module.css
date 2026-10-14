@@ -1,0 +1,88 @@
+.roundItem {
+  align-items: flex-start;
+}
+
+.roundActions {
+  display: grid;
+  grid-template-columns: repeat(2, 44px);
+  gap: var(--fip-space-1);
+}
+
+.libraryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--fip-space-3);
+}
+
+.libraryCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.bottleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.bottleThumb {
+  width: 44px;
+  height: 56px;
+  border-radius: var(--fip-radius-sm);
+  object-fit: cover;
+  background: var(--fip-oak);
+  flex: 0 0 auto;
+}
+
+.bottleThumbEmpty {
+  display: grid;
+  place-items: center;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.bottleActions {
+  display: flex;
+  gap: var(--fip-space-1);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pickerList {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--fip-space-3);
+}
+
+.labelSelect {
+  min-width: 84px;
+}
+
+.stepNav {
+  overflow-x: auto;
+  padding-bottom: var(--fip-space-1);
+}
+
+.cover {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: var(--fip-radius-md);
+}

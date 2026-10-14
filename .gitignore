@@ -3,3 +3,6 @@
 /dist/
 /.firebase/
 firestore-debug.log
+
+# Local Firebase emulator secrets (functions emulator)
+.secret.local

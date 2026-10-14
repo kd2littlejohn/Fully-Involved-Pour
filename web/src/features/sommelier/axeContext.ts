@@ -48,6 +48,7 @@ const ROUTE_PATTERNS: { pattern: string; build: (params: Record<string, string |
   { pattern: '/friends/*', build: () => ({ screen: 'friends' }) },
   { pattern: '/friends', build: () => ({ screen: 'friends' }) },
   { pattern: '/blind/:roomId/:stage', build: (p) => ({ screen: 'blind', roomId: p.roomId }) },
+  { pattern: '/blind/party', build: () => ({ screen: 'blind' }) },
   { pattern: '/blind', build: () => ({ screen: 'blind' }) },
 ]
 

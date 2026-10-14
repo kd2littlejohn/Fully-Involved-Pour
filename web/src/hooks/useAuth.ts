@@ -22,8 +22,12 @@ export function useAuth(): AuthState {
       }
     }
 
+    // An anonymous identity is a Blind Room Party guest (see
+    // features/party/useGuestIdentity.ts), not an FIP account — the rest of
+    // the app treats it exactly like being signed out, so a guest never
+    // gets a users/{uid} document, a profile, or an empty My Bar.
     return onAuthStateChanged(auth, (user) => {
-      setState({ user, loading: false })
+      setState({ user: user && !user.isAnonymous ? user : null, loading: false })
     })
   }, [])
 

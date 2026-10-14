@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { createHashRouter, Navigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { RouteFallback } from './components/layout/RouteFallback'
@@ -56,6 +56,17 @@ const BlindTastingPage = lazy(() =>
 const BlindRevealPage = lazy(() =>
   import('./pages/BlindRoom/BlindRevealPage').then((m) => ({ default: m.BlindRevealPage })),
 )
+const PartyHubPage = lazy(() => import('./pages/Party/PartyHubPage').then((m) => ({ default: m.PartyHubPage })))
+const PartySetupPage = lazy(() => import('./pages/Party/PartySetupPage').then((m) => ({ default: m.PartySetupPage })))
+const JoinPartyPage = lazy(() => import('./pages/Party/JoinPartyPage').then((m) => ({ default: m.JoinPartyPage })))
+const GuestPartyPage = lazy(() => import('./pages/Party/GuestPartyPage').then((m) => ({ default: m.GuestPartyPage })))
+const HostDashboardPage = lazy(() => import('./pages/Party/HostDashboardPage').then((m) => ({ default: m.HostDashboardPage })))
+const PaperBallotsPage = lazy(() => import('./pages/Party/PaperBallotsPage').then((m) => ({ default: m.PaperBallotsPage })))
+const PrintScorecardsPage = lazy(() =>
+  import('./pages/Party/PrintScorecardsPage').then((m) => ({ default: m.PrintScorecardsPage })),
+)
+const PartyRecapPage = lazy(() => import('./pages/Party/PartyRecapPage').then((m) => ({ default: m.PartyRecapPage })))
+const PartyDisplayPage = lazy(() => import('./pages/Party/PartyDisplayPage').then((m) => ({ default: m.PartyDisplayPage })))
 
 // HashRouter: GitHub Pages (and the second static "Sites" deploy target) have
 // no server-side rewrite support, so hash-based routes avoid needing a
@@ -122,6 +133,8 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
       // the "Blind Room" option in Start a Pour and the Journey "Blind
       // History" link for how users actually get here.
       { path: '/blind', element: <BlindRoomLandingPage /> },
+      // Blind Room Party Mode hub: Create / Join / Resume / Past parties.
+      { path: '/blind/party', element: <PartyHubPage /> },
     ],
   },
   // Outside AppShell — a full-screen add flow shouldn't compete with the
@@ -213,6 +226,29 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
       </Suspense>
     ),
   },
+  // Blind Room Party Mode — full-screen, no bottom nav: guests usually
+  // aren't FIP users, and the host is mid-event. /p/:code is the short
+  // link the QR code and invitation share point at.
+  ...partyRoute('/p', <JoinPartyPage />),
+  ...partyRoute('/p/:code', <JoinPartyPage />),
+  ...partyRoute('/party/new', <PartySetupPage />),
+  ...partyRoute('/party/:partyId/setup', <PartySetupPage />),
+  ...partyRoute('/party/:partyId', <GuestPartyPage />),
+  ...partyRoute('/party/:partyId/host', <HostDashboardPage />),
+  ...partyRoute('/party/:partyId/ballots', <PaperBallotsPage />),
+  ...partyRoute('/party/:partyId/print', <PrintScorecardsPage />),
+  ...partyRoute('/party/:partyId/recap', <PartyRecapPage />),
+  ...partyRoute('/party/:partyId/display', <PartyDisplayPage />),
 ]
+
+function partyRoute(path: string, element: ReactNode) {
+  return [
+    {
+      path,
+      errorElement: <RouteErrorFallback backTo="/blind/party" backLabel="Back to Party Mode" />,
+      element: <Suspense fallback={<RouteFallback />}>{element}</Suspense>,
+    },
+  ]
+}
 
 export const router = createHashRouter(routes)
