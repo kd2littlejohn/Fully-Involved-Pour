@@ -21,7 +21,7 @@ export function AxeInlineSuggestion({ message, context }: AxeInlineSuggestionPro
       onClick={() => openAxe(typeof context === 'function' ? context() : context)}
       aria-haspopup="dialog"
     >
-      <AxeSymbol size={30} className={styles.mark} />
+      <AxeSymbol size={40} className={styles.mark} />
       <span className={styles.text}>
         <span className={styles.brand}>AXE</span>
         <span className={styles.message}>{message}</span>

@@ -31,7 +31,7 @@ export function AxeInsightCard({ uid, bottles, pours }: AxeInsightCardProps) {
 
   const brand = (
     <div className={styles.brand}>
-      <AxeSymbol size={24} className={styles.mark} />
+      <AxeSymbol size={34} className={styles.mark} />
       <div className={styles.brandText}>
         <span className={styles.brandName}>AXE</span>
       </div>

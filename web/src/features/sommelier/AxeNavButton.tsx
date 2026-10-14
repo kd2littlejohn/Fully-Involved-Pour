@@ -14,7 +14,7 @@ export function AxeNavButton({ variant = 'bottom' }: AxeNavButtonProps) {
   if (variant === 'top') {
     return (
       <NavLink to="/axe" className={({ isActive }) => (isActive ? `${styles.top} ${styles.topActive}` : styles.top)}>
-        <AxeSymbol size={22} />
+        <AxeSymbol size={30} />
         AXE
       </NavLink>
     )
@@ -22,7 +22,7 @@ export function AxeNavButton({ variant = 'bottom' }: AxeNavButtonProps) {
   return (
     <NavLink to="/axe" className={({ isActive }) => (isActive ? `${styles.bottom} ${styles.bottomActive}` : styles.bottom)}>
       <span className={styles.badge}>
-        <AxeSymbol size={34} />
+        <AxeSymbol size={54} />
       </span>
       AXE
     </NavLink>

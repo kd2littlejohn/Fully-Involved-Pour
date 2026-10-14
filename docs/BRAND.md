@@ -21,42 +21,30 @@ gold tagline in `fip-primary.svg` is low-contrast on light.
 
 Brand tagline: Drink What You Enjoy. Share What Matters.
 
-## AXE artwork (pending: supplied by the FIP team)
+## AXE artwork
 
-AXE, the in-app personal sommelier, has its own mark. The approved files haven't been delivered
-yet. Do not draw, trace or approximate them; the app uses an interim treatment until they arrive.
+AXE, the in-app personal sommelier, has its own mark. These are the official files supplied by
+the FIP team. Do not redraw, trace, recolour or crop them.
 
-### Files needed
-
-Add exactly these three files to `web/src/assets/brand/` (lower-case names, as written):
-
-| File | What it is | Where it appears | Rendered size |
+| File | What it is | Canvas | Where it appears |
 | --- | --- | --- | --- |
-| `axe-symbol.svg` | The gold Glencairn glass and flame only. **No letters, no circle, no compass, no background.** | Centre AXE nav tab, desktop AXE nav pill, AXE insight card, inline "Ask AXE" prompts (bottle detail, My Bar, Your Palate, tasting forms), Home's Ask AXE quick action, the Blind reveal's Ask AXE button, chat header (until the compact wordmark arrives) | Square box, 22–40 px, sometimes on a dark disc |
-| `axe-wordmark.svg` | Full wordmark: the symbol with "AXE" and "Your Personal Sommelier" | AXE Hub header | 96–128 px tall, width follows the artwork, centred, phones from 320 px wide |
-| `axe-wordmark-compact.svg` | Compact wordmark: "AXE" (with or without the symbol), no tagline | AXE chat header title | 32 px tall, width follows the artwork |
+| `axe-symbol.svg` | The gold Glencairn glass and flame only. No letters, circle or compass. | 600 × 1090, transparent | Mobile centre nav tab (54 px tall, standing on its own with no disc or ring), desktop AXE nav pill, AXE insight card, inline "Ask AXE" prompts, Home's Ask AXE quick action, the Blind reveal's Ask AXE button |
+| `axe-wordmark.svg` | Full wordmark with "Your Personal Sommelier" | 1180 × 725, transparent | AXE Hub header, `min(340px, 80vw)` wide |
+| `axe-wordmark-compact.svg` | Compact "AXE" wordmark with the glass and flame, no tagline | 1200 × 900, transparent | AXE chat header title, 56 px tall |
 
-### Requirements for each file
+All three are single-colour vector paths filled with the AXE gold gradient on a transparent
+background, with no embedded images. The original PNG exports (transparent) and a preview sheet
+were supplied with them but aren't needed by the app.
 
-- **Transparent background**: no background rectangle, no solid fill behind the artwork.
-- **Pure vector**: outlined text (no live fonts), no embedded PNG or JPEG.
-- **Readable on the app's dark background** (`#11161c`).
-- **Tight artboard**: the `viewBox` hugs the artwork, with at most a few percent of padding.
-  - `axe-symbol.svg` uses a **square** `viewBox` with the artwork centred, so it sits correctly
-    in the round nav tab.
-- **Detail that holds up at 22 px** for the symbol.
-- Optional: matching transparent PNGs at 2× and 3× for use outside the app. The app itself only
-  needs the SVGs.
+### How they're used
 
-### How the swap works
+All AXE artwork comes from `web/src/features/sommelier/AxeMark.tsx`, which picks the three files
+up from `web/src/assets/brand/`. Every placement keeps each file's own proportions:
 
-All AXE artwork comes from `web/src/features/sommelier/AxeMark.tsx`. It looks for the three files
-above and picks each one up automatically at build time, so no code changes are needed. Until a
-file is present, its surface keeps the interim treatment:
+- **Symbol:** drawn in a square box with `object-fit: contain`. It is tall (about 1 wide to 3
+  tall), so the box is sized by the height it should reach.
+- **Wordmarks:** given one dimension, with the other following the artwork.
 
-- **Symbol:** the approved FIP monogram (`fip-icon.svg`), which contains the same glass and flame.
-- **Wordmarks:** "AXE" set in the display font (with "Your Personal Sommelier" on the Hub).
-
-When the files land, also update `web/src/features/sommelier/AxeMark.test.tsx`, which asserts the
-interim state. Then run the web checks and review the Hub, chat header, nav tab and an insight
-card at 320 px, 390 px and desktop.
+If a file is ever removed, its surface falls back to the FIP monogram (`fip-icon.svg`) or to
+"AXE" set in the display font. `web/src/features/sommelier/AxeMark.test.tsx` asserts that the
+approved files are the ones in use.

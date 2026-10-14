@@ -9,7 +9,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--fip-space-2);
-  padding: 3px;
+  min-height: 44px;
+  padding: 3px 3px 3px var(--fip-space-2);
   border: 1px solid var(--fip-border);
   border-radius: var(--fip-radius-round);
   background: var(--fip-charcoal);
@@ -37,9 +38,10 @@
   height: 34px;
 }
 
-/* Icon-only on mobile to stay out of the way; labelled on desktop. */
+/* Always labelled, so the button reads as an "Ask AXE" pill rather than a
+   ring around the symbol. */
 .label {
-  display: none;
+  display: inline;
   font-size: var(--fip-text-sm);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -50,9 +52,5 @@
   .button {
     right: var(--fip-space-6);
     bottom: var(--fip-space-6);
-  }
-
-  .label {
-    display: inline;
   }
 }

@@ -23,7 +23,7 @@ export function QuickActions() {
         Pour
       </button>
       <button type="button" className={styles.action} onClick={() => openAxe()} aria-haspopup="dialog">
-        <AxeSymbol size={24} className={styles.mark} />
+        <AxeSymbol size={32} className={styles.mark} />
         Ask AXE
       </button>
       <Link to="/collection" className={styles.action}>
