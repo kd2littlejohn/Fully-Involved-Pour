@@ -13,3 +13,7 @@
 .palateBreakdownWrap {
   margin: 0 var(--fip-shell-x) var(--fip-space-6);
 }
+
+.palateAnchor {
+  scroll-margin-top: var(--fip-space-4);
+}

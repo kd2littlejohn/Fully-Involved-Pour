@@ -1,0 +1,63 @@
+/* Mobile: the raised centre tab, same position and prominence as the old
+   Pour badge. The symbol sits on a dark, gold-edged disc so the gold art
+   reads clearly (the art itself has no circle). */
+.bottom {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--fip-space-1);
+  min-height: 56px;
+  min-width: 44px;
+  padding: 0 0 var(--fip-space-1);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-top: -24px;
+  border-radius: var(--fip-radius-round);
+  background: radial-gradient(circle at 50% 35%, #2a1d12 0%, #0f0c09 75%);
+  border: 2px solid var(--fip-amber);
+  box-shadow:
+    0 0 0 3px var(--fip-charcoal),
+    var(--fip-shadow-soft);
+  transition: box-shadow var(--fip-motion) var(--fip-ease);
+}
+
+.bottom:hover .badge,
+.bottomActive .badge {
+  box-shadow:
+    0 0 0 3px var(--fip-charcoal),
+    0 0 18px rgba(228, 154, 58, 0.45);
+}
+
+/* Desktop header: a pill among the text links, like the old Pour pill. */
+.top {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-1) var(--fip-space-4) var(--fip-space-1) var(--fip-space-2);
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-amber);
+  background: radial-gradient(circle at 30% 30%, #2a1d12 0%, #0f0c09 80%);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 700;
+  letter-spacing: var(--fip-tracking-label);
+  text-decoration: none;
+  transition: box-shadow var(--fip-motion) var(--fip-ease);
+}
+
+.top:hover,
+.topActive {
+  box-shadow: 0 0 16px rgba(228, 154, 58, 0.35);
+}

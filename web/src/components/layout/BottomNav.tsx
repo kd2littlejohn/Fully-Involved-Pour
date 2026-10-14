@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS, type NavItem } from './navItems'
-import { PourNavButton } from '../../features/startAPour/PourNavButton'
+import { AxeNavButton } from '../../features/sommelier/AxeNavButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useFriendRequests } from '../../features/friends/useFriendRequests'
 import styles from './BottomNav.module.css'
@@ -21,9 +21,8 @@ function NavItemLink({ item, badge }: { item: NavItem; badge?: number }) {
   )
 }
 
-// Order is Home | My Bar | Pour | Journey | Friends — Pour sits between the
-// first two route items and the last two (see navItems.ts for why it isn't
-// itself a NAV_ITEMS entry).
+// Order is Home | My Bar | AXE | Journey | Friends — AXE sits between the
+// first two route items and the last two (see navItems.ts).
 export function BottomNav() {
   const { user } = useAuth()
   const { incoming } = useFriendRequests(user?.uid)
@@ -33,7 +32,7 @@ export function BottomNav() {
       {NAV_ITEMS.slice(0, 2).map((item) => (
         <NavItemLink key={item.path} item={item} />
       ))}
-      <PourNavButton variant="bottom" />
+      <AxeNavButton variant="bottom" />
       {NAV_ITEMS.slice(2).map((item) => (
         <NavItemLink key={item.path} item={item} badge={item.path === '/friends' ? incoming.length : undefined} />
       ))}

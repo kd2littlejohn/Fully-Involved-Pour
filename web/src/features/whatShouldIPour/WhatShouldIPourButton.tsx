@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -49,7 +49,12 @@ function formatLastPoured(bottle: Bottle, pours: Pour[]): string {
 
 // trigger 'link': a quiet text link (Home's Tonight's Pick, where the
 // default pick is already on screen and choosing by mood is secondary).
-export function WhatShouldIPourButton({ trigger = 'card' }: { trigger?: 'card' | 'link' } = {}) {
+// renderTrigger: any other entry point (the AXE Hub card) draws its own
+// trigger and gets this same mood picker and recommendation flow.
+export function WhatShouldIPourButton({
+  trigger = 'card',
+  renderTrigger,
+}: { trigger?: 'card' | 'link'; renderTrigger?: (open: () => void) => ReactNode } = {}) {
   const { userDoc } = useUserData()
   const [open, setOpen] = useState(false)
   const [moodId, setMoodId] = useState<MoodId | null>(null)
@@ -155,7 +160,9 @@ export function WhatShouldIPourButton({ trigger = 'card' }: { trigger?: 'card' |
 
   return (
     <>
-      {trigger === 'link' ? (
+      {renderTrigger ? (
+        renderTrigger(handleOpen)
+      ) : trigger === 'link' ? (
         <button type="button" className={styles.linkTrigger} onClick={handleOpen}>
           Pick by mood
         </button>

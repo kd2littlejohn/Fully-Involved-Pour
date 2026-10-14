@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import fipHorizontalLogo from '../../assets/brand/fip-horizontal.svg'
 import { NAV_ITEMS } from './navItems'
-import { PourNavButton } from '../../features/startAPour/PourNavButton'
+import { AxeNavButton } from '../../features/sommelier/AxeNavButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { useFriendRequests } from '../../features/friends/useFriendRequests'
@@ -16,7 +16,7 @@ function initials(name: string): string {
 }
 
 // Same five destinations as the mobile bottom nav, same order: Home | My Bar
-// | Pour | Journey | Friends. Profile isn't a nav destination — it's reached
+// | AXE | Journey | Friends. Profile isn't a nav destination — it's reached
 // via the avatar button at the far right, same as the mobile MobileTopBar.
 export function TopNav() {
   const { user } = useAuth()
@@ -42,7 +42,7 @@ export function TopNav() {
           </li>
         ))}
         <li>
-          <PourNavButton variant="top" />
+          <AxeNavButton variant="top" />
         </li>
         {NAV_ITEMS.slice(2).map((item) => (
           <li key={item.path} className={styles.linkWrap}>

@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { TopNav } from './TopNav'
@@ -39,7 +38,7 @@ describe('TopNav', () => {
     renderNav()
     const list = screen.getByRole('list')
     const items = Array.from(list.children).map((el) => el.textContent?.trim())
-    expect(items).toEqual(['Home', 'My Bar', '🥃Pour', 'Journey', 'Friends'])
+    expect(items).toEqual(['Home', 'My Bar', 'AXE', 'Journey', 'Friends'])
   })
 
   it('does not list Discover as a header destination', () => {
@@ -72,10 +71,8 @@ describe('TopNav', () => {
     expect(screen.getByText('1')).toBeInTheDocument()
   })
 
-  it('opens the same Pour quick-action sheet as the mobile nav', async () => {
+  it('links AXE to the AXE Hub, like the mobile nav', () => {
     renderNav()
-    await userEvent.click(screen.getByRole('button', { name: /Pour/ }))
-    expect(screen.getByRole('heading', { name: 'Pour' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Start a Blind Tasting/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'AXE' })).toHaveAttribute('href', '/axe')
   })
 })
