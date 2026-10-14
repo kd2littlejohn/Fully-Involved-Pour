@@ -3,44 +3,8 @@
   object-fit: contain;
 }
 
-.wordmark {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--fip-space-1);
-}
-
-.wordmarkSymbol {
-  filter: drop-shadow(0 0 18px rgba(228, 154, 58, 0.25));
-}
-
-.wordmarkName {
-  font-family: var(--fip-font-display);
-  font-size: clamp(2.25rem, 1.6rem + 3vw, 3rem);
-  line-height: 1;
-  letter-spacing: 0.08em;
-  background: linear-gradient(180deg, #f9e0a0 0%, #e3ad4e 45%, #b8792a 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.wordmarkTagline {
-  color: var(--fip-amber);
-  font-size: var(--fip-text-xs);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-/* Supplied artwork: one dimension set, the other follows the file's own
-   proportions (never stretched). The Hub wordmark is sized by width so its
-   tagline stays legible on phones. */
-.wordmarkImage {
-  display: block;
-  width: min(340px, 80vw);
-  height: auto;
-}
-
+/* Supplied artwork: height set, width follows the file's own proportions
+   (never stretched). */
 .compactImage {
   display: block;
   height: 56px;

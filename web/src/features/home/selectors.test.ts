@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  greetingForHour,
+  partOfDayForHour,
   getMaybeTonightCandidates,
   getPalateInsight,
   getOpenBottles,
@@ -246,5 +248,18 @@ describe('getCollectionSnapshot', () => {
       { id: 'd', name: 'Sealed', status: 'sealed', createdAt: 1, fillLevel: 'empty' },
     ]
     expect(getCollectionSnapshot(bottles).needingAttention).toBe(2)
+  })
+})
+
+describe('partOfDayForHour', () => {
+  it('always matches the greeting, so "Good afternoon" is never followed by "tonight"', () => {
+    const expected: Record<string, string> = {
+      'Good morning': 'this morning',
+      'Good afternoon': 'this afternoon',
+      'Good evening': 'tonight',
+    }
+    for (let hour = 0; hour < 24; hour++) {
+      expect(partOfDayForHour(hour)).toBe(expected[greetingForHour(hour)])
+    }
   })
 })

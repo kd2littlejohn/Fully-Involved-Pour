@@ -1,17 +1,72 @@
 .page {
-  padding: var(--fip-space-4) var(--fip-shell-x) var(--fip-space-6);
-  background:
-    radial-gradient(90% 40% at 50% 0%, rgba(228, 154, 58, 0.12), transparent 70%);
+  padding: 0 var(--fip-shell-x) var(--fip-space-6);
 }
 
-.header {
+/* Cinematic hero. The artwork's own near-black background is feathered on
+   every edge into a warm brown glow that fades out at every edge of the
+   hero (closest-side ellipse), so there is no box, band or hard line at any
+   width. The image is never cropped or stretched: full width (capped on
+   wide screens) at its own proportions. */
+.hero {
+  position: relative;
+  isolation: isolate;
   display: flex;
   justify-content: center;
-  padding: var(--fip-space-2) 0 var(--fip-space-5);
+  margin: 0 calc(-1 * var(--fip-shell-x)) var(--fip-space-1);
+  padding-bottom: var(--fip-space-5);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(closest-side at 50% 52%, rgba(12, 6, 2, 0.95) 0%, rgba(12, 6, 2, 0.85) 60%, rgba(12, 6, 2, 0) 100%);
+  pointer-events: none;
+}
+
+.heroImage {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  /* Feather the edges: wide on the sides (the logo starts ~13% in),
+     slim at the bottom (the tagline sits just above it). */
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 8%, #000 97%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 7%, #000 93%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 8%, #000 97%, transparent 100%);
+  mask-composite: intersect;
+}
+
+/* Wide screens: the image no longer spans the page, so its sides get a
+   longer feather into the glow (still clear of the lettering). */
+@media (min-width: 600px) {
+  .heroImage {
+    -webkit-mask-image:
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 10%, #000 98%, transparent 100%);
+    mask-image:
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+      linear-gradient(to bottom, transparent 0%, #000 10%, #000 98%, transparent 100%);
+  }
+}
+
+/* Phones: the hero starts at the very top of the screen, behind the
+   transparent top bar (as on Home and Bottle Details). */
+@media (max-width: 899px) {
+  .hero {
+    margin-top: calc(-1 * var(--fip-mobile-bar-h));
+    /* Clear of the status bar / notch when installed full screen. */
+    padding-top: calc(var(--fip-mobile-bar-h) - var(--fip-space-4) + env(safe-area-inset-top, 0px));
+  }
 }
 
 .greeting {
-  margin-bottom: var(--fip-space-4);
+  margin-bottom: var(--fip-space-3);
   padding: var(--fip-space-4);
   border-radius: var(--fip-radius-xl);
   border: 1px solid var(--fip-border-subtle);
@@ -37,7 +92,7 @@
   display: flex;
   align-items: center;
   gap: var(--fip-space-2);
-  margin-top: var(--fip-space-4);
+  margin-top: var(--fip-space-3);
   padding: 4px 4px 4px var(--fip-space-4);
   border-radius: var(--fip-radius-round);
   border: 1px solid var(--fip-border-strong);
@@ -82,7 +137,7 @@
 }
 
 .insight {
-  margin-top: var(--fip-space-6);
+  margin-top: var(--fip-space-5);
 }
 
 .sectionTitle {
