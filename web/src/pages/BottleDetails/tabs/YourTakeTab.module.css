@@ -1,0 +1,45 @@
+.history {
+  margin-top: var(--fip-space-6);
+  scroll-margin-top: var(--fip-space-16);
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--fip-space-3);
+  margin-bottom: var(--fip-space-4);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+.switcher {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border-subtle);
+  background: var(--fip-card-soft);
+}
+
+.switch {
+  min-height: 36px;
+  padding: 0 var(--fip-space-4);
+  border: 0;
+  border-radius: var(--fip-radius-round);
+  background: none;
+  color: var(--fip-cream-soft);
+  font: inherit;
+  font-size: var(--fip-text-sm);
+  cursor: pointer;
+}
+
+.switchActive {
+  background: var(--fip-amber);
+  color: var(--fip-black);
+  font-weight: 600;
+}

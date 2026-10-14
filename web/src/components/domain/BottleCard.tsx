@@ -109,13 +109,25 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
   ) : null
 
   const statusBadge = <Badge tone={STATUS_TONE[bottle.status]}>{STATUS_LABEL[bottle.status]}</Badge>
-  const fillPercent = multiInstance ? undefined : fillLevelPercent(bottle)
+  // Opened bottles only: a sealed bottle is full by definition, and a
+  // finished one has nothing left to meter.
+  const fillPercent = multiInstance || bottle.status !== 'open' ? undefined : fillLevelPercent(bottle)
+  const photoUrl = bottlePhotoUrl(bottle)
+  const specLine = [typeof bottle.proof === 'number' ? `${bottle.proof} Proof` : undefined, bottle.type].filter(Boolean).join(' · ')
 
+  // Photography first. Every card's photo area is the same 4:5 frame; the
+  // real photo sits inside it whole (object-fit: contain, never cropped or
+  // stretched), over a blurred, darkened copy of itself that fills the
+  // rest of the frame edge to edge, so any photo shape reads as one
+  // continuous image.
   const linkContent = (
     <>
-      <div className={styles.imageWrap}>
-        {bottlePhotoUrl(bottle) ? (
-          <img className={styles.image} src={bottlePhotoUrl(bottle)} alt="" />
+      <div className={styles.media}>
+        {photoUrl ? (
+          <>
+            <img className={styles.mediaBackdrop} src={photoUrl} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+            <img className={styles.image} src={photoUrl} alt="" loading="lazy" decoding="async" />
+          </>
         ) : (
           <BottlePlaceholder name={bottle.name} compact />
         )}
@@ -123,16 +135,18 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
       <div className={styles.titleBlock}>
         <div className={styles.name}>{title}</div>
         {subtitle ? <div className={styles.subtitle}>{subtitle}</div> : null}
-        {bottle.distillery || bottle.type ? (
-          <div className={styles.distillery}>
-            {[bottle.distillery, bottle.type].filter(Boolean).join(' · ')}
-          </div>
-        ) : null}
-        {bottle.proof ? <div className={styles.proof}>{bottle.proof} Proof</div> : null}
+        {specLine ? <div className={styles.specs}>{specLine}</div> : null}
       </div>
-      {typeof fillPercent === 'number' ? <FillLevelBar percent={fillPercent} /> : null}
     </>
   )
+
+  const fillMeter =
+    typeof fillPercent === 'number' ? (
+      <div className={styles.fill}>
+        <FillLevelBar percent={fillPercent} />
+        <span className={styles.fillLabel}>{fillPercent}% Full</span>
+      </div>
+    ) : null
 
   // Tapping the status pill itself opens the picker — no trip through the
   // "⋯" menu needed. Kept as a plain Badge (not a button) when selectable,
@@ -183,6 +197,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
           {linkContent}
           {instanceSummary}
           {footer}
+          {fillMeter}
           {journey}
         </div>
       </div>
@@ -191,6 +206,13 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
 
   return (
     <div className={styles.card}>
+      {currentFavorite ? (
+        <span className={styles.favoriteMark} title="Favorite" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        </span>
+      ) : null}
       <div className={styles.menuOverlay}>
         <OverflowMenu items={menuItems} label={`${bottle.name} actions`} />
       </div>
@@ -200,6 +222,7 @@ export function BottleCard({ bottle, selectable = false, selected = false, onTog
         </Link>
         {instanceSummary}
         {footer}
+        {fillMeter}
         {journey}
       </div>
       {modals}

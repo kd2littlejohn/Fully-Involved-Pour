@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -24,12 +24,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate }
 })
 
-function renderCollection(initialEntries: string[] = ['/collection']) {
-  return render(
+// Most tests exercise the summary tiles and rarity chart, which live in the
+// collapsible collection overview — expanded here unless a test opts out.
+function renderCollection(initialEntries: string[] = ['/collection'], { expand = true } = {}) {
+  const result = render(
     <MemoryRouter initialEntries={initialEntries}>
       <CollectionPage />
     </MemoryRouter>,
   )
+  const overview = screen.queryByRole('button', { expanded: false, name: /Collection insights/ })
+  if (expand && overview) fireEvent.click(overview)
+  return result
 }
 
 const bottles: Bottle[] = [
@@ -458,5 +463,93 @@ describe('CollectionPage — rarity chart and filter', () => {
     })
     renderCollection()
     expect(screen.queryByRole('button', { name: 'Review Rarity Suggestions' })).not.toBeInTheDocument()
+  })
+})
+
+describe('CollectionPage — compact header and quick filter chips', () => {
+  const chipBottles: Bottle[] = [
+    { id: 'c1', name: 'Eagle Rare', status: 'open', createdAt: 1, rarity: 'rare', raritySource: 'manual' },
+    { id: 'c2', name: 'Weller 12', status: 'sealed', createdAt: 2, rarity: 'uncommon', raritySource: 'manual' },
+    { id: 'c3', name: 'Blantons', status: 'sealed', createdAt: 3, rarity: 'rare', raritySource: 'manual' },
+  ]
+
+  function renderChips() {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: chipBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    return renderCollection(['/collection'], { expand: false })
+  }
+
+  function chips() {
+    return within(screen.getByRole('group', { name: 'Quick filters' }))
+  }
+
+  it('shows total, open and sealed counts, with the rarity chart collapsed until expanded', async () => {
+    renderChips()
+    const summary = screen.getByRole('button', { name: '3 bottles, 1 open, 2 sealed. Collection insights' })
+    expect(summary).toHaveTextContent('1 Open · 2 Sealed')
+    expect(summary).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('rarity-legend')).not.toBeInTheDocument()
+
+    await userEvent.click(summary)
+    expect(summary).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('rarity-legend')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Total:/ })).toBeInTheDocument()
+  })
+
+  it('Open and Sealed chips set the status filter; tapping again clears it', async () => {
+    renderChips()
+    await userEvent.click(chips().getByRole('button', { name: 'Sealed' }))
+    expect(chips().getByRole('button', { name: 'Sealed' })).toHaveAttribute('aria-pressed', 'true')
+    expect(chips().getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+
+    await userEvent.click(chips().getByRole('button', { name: 'Sealed' }))
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+    expect(chips().getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('Rare and Uncommon chips set the rarity filter and combine with status', async () => {
+    renderChips()
+    await userEvent.click(chips().getByRole('button', { name: 'Rare' }))
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+    expect(screen.getByText('Blantons')).toBeInTheDocument()
+    expect(screen.queryByText('Weller 12')).not.toBeInTheDocument()
+
+    await userEvent.click(chips().getByRole('button', { name: 'Sealed' }))
+    expect(screen.queryByText('Eagle Rare')).not.toBeInTheDocument()
+    expect(screen.getByText('Blantons')).toBeInTheDocument()
+
+    await userEvent.click(chips().getByRole('button', { name: 'Uncommon' }))
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+    expect(screen.queryByText('Blantons')).not.toBeInTheDocument()
+  })
+
+  it('All clears both the status and rarity filters', async () => {
+    renderChips()
+    await userEvent.click(chips().getByRole('button', { name: 'Open' }))
+    await userEvent.click(chips().getByRole('button', { name: 'Rare' }))
+    await userEvent.click(chips().getByRole('button', { name: 'All' }))
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+    expect(screen.getByText('Weller 12')).toBeInTheDocument()
+    expect(screen.getByText('Blantons')).toBeInTheDocument()
+    expect(screen.queryByText(/Filtering by/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the chart open on load when a rarity filter the chips do not cover is in the URL', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'u1' }, loading: false })
+    mockUseUserData.mockReturnValue({
+      userDoc: { bottles: chipBottles, pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] },
+      loading: false,
+      signedIn: true,
+      addBottle: mockAddBottle,
+    })
+    renderCollection(['/collection?rarity=unclassified'], { expand: false })
+    expect(screen.getByTestId('rarity-legend')).toBeInTheDocument()
   })
 })

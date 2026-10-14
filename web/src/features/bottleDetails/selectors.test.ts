@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Bottle, Memory, Pour } from '../../data/types'
 import { localIsoDate } from '../../data/localDate'
 import {
+  abvFromProof,
   buildBottleStoryEvents,
   buildRatingProgression,
   buildScoreEvolution,
@@ -357,5 +358,20 @@ describe('buildBottleStoryEvents — long-history curation', () => {
     const story = buildBottleStoryEvents(bottle, pours, [])
     expect(story.curated).toBe(false)
     expect(story.events.filter((e) => e.pourId)).toHaveLength(6)
+  })
+})
+
+describe('abvFromProof', () => {
+  it('halves proof without rounding away its precision', () => {
+    expect(abvFromProof(90)).toBe('45%')
+    expect(abvFromProof(101)).toBe('50.5%')
+    expect(abvFromProof(126.5)).toBe('63.25%')
+    expect(abvFromProof(124.8)).toBe('62.4%')
+  })
+
+  it('returns undefined when there is no usable proof', () => {
+    expect(abvFromProof(undefined)).toBeUndefined()
+    expect(abvFromProof(0)).toBeUndefined()
+    expect(abvFromProof(Number.NaN)).toBeUndefined()
   })
 })

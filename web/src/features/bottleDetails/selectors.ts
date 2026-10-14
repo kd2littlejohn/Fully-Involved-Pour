@@ -262,3 +262,11 @@ export function buildBottleStoryEvents(bottle: Bottle, pours: Pour[], memories: 
 
   return { events, totalPourCount: chronological.length, curated }
 }
+
+// ABV derived from proof (US proof is exactly 2x ABV), kept to the precision
+// the proof itself carries: 90 -> "45%", 101 -> "50.5%", 126.5 -> "63.25%".
+// Never rounded to a whole number, and undefined when no proof is recorded.
+export function abvFromProof(proof: number | undefined): string | undefined {
+  if (typeof proof !== 'number' || !Number.isFinite(proof) || proof <= 0) return undefined
+  return `${Number((proof / 2).toFixed(2))}%`
+}

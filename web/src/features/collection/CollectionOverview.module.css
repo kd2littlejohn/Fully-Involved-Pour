@@ -1,0 +1,85 @@
+.wrap {
+  padding: 0 var(--fip-shell-x) var(--fip-space-3);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--fip-space-3) var(--fip-space-4);
+  border-radius: var(--fip-radius-xl);
+  border: 1px solid var(--fip-border);
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--fip-amber-soft), transparent 55%),
+    var(--fip-card);
+  color: var(--fip-cream);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--fip-motion) var(--fip-ease);
+}
+
+.summary:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.icon {
+  flex: 0 0 auto;
+  color: var(--fip-amber);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.total {
+  font-size: var(--fip-text-lg);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.counts {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.hint {
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.chevron {
+  flex: 0 0 auto;
+  color: var(--fip-cream-soft);
+  transition: transform var(--fip-motion) var(--fip-ease);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+/* The breakdown pieces (chart, disclaimer, tiles) bring their own side
+   gutters, so the panel cancels this wrapper's. */
+.panel {
+  margin: var(--fip-space-3) calc(-1 * var(--fip-shell-x)) 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}
+
+@media (max-width: 359px) {
+  .hint {
+    display: none;
+  }
+}

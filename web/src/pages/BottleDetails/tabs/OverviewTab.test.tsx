@@ -1,9 +1,12 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OverviewTab } from './OverviewTab'
 import type { Bottle, Pour } from '../../../data/types'
+import type { FipGuide } from '../../../data/repositories/fipGuide'
 
 const mockUseFipGuide = vi.fn()
+const mockOpenYourTake = vi.fn()
 
 vi.mock('../../../features/bottleDetails/useFipGuide', () => ({
   useFipGuide: (...args: unknown[]) => mockUseFipGuide(...args),
@@ -36,8 +39,15 @@ const eagleRare: Bottle = {
   favorite: true,
 }
 
-function renderTab(bottle: Bottle, pours: Pour[] = []) {
-  return render(<OverviewTab bottle={bottle} pours={pours} />)
+// The page owns the FIP Guide fetch and passes the result down; the mock
+// stands in for that fetch's current result.
+function tabElement(bottle: Bottle, pours: Pour[] = [], extra: { score?: number; pourCount?: number } = {}) {
+  const { guide } = (mockUseFipGuide(bottle) ?? {}) as { guide?: FipGuide }
+  return <OverviewTab bottle={bottle} pours={pours} guide={guide} score={extra.score} pourCount={extra.pourCount ?? 0} onOpenYourTake={mockOpenYourTake} />
+}
+
+function renderTab(bottle: Bottle, pours: Pour[] = [], extra: { score?: number; pourCount?: number } = {}) {
+  return render(tabElement(bottle, pours, extra))
 }
 
 describe('OverviewTab', () => {
@@ -106,7 +116,7 @@ describe('OverviewTab', () => {
         generatedAt: Date.now(),
       },
     })
-    rerender(<OverviewTab bottle={eagleRare} pours={[]} />)
+    rerender(tabElement(eagleRare))
 
     expect(screen.getByText('Availability')).toBeInTheDocument()
     expect(screen.getByText('Limited')).toBeInTheDocument()
@@ -128,13 +138,12 @@ describe('OverviewTab', () => {
     expect(screen.getByText('New')).toBeInTheDocument()
   })
 
-  it('shows personal Flavor Notes chips and Notes when present, independent of the FIP Guide', () => {
+  it('shows personal Notes when present, independent of the FIP Guide', () => {
     mockUseFipGuide.mockReturnValue({ state: 'none', guide: undefined })
     renderTab({ ...eagleRare, flavors: ['caramel', 'oak'], notes: 'A reliable daily pour.' })
 
-    expect(screen.getByText('Flavor Notes')).toBeInTheDocument()
-    expect(screen.getByText('caramel')).toBeInTheDocument()
-    expect(screen.getByText('oak')).toBeInTheDocument()
+    // Flavor notes live on the Flavor Profile tab now.
+    expect(screen.queryByText('Flavor Notes')).not.toBeInTheDocument()
     expect(screen.getByText('Notes')).toBeInTheDocument()
     expect(screen.getByText('A reliable daily pour.')).toBeInTheDocument()
   })
@@ -148,5 +157,25 @@ describe('OverviewTab', () => {
     expect(screen.queryByText('Distillery')).not.toBeInTheDocument()
     expect(screen.queryByText('Proof')).not.toBeInTheDocument()
     expect(screen.queryByText('Mash Bill')).not.toBeInTheDocument()
+  })
+
+  it('summarizes Your Take from real values only, and links to the Your Take tab', async () => {
+    mockUseFipGuide.mockReturnValue({ state: 'none', guide: undefined })
+    renderTab({ ...eagleRare, buyAgain: 'absolutely', wouldReplace: 'yes' }, [], { score: 8.7, pourCount: 3 })
+
+    expect(screen.getByText('8.7')).toBeInTheDocument()
+    expect(screen.getByText('Absolutely')).toBeInTheDocument()
+    expect(screen.getByText('Yes')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Based on 3 tastings/ }))
+    expect(mockOpenYourTake).toHaveBeenCalled()
+  })
+
+  it('shows unset Your Take values as not set rather than guessing', () => {
+    mockUseFipGuide.mockReturnValue({ state: 'none', guide: undefined })
+    renderTab({ id: 'b9', name: 'Fresh Bottle', status: 'sealed' })
+
+    expect(screen.getByText('Not rated yet')).toBeInTheDocument()
+    expect(screen.getAllByText('Not set')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: /Add your take/ })).toBeInTheDocument()
   })
 })

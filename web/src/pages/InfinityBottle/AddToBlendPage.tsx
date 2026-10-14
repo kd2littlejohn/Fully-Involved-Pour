@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { InfinityBottleHeader } from '../../features/infinityBottle/InfinityBottleHeader'
 import { batchDisplayName, batchVolumeMl, displayBatch, estimatedProof } from '../../features/infinityBottle/selectors'
 import { instanceLabel, openInstances } from '../../features/bottleInstances/selectors'
@@ -68,10 +68,19 @@ function parseAmountToMl(raw: string, unit: 'ml' | 'oz'): number {
 export function AddToBlendPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { userDoc, addBlendAdditions } = useUserData()
   const [step, setStep] = useState<'select' | 'amounts'>('select')
   const [query, setQuery] = useState('')
-  const [selections, setSelections] = useState<Selection[]>([])
+  // Bottle Details' "Add to Blend" arrives with that bottle already ticked
+  // (open bottles only, the same ones this page lists).
+  const [selections, setSelections] = useState<Selection[]>(() => {
+    const preselectId = (location.state as { preselectBottleId?: string } | null)?.preselectBottleId
+    const bottle = userDoc.bottles.find((b) => b.id === preselectId && b.status === 'open')
+    if (!bottle) return []
+    const open = bottle.instances ? openInstances(bottle.instances) : []
+    return [{ bottleId: bottle.id, amountMl: 0, note: '', sourceBottleInstanceId: open.length === 1 ? open[0]!.id : undefined }]
+  })
   const [unit, setUnit] = useState<'ml' | 'oz'>('ml')
   const [applyAllAmount, setApplyAllAmount] = useState('')
   const [reviewOpen, setReviewOpen] = useState(false)

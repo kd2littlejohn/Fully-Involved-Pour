@@ -6,9 +6,11 @@ import type { Bottle, InfinityBottle } from '../../data/types'
 
 const mockNavigate = vi.fn()
 const mockParams = { id: 'ib1' }
+let mockLocationState: unknown = null
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => mockParams,
+  useLocation: () => ({ state: mockLocationState }),
 }))
 
 const mockOpenAxe = vi.fn()
@@ -56,6 +58,7 @@ function amountCard(bottleName: string) {
 }
 
 beforeEach(() => {
+  mockLocationState = null
   mockNavigate.mockClear()
   mockAddBlendAdditions.mockClear()
   mockInfinityBottles = [ib()]
@@ -102,6 +105,19 @@ describe('AddToBlendPage — guards', () => {
 })
 
 describe('AddToBlendPage — selection (Step 1)', () => {
+  it('arrives with the bottle already selected when opened from Bottle Details', () => {
+    mockLocationState = { preselectBottleId: 'b2' }
+    render(<AddToBlendPage />)
+    expect(screen.getByText('1 Selected')).toBeInTheDocument()
+  })
+
+  it('ignores a preselected bottle that is not open', () => {
+    mockBottles = [...mockBottles, bottle({ id: 'sealed-1', name: 'Sealed One', status: 'sealed' })]
+    mockLocationState = { preselectBottleId: 'sealed-1' }
+    render(<AddToBlendPage />)
+    expect(screen.queryByText('1 Selected')).not.toBeInTheDocument()
+  })
+
   it('only lists open bottles and filters by search, preserving existing selections', async () => {
     render(<AddToBlendPage />)
     expect(screen.getByText('Eagle Rare')).toBeInTheDocument()

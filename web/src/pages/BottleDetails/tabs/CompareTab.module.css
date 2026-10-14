@@ -3,6 +3,13 @@
   max-width: 320px;
 }
 
+/* A select sizes itself to its longest option (a long bottle name), which
+   could push the page wider than a phone screen. */
+.picker select {
+  width: 100%;
+  max-width: 100%;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

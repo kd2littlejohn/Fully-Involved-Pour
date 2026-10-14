@@ -20,6 +20,8 @@ import { matchesRarityFilter, type RarityFilterValue } from '../../features/rari
 import { selectRarityReviewQueue } from '../../features/rarity/rarityReviewQueue'
 import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../features/rarity/rarityLevels'
 import { CollectionSummaryBar } from '../../features/collection/CollectionSummaryBar'
+import { CollectionOverview } from '../../features/collection/CollectionOverview'
+import { QuickFilterChips } from '../../features/collection/QuickFilterChips'
 import { CollectionFilterSheet } from '../../features/collection/CollectionFilterSheet'
 import { matchesFilter, filterLabel, ALL_FILTERS, type Filter } from '../../features/collection/collectionFilters'
 import { getInfinityIngredientBottleIds } from '../../features/collection/inventoryFilters'
@@ -32,6 +34,10 @@ import {
 } from '../../features/collection/inventoryViewState'
 import type { Bottle } from '../../data/types'
 import styles from './CollectionPage.module.css'
+
+// Rarity levels the quick chips cover; any other rarity picked on the chart
+// keeps the chart open so its selection stays visible.
+const QUICK_RARITIES = new Set<RarityFilterValue>(['rare', 'uncommon'])
 
 function matchesQuery(bottle: Bottle, query: string): boolean {
   const q = query.trim().toLowerCase()
@@ -208,23 +214,37 @@ export function CollectionPage() {
         />
       ) : (
         <>
-          <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
-          <p className={styles.rarityDisclaimer}>
-            Rarity reflects how hard a bottle is to find — availability, allocation, and release scarcity — never how good it tastes.
-          </p>
-
-          <CollectionSummaryBar summary={summary} active={filter} onSelect={setFilter} />
+          <CollectionOverview summary={summary} defaultExpanded={rarityFilter !== null && !QUICK_RARITIES.has(rarityFilter)}>
+            <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
+            <p className={styles.rarityDisclaimer}>
+              Rarity reflects how hard a bottle is to find — availability, allocation, and release scarcity — never how good it tastes.
+            </p>
+            <CollectionSummaryBar summary={summary} active={filter} onSelect={setFilter} />
+          </CollectionOverview>
 
           <div className={styles.searchRow}>
-            <input
-              type="search"
-              className={controlClassName}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, distillery, type, or proof…"
-              aria-label="Search your bar"
-            />
+            <div className={styles.searchField}>
+              <svg className={styles.searchIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+              </svg>
+              <input
+                type="search"
+                className={`${controlClassName} ${styles.searchInput}`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name, distillery, type, or proof…"
+                aria-label="Search your bar"
+              />
+            </div>
+            <button type="button" className={styles.filterButton} onClick={() => setShowFilterSheet(true)} aria-label="More Filters">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
+
+          <QuickFilterChips filter={filter} rarity={rarityFilter} onFilterChange={setFilter} onRarityChange={setRarityFilter} />
 
           {hasActiveFilter ? (
             <div className={styles.activeFilterPill}>
@@ -240,75 +260,71 @@ export function CollectionPage() {
             </div>
           ) : null}
 
+          {/* One compact, horizontally scrollable row so the bottles start
+              right below the filters; every existing control is kept. */}
           <div className={styles.toolbar}>
-            <div className={styles.toolbarRow}>
-              <Button variant="secondary" onClick={() => setShowFilterSheet(true)}>
-                More Filters
-              </Button>
-              <Link to="/discover">
-                <Button variant="ghost">Explore Whiskey</Button>
-              </Link>
-              <select
-                className={styles.sortSelect}
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortOption)}
-                aria-label="Sort bottles"
+            <div className={styles.viewToggle} role="group" aria-label="View as">
+              <button
+                type="button"
+                className={viewMode === 'grid' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
+                onClick={() => setViewMode('grid')}
+                aria-pressed={viewMode === 'grid'}
+                aria-label="Grid view"
               >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'list' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
+                onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+                aria-label="List view"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
+                </svg>
+              </button>
             </div>
-
-            <div className={styles.toolbarRow}>
-              <div className={styles.viewToggle} role="group" aria-label="View as">
-                <button
-                  type="button"
-                  className={viewMode === 'grid' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
-                  onClick={() => setViewMode('grid')}
-                  aria-pressed={viewMode === 'grid'}
-                  aria-label="Grid view"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="7" height="7" rx="1" />
-                    <rect x="14" y="3" width="7" height="7" rx="1" />
-                    <rect x="3" y="14" width="7" height="7" rx="1" />
-                    <rect x="14" y="14" width="7" height="7" rx="1" />
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  className={viewMode === 'list' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
-                  onClick={() => setViewMode('list')}
-                  aria-pressed={viewMode === 'list'}
-                  aria-label="List view"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="4" y1="6" x2="20" y2="6" />
-                    <line x1="4" y1="12" x2="20" y2="12" />
-                    <line x1="4" y1="18" x2="20" y2="18" />
-                  </svg>
-                </button>
-              </div>
-              {selectMode ? (
-                <Button variant="ghost" onClick={exitSelectMode}>
-                  Cancel
-                </Button>
-              ) : (
-                <Button variant="ghost" onClick={() => setSelectMode(true)}>
-                  Select
-                </Button>
-              )}
-              <InfinityBottleButton />
-              {rarityReviewQueue.length > 0 ? (
-                <Button variant="ghost" onClick={() => navigate('/collection/rarity-review')}>
-                  Review Rarity Suggestions
-                </Button>
-              ) : null}
-              <Button onClick={() => navigate('/bottles/new')}>Add a Bottle</Button>
-            </div>
+            <select
+              className={styles.sortSelect}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              aria-label="Sort bottles"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {selectMode ? (
+              <Button variant="ghost" className={styles.toolButton} onClick={exitSelectMode}>
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="secondary" className={styles.toolButton} onClick={() => setSelectMode(true)}>
+                Select
+              </Button>
+            )}
+            <Button className={styles.toolButton} onClick={() => navigate('/bottles/new')}>
+              Add a Bottle
+            </Button>
+            <InfinityBottleButton className={styles.toolButton} />
+            {rarityReviewQueue.length > 0 ? (
+              <Button variant="secondary" className={styles.toolButton} onClick={() => navigate('/collection/rarity-review')}>
+                Review Rarity Suggestions
+              </Button>
+            ) : null}
+            <Link to="/discover" className={styles.toolLink}>
+              Explore Whiskey
+            </Link>
           </div>
 
           {selectMode ? (

@@ -102,17 +102,18 @@ describe('BottleDetailsPage', () => {
     expect(screen.getAllByText('90').length).toBeGreaterThan(0)
   })
 
-  it('switches to the Pour Stories tab and shows real pours', async () => {
+  it('shows real Pour Stories under Your Take → Tasting History', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
-    await userEvent.click(screen.getByRole('tab', { name: 'Pour Stories' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Your Take' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Pour Stories' }))
     expect(screen.getByText('Porch time', { exact: false })).toBeInTheDocument()
   })
 
   it('orders Journey events chronologically from real fields', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
-    await userEvent.click(screen.getByRole('tab', { name: 'Journey' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Your Take' }))
     const panel = screen.getByRole('tabpanel')
     const labels = within(panel)
       .getAllByText(/Added to your bar|Opened|Pour —/)
@@ -123,7 +124,7 @@ describe('BottleDetailsPage', () => {
   it('opens a Pour Story quick view when a Journey pour event is clicked', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
-    await userEvent.click(screen.getByRole('tab', { name: 'Journey' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Your Take' }))
     await userEvent.click(screen.getByRole('button', { name: /Pour — 8\.2/ }))
 
     const dialog = screen.getByRole('dialog', { hidden: true })
@@ -133,7 +134,7 @@ describe('BottleDetailsPage', () => {
   it('does not make lifecycle events like "Added to your bar" clickable', async () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
-    await userEvent.click(screen.getByRole('tab', { name: 'Journey' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Your Take' }))
 
     expect(screen.queryByRole('button', { name: /Added to your bar/ })).not.toBeInTheDocument()
   })
@@ -307,7 +308,7 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    await userEvent.click(screen.getByRole('button', { name: '☆ Favorite' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Favorite' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { favorite: true })
   })
@@ -316,7 +317,7 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([{ ...eagleRare, favorite: true }], [pour])
     renderPage('b1')
 
-    expect(screen.getByRole('button', { name: '★ Favorite' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Favorite' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('resolves a known distillery to its real city/state for the hero location line', () => {
@@ -326,26 +327,74 @@ describe('BottleDetailsPage', () => {
     expect(screen.getByText('Buffalo Trace · Frankfort, Kentucky')).toBeInTheDocument()
   })
 
-  it('shows the fill level as a percentage next to the status pill', () => {
+  it('shows the fill level as a percentage in the Fill Level card, which opens the fill picker', async () => {
     mockSignedInWith([{ ...eagleRare, fillLevel: 'three-quarter' }], [pour])
     renderPage('b1')
 
-    expect(screen.getByText('75% Full')).toBeInTheDocument()
+    const card = screen.getByRole('button', { name: /75%\s*Fill Level/ })
+    await userEvent.click(card)
+    expect(screen.getByRole('button', { name: 'Quarter' })).toBeInTheDocument()
   })
 
-  it('shows core facts as Proof (with its ABV equivalent), Age Statement, and Bottle Size', () => {
-    mockSignedInWith([{ ...eagleRare, ageStatement: '10 Year', bottleSize: 750 }], [pour])
+  it('shows Proof, ABV (exact, from proof) and Size in the hero, with the age statement kept in Bottle Info', () => {
+    mockSignedInWith([{ ...eagleRare, proof: 126.5, ageStatement: '10 Year', bottleSize: 750 }], [pour])
     renderPage('b1')
 
-    // "Proof" and "Bottle Size" are real labels in both the core-facts row
-    // and the canonical Bottle Info list below — just confirming the ABV
-    // sublabel (unique to the core-facts tile) is enough to prove the tile
-    // itself rendered correctly.
     expect(screen.getAllByText('Proof').length).toBeGreaterThan(0)
-    expect(screen.getByText('45% ABV')).toBeInTheDocument()
-    expect(screen.getByText('Age Statement')).toBeInTheDocument()
-    expect(screen.getAllByText('Bottle Size').length).toBeGreaterThan(0)
+    expect(screen.getByText('ABV')).toBeInTheDocument()
+    expect(screen.getByText('63.25%')).toBeInTheDocument()
+    expect(screen.getByText('Size')).toBeInTheDocument()
     expect(screen.getAllByText('750ml').length).toBeGreaterThan(0)
+    expect(screen.getByText('10 Year')).toBeInTheDocument()
+  })
+
+  it('marks a missing spec as not recorded instead of guessing it', () => {
+    mockSignedInWith([{ ...eagleRare, proof: undefined, bottleSize: undefined }], [pour])
+    renderPage('b1')
+
+    expect(screen.getAllByText('Not recorded')).toHaveLength(3)
+  })
+
+  it('shows a purchase date card only from purchaseDate, never from the date added', () => {
+    mockSignedInWith([{ ...eagleRare, purchaseDate: undefined, createdAt: Date.UTC(2026, 0, 5) }], [pour])
+    const { unmount } = renderPage('b1')
+    expect(screen.queryByText('Purchased')).not.toBeInTheDocument()
+    unmount()
+
+    mockSignedInWith([{ ...eagleRare, purchaseDate: '2026-10-13' }], [pour])
+    renderPage('b1')
+    expect(screen.getByText('Purchased')).toBeInTheDocument()
+    expect(screen.getAllByText('Oct 13, 2026').length).toBeGreaterThan(0)
+  })
+
+  it('shows the batch from the bottle name in the hero and as the batch card when there is no FIP availability', () => {
+    mockSignedInWith([{ ...eagleRare, name: 'Stagg Kentucky Straight Bourbon Batch 25A' }], [pour])
+    renderPage('b1')
+
+    expect(screen.getByRole('heading', { name: 'Stagg Kentucky Straight Bourbon Batch 25A' })).toBeInTheDocument()
+    expect(screen.getByText('Batch / Release')).toBeInTheDocument()
+  })
+
+  it('offers Edit Bottle and View History as secondary actions', async () => {
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+
+    await userEvent.click(screen.getByRole('button', { name: 'View History' }))
+    expect(screen.getByRole('tab', { name: 'Your Take', selected: true })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Bottle' }))
+    expect(screen.getByText('Edit Bottle Page')).toBeInTheDocument()
+  })
+
+  it('offers Add to Blend only for an open bottle', () => {
+    mockSignedInWith([{ ...eagleRare, status: 'sealed' }], [pour])
+    const { unmount } = renderPage('b1')
+    expect(screen.queryByRole('button', { name: 'Add to Blend' })).not.toBeInTheDocument()
+    unmount()
+
+    mockSignedInWith([eagleRare], [pour])
+    renderPage('b1')
+    expect(screen.getByRole('button', { name: 'Add to Blend' })).toBeInTheDocument()
   })
 
   it('shows a type badge and the FIP tier name next to the score', () => {
@@ -386,14 +435,16 @@ describe('BottleDetailsPage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('tab', { name: 'Compare', selected: true })).toBeInTheDocument()
+    // Compare now lives on the Flavor Profile tab.
+    expect(screen.getByRole('tab', { name: 'Flavor Profile', selected: true })).toBeInTheDocument()
+    expect(screen.getByLabelText('Compare with')).toBeInTheDocument()
   })
 
   it('renders the Your Take card with the current score', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
-    expect(screen.getByText('Your Take')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Your Take' })).toBeInTheDocument()
     expect(screen.getAllByText('8.2').length).toBeGreaterThan(0)
   })
 
@@ -401,6 +452,7 @@ describe('BottleDetailsPage', () => {
     mockSignedInWith([eagleRare], [pour])
     renderPage('b1')
 
+    await userEvent.click(screen.getByRole('tab', { name: 'Your Take' }))
     await userEvent.click(screen.getByRole('button', { name: 'Absolutely' }))
 
     expect(mockUpdateBottle).toHaveBeenCalledWith('b1', { buyAgain: 'absolutely' })
@@ -409,7 +461,7 @@ describe('BottleDetailsPage', () => {
   it('compares two bottles side by side once one is selected', async () => {
     mockSignedInWith([eagleRare, wellerSpecial], [pour])
     renderPage('b1')
-    await userEvent.click(screen.getByRole('tab', { name: 'Compare' }))
+    await userEvent.click(screen.getByRole('tab', { name: 'Flavor Profile' }))
     await userEvent.selectOptions(screen.getByLabelText('Compare with'), 'b2')
     expect(screen.getByRole('columnheader', { name: 'Weller Special Reserve' })).toBeInTheDocument()
     expect(screen.getAllByText('8.2').length).toBeGreaterThan(0)
