@@ -59,6 +59,14 @@ const BlindRevealPage = lazy(() =>
 const PartyHubPage = lazy(() => import('./pages/Party/PartyHubPage').then((m) => ({ default: m.PartyHubPage })))
 const PartySetupPage = lazy(() => import('./pages/Party/PartySetupPage').then((m) => ({ default: m.PartySetupPage })))
 const JoinPartyPage = lazy(() => import('./pages/Party/JoinPartyPage').then((m) => ({ default: m.JoinPartyPage })))
+const GuestPartyPage = lazy(() => import('./pages/Party/GuestPartyPage').then((m) => ({ default: m.GuestPartyPage })))
+const HostDashboardPage = lazy(() => import('./pages/Party/HostDashboardPage').then((m) => ({ default: m.HostDashboardPage })))
+const PaperBallotsPage = lazy(() => import('./pages/Party/PaperBallotsPage').then((m) => ({ default: m.PaperBallotsPage })))
+const PrintScorecardsPage = lazy(() =>
+  import('./pages/Party/PrintScorecardsPage').then((m) => ({ default: m.PrintScorecardsPage })),
+)
+const PartyRecapPage = lazy(() => import('./pages/Party/PartyRecapPage').then((m) => ({ default: m.PartyRecapPage })))
+const PartyDisplayPage = lazy(() => import('./pages/Party/PartyDisplayPage').then((m) => ({ default: m.PartyDisplayPage })))
 
 // HashRouter: GitHub Pages (and the second static "Sites" deploy target) have
 // no server-side rewrite support, so hash-based routes avoid needing a
@@ -225,6 +233,12 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
   ...partyRoute('/p/:code', <JoinPartyPage />),
   ...partyRoute('/party/new', <PartySetupPage />),
   ...partyRoute('/party/:partyId/setup', <PartySetupPage />),
+  ...partyRoute('/party/:partyId', <GuestPartyPage />),
+  ...partyRoute('/party/:partyId/host', <HostDashboardPage />),
+  ...partyRoute('/party/:partyId/ballots', <PaperBallotsPage />),
+  ...partyRoute('/party/:partyId/print', <PrintScorecardsPage />),
+  ...partyRoute('/party/:partyId/recap', <PartyRecapPage />),
+  ...partyRoute('/party/:partyId/display', <PartyDisplayPage />),
 ]
 
 function partyRoute(path: string, element: ReactNode) {

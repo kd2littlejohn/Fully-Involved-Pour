@@ -7,6 +7,7 @@ const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require(".
 const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
 const { explainAxeInsight, loadInsightForChat } = require("./axeInsightExplain");
 const { handlePartyAction } = require("./party/service");
+const { buildPartyAxePrompt, loadPartyAxeContext } = require("./party/axe");
 
 admin.initializeApp();
 
@@ -60,6 +61,18 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
     return explainAxeInsight(admin.firestore(), request.auth.uid, {
       callModel: (args) => callClaude(anthropicApiKey.value(), args),
     });
+  }
+
+  // Blind Room Party Mode (party/axe.js): a preset question about a
+  // revealed round. Party guests are usually anonymous identities, so
+  // they get a tighter cap than FIP accounts.
+  if (request.data?.mode === "party-insight") {
+    const anonymous = request.auth.token?.firebase?.sign_in_provider === "anonymous";
+    await assertNotRateLimited(request.auth.uid, "askSommelierParty", { maxCalls: anonymous ? 8 : AXE_MAX_CALLS_PER_HOUR });
+    const partyContext = await loadPartyAxeContext(admin.firestore(), request.auth.uid, request.data);
+    const { system, prompt } = buildPartyAxePrompt(partyContext, request.data.question);
+    const reply = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 400 });
+    return { reply: reply || "I couldn't come up with a response just now — try again in a moment." };
   }
 
   const prompt = String(request.data?.prompt || "").trim().slice(0, 2000);

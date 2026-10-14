@@ -1,0 +1,156 @@
+/* Paper scorecards: ink-friendly black on white, legible at arm's length,
+   two cards per Letter/A4 page where they fit. */
+
+.sheet {
+  background: #fff;
+  color: #1d1712;
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  font-family: var(--fip-font-body);
+}
+
+.card {
+  border: 2px solid #1d1712;
+  border-radius: 12px;
+  padding: 16px 20px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  max-width: 7.5in;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid #1d1712;
+  padding-bottom: 8px;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  filter: grayscale(1) brightness(0.2);
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+}
+
+.event {
+  font-family: var(--fip-font-display);
+  font-size: 1.3rem;
+}
+
+.round {
+  font-weight: 700;
+}
+
+.small {
+  font-size: 0.8rem;
+}
+
+.fields {
+  display: flex;
+  gap: 24px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  font-weight: 600;
+  flex: 1 1 200px;
+}
+
+.line,
+.lineShort {
+  border-bottom: 1px solid #1d1712;
+  flex: 1;
+  height: 1.2em;
+}
+
+.lineShort {
+  max-width: 100px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  border: 1px solid #1d1712;
+  padding: 6px 8px;
+  text-align: left;
+  height: 34px;
+}
+
+.table th {
+  font-size: 0.8rem;
+}
+
+.table th:first-child,
+.label {
+  width: 70px;
+  text-align: center;
+}
+
+.label {
+  font-family: var(--fip-font-display);
+  font-size: 1.4rem;
+}
+
+.scoreCell {
+  width: 200px;
+}
+
+.box {
+  display: inline-block;
+  width: 64px;
+  height: 24px;
+  border: 1px solid #1d1712;
+  border-radius: 4px;
+}
+
+.favorite {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+.circle {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #1d1712;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+}
+
+.foot {
+  margin-top: 10px;
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+@media print {
+  .screenOnly {
+    display: none;
+  }
+  .sheet {
+    padding: 0;
+  }
+  :global(body) {
+    background: #fff;
+  }
+}

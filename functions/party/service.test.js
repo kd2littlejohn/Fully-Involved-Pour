@@ -29,9 +29,10 @@ function call(auth, action, data = {}, ip) {
 
 const bottle = (name, extra = {}) => ({ bottle: { name, source: "manual", ...extra } });
 
+// Only this file's own counters: other test files share the emulator.
 async function clearRateLimits() {
   const snap = await db.collection("rateLimits").get();
-  await Promise.all(snap.docs.map((d) => d.ref.delete()));
+  await Promise.all(snap.docs.filter((d) => d.id.startsWith("pm-") || d.id.startsWith("ip-")).map((d) => d.ref.delete()));
 }
 
 let n = 0;
@@ -211,12 +212,19 @@ describe("guest access", () => {
     await expect(call(g1, "joinParty", { code: next, nickname: "A" })).resolves.toMatchObject({ partyId });
   });
 
-  it("rate limits repeated join attempts", async () => {
-    const { g1 } = ids();
-    for (let i = 0; i < 20; i++) {
-      await expect(call(g1, "joinParty", { code: "QQQQQQ", nickname: "A" })).rejects.toMatchObject({ code: "not-found" });
-    }
+  it("rate limits repeated join attempts per identity and per IP", async () => {
+    const { g1, g2 } = ids();
+    await expect(call(g1, "joinParty", { code: "QQQQQQ", nickname: "A" })).rejects.toMatchObject({ code: "not-found" });
+    // Seed the counter at the cap rather than looping, so other test files
+    // clearing rateLimits in parallel can't race this.
+    await db.doc(`rateLimits/${g1.uid}_party_join`).set({ count: 20, windowStart: Date.now() });
     await expect(call(g1, "joinParty", { code: "QQQQQQ", nickname: "A" })).rejects.toMatchObject({ code: "resource-exhausted" });
+    // A fresh anonymous identity from the same flooding IP is still capped.
+    const ip = "10.250.250.250";
+    const crypto = require("crypto");
+    const ipKey = `ip-${crypto.createHash("sha256").update(ip).digest("hex").slice(0, 32)}_party_joinIp`;
+    await db.doc(`rateLimits/${ipKey}`).set({ count: 120, windowStart: Date.now() });
+    await expect(call(g2, "joinParty", { code: "QQQQQQ", nickname: "A" }, ip)).rejects.toMatchObject({ code: "resource-exhausted" });
   });
 
   it("recovers a guest on a new device only with the recovery code, moving ballot ownership", async () => {

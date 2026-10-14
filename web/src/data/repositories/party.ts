@@ -367,3 +367,14 @@ export async function savePartyTemplate(uid: string, name: string, categories: P
 export async function deletePartyTemplate(uid: string, id: string): Promise<void> {
   await deleteDoc(doc(db, 'users', uid, 'partyTemplates', id))
 }
+
+// --- AXE (optional, post-reveal) -------------------------------------------
+
+export type PartyAxeQuestion = 'room-preference' | 'my-palate' | 'style-differences' | 'try-next'
+
+const askSommelierCallable = httpsCallable<Record<string, unknown>, { reply: string }>(functions, 'askSommelier')
+
+export async function askPartyAxe(partyId: string, categoryId: string, question: PartyAxeQuestion): Promise<string> {
+  const result = await askSommelierCallable({ mode: 'party-insight', partyId, categoryId, question })
+  return result.data.reply
+}

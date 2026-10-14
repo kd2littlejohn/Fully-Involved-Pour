@@ -1,0 +1,57 @@
+.recap {
+  gap: var(--fip-space-5);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--fip-space-2);
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: linear-gradient(170deg, rgba(228, 154, 58, 0.2), rgba(29, 23, 18, 0.6));
+  border: 1px solid var(--fip-border-strong);
+}
+
+.heroItem {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-4);
+}
+
+.heroImage {
+  width: 72px;
+  height: 90px;
+  object-fit: contain;
+}
+
+.heroName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-xl);
+}
+
+.winner {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+@media print {
+  .actions {
+    display: none;
+  }
+  .recap {
+    box-shadow: none;
+  }
+}

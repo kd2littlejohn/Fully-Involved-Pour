@@ -209,7 +209,7 @@ export function JoinPartyPage() {
           </Button>
         </section>
       ) : mode === 'join' ? (
-        <form className={styles.card} onSubmit={join} aria-labelledby="nickname-label">
+        <form className={styles.card} onSubmit={join}>
           <label id="nickname-label" className={styles.label} htmlFor="nickname">
             Your nickname
           </label>
