@@ -63,7 +63,7 @@ describe('AxeHubPage', () => {
     renderHub()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Good (morning|afternoon|evening), Kevin\.$/)
     expect(screen.getByText('What can I help you discover tonight?')).toBeInTheDocument()
-    expect(within(screen.getByRole('banner')).getByText('Your Personal Sommelier')).toBeInTheDocument()
+    expect(within(screen.getByRole('banner')).getByAltText('AXE, Your Personal Sommelier')).toBeInTheDocument()
   })
 
   it('shows the six actions', () => {

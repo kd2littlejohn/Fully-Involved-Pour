@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AxeLauncher } from './AxeLauncher'
 import { AxeInlineSuggestion } from './AxeInlineSuggestion'
 import { SommelierProvider } from './SommelierProvider'
-import fipMonogram from '../../assets/brand/fip-icon.svg'
+import axeSymbol from '../../assets/brand/axe-symbol.svg'
+import axeWordmarkCompact from '../../assets/brand/axe-wordmark-compact.svg'
 
 const mockAsk = vi.fn()
 
@@ -86,10 +87,11 @@ describe('AXE — Your Personal Sommelier', () => {
     expect(openButton()).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('heading', { name: 'AXE' })).toBeInTheDocument()
     expect(screen.getByText('Your Personal Sommelier')).toBeInTheDocument()
-    // The entry point and header both use the approved artwork from AxeMark
-    // (the FIP monogram until the AXE symbol file is supplied).
+    // The entry point uses the approved AXE symbol; the header title is the
+    // approved compact wordmark.
     const logos = Array.from(document.querySelectorAll('img')).map((img) => img.getAttribute('src'))
-    expect(logos.filter((src) => src === fipMonogram).length).toBeGreaterThanOrEqual(2)
+    expect(logos).toContain(axeSymbol)
+    expect(logos).toContain(axeWordmarkCompact)
     expect(screen.getByText('Where will your palate take you tonight?')).toBeInTheDocument()
   })
 

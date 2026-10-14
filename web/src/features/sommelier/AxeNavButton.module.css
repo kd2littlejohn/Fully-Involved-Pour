@@ -1,13 +1,13 @@
-/* Mobile: the raised centre tab, same position and prominence as the old
-   Pour badge. The symbol sits on a dark, gold-edged disc so the gold art
-   reads clearly (the art itself has no circle). */
+/* Mobile: the raised centre tab. The approved glass-and-flame symbol stands
+   on its own above the bar (no disc, ring or circular border); the flame
+   rising out of the bar marks the centre destination. */
 .bottom {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--fip-space-1);
+  gap: 2px;
   min-height: 56px;
   min-width: 44px;
   padding: 0 0 var(--fip-space-1);
@@ -19,25 +19,23 @@
 
 .badge {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  margin-top: -24px;
-  border-radius: var(--fip-radius-round);
-  background: radial-gradient(circle at 50% 35%, #2a1d12 0%, #0f0c09 75%);
-  border: 2px solid var(--fip-amber);
-  box-shadow:
-    0 0 0 3px var(--fip-charcoal),
-    var(--fip-shadow-soft);
-  transition: box-shadow var(--fip-motion) var(--fip-ease);
+  height: 54px;
+  margin-top: -26px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  transition: filter var(--fip-motion) var(--fip-ease);
 }
 
 .bottom:hover .badge,
 .bottomActive .badge {
-  box-shadow:
-    0 0 0 3px var(--fip-charcoal),
-    0 0 18px rgba(228, 154, 58, 0.45);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 10px rgba(228, 154, 58, 0.55));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge {
+    transition: none;
+  }
 }
 
 /* Desktop header: a pill among the text links, like the old Pour pill. */

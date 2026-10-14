@@ -3,15 +3,13 @@ import styles from './AxeMark.module.css'
 
 // The one place AXE's artwork comes from. Every AXE surface (centre nav
 // tab, AXE Hub header, chat header, insight cards, inline AXE entries)
-// renders these components. The approved files are picked up
-// automatically once they're added to src/assets/brand/ — no code change:
+// renders these components, which use the official files in
+// src/assets/brand/ (see docs/BRAND.md):
 //   - axe-symbol.svg            gold Glencairn glass and flame; no letters, no circle
 //   - axe-wordmark.svg          full "AXE" wordmark with "Your Personal Sommelier"
 //   - axe-wordmark-compact.svg  compact "AXE" wordmark for the chat header
-// Until a file is there, its surface keeps the interim treatment: the
-// approved FIP monogram for the symbol (the same glass and flame, set in
-// the FIP letters), and plain set type for the wordmarks — never an
-// imitation logo. See docs/BRAND.md.
+// If a file is ever missing, its surface falls back to the FIP monogram
+// (symbol) or set type (wordmarks), never an imitation logo.
 const brandFiles = import.meta.glob<string>('../../assets/brand/axe-*.svg', {
   eager: true,
   query: '?url',
@@ -55,8 +53,8 @@ export function AxeWordmark({ tagline = true }: { tagline?: boolean }) {
   )
 }
 
-// Chat header title: the compact wordmark once supplied, set type until
-// then. (The chat header shows AxeSymbol beside it only in the interim.)
+// Chat header title: the compact wordmark (set type only if the file is
+// missing, in which case the chat header also shows AxeSymbol beside it).
 export function AxeChatTitle({ id, className }: { id: string; className?: string }) {
   return (
     <h2 id={id} className={className}>
