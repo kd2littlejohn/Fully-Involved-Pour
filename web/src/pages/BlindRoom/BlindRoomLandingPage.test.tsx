@@ -72,6 +72,16 @@ describe('BlindRoomLandingPage', () => {
     expect(screen.getByRole('link', { name: 'Join Blind' })).toHaveAttribute('href', '/blind/join')
   })
 
+  it('adds Party Mode alongside the existing Solo and Friends actions', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([])
+    renderPage()
+
+    expect(await screen.findByText('No active Blind Rooms.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Party Mode/ })).toHaveAttribute('href', '/blind/party')
+    expect(screen.getByRole('link', { name: 'Create Blind' })).toBeInTheDocument()
+  })
+
   it('splits rooms into Active and Recent based on state', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockGetMyBlindRooms.mockResolvedValue([

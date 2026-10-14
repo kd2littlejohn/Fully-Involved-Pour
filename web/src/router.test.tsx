@@ -53,4 +53,13 @@ describe('router', () => {
       expect(hasErrorBoundary, `expected ${pathname} to have an errorElement in its route chain`).toBe(true)
     }
   })
+
+  it('Party Mode routes resolve, and each full-screen party route has its own error boundary', () => {
+    expect(matchPath('/blind/party')).not.toBeNull()
+    for (const pathname of ['/p', '/p/ABC123', '/party/new', '/party/p1/setup']) {
+      const match = matchPath(pathname)
+      expect(match, `expected ${pathname} to resolve`).not.toBeNull()
+      expect(match!.some((m) => m.route.errorElement != null), `expected ${pathname} to have an errorElement`).toBe(true)
+    }
+  })
 })

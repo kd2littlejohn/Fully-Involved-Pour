@@ -230,7 +230,7 @@ async function createParty(ctx) {
   batch.set(secretsRef(ctx.db, ref.id), { partyId: ref.id, hostUid: ctx.uid, categories: secretCategories, display: null });
   batch.set(ctx.db.collection(`parties/${ref.id}/audit`).doc(), { type: "party-created", actorUid: ctx.uid, at: ctx.now });
   await batch.commit();
-  return { partyId: ref.id, joinCode: code };
+  return { partyId: ref.id, joinCode: code, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
 }
 
 async function updateParty(ctx) {

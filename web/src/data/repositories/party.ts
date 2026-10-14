@@ -84,7 +84,7 @@ export function createParty(input: {
   settings: PartySettings
   categories: PartyCategoryInput[]
   hostName: string
-}): Promise<{ partyId: string; joinCode: string }> {
+}): Promise<{ partyId: string; joinCode: string; categories: { id: string; name: string }[] }> {
   return callParty('createParty', { ...input })
 }
 

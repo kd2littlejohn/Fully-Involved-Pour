@@ -165,6 +165,16 @@ export function BlindRoomLandingPage() {
         </Link>
       </div>
 
+      {/* Party Mode: an additional experience for hosted group tastings —
+          Solo and Friends blinds above are unchanged. */}
+      <div className={styles.partyPromo}>
+        <Link to="/blind/party" className={styles.partyCard}>
+          <span className={styles.partyEyebrow}>New · Party Mode</span>
+          <span className={styles.cardName}>Host a blind tasting for the room</span>
+          <span className={styles.cardMeta}>Multiple categories and bottles, QR-code join, digital or paper ballots — guests don’t need an account.</span>
+        </Link>
+      </div>
+
       <Section title="Active Blinds">
         {active.length === 0 ? (
           <EmptyState title="No active Blind Rooms." message="Create one — solo, or with a room code from a friend." />

@@ -1,0 +1,58 @@
+.content {
+  padding: 0 var(--fip-shell-x) var(--fip-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-6);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--fip-space-4);
+}
+
+.createCard {
+  text-decoration: none;
+  color: inherit;
+  justify-content: center;
+  min-height: 180px;
+  transition: border-color var(--fip-motion) var(--fip-ease), transform var(--fip-motion-fast) var(--fip-ease);
+}
+
+.createCard:hover {
+  border-color: var(--fip-amber);
+}
+
+.createCard:focus-visible,
+.partyCard:focus-visible {
+  outline: none;
+  box-shadow: var(--fip-focus);
+}
+
+.partyCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+  border: 1px solid var(--fip-border-subtle);
+  box-shadow: var(--fip-shadow-card);
+  color: inherit;
+  text-decoration: none;
+}
+
+.partyCard:hover {
+  border-color: var(--fip-border);
+}
+
+.partyName {
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .createCard {
+    transition: none;
+  }
+}

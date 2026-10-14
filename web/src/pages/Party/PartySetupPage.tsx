@@ -1,0 +1,386 @@
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Button } from '../../components/ui/Button'
+import { ProgressStepper } from '../../components/ui/ProgressStepper'
+import { SignInButton } from '../../components/domain/SignInButton'
+import { PhotoUploadField } from '../../features/photoUpload/PhotoUploadField'
+import { useAuth } from '../../hooks/useAuth'
+import { useUserData } from '../../hooks/useUserData'
+import { PartyLoading, PartyMessage, PartyPage, ToggleRow } from '../../features/party/PartyChrome'
+import { CategoriesStep } from '../../features/party/setup/CategoriesStep'
+import { BottlesStep } from '../../features/party/setup/BottlesStep'
+import { LabelsStep } from '../../features/party/setup/LabelsStep'
+import {
+  draftEventDate,
+  draftFromParty,
+  draftProblems,
+  emptyDraft,
+  finalizeLabels,
+  type DraftCategory,
+  type PartyDraft,
+} from '../../features/party/setupDraft'
+import { useParty, usePartySecrets } from '../../features/party/usePartyData'
+import {
+  createParty,
+  deleteCustomCategory,
+  deletePartyTemplate,
+  getPartyTemplates,
+  getSavedCategories,
+  partyErrorMessage,
+  saveCustomCategory,
+  savePartyTemplate,
+  setPartyCategories,
+  setPartySamples,
+  updateParty,
+} from '../../data/repositories/party'
+import type { PartySettings, PartyTemplate, SavedTastingCategory } from '../../features/party/types'
+import styles from '../../features/party/party.module.css'
+import local from '../../features/party/setup/setup.module.css'
+
+const STEPS = ['Details', 'Categories', 'Bottles', 'Blind letters', 'Scoring']
+
+// Create a Party (/party/new) and Edit Setup (/party/:partyId/setup) — one
+// guided flow. Everything is a local draft until the host saves; then the
+// server creates/updates the party, its rounds, and each round's
+// host-only bottle mapping.
+export function PartySetupPage() {
+  const { partyId } = useParams<{ partyId: string }>()
+  const isEdit = Boolean(partyId)
+  const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
+  const { userDoc, profile } = useUserData()
+  const party = useParty(partyId, isEdit && Boolean(user))
+  const secrets = usePartySecrets(partyId, isEdit && Boolean(user))
+
+  const [draft, setDraft] = useState<PartyDraft>(emptyDraft)
+  const [loadedFrom, setLoadedFrom] = useState<string | null>(null)
+  const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState<SavedTastingCategory[]>([])
+  const [templates, setTemplates] = useState<PartyTemplate[]>([])
+
+  useEffect(() => {
+    if (!isEdit || loadedFrom || !party.data || secrets.loading) return
+    setDraft(draftFromParty(party.data, secrets.data))
+    setLoadedFrom(party.data.id)
+  }, [isEdit, loadedFrom, party.data, secrets.loading, secrets.data])
+
+  useEffect(() => {
+    if (!user) return
+    getSavedCategories(user.uid).then(setSaved).catch((err) => console.error('[party] saved categories', err))
+    getPartyTemplates(user.uid).then(setTemplates).catch((err) => console.error('[party] templates', err))
+  }, [user])
+
+  const setCategories = useCallback((categories: DraftCategory[]) => setDraft((d) => ({ ...d, categories })), [])
+  const setSettings = (patch: Partial<PartySettings>) => setDraft((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
+
+  if (authLoading || (isEdit && user && (party.loading || !loadedFrom) && !party.error)) return <PartyLoading />
+  if (!user) {
+    return (
+      <PartyMessage
+        title="Host a party"
+        message="Sign in to your FIP account to create and run a party. Your guests won’t need an account."
+        action={<SignInButton />}
+      />
+    )
+  }
+  if (isEdit && (party.error || !party.data)) {
+    return <PartyMessage title="Party not found" message="This party doesn’t exist or you aren’t its host." />
+  }
+  if (isEdit && party.data && party.data.hostUid !== user.uid) {
+    return <PartyMessage title="Hosts only" message="Only this party’s host can edit its setup." />
+  }
+  if (isEdit && party.data?.status === 'completed') {
+    return <PartyMessage title="Party wrapped up" message="This party is complete, so its setup can no longer change." />
+  }
+
+  const problems = draftProblems(draft)
+  const stepProblems = [problems.details, problems.categories, problems.bottles, [], []]
+
+  function goTo(next: number) {
+    setError(null)
+    if (next === 3) {
+      // Settle letters as the host is about to see them, so what they see
+      // is exactly what gets saved.
+      setDraft((d) => ({
+        ...d,
+        categories: finalizeLabels(d.categories).map((c) => (c.samples.length ? { ...c, manualLabels: true } : c)),
+      }))
+    }
+    setStep(next)
+    window.scrollTo({ top: 0 })
+  }
+
+  async function save() {
+    const all = [...problems.details, ...problems.categories, ...problems.bottles]
+    if (all.length) {
+      setError(all[0]!)
+      return
+    }
+    setSaving(true)
+    setError(null)
+    const categories = finalizeLabels(draft.categories)
+    const details = {
+      name: draft.name.trim(),
+      description: draft.description.trim(),
+      eventDate: draftEventDate(draft),
+      coverImageUrl: draft.coverImageUrl,
+      capacity: draft.capacity ? Number(draft.capacity) : null,
+    }
+    try {
+      let id = partyId
+      let serverIds: string[]
+      if (!id) {
+        const created = await createParty({
+          details,
+          settings: draft.settings,
+          categories: categories.map((c) => ({ libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
+          hostName: profile?.displayName || user!.displayName || 'Your host',
+        })
+        id = created.partyId
+        serverIds = created.categories.map((c) => c.id)
+      } else {
+        await updateParty(id, { details, settings: draft.settings })
+        const result = await setPartyCategories(
+          id,
+          categories.map((c) => ({ ...(c.id ? { id: c.id } : {}), libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
+        )
+        serverIds = result.categories.map((c) => c.id)
+      }
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i]!
+        const categoryId = serverIds[i]
+        if (!categoryId || category.locked || (!category.samplesDirty && category.id)) continue
+        if (category.samples.length === 0 && !category.id) continue
+        await setPartySamples(
+          id,
+          categoryId,
+          category.samples.map((s) => ({ bottle: s.bottle, label: s.label })),
+          'manual',
+        )
+      }
+      navigate(`/party/${id}/host`, { replace: true })
+    } catch (err) {
+      console.error('[party] save failed', err)
+      setError(partyErrorMessage(err))
+      setSaving(false)
+    }
+  }
+
+  const myBar = userDoc.bottles.filter((b) => b.status !== 'wishlist')
+
+  return (
+    <PartyPage back={{ to: isEdit ? `/party/${partyId}/host` : '/blind/party', label: isEdit ? 'Dashboard' : 'Party Mode' }}>
+      <div className={styles.stack}>
+        <span className={styles.eyebrow}>{isEdit ? 'Edit setup' : 'Create a party'}</span>
+        <h1 className={styles.title}>{draft.name.trim() || 'Your whiskey party'}</h1>
+      </div>
+      <div className={local.stepNav}>
+        <ProgressStepper labels={STEPS} activeIndex={step} />
+      </div>
+
+      {step === 0 ? (
+        <section className={styles.card} aria-labelledby="details-heading">
+          <h2 id="details-heading" className={styles.sectionTitle}>
+            Event details
+          </h2>
+          <label className={styles.label} htmlFor="party-name">
+            Event name *
+          </label>
+          <input
+            id="party-name"
+            className={styles.input}
+            value={draft.name}
+            maxLength={80}
+            placeholder="Friday Night Blind"
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          />
+          <div className={local.formGrid}>
+            <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
+              <label className={styles.label} htmlFor="party-date">
+                Date (optional)
+              </label>
+              <input id="party-date" type="date" className={styles.input} value={draft.eventDate} onChange={(e) => setDraft({ ...draft, eventDate: e.target.value })} />
+            </div>
+            <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
+              <label className={styles.label} htmlFor="party-time">
+                Time (optional)
+              </label>
+              <input id="party-time" type="time" className={styles.input} value={draft.eventTime} onChange={(e) => setDraft({ ...draft, eventTime: e.target.value })} />
+            </div>
+            <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
+              <label className={styles.label} htmlFor="party-capacity">
+                Guest capacity (optional)
+              </label>
+              <input
+                id="party-capacity"
+                className={styles.input}
+                inputMode="numeric"
+                value={draft.capacity}
+                placeholder="No limit"
+                onChange={(e) => setDraft({ ...draft, capacity: e.target.value.replace(/\D/g, '') })}
+              />
+            </div>
+          </div>
+          <label className={styles.label} htmlFor="party-description">
+            Description (optional)
+          </label>
+          <textarea
+            id="party-description"
+            className={styles.input}
+            rows={3}
+            maxLength={400}
+            value={draft.description}
+            placeholder="Bring a friend. We’ll pour, you score."
+            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+          />
+          {draft.coverImageUrl ? <img className={local.cover} src={draft.coverImageUrl} alt="" /> : null}
+          <PhotoUploadField
+            label="Cover image (optional)"
+            folder="party-covers"
+            currentUrl={draft.coverImageUrl || undefined}
+            onUploaded={(url) => setDraft((d) => ({ ...d, coverImageUrl: url.startsWith('https://') ? url : '' }))}
+          />
+        </section>
+      ) : null}
+
+      {step === 1 ? (
+        <CategoriesStep
+          categories={draft.categories}
+          onChange={setCategories}
+          saved={saved}
+          templates={templates}
+          onSaveCustom={async (input) => {
+            try {
+              const record = await saveCustomCategory(user.uid, input)
+              setSaved((prev) => [...prev.filter((s) => s.id !== record.id), record].sort((a, b) => a.name.localeCompare(b.name)))
+              return record
+            } catch (err) {
+              console.error('[party] save custom category', err)
+              setError('Couldn’t save that category to your library.')
+              return undefined
+            }
+          }}
+          onDeleteCustom={async (id) => {
+            await deleteCustomCategory(user.uid, id)
+            setSaved((prev) => prev.filter((s) => s.id !== id))
+          }}
+          onSaveTemplate={async (name) => {
+            const template = await savePartyTemplate(
+              user.uid,
+              name,
+              draft.categories.map((c) => ({ libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
+            )
+            setTemplates((prev) => [template, ...prev])
+          }}
+          onDeleteTemplate={async (id) => {
+            await deletePartyTemplate(user.uid, id)
+            setTemplates((prev) => prev.filter((t) => t.id !== id))
+          }}
+        />
+      ) : null}
+
+      {step === 2 ? <BottlesStep categories={draft.categories} onChange={setCategories} myBar={myBar} /> : null}
+      {step === 3 ? <LabelsStep categories={draft.categories} onChange={setCategories} /> : null}
+
+      {step === 4 ? (
+        <section className={styles.card} aria-labelledby="settings-heading">
+          <h2 id="settings-heading" className={styles.sectionTitle}>
+            Scoring and reveal
+          </h2>
+          <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
+            <span className={styles.label} id="scoring-mode-label">
+              Default scoring for guests
+            </span>
+            <div className={styles.row} role="radiogroup" aria-labelledby="scoring-mode-label">
+              {(['quick', 'detailed'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={draft.settings.defaultScoring === mode}
+                  className={styles.choice}
+                  style={{ flex: '1 1 200px', width: 'auto' }}
+                  onClick={() => setSettings({ defaultScoring: mode })}
+                >
+                  <div>
+                    <strong>{mode === 'quick' ? 'Quick Score' : 'Detailed Score'}</strong>
+                    <div className={styles.muted}>
+                      {mode === 'quick' ? 'One enjoyment rating per sample. Great for beginners.' : 'Nose, palate, finish and complexity.'}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <span className={styles.muted}>Guests can switch modes anytime. Rankings always use overall enjoyment, so both count equally.</span>
+          </div>
+          <ToggleRow
+            id="allow-edits"
+            label="Let guests edit submitted scores"
+            hint="While voting is open for that round."
+            checked={draft.settings.allowEdits}
+            onChange={(v) => setSettings({ allowEdits: v })}
+          />
+          <ToggleRow
+            id="reveal-by-category"
+            label="Reveal round by round"
+            hint="Off: reveal every round together at the end."
+            checked={draft.settings.revealByCategory}
+            onChange={(v) => setSettings({ revealByCategory: v })}
+          />
+          <ToggleRow
+            id="show-nicknames"
+            label="Show guest nicknames on shared results"
+            hint="Off: guests appear as Taster 1, Taster 2…"
+            checked={draft.settings.showNicknames}
+            onChange={(v) => setSettings({ showNicknames: v })}
+          />
+          <ToggleRow
+            id="predictions"
+            label="Ask for a winner prediction"
+            hint="Guests guess the room’s favorite before reveal. Powers the Biggest Surprise award."
+            checked={draft.settings.predictions}
+            onChange={(v) => setSettings({ predictions: v })}
+          />
+          <p className={styles.muted}>You open, close and reveal each round yourself from the host dashboard. Nothing reveals automatically.</p>
+        </section>
+      ) : null}
+
+      {stepProblems[step]!.length ? (
+        <ul className={styles.list} aria-label="Before you continue">
+          {stepProblems[step]!.map((p) => (
+            <li key={p} className={styles.muted}>
+              • {p}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {error ? (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      <div className={styles.stickyActions}>
+        <div className={styles.stickyInner}>
+          {step > 0 ? (
+            <Button variant="secondary" onClick={() => goTo(step - 1)} disabled={saving}>
+              Back
+            </Button>
+          ) : null}
+          {step < STEPS.length - 1 ? (
+            <Button onClick={() => goTo(step + 1)} disabled={saving || (step === 0 && problems.details.length > 0)}>
+              Continue
+            </Button>
+          ) : null}
+          {step === STEPS.length - 1 || isEdit ? (
+            <Button onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create party'}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </PartyPage>
+  )
+}
