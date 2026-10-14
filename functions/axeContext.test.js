@@ -60,6 +60,25 @@ describe("sanitizeAxeContext", () => {
 });
 
 describe("buildAxeContext", () => {
+  it("identifies the AXE Hub as its own screen, with Home's palate and journey context", () => {
+    const palate = { pourCount: 5, summary: "Leans toward rye", patterns: ["Rye average 9.0"] };
+    const hub = sanitizeAxeContext({ screen: "hub", palate });
+    expect(hub.screen).toBe("hub");
+    const text = buildAxeContext(userDoc, hub);
+    expect(text).toContain("CURRENT SCREEN: the AXE Hub");
+    expect(text).not.toContain("the Home dashboard");
+    const home = buildAxeContext(userDoc, sanitizeAxeContext({ screen: "home", palate }));
+    // Same sections as Home, apart from the screen line.
+    expect(text.split("\n").slice(1).join("\n")).toBe(home.split("\n").slice(1).join("\n"));
+  });
+
+  it("keeps an insight question asked from the Hub tied to that insight id", () => {
+    expect(sanitizeAxeContext({ screen: "hub", insightId: "palate-evolution:style-preference:rye" })).toMatchObject({
+      screen: "hub",
+      insightId: "palate-evolution:style-preference:rye",
+    });
+  });
+
   it("gives Bottle Details the selected bottle, its tastings, and its memories", () => {
     const text = buildAxeContext(userDoc, sanitizeAxeContext({ screen: "bottle", bottleId: "b1" }));
     expect(text).toContain("SELECTED BOTTLE: E.H. Taylor Single Barrel");

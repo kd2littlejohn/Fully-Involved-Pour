@@ -31,3 +31,18 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
+
+/* Supplied artwork: sized by height, width follows the file's own
+   proportions. */
+.wordmarkImage {
+  display: block;
+  height: clamp(96px, 70px + 8vw, 128px);
+  width: auto;
+  max-width: 100%;
+}
+
+.compactImage {
+  display: block;
+  height: 32px;
+  width: auto;
+}

@@ -223,4 +223,26 @@ describe('AXE — Your Personal Sommelier', () => {
     await userEvent.click(screen.getByRole('button', { name: /Ask about your bar/ }))
     expect(dialog().open).toBe(true)
   })
+
+  it('names the AXE Hub as the source when opened from the Hub, with Home-style palate context', async () => {
+    mockAsk.mockResolvedValue('ok')
+    renderAt('/axe')
+    await userEvent.click(openButton())
+    expect(screen.getByText('AXE Hub')).toBeInTheDocument()
+    expect(screen.queryByText('Home')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Find My Pour/ }))
+    expect(mockAsk).toHaveBeenLastCalledWith('Help me find my pour for tonight from what I have.', [], {
+      screen: 'hub',
+      palate: expect.objectContaining({ pourCount: 0 }),
+    })
+  })
+
+  it('keeps bottle context on Bottle Details even after visiting the Hub', async () => {
+    mockAsk.mockResolvedValue('ok')
+    renderAt('/axe')
+    await userEvent.click(screen.getByRole('button', { name: 'go-b2' }))
+    await userEvent.click(openButton())
+    expect(screen.getByText('Eagle Rare')).toBeInTheDocument()
+    expect(screen.queryByText('AXE Hub')).not.toBeInTheDocument()
+  })
 })

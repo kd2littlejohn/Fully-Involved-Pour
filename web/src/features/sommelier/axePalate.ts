@@ -5,7 +5,7 @@ import { buildPalateInsightText } from '../yourPalate/palateInsights'
 import type { AxeScreen } from './axeContext'
 
 // Screens where AXE talks about the user's palate.
-export const PALATE_SCREENS = new Set<AxeScreen>(['home', 'palate', 'pour-recommendation', 'collection', 'discover'])
+export const PALATE_SCREENS = new Set<AxeScreen>(['home', 'hub', 'palate', 'pour-recommendation', 'collection', 'discover'])
 
 // The same validated insights Your Palate shows (buildPalateInsightText +
 // buildPalateProfile) — AXE never derives its own palate math. Experienced

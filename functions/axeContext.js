@@ -13,6 +13,7 @@
 
 const AXE_SCREENS = [
   "home",
+  "hub",
   "collection",
   "bottle",
   "pour-recommendation",
@@ -28,6 +29,7 @@ const AXE_SCREENS = [
 
 const SCREEN_DESCRIPTIONS = {
   home: "the Home dashboard",
+  hub: "the AXE Hub (their front door to AXE: what to pour, their palate, their bar, discovery and starting a pour)",
   collection: "My Bar (their bottle collection)",
   bottle: "a Bottle Details page",
   "pour-recommendation": 'the "What Should I Pour?" recommendation',
@@ -409,10 +411,11 @@ function buildAxeContext(rawUserDoc, context, extras = {}) {
   if (context.bottleId && ["bottle", "pour-recommendation", "log-tasting"].includes(screen)) {
     sections.push(selectedBottleSection(userDoc, context.bottleId));
   }
-  if (["home", "palate", "pour-recommendation", "collection", "discover"].includes(screen)) {
+  if (["home", "hub", "palate", "pour-recommendation", "collection", "discover"].includes(screen)) {
     sections.push(palateSection(context.palate));
   }
-  if (["journal", "home"].includes(screen)) {
+  // The AXE Hub carries Home's broad context: palate plus recent journey.
+  if (["journal", "home", "hub"].includes(screen)) {
     sections.push(journalSection(userDoc));
   }
   if (screen === "infinity" || (screen === "log-tasting" && context.infinityBottleId)) {
