@@ -1,27 +1,22 @@
-/* One scrollable line on narrow phones rather than wrapping or pushing the
-   page wider than the screen. */
+/* All five fit on one line on a standard phone; narrower screens wrap
+   them rather than scrolling sideways or cutting one off. */
 .row {
   display: flex;
-  gap: var(--fip-space-2);
-  overflow-x: auto;
+  flex-wrap: wrap;
+  gap: 6px;
   padding: 0 var(--fip-shell-x) var(--fip-space-4);
-  scrollbar-width: none;
-}
-
-.row::-webkit-scrollbar {
-  display: none;
 }
 
 .chip {
   flex: 0 0 auto;
   min-height: 40px;
-  padding: 0 var(--fip-space-4);
+  padding: 0 10px;
   border-radius: var(--fip-radius-round);
   border: 1px solid var(--fip-border-subtle);
   background: var(--fip-card);
   color: var(--fip-cream-soft);
   font: inherit;
-  font-size: var(--fip-text-sm);
+  font-size: 0.8125rem;
   cursor: pointer;
   transition:
     border-color var(--fip-motion) var(--fip-ease),

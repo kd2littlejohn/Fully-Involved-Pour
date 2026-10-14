@@ -21,6 +21,7 @@ import { RARITY_LABEL, UNCLASSIFIED_LABEL } from '../../features/rarity/rarityLe
 import { CollectionSummaryBar } from '../../features/collection/CollectionSummaryBar'
 import { CollectionOverview } from '../../features/collection/CollectionOverview'
 import { MyBarHero } from '../../features/collection/MyBarHero'
+import { LegacyBottleCard } from '../../features/collection/LegacyBottleCard'
 import { QuickFilterChips } from '../../features/collection/QuickFilterChips'
 import { CollectionFilterSheet } from '../../features/collection/CollectionFilterSheet'
 import { matchesFilter, filterLabel, ALL_FILTERS, type Filter } from '../../features/collection/collectionFilters'
@@ -204,17 +205,7 @@ export function CollectionPage() {
 
   return (
     <>
-      <MyBarHero subtitle="Manage and explore the bottles you own.">
-        {userDoc.bottles.length > 0 ? (
-          <CollectionOverview summary={summary} defaultExpanded={rarityFilter !== null && !QUICK_RARITIES.has(rarityFilter)}>
-            <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
-            <p className={styles.rarityDisclaimer}>
-              Rarity reflects how hard a bottle is to find — availability, allocation, and release scarcity — never how good it tastes.
-            </p>
-            <CollectionSummaryBar summary={summary} active={filter} onSelect={setFilter} />
-          </CollectionOverview>
-        ) : null}
-      </MyBarHero>
+      <MyBarHero subtitle="Manage and explore the bottles you own." />
 
       {userDoc.bottles.length === 0 ? (
         <EmptyState
@@ -224,6 +215,15 @@ export function CollectionPage() {
         />
       ) : (
         <>
+          <CollectionOverview summary={summary} defaultExpanded={rarityFilter !== null && !QUICK_RARITIES.has(rarityFilter)}>
+            <RarityDonutChart rows={rarity.rows} total={rarity.total} selected={rarityFilter} onSelect={setRarityFilter} />
+            <p className={styles.rarityDisclaimer}>
+              Rarity reflects how hard a bottle is to find — availability, allocation, and release scarcity — never how good it tastes.
+            </p>
+            <CollectionSummaryBar summary={summary} active={filter} onSelect={setFilter} />
+          </CollectionOverview>
+
+          <LegacyBottleCard bottles={userDoc.bottles} />
 
           <div className={styles.searchRow}>
             <div className={styles.searchField}>
@@ -263,71 +263,76 @@ export function CollectionPage() {
             </div>
           ) : null}
 
-          {/* One compact, horizontally scrollable row so the bottles start
-              right below the filters; every existing control is kept. */}
+          {/* Two groups that wrap to fit: view, sort and selection; then
+              the add / Infinity Bottle / rarity review / explore actions.
+              Nothing scrolls sideways or gets cut off. */}
           <div className={styles.toolbar}>
-            <div className={styles.viewToggle} role="group" aria-label="View as">
-              <button
-                type="button"
-                className={viewMode === 'grid' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
-                onClick={() => setViewMode('grid')}
-                aria-pressed={viewMode === 'grid'}
-                aria-label="Grid view"
+            <div className={styles.toolGroup}>
+              <div className={styles.viewToggle} role="group" aria-label="View as">
+                <button
+                  type="button"
+                  className={viewMode === 'grid' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
+                  onClick={() => setViewMode('grid')}
+                  aria-pressed={viewMode === 'grid'}
+                  aria-label="Grid view"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className={viewMode === 'list' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
+                  onClick={() => setViewMode('list')}
+                  aria-pressed={viewMode === 'list'}
+                  aria-label="List view"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="6" x2="20" y2="6" />
+                    <line x1="4" y1="12" x2="20" y2="12" />
+                    <line x1="4" y1="18" x2="20" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              <select
+                className={styles.sortSelect}
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                aria-label="Sort bottles"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="7" height="7" rx="1" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className={viewMode === 'list' ? `${styles.viewButton} ${styles.viewButtonActive}` : styles.viewButton}
-                onClick={() => setViewMode('list')}
-                aria-pressed={viewMode === 'list'}
-                aria-label="List view"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="4" y1="6" x2="20" y2="6" />
-                  <line x1="4" y1="12" x2="20" y2="12" />
-                  <line x1="4" y1="18" x2="20" y2="18" />
-                </svg>
-              </button>
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {selectMode ? (
+                <Button variant="ghost" className={styles.toolButton} onClick={exitSelectMode}>
+                  Cancel
+                </Button>
+              ) : (
+                <Button variant="secondary" className={styles.toolButton} onClick={() => setSelectMode(true)}>
+                  Select
+                </Button>
+              )}
             </div>
-            <select
-              className={styles.sortSelect}
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              aria-label="Sort bottles"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {selectMode ? (
-              <Button variant="ghost" className={styles.toolButton} onClick={exitSelectMode}>
-                Cancel
+            <div className={styles.toolGroup}>
+              <Button className={styles.toolButton} onClick={() => navigate('/bottles/new')}>
+                Add a Bottle
               </Button>
-            ) : (
-              <Button variant="secondary" className={styles.toolButton} onClick={() => setSelectMode(true)}>
-                Select
-              </Button>
-            )}
-            <Button className={styles.toolButton} onClick={() => navigate('/bottles/new')}>
-              Add a Bottle
-            </Button>
-            <InfinityBottleButton className={styles.toolButton} />
-            {rarityReviewQueue.length > 0 ? (
-              <Button variant="secondary" className={styles.toolButton} onClick={() => navigate('/collection/rarity-review')}>
-                Review Rarity Suggestions
-              </Button>
-            ) : null}
-            <Link to="/discover" className={styles.toolLink}>
-              Explore Whiskey
-            </Link>
+              <InfinityBottleButton className={styles.toolButton} />
+              {rarityReviewQueue.length > 0 ? (
+                <Button variant="secondary" className={styles.toolButton} onClick={() => navigate('/collection/rarity-review')}>
+                  Review Rarity Suggestions
+                </Button>
+              ) : null}
+              <Link to="/discover" className={styles.toolLink}>
+                Explore Whiskey
+              </Link>
+            </div>
           </div>
 
           {selectMode ? (

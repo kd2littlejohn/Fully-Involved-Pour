@@ -1,0 +1,210 @@
+/* A warm, cinematic feature card: real photo on the left (whole, over a
+   blurred copy of itself), story on the right, amber edge light. */
+.card {
+  display: flex;
+  margin: 0 var(--fip-shell-x) var(--fip-space-4);
+  border-radius: var(--fip-radius-xl);
+  border: 1px solid var(--fip-border);
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(228, 154, 58, 0.14), transparent 55%),
+    linear-gradient(135deg, #1d1712 0%, var(--fip-card) 60%);
+  box-shadow: var(--fip-shadow-card);
+  overflow: hidden;
+}
+
+.media {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 34%;
+  max-width: 180px;
+  min-height: 168px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--fip-oak-deep);
+}
+
+.backdrop {
+  position: absolute;
+  inset: -12%;
+  z-index: -1;
+  width: 124%;
+  height: 124%;
+  object-fit: cover;
+  filter: blur(16px) brightness(0.5) saturate(1.2);
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-mask-image: linear-gradient(to right, #000 82%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 82%, transparent 100%);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--fip-space-3) var(--fip-space-3) var(--fip-space-3) var(--fip-space-4);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-2);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.header button[aria-haspopup] {
+  width: 36px;
+  height: 36px;
+}
+
+.name {
+  margin: var(--fip-space-1) 0 0;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  line-height: 1.2;
+  color: var(--fip-cream);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.batch {
+  color: var(--fip-amber);
+}
+
+.meta {
+  margin: var(--fip-space-1) 0 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.story,
+.storyEmpty {
+  margin: var(--fip-space-2) 0 0;
+  font-size: var(--fip-text-sm);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.story {
+  color: var(--fip-cream-soft);
+  font-style: italic;
+}
+
+.storyEmpty {
+  color: var(--fip-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-2);
+}
+
+.storyLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.storyLink::after {
+  content: ' \2192';
+  white-space: pre;
+}
+
+.storyLink:hover {
+  color: var(--fip-cream);
+}
+
+.next {
+  min-height: 44px;
+  padding: 0 var(--fip-space-2);
+  border: 0;
+  background: none;
+  color: var(--fip-muted);
+  font: inherit;
+  font-size: var(--fip-text-xs);
+  cursor: pointer;
+}
+
+.next:hover {
+  color: var(--fip-cream);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* No Legacy Bottle yet: one quiet line, not an empty feature card. */
+.prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--fip-space-1) var(--fip-space-3);
+  margin: 0 var(--fip-shell-x) var(--fip-space-4);
+  padding: var(--fip-space-1) var(--fip-space-4);
+  border-radius: var(--fip-radius-lg);
+  border: 1px dashed var(--fip-border-subtle);
+}
+
+.promptText {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+}
+
+.promptButton {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fip-amber);
+  font: inherit;
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.promptButton:hover {
+  color: var(--fip-cream);
+}
+
+@media (min-width: 900px) {
+  .card,
+  .prompt {
+    max-width: 760px;
+  }
+}

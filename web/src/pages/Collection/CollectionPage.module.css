@@ -88,24 +88,34 @@
   margin: 0;
 }
 
-/* One line of controls that scrolls sideways on phones instead of
-   wrapping into several rows above the bottles. */
+/* Controls wrap onto as many rows as the screen needs; the page itself
+   never scrolls sideways and no button is cut off. */
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--fip-space-2);
-  overflow-x: auto;
+  gap: var(--fip-space-2) var(--fip-space-4);
   padding: 0 var(--fip-shell-x) var(--fip-space-4);
   min-width: 0;
-  scrollbar-width: none;
 }
 
-.toolbar::-webkit-scrollbar {
-  display: none;
+.toolGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fip-space-2);
+  min-width: 0;
 }
 
-.toolbar > * {
+.toolGroup > * {
   flex: 0 0 auto;
+}
+
+/* The sort menu gives way first on narrow screens. */
+.toolGroup > .sortSelect {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 220px;
 }
 
 .toolButton {
