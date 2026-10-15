@@ -196,32 +196,31 @@ export function PartySetupPage() {
           <h2 id="details-heading" className={styles.sectionTitle}>
             Event details
           </h2>
-          <span className={styles.label} id="party-format-label">
-            Kind of tasting
-          </span>
-          <div className={styles.row} role="radiogroup" aria-labelledby="party-format-label">
-            {(['blind', 'regular'] as const).map((format) => (
-              <button
-                key={format}
-                type="button"
-                role="radio"
-                aria-checked={draft.format === format}
-                className={styles.choice}
-                style={{ flex: '1 1 200px', width: 'auto' }}
-                disabled={formatLocked}
-                onClick={() => setDraft((d) => ({ ...d, format }))}
-              >
-                <div>
-                  <strong>{format === 'blind' ? 'Blind tasting' : 'Regular tasting'}</strong>
-                  <div className={styles.muted}>
-                    {format === 'blind'
-                      ? 'Samples are A, B, C… Bottles stay hidden until you reveal them.'
-                      : 'Everyone sees each bottle while they score. Results show when voting closes.'}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.label}>Kind of tasting</legend>
+            <div className={styles.row}>
+              {(['blind', 'regular'] as const).map((format) => (
+                <label key={format} className={styles.choice} style={{ flex: '1 1 200px', width: 'auto' }}>
+                  <input
+                    type="radio"
+                    name="party-format"
+                    value={format}
+                    checked={draft.format === format}
+                    disabled={formatLocked}
+                    onChange={() => setDraft((d) => ({ ...d, format }))}
+                  />
+                  <span style={{ fontWeight: 700 }}>
+                    {format === 'blind' ? 'Blind tasting' : 'Regular tasting'}
+                    <span className={styles.muted} style={{ display: 'block', fontWeight: 400 }}>
+                      {format === 'blind'
+                        ? 'Samples are A, B, C… Bottles stay hidden until you reveal them.'
+                        : 'Everyone sees each bottle while they score. Results show when voting closes.'}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           {formatLocked ? <p className={styles.muted}>A round has opened for voting, so the kind of tasting is set.</p> : null}
           <label className={styles.label} htmlFor="party-name">
             Event name *
