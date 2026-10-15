@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { WhatShouldIPourCard } from '../../features/home/WhatShouldIPourCard'
 import { QuickActions } from '../../features/home/QuickActions'
+import { TastingEntries } from '../../features/home/TastingEntries'
 import { OpenBottleCard } from '../../features/home/OpenBottleCard'
 import { ContinueYourPourStoryCard } from '../../features/home/ContinueYourPourStoryCard'
 import { MaybeTonightCard } from '../../features/home/MaybeTonightCard'
@@ -119,6 +120,7 @@ export function HomePage() {
               </Link>
             }
           />
+          <TastingEntries hasBottles={false} />
           <Section title="AXE Insight">
             <AxeInsightCard uid={user.uid} bottles={bottles} pours={pours} />
           </Section>
@@ -128,6 +130,8 @@ export function HomePage() {
           <WhatShouldIPourCard uid={user.uid} bottles={bottles} pours={pours} onPickChange={setPickedId} />
 
           <QuickActions />
+
+          <TastingEntries hasBottles />
 
           {featuredBottle || lastBlind ? (
             <Section title="Continue Your Journey">

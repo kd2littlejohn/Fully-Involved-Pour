@@ -143,6 +143,16 @@ function validateSettings(input, current) {
   return out;
 }
 
+// "blind" (the default, and every party created before formats existed)
+// hides bottles until reveal; "regular" shows them from the start.
+const PARTY_FORMATS = ["blind", "regular"];
+
+function validateFormat(input) {
+  if (input === undefined || input === null) return "blind";
+  if (!PARTY_FORMATS.includes(input)) throw invalid("Choose a blind or regular tasting.");
+  return input;
+}
+
 function validateDetails(input) {
   const data = input || {};
   const capacity = optionalNumber(data.capacity, 1, LIMITS.MAX_GUESTS, "Guest capacity");
@@ -281,4 +291,6 @@ module.exports = {
   validateSamples,
   validateScores,
   validateSettings,
+  PARTY_FORMATS,
+  validateFormat,
 };

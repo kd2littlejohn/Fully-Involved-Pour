@@ -34,6 +34,15 @@ describe('ScoringPanel', () => {
     expect(screen.queryByRole('heading', { name: 'Sample C' })).not.toBeInTheDocument()
   })
 
+  it('names each bottle in a regular (non-blind) tasting', () => {
+    const category = makeCategory({ sampleLabels: ['A', 'B'], bottles: { A: { name: 'Weller 12', distillery: 'Buffalo Trace', proof: 90 }, B: { name: 'Larceny' } } })
+    render(<ScoringPanel party={makeParty({ format: 'regular' })} category={category} ballot={undefined} />)
+    expect(screen.getByRole('heading', { name: 'Weller 12' })).toBeInTheDocument()
+    expect(screen.getByText('Buffalo Trace · 90 proof')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Larceny' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Sample A' })).not.toBeInTheDocument()
+  })
+
   it('saves a Quick Score with the overall rating, descriptors and favorite', async () => {
     render(<ScoringPanel party={makeParty()} category={makeCategory()} ballot={undefined} />)
     fireEvent.change(screen.getByLabelText('Overall enjoyment', { selector: '#overall-A' }), { target: { value: '7.5' } })

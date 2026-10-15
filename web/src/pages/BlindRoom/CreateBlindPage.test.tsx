@@ -37,9 +37,9 @@ vi.mock('../../data/repositories/blindRoom', async (importOriginal) => {
   }
 })
 
-function renderPage() {
+function renderPage(initialEntry = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path="/" element={<CreateBlindPage />} />
       </Routes>
@@ -274,6 +274,20 @@ describe('CreateBlindPage', () => {
 
     expect(mockCreateBlindRoom).toHaveBeenCalledWith(expect.objectContaining({ sessionType: 'solo' }))
     expect(mockNavigate).toHaveBeenCalledWith('/blind/room-1/taste')
+  })
+
+  it('starts on Solo Blind when opened from "Start Solo Blind Tasting" (?type=solo)', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1', displayName: 'Kevin' } })
+    mockCreateBlindRoom.mockResolvedValue({ id: 'room-1', code: 'OAK742' })
+    renderPage('/?type=solo')
+
+    await goToBottlesStep()
+    pickBottle('Pour A', 'Stagg Jr.')
+    pickBottle('Pour B', 'Eagle Rare')
+    pickBottle('Pour C', 'Elijah Craig Barrel Proof')
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Create Blind Room' }))
+    expect(mockCreateBlindRoom).toHaveBeenCalledWith(expect.objectContaining({ sessionType: 'solo' }))
   })
 
   it('Back on the first step returns to the Blind Room landing page', async () => {

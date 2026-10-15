@@ -1931,3 +1931,67 @@ describe('useUserData — Legacy Bottle editing persists', () => {
     await expect(result.current.changeLegacyBottle('b1', 'b2')).rejects.toThrow('offline')
   })
 })
+
+describe('useUserData — saved event tastings (My Tastings)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+  })
+
+  const bottle: Bottle = { id: 'b1', name: 'Weller 12', status: 'open', quantity: 1, createdAt: 1 }
+  function baseDoc(): UserDoc {
+    return { bottles: [bottle], pours: [], memories: [], infinityBottles: [], customLibrary: [], people: [] }
+  }
+  function entry(label: string, overall: number) {
+    return {
+      id: `party:p1:c1:${label}`, source: 'party' as const, format: 'blind' as const, partyId: 'p1', eventName: 'Night', categoryId: 'c1',
+      categoryName: 'Wheated', label, date: '2026-10-10', bottle: { name: `Bottle ${label}` }, overall, descriptors: [], favorite: false, savedAt: 1,
+    }
+  }
+  function lastSaved(): Partial<UserDoc> {
+    const calls = mockSaveUserDoc.mock.calls
+    return calls[calls.length - 1]![1] as Partial<UserDoc>
+  }
+
+  it('saves only the tastings field, upserting by id so saving twice never duplicates, and survives a reload', async () => {
+    mockFetchUserDoc.mockResolvedValue(baseDoc())
+    const { result, unmount } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+
+    await result.current.saveSavedTastings([entry('A', 8), entry('B', 6)])
+    expect(Object.keys(lastSaved())).toEqual(['tastings'])
+    await result.current.saveSavedTastings([entry('A', 9)])
+    const saved = lastSaved().tastings!
+    expect(saved).toHaveLength(2)
+    expect(saved.find((t) => t.label === 'A')!.overall).toBe(9)
+    // Inventory untouched.
+    expect(result.current.userDoc.bottles).toEqual([bottle])
+    unmount()
+
+    mockFetchUserDoc.mockResolvedValue({ ...baseDoc(), tastings: saved })
+    const reloaded = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(reloaded.result.current.userDoc.tastings).toHaveLength(2))
+  })
+
+  it('removes one saved tasting without touching anything else', async () => {
+    mockFetchUserDoc.mockResolvedValue({ ...baseDoc(), tastings: [entry('A', 8), entry('B', 6)] })
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.tastings).toHaveLength(2))
+    await result.current.deleteSavedTasting('party:p1:c1:A')
+    expect(lastSaved().tastings!.map((t) => t.label)).toEqual(['B'])
+    expect(result.current.userDoc.bottles).toEqual([bottle])
+  })
+
+  it('reports a failed save to the caller', async () => {
+    mockFetchUserDoc.mockResolvedValue(baseDoc())
+    const { result } = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(result.current.userDoc.bottles).toHaveLength(1))
+    mockSaveUserDoc.mockRejectedValueOnce(new Error('offline'))
+    await expect(result.current.saveSavedTastings([entry('A', 8)])).rejects.toThrow('offline')
+  })
+})

@@ -268,8 +268,10 @@ service cloud.firestore {
     // (Admin SDK), which validates input, enforces round state, and
     // rate-limits. Clients — hosts included — can only READ, and only what
     // their role allows:
-    //   host:    the party, its guests, its audit log, its results, and the
-    //            secret bottle mapping
+    //   admins:  the host and their co-hosts: the party, its guests, its
+    //            audit log and its results. Not the bottle mapping:
+    //            partySecrets is server-only, served by the getBottleKey
+    //            callable, which confirms and logs every view
     //   guest:   the party (no bottle identities live there), their own
     //            guest record, their own ballots, and revealed results
     //   display: the party and revealed results (read-only TV session)
@@ -279,8 +281,11 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/parties/$(partyId)).data;
     }
 
-    function isPartyHost(partyId) {
-      return partyData(partyId).hostUid == request.auth.uid;
+    // Host or co-host (pour assistant). Co-hosts run the event; they never
+    // taste and never read anyone's ballot.
+    function isPartyAdmin(partyId) {
+      let party = partyData(partyId);
+      return party.hostUid == request.auth.uid || request.auth.uid in party.get('coHostUids', []);
     }
 
     function isPartyGuest(partyId) {
@@ -296,6 +301,7 @@ service cloud.firestore {
     match /parties/{partyId} {
       allow read: if request.auth != null
                    && (resource.data.hostUid == request.auth.uid
+                       || request.auth.uid in resource.data.get('coHostUids', [])
                        || isPartyGuest(partyId)
                        || isPartyDisplay(partyId));
       allow write: if false;
@@ -303,7 +309,7 @@ service cloud.firestore {
       // Guest records (nicknames) are visible to the host and to the guest
       // themselves only — other guests see a count, never the roster.
       match /guests/{guestUid} {
-        allow read: if request.auth != null && (guestUid == request.auth.uid || isPartyHost(partyId));
+        allow read: if request.auth != null && (guestUid == request.auth.uid || isPartyAdmin(partyId));
         allow write: if false;
       }
 
@@ -320,17 +326,17 @@ service cloud.firestore {
       // results document existing at all means the host authorized it.
       match /results/{resultId} {
         allow read: if request.auth != null
-                     && (isPartyHost(partyId) || isPartyGuest(partyId) || isPartyDisplay(partyId));
+                     && (isPartyAdmin(partyId) || isPartyGuest(partyId) || isPartyDisplay(partyId));
         allow write: if false;
       }
 
       match /audit/{eventId} {
-        allow read: if request.auth != null && isPartyHost(partyId);
+        allow read: if request.auth != null && isPartyAdmin(partyId);
         allow write: if false;
       }
 
       match /displays/{displayUid} {
-        allow read: if request.auth != null && (displayUid == request.auth.uid || isPartyHost(partyId));
+        allow read: if request.auth != null && (displayUid == request.auth.uid || isPartyAdmin(partyId));
         allow write: if false;
       }
     }
@@ -342,11 +348,13 @@ service cloud.firestore {
       allow list: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
-    // The unrevealed bottle mapping. Host-only, forever: guests learn
-    // bottle identities only from results documents written at reveal.
+    // The bottle mapping. No client reads it, host included: admins get it
+    // only from the getBottleKey callable, which requires confirmation and
+    // logs every view before reveal (so a tasting host's blind ballot can be
+    // flagged honestly). Guests learn bottle identities only from results
+    // documents written at reveal.
     match /partySecrets/{partyId} {
-      allow read: if request.auth != null && resource.data.hostUid == request.auth.uid;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // partyCodes, partyGuestKeys (recovery code hashes) and partyClaims are

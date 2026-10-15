@@ -8,6 +8,8 @@ import { useBottlePourFlow } from './useBottlePourFlow'
 interface PourHub {
   /** Opens the Pour hub — the pour-type chooser (Quick Pour / Pour Story / Blind Room / Compare). */
   open: () => void
+  /** Skips the chooser: pick a bottle from My Bar, then the full Pour Story tasting. */
+  openTasting: () => void
   /** Render this wherever the caller's tree can host a modal — renders nothing until `open()` is called. */
   modal: ReactNode
 }
@@ -29,6 +31,11 @@ export function usePourHub(): PourHub {
 
   function open() {
     setPourTypeOpen(true)
+  }
+
+  function openTasting() {
+    setPendingType('story')
+    setPickerOpen(true)
   }
 
   function handlePourType(type: PourType) {
@@ -69,5 +76,5 @@ export function usePourHub(): PourHub {
     </>
   )
 
-  return { open, modal }
+  return { open, openTasting, modal }
 }

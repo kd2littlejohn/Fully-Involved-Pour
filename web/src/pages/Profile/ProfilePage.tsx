@@ -114,7 +114,7 @@ export function ProfilePage() {
       </Section>
 
       <div ref={palateRef} className={styles.palateAnchor}>
-        <YourPalateSection bottles={bottles} pours={pours} />
+        <YourPalateSection bottles={bottles} pours={pours} tastings={userDoc.tastings} />
         <div className={styles.palateAskAxe}>
           <AxeInlineSuggestion message="Ask AXE what your palate says about you." context={{ screen: 'palate' }} />
         </div>

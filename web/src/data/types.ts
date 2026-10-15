@@ -422,6 +422,40 @@ export interface CustomLibraryEntry {
   distillery?: string
 }
 
+// A tasting saved from a hosted event (Party Mode) to the taster's own
+// history: a snapshot, never a live reference, and never an inventory
+// change. `id` is `party:{partyId}:{categoryId}:{label}`, so saving again
+// updates the same record instead of adding a duplicate. When the bottle is
+// also in the taster's My Bar, `bottleId` links it there.
+export interface SavedTasting {
+  id: string
+  source: 'party'
+  format: 'blind' | 'regular'
+  partyId: string
+  eventName: string
+  hostName?: string
+  categoryId: string
+  categoryName: string
+  label: string
+  // The day it was tasted (YYYY-MM-DD), not the day it was saved.
+  date: string
+  bottle: { name: string; distillery?: string; type?: string; age?: string; proof?: number; imageUrl?: string }
+  bottleId?: string
+  overall: number
+  nose?: number
+  palate?: number
+  finish?: number
+  complexity?: number
+  notes?: string
+  descriptors: string[]
+  favorite: boolean
+  // Blind tastings: when the bottle was revealed. Absent for regular ones.
+  revealedAt?: number
+  // The taster was the host and knew this round's bottles before finishing.
+  notFullyBlind?: boolean
+  savedAt: number
+}
+
 export interface UserDoc {
   username?: string
   greetingMode?: string
@@ -433,6 +467,9 @@ export interface UserDoc {
   infinityBottles: InfinityBottle[]
   customLibrary: CustomLibraryEntry[]
   people: PourPerson[]
+  // Saved event tastings (see SavedTasting). Absent on docs saved before
+  // this existed.
+  tastings?: SavedTasting[]
 }
 
 export interface UsernameRecord {

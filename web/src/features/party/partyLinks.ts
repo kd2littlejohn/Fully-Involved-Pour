@@ -14,6 +14,10 @@ export function partyDisplayUrl(partyId: string, token: string): string {
   return `${appBase()}#/party/${encodeURIComponent(partyId)}/display?t=${encodeURIComponent(token)}`
 }
 
+export function partyCoHostUrl(partyId: string, token: string): string {
+  return `${appBase()}#/party/${encodeURIComponent(partyId)}/cohost?t=${encodeURIComponent(token)}`
+}
+
 export function formatJoinCode(code: string): string {
   return code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code
 }

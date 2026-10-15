@@ -2,8 +2,8 @@
 // operations on it. Nothing here touches Firestore: the wizard builds a
 // draft, then hands it to partyAction (createParty / setCategories /
 // setSamples) in one go when the host saves.
-import type { Party, PartyBottle, PartySecrets, PartySettings } from './types'
-import { DEFAULT_PARTY_SETTINGS } from './types'
+import type { Party, PartyBottle, PartyFormat, PartySecrets, PartySettings } from './types'
+import { DEFAULT_PARTY_SETTINGS, partyFormat } from './types'
 
 export const MAX_CATEGORIES = 24
 export const MIN_SAMPLES = 2
@@ -30,6 +30,9 @@ export interface DraftCategory {
   manualLabels: boolean
   // Voting has opened at least once: bottles and letters are fixed.
   locked: boolean
+  // Bottles saved on the server but not loaded here, because the bottle
+  // key hasn't been opened in this editing session. Never edited blind.
+  hiddenCount: number
   samplesDirty: boolean
 }
 
@@ -41,6 +44,9 @@ export interface PartyDraft {
   coverImageUrl: string
   capacity: string
   settings: PartySettings
+  // "I'm tasting too": the host scores alongside guests. On by default.
+  hostTasting: boolean
+  format: PartyFormat
   categories: DraftCategory[]
 }
 
@@ -59,11 +65,15 @@ export function emptyDraft(): PartyDraft {
     coverImageUrl: '',
     capacity: '',
     settings: { ...DEFAULT_PARTY_SETTINGS },
+    hostTasting: true,
+    format: 'blind',
     categories: [],
   }
 }
 
-export function draftFromParty(party: Party, secrets: PartySecrets | undefined): PartyDraft {
+// Without a bottle key, rounds keep their saved bottles on the server and
+// show only how many there are (hiddenCount); see mergeBottleKey.
+export function draftFromParty(party: Party, secrets?: Pick<PartySecrets, 'categories'> & Partial<PartySecrets>): PartyDraft {
   const [date, time] = (party.eventDate ?? '').split('T')
   return {
     name: party.name,
@@ -73,6 +83,8 @@ export function draftFromParty(party: Party, secrets: PartySecrets | undefined):
     coverImageUrl: party.coverImageUrl ?? '',
     capacity: party.capacity ? String(party.capacity) : '',
     settings: { ...DEFAULT_PARTY_SETTINGS, ...party.settings },
+    hostTasting: party.hostTasting === true,
+    format: partyFormat(party),
     categories: party.categories.map((c) => ({
       key: c.id,
       id: c.id,
@@ -82,13 +94,41 @@ export function draftFromParty(party: Party, secrets: PartySecrets | undefined):
       samples: (secrets?.categories?.[c.id]?.samples ?? []).map((s) => ({ key: s.id, label: s.label, bottle: s.bottle })),
       manualLabels: true,
       locked: Boolean(c.lockedAt),
+      hiddenCount: secrets ? 0 : c.sampleLabels.length,
       samplesDirty: false,
     })),
   }
 }
 
 export function newDraftCategory(input: { libraryId: string | null; name: string; description: string }): DraftCategory {
-  return { key: draftKey('c'), libraryId: input.libraryId, name: input.name, description: input.description, samples: [], manualLabels: false, locked: false, samplesDirty: true }
+  return {
+    key: draftKey('c'),
+    libraryId: input.libraryId,
+    name: input.name,
+    description: input.description,
+    samples: [],
+    manualLabels: false,
+    locked: false,
+    hiddenCount: 0,
+    samplesDirty: true,
+  }
+}
+
+// Fills in the bottles of rounds that were hidden, once the key is opened,
+// without touching anything else already edited in the draft.
+export function mergeBottleKey(draft: PartyDraft, secrets: Pick<PartySecrets, 'categories'>): PartyDraft {
+  return {
+    ...draft,
+    categories: draft.categories.map((c) =>
+      c.id && c.hiddenCount > 0
+        ? { ...c, hiddenCount: 0, samples: (secrets.categories[c.id]?.samples ?? []).map((s) => ({ key: s.id, label: s.label, bottle: s.bottle })) }
+        : c,
+    ),
+  }
+}
+
+export function bottleKeyHidden(draft: PartyDraft): boolean {
+  return draft.categories.some((c) => c.hiddenCount > 0)
 }
 
 export function moveItem<T>(items: T[], from: number, to: number): T[] {
@@ -177,6 +217,8 @@ export function duplicateCategory(category: DraftCategory, existingNames: string
     samples: shuffleLabels(category.samples.map((s) => ({ ...s, key: draftKey('s') }))),
     manualLabels: false,
     locked: false,
+    // A copy of a round whose bottles are hidden starts without bottles.
+    hiddenCount: 0,
     samplesDirty: true,
   }
 }
@@ -206,7 +248,8 @@ export function draftProblems(draft: PartyDraft): DraftProblems {
   if (draft.categories.length > MAX_CATEGORIES) categories.push(`Up to ${MAX_CATEGORIES} rounds per party.`)
   for (const c of draft.categories) {
     if (!c.name.trim()) categories.push('Every round needs a name.')
-    if (c.samples.length > 0 && c.samples.length < MIN_SAMPLES) bottles.push(`"${c.name}" needs at least ${MIN_SAMPLES} bottles.`)
+    const count = c.samples.length || c.hiddenCount
+    if (count > 0 && count < MIN_SAMPLES) bottles.push(`"${c.name}" needs at least ${MIN_SAMPLES} bottles.`)
   }
   return { details, categories, bottles }
 }

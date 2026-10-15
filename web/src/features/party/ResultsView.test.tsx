@@ -26,4 +26,15 @@ describe('ResultsView', () => {
     render(<MyTake results={makeResults()} myScores={{ A: 9, B: 8 }} />)
     expect(screen.getByText(/You agreed with the room!/)).toBeInTheDocument()
   })
+
+  it('notes ballots that may not have been fully blind, without hiding them', () => {
+    render(<ResultsView results={makeResults({ unblindedBallots: 1 })} myParticipantKey="g_me" />)
+    expect(screen.getByRole('note')).toHaveTextContent('Includes 1 ballot that may not have been fully blind')
+    expect(screen.getByRole('note')).toHaveTextContent('It counts like every other ballot')
+  })
+
+  it('says nothing when every ballot was blind', () => {
+    render(<ResultsView results={makeResults()} myParticipantKey="g_me" />)
+    expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  })
 })

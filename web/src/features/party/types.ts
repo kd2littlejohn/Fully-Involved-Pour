@@ -41,12 +41,42 @@ export interface PartyCategory {
   votingClosedAt: number | null
   revealedAt: number | null
   createdAt: number
+  // Regular tastings only: what everyone sees about each sample's bottle.
+  bottles?: Record<string, PartyPublicBottle>
+}
+
+// A regular tasting's visible bottle — never the host's price or My Bar id.
+export interface PartyPublicBottle {
+  name: string
+  distillery?: string
+  type?: string
+  age?: string
+  proof?: number
+  imageUrl?: string
+}
+
+// 'blind' hides bottles until reveal; 'regular' shows them from the start.
+// Absent on parties created before formats existed, which are blind.
+export type PartyFormat = 'blind' | 'regular'
+
+export function partyFormat(party: Pick<Party, 'format'>): PartyFormat {
+  return party.format === 'regular' ? 'regular' : 'blind'
 }
 
 export interface Party {
   id: string
   hostUid: string
   hostName: string
+  // "I'm tasting too". Absent on parties created before host participation.
+  hostTasting?: boolean
+  format?: PartyFormat
+  // Co-hosts / pour assistants: other FIP accounts who run the event and
+  // hold the bottle key, so the host can taste blind. They never taste.
+  coHostUids?: string[]
+  coHosts?: Record<string, { name: string; addedAt: number }>
+  // When the host first knew each round's bottles (set them up or opened
+  // the bottle key). Their ballots in those rounds are marked not fully blind.
+  hostKeyViews?: Record<string, number>
   name: string
   description: string
   eventDate: string | null
@@ -99,6 +129,8 @@ export interface PartyGuest {
   joinedAt: number
   revoked: boolean
   isAccount?: boolean
+  // The host's own record when they're tasting too. Not a counted guest.
+  isHost?: boolean
 }
 
 export interface PartySampleScore {
@@ -126,6 +158,8 @@ export interface PartyBallot {
   predictionLabel: string | null
   excluded: boolean
   excludedReason?: string | null
+  // A host ballot made after they knew this round's bottles. Counted.
+  unblinded?: boolean
   createdAt: number
   updatedAt: number
   revision: number
@@ -183,6 +217,7 @@ export interface PartyGuestScores {
   source: BallotSource
   scores: Record<string, number>
   favoriteLabel: string | null
+  unblinded?: boolean
 }
 
 // parties/{partyId}/results/{categoryId} — exists only once revealed.
@@ -196,6 +231,9 @@ export interface PartyCategoryResults {
   peoplesChoice: string[]
   awards: PartyAward[]
   ballotsCounted: number
+  // Counted ballots that may not have been fully blind. Absent on results
+  // revealed before blind-integrity tracking existed.
+  unblindedBallots?: number
   ratingsCounted: number
   guestScores: PartyGuestScores[]
   revealedAt: number

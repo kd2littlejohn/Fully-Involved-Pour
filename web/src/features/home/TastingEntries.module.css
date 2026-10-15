@@ -1,0 +1,61 @@
+/* Two side-by-side entries under Quick Actions; stacks on narrow phones. */
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fip-space-3);
+  margin: calc(-1 * var(--fip-space-3)) var(--fip-shell-x) var(--fip-space-6);
+  max-width: 560px;
+}
+
+.entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--fip-space-2);
+  min-height: 64px;
+  padding: var(--fip-space-3);
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-lg);
+  background: radial-gradient(120% 120% at 100% 0%, rgba(228, 154, 58, 0.1), transparent 60%), var(--fip-card);
+  color: var(--fip-cream);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--fip-motion-fast) var(--fip-ease);
+}
+
+.entry:hover,
+.entry:focus-visible {
+  border-color: var(--fip-amber);
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 2px;
+  color: var(--fip-amber);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  line-height: 1.35;
+}
+
+@media (max-width: 359px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

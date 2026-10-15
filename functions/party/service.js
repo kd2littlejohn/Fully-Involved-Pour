@@ -15,12 +15,18 @@
 //
 // Collections (see firestore.rules for the read side):
 //   parties/{partyId}                  event, categories (snapshotted), counts
-//   parties/{partyId}/guests/{uid}     one per joined identity
+//   parties/{partyId}/guests/{uid}     one per joined identity, plus the
+//                                      host's own when they're tasting too
+//                                      (isHost: true; not a counted guest)
 //   parties/{partyId}/ballots/{id}     id = `${categoryId}__${participantKey}`
 //   parties/{partyId}/results/{id}     per category at reveal; 'recap' at completion
 //   parties/{partyId}/audit/{id}       privileged change log (host-readable)
 //   parties/{partyId}/displays/{uid}   read-only presentation sessions
-//   partySecrets/{partyId}             host-only bottle mapping + display token hash
+//   partySecrets/{partyId}             bottle mapping + display token hash. No
+//                                      client reads it, host included: admins
+//                                      get it from getBottleKey, which asks
+//                                      for confirmation and logs every view
+//   partyCoHostInvites/{hash}          single-use co-host invites (server-only)
 //   partyCodes/{code}                  join code -> partyId (server-only)
 //   partyGuestKeys/{hash}              recovery code hash -> guest (server-only)
 //   partyClaims/{hash}                 guest-to-account claim tokens (server-only)
@@ -102,6 +108,20 @@ function assertAccount(ctx) {
 function assertHost(ctx, party) {
   assertAccount(ctx);
   if (party.hostUid !== ctx.uid) throw denied("Only the host can do that.");
+}
+
+function isCoHost(party, uid) {
+  return Array.isArray(party.coHostUids) && party.coHostUids.includes(uid);
+}
+
+// Event administrators: the host, plus any co-host / pour assistant they
+// invited. Co-hosts run the event but never taste, and can't delete the
+// party, change who's tasting, or manage other co-hosts.
+function assertAdmin(ctx, party) {
+  assertAccount(ctx);
+  if (party.hostUid === ctx.uid) return "host";
+  if (isCoHost(party, ctx.uid)) return "cohost";
+  throw denied("Only the host or a co-host can do that.");
 }
 
 function assertNotCompleted(party) {
@@ -194,6 +214,66 @@ function recoveryKeyId(partyId, recoveryCode) {
 // ---------------------------------------------------------------------------
 // Host: setup
 
+const HOST_OPT_OUT_REASON = "Host stopped tasting";
+const MAX_CO_HOSTS = 3;
+const CO_HOST_INVITE_TTL_MS = 2 * DAY;
+
+// Blind integrity. A host who knows a round's bottles (they set them up,
+// or opened the bottle key) before finishing that round's ballot can't be
+// fully blind. Their scores still count; the ballot carries
+// `unblinded: true` and results count how many such ballots they include.
+// `party.hostKeyViews[categoryId]` records when the host first knew, kept
+// whether or not they're tasting yet, so turning tasting on later can't
+// hide it. Any host ballot saved after that point is flagged.
+function hostGuestRef(db, party) {
+  return db.doc(`parties/${party.id}/guests/${party.hostUid}`);
+}
+
+function ballotComplete(ballot, category) {
+  return Boolean(ballot && category.sampleLabels.length && category.sampleLabels.every((label) => ballot.scores && ballot.scores[label]));
+}
+
+function isRegular(party) {
+  return party.format === "regular";
+}
+
+// What a regular (non-blind) tasting shows everyone about a bottle. Never
+// the host's price or My Bar id.
+function publicBottle(bottle) {
+  const out = { name: bottle.name };
+  for (const key of ["distillery", "type", "age", "proof", "imageUrl"]) if (bottle[key] !== undefined) out[key] = bottle[key];
+  return out;
+}
+
+function publicBottles(samples) {
+  const out = {};
+  for (const s of samples || []) out[s.label] = publicBottle(s.bottle);
+  return out;
+}
+
+// Regular tastings carry each round's bottles on the party doc; blind ones
+// never do (the mapping stays in partySecrets until reveal).
+function withPublicBottles(party, category, samples) {
+  if (!isRegular(party)) {
+    const { bottles: _omit, ...rest } = category;
+    return rest;
+  }
+  return { ...category, bottles: publicBottles(samples) };
+}
+
+function hostGuestRecord(uid, hostName, now) {
+  return {
+    uid,
+    participantKey: v.randomId("h_"),
+    nickname: hostName,
+    nicknameKey: v.nicknameKey(hostName),
+    joinedAt: now,
+    revoked: false,
+    isAccount: true,
+    isHost: true,
+  };
+}
+
 async function createParty(ctx) {
   assertAccount(ctx);
   await limit(ctx, "create");
@@ -203,6 +283,9 @@ async function createParty(ctx) {
   if (categoriesInput.length > v.LIMITS.MAX_CATEGORIES) throw v.invalid(`A party can have up to ${v.LIMITS.MAX_CATEGORIES} rounds.`);
   const categories = categoriesInput.map((c) => newCategory(v.validateCategoryInput(c), ctx.now));
   const hostName = v.cleanText(ctx.data.hostName, 40) || "Your host";
+  // "I'm tasting too" — on unless the host turns it off.
+  const hostTasting = ctx.data.hostTasting !== false;
+  const format = v.validateFormat(ctx.data.format);
 
   const ref = ctx.db.collection("parties").doc();
   const code = await claimNewCode(ctx.db, ref.id, ctx.now);
@@ -210,6 +293,8 @@ async function createParty(ctx) {
     id: ref.id,
     hostUid: ctx.uid,
     hostName,
+    hostTasting,
+    format,
     ...details,
     status: "setup",
     settings,
@@ -225,10 +310,12 @@ async function createParty(ctx) {
   };
   const secretCategories = {};
   for (const c of categories) secretCategories[c.id] = { samples: [] };
+  if (format === "regular") for (const c of categories) c.bottles = {};
 
   const batch = ctx.db.batch();
   batch.set(ref, party);
   batch.set(secretsRef(ctx.db, ref.id), { partyId: ref.id, hostUid: ctx.uid, categories: secretCategories, display: null });
+  if (hostTasting) batch.set(ctx.db.doc(`parties/${ref.id}/guests/${ctx.uid}`), hostGuestRecord(ctx.uid, hostName, ctx.now));
   batch.set(ctx.db.collection(`parties/${ref.id}/audit`).doc(), { type: "party-created", actorUid: ctx.uid, at: ctx.now });
   await batch.commit();
   return { partyId: ref.id, joinCode: code, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
@@ -239,11 +326,21 @@ async function updateParty(ctx) {
   await limit(ctx, "host");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     const patch = { updatedAt: ctx.now };
     if (ctx.data.details !== undefined || ctx.data.settings !== undefined) assertNotCompleted(party);
     if (ctx.data.details !== undefined) Object.assign(patch, v.validateDetails(ctx.data.details));
     if (ctx.data.settings !== undefined) patch.settings = v.validateSettings(ctx.data.settings, party.settings);
+    if (ctx.data.format !== undefined) {
+      const format = v.validateFormat(ctx.data.format);
+      if (format !== (party.format || "blind")) {
+        if (party.categories.some((c) => c.lockedAt)) throw precondition("A round has already opened for voting, so the tasting format is set.");
+        const secrets = (await tx.get(secretsRef(ctx.db, partyId))).data()?.categories || {};
+        const next = { ...party, format };
+        patch.format = format;
+        patch.categories = party.categories.map((c) => withPublicBottles(next, c, secrets[c.id]?.samples));
+      }
+    }
     if (ctx.data.recapNotes !== undefined) {
       patch.recapNotes = v.cleanText(ctx.data.recapNotes, v.LIMITS.MAX_HOST_NOTES);
       const recapRef = ctx.db.doc(`parties/${partyId}/results/recap`);
@@ -269,7 +366,7 @@ async function setCategories(ctx) {
 
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const secretsSnap = await tx.get(secretsRef(ctx.db, partyId));
     const secretCategories = { ...(secretsSnap.data()?.categories || {}) };
@@ -300,7 +397,7 @@ async function setCategories(ctx) {
           category.sampleLabels = samples.map((s) => s.label);
         }
         secretCategories[category.id] = { samples };
-        next.push(category);
+        next.push(withPublicBottles(party, category, samples));
       }
     }
 
@@ -330,14 +427,16 @@ async function setSamples(ctx) {
 
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const category = findCategory(party, categoryId);
     if (category.lockedAt) throw precondition("Voting has started for this round, so its bottles are locked.");
+    const hostKnows = ctx.uid === party.hostUid && party.format !== "regular" && !party.hostKeyViews?.[categoryId];
     const sampleLabels = samples.map((s) => s.label);
     const state = category.state === "ready" && samples.length < v.LIMITS.MIN_SAMPLES ? "draft" : category.state;
     tx.update(partyRef(ctx.db, partyId), {
-      categories: replaceCategory(party, { ...category, sampleLabels, state }),
+      categories: replaceCategory(party, withPublicBottles(party, { ...category, sampleLabels, state }, samples)),
+      ...(hostKnows ? { [`hostKeyViews.${categoryId}`]: ctx.now } : {}),
       updatedAt: ctx.now,
     });
     tx.set(secretsRef(ctx.db, partyId), { categories: { [categoryId]: { samples } } }, { merge: true });
@@ -375,10 +474,13 @@ async function setCategoryState(ctx) {
 
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const category = findCategory(party, categoryId);
-    if (!TRANSITIONS[category.state].includes(to)) {
+    // A regular tasting has nothing to reveal: closing voting can publish
+    // results in the same step.
+    const regularClose = isRegular(party) && category.state === "voting_open" && to === "revealed";
+    if (!TRANSITIONS[category.state].includes(to) && !regularClose) {
       throw precondition(`This round is ${category.state.replace("_", " ")} and can't move to ${to.replace("_", " ")}.`);
     }
     if ((to === "ready" || to === "voting_open") && category.sampleLabels.length < v.LIMITS.MIN_SAMPLES) {
@@ -396,7 +498,7 @@ async function setCategoryState(ctx) {
       patch.status = "live";
       patch.currentCategoryId = categoryId;
     }
-    if (to === "voting_closed") updated.votingClosedAt = ctx.now;
+    if (to === "voting_closed" || regularClose) updated.votingClosedAt = ctx.now;
     if (to === "revealed") updated.revealedAt = ctx.now;
     patch.categories = replaceCategory(party, updated);
 
@@ -414,7 +516,7 @@ async function revealAll(ctx) {
   await limit(ctx, "host");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const closed = party.categories.filter((c) => c.state === "voting_closed");
     if (closed.length === 0) throw precondition("Close voting on a round before revealing it.");
@@ -435,7 +537,7 @@ async function setCurrentCategory(ctx) {
   await limit(ctx, "host");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     findCategory(party, categoryId);
     tx.update(partyRef(ctx.db, partyId), { currentCategoryId: categoryId, updatedAt: ctx.now });
     return { ok: true };
@@ -449,7 +551,7 @@ async function completeParty(ctx) {
   await limit(ctx, "host");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const resultsSnap = await tx.get(ctx.db.collection(`parties/${partyId}/results`));
     const revealedIds = party.categories.filter((c) => c.state === "revealed").map((c) => c.id);
@@ -483,7 +585,7 @@ async function setInvite(ctx) {
   if (expiresAt !== null && (typeof expiresAt !== "number" || !Number.isFinite(expiresAt))) throw v.invalid("Invalid expiry.");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     tx.update(partyRef(ctx.db, partyId), { inviteActive: ctx.data.active, inviteExpiresAt: expiresAt, updatedAt: ctx.now });
     auditEvent(tx, ctx.db, partyId, ctx, "invite-updated", { active: ctx.data.active, expiresAt });
     return { ok: true };
@@ -495,7 +597,7 @@ async function rotateJoinCode(ctx) {
   const partyId = v.requireId(ctx.data.partyId, "party");
   await limit(ctx, "host");
   const party = await readParty(null, ctx.db, partyId);
-  assertHost(ctx, party);
+  assertAdmin(ctx, party);
   assertNotCompleted(party);
   const code = await claimNewCode(ctx.db, partyId, ctx.now);
   const batch = ctx.db.batch();
@@ -514,11 +616,12 @@ async function removeGuest(ctx) {
   await limit(ctx, "host");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     const guestRef = ctx.db.doc(`parties/${partyId}/guests/${guestUid}`);
     const guestSnap = await tx.get(guestRef);
     if (!guestSnap.exists) throw notFound("That guest isn't in this party.");
     const guest = guestSnap.data();
+    if (guest.isHost) throw precondition("That's you. Turn off “I'm tasting too” instead.");
     if (guest.revoked) return { ok: true };
     const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", guest.participantKey));
     const revealed = new Set(party.categories.filter((c) => c.state === "revealed").map((c) => c.id));
@@ -532,6 +635,162 @@ async function removeGuest(ctx) {
     tx.update(guestRef, { revoked: true, revokedAt: ctx.now });
     tx.update(partyRef(ctx.db, partyId), { ...counts, "counts.guests": FieldValue.increment(-1), updatedAt: ctx.now });
     auditEvent(tx, ctx.db, partyId, ctx, "guest-removed", { guestUid, nickname: guest.nickname });
+    return { ok: true };
+  });
+}
+
+// "I'm tasting too": the host scores through the same guest record and
+// saveBallot path as everyone else (one ballot per round, same scale and
+// deadlines, equal weight), never a second account or a QR join. Turning
+// it off stops their ballots counting in rounds not yet revealed; turning
+// it back on restores exactly those, so nothing is lost or duplicated.
+async function setHostTasting(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  if (typeof ctx.data.enabled !== "boolean") throw v.invalid("Enabled must be true or false.");
+  const enabled = ctx.data.enabled;
+  await limit(ctx, "host");
+  return ctx.db.runTransaction(async (tx) => {
+    const party = await readParty(tx, ctx.db, partyId);
+    assertHost(ctx, party);
+    assertNotCompleted(party);
+    const guestRef = ctx.db.doc(`parties/${partyId}/guests/${ctx.uid}`);
+    const guestSnap = await tx.get(guestRef);
+    const guest = guestSnap.exists ? guestSnap.data() : null;
+    if (guest && !guest.isHost) throw precondition("You already joined this party as a guest.");
+    const revealed = new Set(party.categories.filter((c) => c.state === "revealed").map((c) => c.id));
+    const counts = {};
+    if (guest) {
+      const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", guest.participantKey));
+      for (const doc of ballots.docs) {
+        const ballot = doc.data();
+        if (revealed.has(ballot.categoryId)) continue;
+        if (!enabled && !ballot.excluded) {
+          tx.update(doc.ref, { excluded: true, excludedReason: HOST_OPT_OUT_REASON, updatedAt: ctx.now });
+          counts[`counts.digital.${ballot.categoryId}`] = FieldValue.increment(-1);
+        } else if (enabled && ballot.excluded && ballot.excludedReason === HOST_OPT_OUT_REASON) {
+          tx.update(doc.ref, { excluded: false, excludedReason: null, updatedAt: ctx.now });
+          counts[`counts.digital.${ballot.categoryId}`] = FieldValue.increment(1);
+        }
+      }
+      tx.update(guestRef, enabled ? { revoked: false, revokedAt: null } : { revoked: true, revokedAt: ctx.now });
+    } else if (enabled) {
+      tx.set(guestRef, hostGuestRecord(ctx.uid, party.hostName || "Your host", ctx.now));
+    }
+    tx.update(partyRef(ctx.db, partyId), { ...counts, hostTasting: enabled, updatedAt: ctx.now });
+    auditEvent(tx, ctx.db, partyId, ctx, enabled ? "host-tasting-on" : "host-tasting-off", {});
+    return { ok: true, hostTasting: enabled };
+  });
+}
+
+// The bottle key: every round's sample -> bottle mapping. Admins only,
+// always behind an explicit confirmation, and every view is logged.
+// Viewing it before a round is revealed marks a tasting host's unfinished
+// ballots in those rounds as potentially unblinded (still counted).
+async function getBottleKey(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  if (ctx.data.confirm !== true) throw v.invalid("Confirm before showing the bottle key.");
+  const purpose = ctx.data.purpose === "setup" ? "setup" : "key";
+  await limit(ctx, "host");
+  return ctx.db.runTransaction(async (tx) => {
+    const party = await readParty(tx, ctx.db, partyId);
+    const role = assertAdmin(ctx, party);
+    const secrets = (await tx.get(secretsRef(ctx.db, partyId))).data()?.categories || {};
+    const blind = party.format !== "regular";
+    const unrevealed = party.categories.filter((c) => c.state !== "revealed");
+    const flagged = [];
+    if (role === "host" && blind && unrevealed.length) {
+      const hostGuest = await tx.get(hostGuestRef(ctx.db, party));
+      const byCategory = new Map();
+      if (hostGuest.exists) {
+        const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", hostGuest.data().participantKey));
+        for (const d of ballots.docs) byCategory.set(d.data().categoryId, d);
+      }
+      const knows = {};
+      for (const category of unrevealed) {
+        if (!party.hostKeyViews?.[category.id]) knows[`hostKeyViews.${category.id}`] = ctx.now;
+        const doc = byCategory.get(category.id);
+        // A ballot finished before this view stays blind (until it's edited).
+        if (ballotComplete(doc?.data(), category)) continue;
+        if (doc && doc.data().unblinded !== true) tx.update(doc.ref, { unblinded: true });
+        flagged.push(category.id);
+      }
+      if (Object.keys(knows).length) tx.update(partyRef(ctx.db, partyId), knows);
+    }
+    if (blind && unrevealed.length) {
+      auditEvent(tx, ctx.db, partyId, ctx, "bottle-key-viewed", {
+        role,
+        purpose,
+        unrevealedCategoryIds: unrevealed.map((c) => c.id),
+        flaggedCategoryIds: flagged,
+      });
+    }
+    const categories = {};
+    for (const c of party.categories) categories[c.id] = { samples: secrets[c.id]?.samples || [] };
+    return { categories, flaggedCategoryIds: flagged };
+  });
+}
+
+// Co-host / pour assistant: a second FIP account that can prepare the
+// samples, hold the bottle key and run the event, so the host can taste
+// blind. Invites are single-use links that expire.
+async function createCoHostInvite(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  await limit(ctx, "host");
+  const party = await readParty(null, ctx.db, partyId);
+  assertHost(ctx, party);
+  assertNotCompleted(party);
+  if ((party.coHostUids || []).length >= MAX_CO_HOSTS) throw precondition(`A party can have up to ${MAX_CO_HOSTS} co-hosts.`);
+  const token = v.randomCode(24);
+  const expiresAt = ctx.now + CO_HOST_INVITE_TTL_MS;
+  await ctx.db.doc(`partyCoHostInvites/${v.sha256(`${partyId}:${token}`)}`).set({ partyId, createdBy: ctx.uid, createdAt: ctx.now, expiresAt });
+  await ctx.db.collection(`parties/${partyId}/audit`).add({ type: "cohost-invited", actorUid: ctx.uid, at: ctx.now });
+  return { token, expiresAt };
+}
+
+async function acceptCoHost(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  const token = typeof ctx.data.token === "string" ? ctx.data.token.trim() : "";
+  if (!/^[A-Z0-9]{8,64}$/i.test(token)) throw v.invalid("That co-host link isn't valid.");
+  assertAccount(ctx);
+  await limit(ctx, "claim");
+  const name = v.cleanText(ctx.data.name, 40) || "Co-host";
+  const inviteRef = ctx.db.doc(`partyCoHostInvites/${v.sha256(`${partyId}:${token}`)}`);
+  return ctx.db.runTransaction(async (tx) => {
+    const party = await readParty(tx, ctx.db, partyId);
+    const invite = await tx.get(inviteRef);
+    if (!invite.exists || invite.data().partyId !== partyId) throw notFound("That co-host link isn't valid or was already used.");
+    if (invite.data().expiresAt < ctx.now) throw precondition("That co-host link has expired. Ask the host for a new one.");
+    assertNotCompleted(party);
+    if (party.hostUid === ctx.uid) throw precondition("You're already the host.");
+    if (isCoHost(party, ctx.uid)) return { partyId, alreadyCoHost: true };
+    const guest = await tx.get(ctx.db.doc(`parties/${partyId}/guests/${ctx.uid}`));
+    if (guest.exists && !guest.data().revoked) throw precondition("You've joined this party as a guest. Co-hosts know the bottles, so they can't also score.");
+    if ((party.coHostUids || []).length >= MAX_CO_HOSTS) throw precondition(`A party can have up to ${MAX_CO_HOSTS} co-hosts.`);
+    tx.delete(inviteRef);
+    tx.update(partyRef(ctx.db, partyId), {
+      coHostUids: FieldValue.arrayUnion(ctx.uid),
+      [`coHosts.${ctx.uid}`]: { name, addedAt: ctx.now },
+      updatedAt: ctx.now,
+    });
+    auditEvent(tx, ctx.db, partyId, ctx, "cohost-added", { uid: ctx.uid, name });
+    return { partyId, alreadyCoHost: false };
+  });
+}
+
+async function removeCoHost(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  const uid = v.requireId(ctx.data.uid, "co-host");
+  await limit(ctx, "host");
+  return ctx.db.runTransaction(async (tx) => {
+    const party = await readParty(tx, ctx.db, partyId);
+    assertHost(ctx, party);
+    if (!isCoHost(party, uid)) return { ok: true };
+    tx.update(partyRef(ctx.db, partyId), {
+      coHostUids: FieldValue.arrayRemove(uid),
+      [`coHosts.${uid}`]: FieldValue.delete(),
+      updatedAt: ctx.now,
+    });
+    auditEvent(tx, ctx.db, partyId, ctx, "cohost-removed", { uid });
     return { ok: true };
   });
 }
@@ -574,7 +833,7 @@ async function savePaperBallot(ctx) {
 
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const category = findCategory(party, categoryId);
     if (!["voting_open", "voting_closed"].includes(category.state)) {
@@ -586,6 +845,12 @@ async function savePaperBallot(ctx) {
     const favoriteLabel = v.validateOptionalLabel(ctx.data.favoriteLabel, category.sampleLabels, "Favorite");
     const predictionLabel = v.validateOptionalLabel(ctx.data.predictionLabel, category.sampleLabels, "Prediction");
     const identityKey = paperKey(ballotNumber || nickname);
+    if (nickname && party.hostTasting) {
+      const hostGuest = await tx.get(ctx.db.doc(`parties/${partyId}/guests/${party.hostUid}`));
+      if (hostGuest.exists && !hostGuest.data().revoked && hostGuest.data().nicknameKey === v.nicknameKey(nickname)) {
+        throw precondition("That's your own name. Score your pours in My Tasting so your ballot counts once.");
+      }
+    }
 
     const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("categoryId", "==", categoryId));
     const all = ballots.docs.map((d) => d.data());
@@ -645,7 +910,7 @@ async function deletePaperBallot(ctx) {
   await limit(ctx, "host");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const ref = ctx.db.doc(`parties/${partyId}/ballots/${id}`);
     const snap = await tx.get(ref);
@@ -669,7 +934,7 @@ async function setBallotExcluded(ctx) {
   await limit(ctx, "host");
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
-    assertHost(ctx, party);
+    assertAdmin(ctx, party);
     assertNotCompleted(party);
     const ref = ctx.db.doc(`parties/${partyId}/ballots/${id}`);
     const snap = await tx.get(ref);
@@ -694,7 +959,7 @@ async function listBallots(ctx) {
   const categoryId = v.requireId(ctx.data.categoryId, "category");
   await limit(ctx, "host");
   const party = await readParty(null, ctx.db, partyId);
-  assertHost(ctx, party);
+  assertAdmin(ctx, party);
   findCategory(party, categoryId);
   const snap = await ctx.db.collection(`parties/${partyId}/ballots`).where("categoryId", "==", categoryId).get();
   const ballots = snap.docs.map((d) => {
@@ -748,6 +1013,8 @@ async function joinParty(ctx) {
 
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
+    if (party.hostUid === ctx.uid) throw precondition("You're hosting this party. Turn on “I'm tasting too” from your dashboard to score.");
+    if (isCoHost(party, ctx.uid)) throw precondition("You're a co-host for this party, so you know the bottles. Co-hosts run the event but don't score.");
     const guestRef = ctx.db.doc(`parties/${partyId}/guests/${ctx.uid}`);
     const existing = await tx.get(guestRef);
     if (existing.exists) {
@@ -856,6 +1123,7 @@ async function saveBallot(ctx) {
     const snap = await tx.get(ref);
     const before = snap.exists ? snap.data() : null;
     if (before && before.ownerUid !== ctx.uid) throw denied("That ballot belongs to someone else.");
+    const unblinded = before?.unblinded === true || Boolean(guest.isHost && party.format !== "regular" && party.hostKeyViews?.[categoryId]);
 
     let mergedScores = scores;
     let favorite = favoriteLabel;
@@ -884,6 +1152,7 @@ async function saveBallot(ctx) {
       favoriteLabel: favorite,
       predictionLabel: prediction,
       excluded: before ? before.excluded === true : false,
+      ...(unblinded ? { unblinded: true } : {}),
       createdAt: before ? before.createdAt : ctx.now,
       updatedAt: ctx.now,
       revision: before ? (before.revision || 1) + 1 : 1,
@@ -900,7 +1169,7 @@ async function createDisplayLink(ctx) {
   const partyId = v.requireId(ctx.data.partyId, "party");
   await limit(ctx, "host");
   const party = await readParty(null, ctx.db, partyId);
-  assertHost(ctx, party);
+  assertAdmin(ctx, party);
   const token = v.randomToken();
   const expiresAt = ctx.now + DISPLAY_TTL_MS;
   await secretsRef(ctx.db, partyId).set({ display: { tokenHash: v.sha256(token), expiresAt } }, { merge: true });
@@ -911,7 +1180,7 @@ async function revokeDisplays(ctx) {
   const partyId = v.requireId(ctx.data.partyId, "party");
   await limit(ctx, "host");
   const party = await readParty(null, ctx.db, partyId);
-  assertHost(ctx, party);
+  assertAdmin(ctx, party);
   const displays = await ctx.db.collection(`parties/${partyId}/displays`).get();
   const batch = ctx.db.batch();
   for (const doc of displays.docs) batch.delete(doc.ref);
@@ -993,6 +1262,11 @@ const ACTIONS = {
   setInvite,
   rotateJoinCode,
   removeGuest,
+  setHostTasting,
+  getBottleKey,
+  createCoHostInvite,
+  acceptCoHost,
+  removeCoHost,
   deleteParty,
   savePaperBallot,
   deletePaperBallot,

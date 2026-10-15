@@ -85,6 +85,24 @@ describe('users/{uid}', () => {
 // on this same users/{uid} document (see data/types.ts), so this is really
 // exercising the existing users/{uid} rule with rarity fields specifically
 // — there is no separate rarity collection or rule to add. -----------------
+describe('saved event tastings (users/{uid}.tastings)', () => {
+  const tasting = { id: 'party:p1:c1:A', source: 'party', format: 'blind', partyId: 'p1', label: 'A', overall: 8, savedAt: 1 }
+
+  it('the owner can save to their own My Tastings', async () => {
+    await seedUserDoc(USER_A)
+    const a = testEnv.authenticatedContext(USER_A)
+    await assertSucceeds(setDoc(doc(a.firestore(), 'users', USER_A), { tastings: [tasting] }, { merge: true }))
+  })
+
+  it('no one else can read or write them, a party host included', async () => {
+    await seedUserDoc(USER_A, { tastings: [tasting] })
+    const b = testEnv.authenticatedContext(USER_B)
+    await assertFails(getDoc(doc(b.firestore(), 'users', USER_A)))
+    await assertFails(updateDoc(doc(b.firestore(), 'users', USER_A), { tastings: [] }))
+    await assertFails(setDoc(doc(b.firestore(), 'users', USER_A), { tastings: [{ ...tasting, overall: 1 }] }, { merge: true }))
+  })
+})
+
 describe('bottle rarity write protection', () => {
   // Exactly what the app writes for a manual confirmation. Production's
   // Firestore client is created with ignoreUndefinedProperties (see

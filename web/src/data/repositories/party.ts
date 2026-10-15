@@ -22,6 +22,7 @@ import type {
   PartyBallotSummary,
   PartyCategory,
   PartyCategoryResults,
+  PartyFormat,
   PartyGuest,
   PartyPreview,
   PartyRecap,
@@ -84,13 +85,15 @@ export function createParty(input: {
   settings: PartySettings
   categories: PartyCategoryInput[]
   hostName: string
+  hostTasting: boolean
+  format: PartyFormat
 }): Promise<{ partyId: string; joinCode: string; categories: { id: string; name: string }[] }> {
   return callParty('createParty', { ...input })
 }
 
 export function updateParty(
   partyId: string,
-  patch: { details?: PartyDetailsInput; settings?: Partial<PartySettings>; recapNotes?: string },
+  patch: { details?: PartyDetailsInput; settings?: Partial<PartySettings>; recapNotes?: string; format?: PartyFormat },
 ): Promise<{ ok: true }> {
   return callParty('updateParty', { partyId, ...patch })
 }
@@ -106,6 +109,56 @@ export function setPartySamples(
   assignment: 'random' | 'manual',
 ): Promise<{ samples: PartySample[] }> {
   return callParty('setSamples', { partyId, categoryId, samples, assignment })
+}
+
+// "I'm tasting too" after creation. Off stops the host's ballots counting in
+// rounds not yet revealed; on restores them.
+export function setHostTasting(partyId: string, enabled: boolean): Promise<{ ok: true; hostTasting: boolean }> {
+  return callParty('setHostTasting', { partyId, enabled })
+}
+
+// --- Bottle key and co-hosts -------------------------------------------------
+
+export interface BottleKey {
+  categories: PartySecrets['categories']
+  // Rounds where this view marks the tasting host's ballot as not fully blind.
+  flaggedCategoryIds: string[]
+}
+
+// The sample -> bottle mapping, for the host or a co-host. Always an explicit
+// call (never a live listener): the server logs every view before reveal.
+export function getBottleKey(partyId: string, purpose: 'key' | 'setup' = 'key'): Promise<BottleKey> {
+  return callParty('getBottleKey', { partyId, confirm: true, purpose })
+}
+
+export function createCoHostInvite(partyId: string): Promise<{ token: string; expiresAt: number }> {
+  return callParty('createCoHostInvite', { partyId })
+}
+
+export function acceptCoHost(partyId: string, token: string, name: string): Promise<{ partyId: string; alreadyCoHost: boolean }> {
+  return callParty('acceptCoHost', { partyId, token, name })
+}
+
+export function removeCoHost(partyId: string, uid: string): Promise<{ ok: true }> {
+  return callParty('removeCoHost', { partyId, uid })
+}
+
+export interface KeyAccessEntry {
+  id: string
+  actorUid: string
+  role: 'host' | 'cohost'
+  purpose: 'key' | 'setup'
+  at: number
+  flaggedCategoryIds: string[]
+}
+
+// Every bottle-key view before reveal (admins only; see firestore.rules).
+export async function getKeyAccessLog(partyId: string): Promise<KeyAccessEntry[]> {
+  const snap = await getDocs(query(collection(db, 'parties', partyId, 'audit'), where('type', '==', 'bottle-key-viewed')))
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<KeyAccessEntry, 'id'>) }))
+    .map((e) => ({ ...e, flaggedCategoryIds: e.flaggedCategoryIds ?? [] }))
+    .sort((a, b) => b.at - a.at)
 }
 
 export function deleteParty(partyId: string): Promise<{ ok: true }> {
@@ -248,10 +301,6 @@ export function watchParty(partyId: string, onValue: (party: Party | undefined) 
   return watchDoc<Party>(['parties', partyId], onValue, onError)
 }
 
-export function watchPartySecrets(partyId: string, onValue: (secrets: PartySecrets | undefined) => void, onError?: (err: unknown) => void) {
-  return watchDoc<PartySecrets>(['partySecrets', partyId], onValue, onError)
-}
-
 export function watchMyGuest(partyId: string, uid: string, onValue: (guest: PartyGuest | undefined) => void, onError?: (err: unknown) => void) {
   return watchDoc<PartyGuest>(['parties', partyId, 'guests', uid], onValue, onError)
 }
@@ -299,9 +348,15 @@ export function watchGuests(partyId: string, onValue: (guests: PartyGuest[]) => 
 
 // --- Party lists ----------------------------------------------------------------
 
+// Parties this account runs: as host, or as a co-host / pour assistant.
 export async function getHostedParties(uid: string): Promise<Party[]> {
-  const snap = await getDocs(query(collection(db, 'parties'), where('hostUid', '==', uid)))
-  return snap.docs.map((d) => d.data() as Party).sort((a, b) => b.createdAt - a.createdAt)
+  const [hosted, coHosted] = await Promise.all([
+    getDocs(query(collection(db, 'parties'), where('hostUid', '==', uid))),
+    getDocs(query(collection(db, 'parties'), where('coHostUids', 'array-contains', uid))).catch(() => null),
+  ])
+  const byId = new Map<string, Party>()
+  for (const d of [...hosted.docs, ...(coHosted?.docs ?? [])]) byId.set(d.id, d.data() as Party)
+  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt)
 }
 
 // Parties this identity joined as a guest (excluding ones it hosts).

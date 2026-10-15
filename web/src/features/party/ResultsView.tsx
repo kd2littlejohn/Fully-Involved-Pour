@@ -60,6 +60,13 @@ export function ResultsView({ results, myParticipantKey, presentation = false, s
         <p className={styles.muted}>No scores were submitted for this round.</p>
       )}
 
+      {results.unblindedBallots ? (
+        <p className={styles.muted} role="note">
+          Includes {results.unblindedBallots === 1 ? '1 ballot' : `${results.unblindedBallots} ballots`} that may not have been fully blind (the host saw
+          these bottles before finishing). {results.unblindedBallots === 1 ? 'It counts' : 'They count'} like every other ballot.
+        </p>
+      ) : null}
+
       {results.awards.length > 0 ? (
         <ul className={r.awards} aria-label="Awards">
           {results.awards.map((award) => (
