@@ -10,7 +10,8 @@ A hosted blind tasting for a whole room. It extends the Blind Room and leaves th
 | `/party/new`, `/party/:id/setup` | host | Create / edit wizard |
 | `/p/:code` | guests | Welcome, nickname join, recovery-code rejoin (QR and invite links point here) |
 | `/party/:id` | guests | Live round, scoring, results |
-| `/party/:id/host` | host | Live dashboard: Manage Party, plus My Tasting when the host is tasting too |
+| `/party/:id/host` | host, co-hosts | Live dashboard: Manage Party, plus My Tasting when the host is tasting too |
+| `/party/:id/cohost?t=…` | invited co-host | Accept a one-time co-host invitation (FIP account required) |
 | `/party/:id/ballots` | host | Paper Ballot Entry |
 | `/party/:id/print` | host | Printable scorecards |
 | `/party/:id/recap` | host + guests | Party Recap (after completion) |
@@ -41,7 +42,8 @@ Rankings come from a pure engine (`functions/party/scoring.js`). It runs at reve
 | `parties/{id}/results/recap` | Party Recap, written at completion | host, guests, displays |
 | `parties/{id}/audit/*` | privileged change log | host |
 | `parties/{id}/displays/{uid}` | read-only TV sessions with an expiry | host, that display |
-| `partySecrets/{id}` | **the bottle ↔ letter mapping**, display token hash | host only, forever |
+| `partySecrets/{id}` | **the bottle ↔ letter mapping**, display token hash | no client, host included: admins use the `getBottleKey` callable |
+| `partyCoHostInvites/*` | single-use co-host invite hashes | server only |
 | `partyCodes/*`, `partyGuestKeys/*`, `partyClaims/*` | join codes, recovery-code hashes, claim tokens | server only |
 | `users/{uid}/partyCategories/*`, `users/{uid}/partyTemplates/*` | saved custom categories and setups | owner |
 
@@ -66,6 +68,59 @@ Not even the host can read a guest's digital ballot (scores or private notes). T
 - To prevent double counting, the host can't `joinParty` their own party, can't be removed with `removeGuest`, and can't enter a paper ballot under their own name while tasting.
 - On the dashboard, **My Tasting** is the guest scoring view (`MyTastingView`). It has no admin controls and no bottle mapping. Bottles appear only through revealed results, as for any guest.
 - **Blind integrity:** the host still sets up the flight and can open the mapping on Manage Party, so a host's blind ballot is only as blind as their setup. The setup screen says so and suggests someone else pours.
+
+### Bottle key, co-hosts and blind integrity
+
+**Admins** are the host and up to 3 **co-hosts / pour assistants**: other FIP accounts the host invites with a single-use link (`createCoHostInvite` → `/party/:id/cohost?t=…` → `acceptCoHost`, valid 2 days; `removeCoHost`).
+
+- **What co-hosts can do:** everything that runs the event: setup, bottles, rounds, reveals, paper ballots, invites, displays, completing the party, and the bottle key.
+- **What co-hosts can't do:** delete the party, change host tasting, manage co-hosts, join as a guest, or read anyone's ballot. Someone already tasting as a guest can't become a co-host.
+- **Rules:** co-hosts read the party, roster, results, audit and displays (`isPartyAdmin`).
+
+**The bottle key** is served only by `getBottleKey { confirm: true, purpose }`.
+
+- The client never subscribes to `partySecrets`.
+- Every view while any round is unrevealed writes an audit event: `bottle-key-viewed`, with actor, role, purpose, the hidden rounds and any flagged rounds.
+- On the dashboard, every view sits behind a confirmation. The key lives only in memory, and **Hide key** drops it. The Bottle key card lists every pre-reveal view.
+- In **Edit setup**, details, rounds and scoring can be edited without the key. The Bottles and Letters steps ask to open it (`purpose: "setup"`). Regular tastings load bottles directly.
+
+**Blind integrity.** `party.hostKeyViews[categoryId]` records when the host first knew a round's bottles in a blind party:
+
+- **Setting up the bottles:** `setSamples` by the host.
+- **Opening the key:** viewing it while that round is unrevealed and their ballot for it isn't finished.
+
+It's recorded whether or not the host is tasting yet. The host's ballots in those rounds, and any host ballot saved after that point, carry `unblinded: true`.
+
+These ballots are **never excluded**:
+
+- Results count them like every other ballot and report `unblindedBallots`, shown to everyone as a short note.
+- A ballot finished before the key was opened stays blind until it's edited.
+- Co-host views never flag anything.
+
+To taste fully blind, the host leaves the bottles empty and has a co-host set them up and pour.
+
+### Saving to My Tastings
+
+Once a round's bottles are known (a revealed blind round, or a regular round's results), a signed-in taster can save their own scores from that round. This includes the participating host.
+
+- Saved tastings go to `users/{uid}.tastings` as `SavedTasting` records, one per scored sample.
+- Ids are `party:{partyId}:{categoryId}:{label}`, so saving again updates instead of duplicating.
+- Each record keeps:
+  - the bottle snapshot (no price)
+  - event and round
+  - the original tasting date
+  - overall and sub-scores
+  - notes and descriptors
+  - favorite
+  - blind or regular origin and the reveal time
+  - a not-fully-blind mark
+- The bottle is linked to a My Bar bottle with the same name if there is one. Nothing is added to My Bar and inventory never changes.
+- My Tastings appear in the Journal.
+- Your Palate counts them through the existing Bottle and Pour shapes, in memory only:
+  - sub-scores map onto the FIP rubric maximums
+  - the overall rating is kept as given
+  - unowned bottles get stand-in records
+- Anonymous guests use **Keep my results** to link an account first.
 
 ### Guests
 
@@ -96,6 +151,15 @@ Not even the host can read a guest's digital ballot (scores or private notes). T
 - **Limits:** 24 rounds per party, 2–12 bottles per round, and up to 150 guests (or the host's capacity).
 
 ## Release checklist
+
+**Blind integrity, co-hosts and Save to My Tastings release:** deploy in this order.
+
+1. Functions (`partyAction`).
+2. The website.
+3. Firestore rules (`firebase deploy --only firestore:rules`). They close `partySecrets` to every client and give co-hosts admin reads.
+
+The new website never reads `partySecrets` directly, so it works under the old rules. Co-host dashboards need the new rules.
+
 
 1. **Firebase Console → Authentication → Sign-in method → enable Anonymous.** Guests can't join without it.
 2. Deploy the security rules and indexes. The new `guests.uid` collection-group index backs "parties I attended".

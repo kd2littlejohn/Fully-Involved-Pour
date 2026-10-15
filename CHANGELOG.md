@@ -7,10 +7,15 @@ Added
 - **I'm tasting too** (on by default): the host scores alongside guests from the same account. The host's ballot counts exactly like a guest's: one per round, same scale and deadlines, equal weight. It can be turned off or on later; off stops the host's ballots counting in rounds not yet revealed, and on restores them.
 - Host dashboard **Manage Party / My Tasting** switch: one tap, always at the top, with personal progress ("2 of 3 samples scored"). Unsaved scores, the chosen round and the last sample are kept when switching or leaving the page. My Tasting has no admin controls and stays blind until the reveal.
 
+- **Protected bottle key:** the bottle mapping is no longer readable by any client. The host or a co-host opens it from the dashboard behind a confirmation. Every view before a reveal is logged and listed on the dashboard. Editing setup no longer shows bottles until the key is opened.
+- **Co-host / pour assistant:** a one-time invite link lets another FIP account set up bottles, pour, hold the key and run rounds, so the host can taste truly blind. Co-hosts don't score and can't delete the party.
+- **Blind integrity:** if the tasting host set up a round's bottles, or opened the key before finishing that round, their ballot is marked "not fully blind". It still counts equally, and results say so.
+- **Save to My Tastings:** after a blind round is revealed, or a regular round's results are out, tasters can save their scores, notes and flavors to My Tastings in the Journal. Re-saving never duplicates, nothing is added to My Bar, and saved tastings count toward Your Palate.
+
 Changed
 - Hosts can no longer join their own party as a guest, or enter a paper ballot under their own name while tasting. Both would double count; use My Tasting instead.
 
-Release notes: deploy the `partyAction` function before the website. No Firestore rules, index or data migration changes are needed.
+Release notes: deploy the `partyAction` function, then the website, then Firestore rules (`firebase deploy --only firestore:rules`). No indexes or data migrations are needed; existing parties and user data are unchanged.
 
 ## Unreleased - Legacy Bottle editing
 
