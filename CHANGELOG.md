@@ -1,3 +1,18 @@
+## Unreleased - Legacy Bottle editing
+
+Added
+- The Legacy Bottle card's ••• menu now works: Edit Legacy Story, Change Legacy Bottle, View Bottle Details, Add another Legacy Bottle, and Remove Legacy Status.
+- Legacy Story editor, prefilled from what's saved: story title, "why it matters", the full personal story, an occasion or person, and a meaningful date. It's kept separate from tasting notes and flavors: the story is about what the bottle means, not how it tastes.
+- Open Story now shows the complete story, with an Edit button and a link on to the bottle's pours and memories.
+- Change Legacy Bottle lets you search the bottles already in My Bar. Legacy status moves in one save, and the previous bottle keeps its story, inventory and history.
+- Removing Legacy status asks first and only clears the Legacy flag. The bottle, its story and its tasting history all stay.
+- Saving, success and error states on every action.
+
+Changed
+- The overflow (•••) menu closes when you tap outside it on iPhone, opens upward when it would run under the bottom nav, and is no longer clipped by the Legacy Bottle card.
+
+Data: the new story fields (`legacyStoryTitle`, `legacyStory`, `legacyOccasion`, `legacyDate`, `legacyStoryUpdatedAt`) sit on the existing bottle record in `users/{uid}`, beside `legacyShelf` and `legacyShelfReason`. No Firestore rules or index changes are needed, and the fields aren't included in the shared-collection projection friends can see.
+
 ## Unreleased - Blind Room Party Mode
 
 Added

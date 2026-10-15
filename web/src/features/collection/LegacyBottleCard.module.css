@@ -9,7 +9,8 @@
     radial-gradient(120% 120% at 100% 0%, rgba(228, 154, 58, 0.14), transparent 55%),
     linear-gradient(135deg, #1d1712 0%, var(--fip-card) 60%);
   box-shadow: var(--fip-shadow-card);
-  overflow: hidden;
+  /* Not overflow: hidden — the ••• menu has to be able to drop below a
+     short card. The photo column clips itself to the card's corners. */
 }
 
 .media {
@@ -22,6 +23,7 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  border-radius: calc(var(--fip-radius-xl) - 1px) 0 0 calc(var(--fip-radius-xl) - 1px);
   background: var(--fip-oak-deep);
 }
 
@@ -129,6 +131,11 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
   color: var(--fip-amber);
   font-size: var(--fip-text-sm);
   font-weight: 600;

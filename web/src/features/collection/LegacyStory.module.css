@@ -1,0 +1,141 @@
+/* Shared by the Legacy Story view, editor and remove confirmation —
+   the same warm, quiet treatment as the Legacy Bottle card. */
+.form,
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-3);
+}
+
+.bottleName {
+  margin: 0;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.hint {
+  margin: 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+}
+
+.textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.count {
+  margin: 4px 0 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  text-align: right;
+}
+
+.error {
+  margin: 0;
+  padding: var(--fip-space-2) var(--fip-space-3);
+  border-radius: var(--fip-radius-sm);
+  border: 1px solid var(--fip-error);
+  color: var(--fip-error);
+  font-size: var(--fip-text-sm);
+}
+
+.buttons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-2);
+}
+
+/* Full story view */
+.storyTitle {
+  margin: 0;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  line-height: 1.25;
+  color: var(--fip-cream);
+}
+
+.reason {
+  margin: 0;
+  color: var(--fip-cream-soft);
+  font-style: italic;
+  font-size: var(--fip-text-md);
+  line-height: 1.45;
+}
+
+.story {
+  margin: 0;
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  line-height: var(--fip-leading-copy);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-1) var(--fip-space-3);
+  margin: 0;
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.details dt {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.details dd {
+  margin: 0;
+}
+
+.viewActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-top: var(--fip-space-2);
+}
+
+.journeyLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.journeyLink:hover {
+  color: var(--fip-cream);
+}
+
+/* Transient save/remove confirmation, above the bottom nav. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: var(--fip-space-2) var(--fip-space-4);
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  background: var(--fip-card-elevated);
+  box-shadow: var(--fip-shadow-card);
+  color: var(--fip-cream);
+  font-size: var(--fip-text-sm);
+  pointer-events: none;
+}

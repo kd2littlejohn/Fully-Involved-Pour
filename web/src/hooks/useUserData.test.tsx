@@ -1846,3 +1846,88 @@ describe('useUserData — bottle rarity', () => {
     expect((patch.bottles as Bottle[])[0]).not.toHaveProperty('rarity')
   })
 })
+
+describe('useUserData — Legacy Bottle editing persists', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReadCachedUserDoc.mockReturnValue(undefined)
+    mockFetchProfile.mockResolvedValue(undefined)
+    mockEnsureSearchableProfile.mockImplementation((_uid: string, existing: unknown) => Promise.resolve(existing))
+    mockSyncSharedCollection.mockResolvedValue(undefined)
+    mockSaveUserDoc.mockResolvedValue(undefined)
+    mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+  })
+
+  function legacyDoc(): UserDoc {
+    return {
+      bottles: [
+        { id: 'b1', name: "Blanton's", status: 'open', legacyShelf: true, legacyShelfReason: 'From Dad', legacyStory: 'The porch', notes: 'Caramel', createdAt: 1 },
+        { id: 'b2', name: 'Weller 12', status: 'sealed', quantity: 2, createdAt: 2 },
+      ],
+      pours: [{ id: 'p1', bottleId: 'b1', date: '2026-01-01', rating: 8 }] as UserDoc['pours'],
+      memories: [],
+      infinityBottles: [],
+      customLibrary: [],
+      people: [],
+    }
+  }
+
+  // The last bottles array written to Firestore — what a refresh, another
+  // device or a new session would load.
+  function lastSavedBottles(): Bottle[] {
+    const calls = mockSaveUserDoc.mock.calls
+    return (calls[calls.length - 1]![1] as Partial<UserDoc>).bottles!
+  }
+
+  async function mountWith(doc: UserDoc) {
+    mockFetchUserDoc.mockResolvedValue(doc)
+    const hook = renderHook(() => useUserData(), { wrapper: UserDataProvider })
+    await waitFor(() => expect(hook.result.current.userDoc.bottles).toHaveLength(doc.bottles.length))
+    return hook
+  }
+
+  it('saves an edited Legacy Story on the same bottle record, and it is there after a reload', async () => {
+    const { result, unmount } = await mountWith(legacyDoc())
+    await result.current.updateBottle('b1', { legacyStoryTitle: 'Dad’s bottle', legacyStory: 'Opened at my wedding', legacyOccasion: 'Wedding' })
+
+    const saved = lastSavedBottles()
+    expect(saved).toHaveLength(2)
+    expect(saved[0]).toMatchObject({ id: 'b1', legacyShelf: true, legacyStoryTitle: 'Dad’s bottle', legacyStory: 'Opened at my wedding', notes: 'Caramel' })
+    unmount()
+
+    const reloaded = await mountWith({ ...legacyDoc(), bottles: saved })
+    expect(reloaded.result.current.userDoc.bottles[0]).toMatchObject({ legacyStoryTitle: 'Dad’s bottle', legacyOccasion: 'Wedding' })
+  })
+
+  it('changeLegacyBottle moves only the Legacy flag, in one write, keeping the previous bottle’s story and inventory', async () => {
+    const { result, unmount } = await mountWith(legacyDoc())
+    await result.current.changeLegacyBottle('b1', 'b2', { legacyShelfReason: 'Shared with friends' })
+
+    expect(mockSaveUserDoc).toHaveBeenCalledTimes(1)
+    const saved = lastSavedBottles()
+    expect(saved).toHaveLength(2)
+    expect(saved[0]).toEqual({ ...legacyDoc().bottles[0], legacyShelf: false })
+    expect(saved[1]).toEqual({ ...legacyDoc().bottles[1], legacyShelf: true, legacyShelfReason: 'Shared with friends' })
+    unmount()
+
+    const reloaded = await mountWith({ ...legacyDoc(), bottles: saved })
+    expect(reloaded.result.current.userDoc.bottles.filter((b) => b.legacyShelf).map((b) => b.id)).toEqual(['b2'])
+    expect(reloaded.result.current.userDoc.pours).toHaveLength(1)
+  })
+
+  it('removing Legacy status keeps the bottle, its story and its pours', async () => {
+    const { result } = await mountWith(legacyDoc())
+    await result.current.updateBottle('b1', { legacyShelf: false })
+
+    const saved = lastSavedBottles()
+    expect(saved).toHaveLength(2)
+    expect(saved[0]).toEqual({ ...legacyDoc().bottles[0], legacyShelf: false })
+    expect(result.current.userDoc.pours).toHaveLength(1)
+  })
+
+  it('surfaces a failed save to the caller so the UI can show an error', async () => {
+    const { result } = await mountWith(legacyDoc())
+    mockSaveUserDoc.mockRejectedValueOnce(new Error('offline'))
+    await expect(result.current.changeLegacyBottle('b1', 'b2')).rejects.toThrow('offline')
+  })
+})
