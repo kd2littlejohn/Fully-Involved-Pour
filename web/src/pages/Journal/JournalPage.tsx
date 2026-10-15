@@ -12,6 +12,7 @@ import { BlindResultCard } from '../../components/domain/BlindResultCard'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
+import { SavedTastingsSection } from '../../features/journal/SavedTastingsSection'
 import { getJournalTimeline, getCompanionStats, getBottleJourneys } from '../../features/journal/selectors'
 import { getJourneyFeedEntries } from '../../features/journal/journeyCardVariant'
 import { BottleJourneyCard } from '../../features/journal/BottleJourneyCard'
@@ -143,6 +144,8 @@ export function JournalPage() {
           Blind History →
         </Link>
       )}
+
+      <SavedTastingsSection tastings={userDoc.tastings ?? []} />
 
       <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
 

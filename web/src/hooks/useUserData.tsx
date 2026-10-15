@@ -33,6 +33,7 @@ import {
   type PourMemoryPhoto,
   type PourPerson,
   type Profile,
+  type SavedTasting,
   type UserDoc,
 } from '../data/types'
 import { todayLocalIsoDate } from '../data/localDate'
@@ -66,6 +67,8 @@ interface UserDataState {
   addBottle: (input: NewBottleInput) => Promise<string | undefined>
   updateBottle: (bottleId: string, patch: BottlePatch) => Promise<void>
   changeLegacyBottle: (fromBottleId: string, toBottleId: string, patch?: BottlePatch) => Promise<void>
+  saveSavedTastings: (entries: SavedTasting[]) => Promise<void>
+  deleteSavedTasting: (tastingId: string) => Promise<void>
   setBottleRarity: (bottleId: string, rarity: BottleRarity) => Promise<void>
   acceptRaritySuggestions: (bottleIds: string[]) => Promise<void>
   storeRaritySuggestions: (entries: { bottleId: string; suggestion: RaritySuggestion }[]) => Promise<void>
@@ -112,6 +115,8 @@ const UserDataContext = createContext<UserDataState>({
   addBottle: async () => {},
   updateBottle: async () => {},
   changeLegacyBottle: async () => {},
+  saveSavedTastings: async () => {},
+  deleteSavedTasting: async () => {},
   setBottleRarity: async () => {},
   acceptRaritySuggestions: async () => {},
   storeRaritySuggestions: async () => {},
@@ -396,6 +401,44 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       )
     },
     [applyBottleUpdates],
+  )
+
+  // Saved event tastings, upserted by id: saving the same round again
+  // updates its records rather than duplicating them. Reads the freshest
+  // doc through userDocRef like applyBottleUpdates, so a save started from
+  // a long-open party screen never clobbers newer changes.
+  const applyTastingUpdates = useCallback(
+    async (update: (tastings: SavedTasting[]) => SavedTasting[]) => {
+      if (!user) return
+      const current = userDocRef.current
+      const nextTastings = update(current.tastings ?? [])
+      const nextDoc: UserDoc = { ...current, tastings: nextTastings }
+      userDocRef.current = nextDoc
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { tastings: nextTastings })
+    },
+    [user, mockMode],
+  )
+
+  const saveSavedTastings = useCallback(
+    async (entries: SavedTasting[]) => {
+      if (entries.length === 0) return
+      await applyTastingUpdates((tastings) => {
+        const byId = new Map(tastings.map((t) => [t.id, t]))
+        for (const entry of entries) byId.set(entry.id, entry)
+        return [...byId.values()]
+      })
+    },
+    [applyTastingUpdates],
+  )
+
+  const deleteSavedTasting = useCallback(
+    async (tastingId: string) => {
+      await applyTastingUpdates((tastings) => tastings.filter((t) => t.id !== tastingId))
+    },
+    [applyTastingUpdates],
   )
 
   const setBottleRarity = useCallback(
@@ -1171,6 +1214,8 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addBottle,
       updateBottle,
       changeLegacyBottle,
+      saveSavedTastings,
+      deleteSavedTasting,
       setBottleRarity,
       acceptRaritySuggestions,
       storeRaritySuggestions,
@@ -1217,6 +1262,8 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       addBottle,
       updateBottle,
       changeLegacyBottle,
+      saveSavedTastings,
+      deleteSavedTasting,
       setBottleRarity,
       acceptRaritySuggestions,
       storeRaritySuggestions,

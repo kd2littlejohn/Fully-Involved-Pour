@@ -8,19 +8,23 @@ import { useAuth } from '../../hooks/useAuth'
 import { buildPalateProfile } from './palateProfile'
 import { usePalateInterpretation } from './usePalateInterpretation'
 import { buildPalateInsightText } from './palateInsights'
-import type { Bottle, Pour } from '../../data/types'
+import { withSavedTastings } from './savedTastingsPalate'
+import type { Bottle, Pour, SavedTasting } from '../../data/types'
 import styles from './YourPalateSection.module.css'
 
 interface YourPalateSectionProps {
   bottles: Bottle[]
   pours: Pour[]
+  // Saved event tastings count toward your palate, not toward your bar.
+  tastings?: SavedTasting[]
 }
 
-export function YourPalateSection({ bottles, pours }: YourPalateSectionProps) {
-  const insightText = buildPalateInsightText(bottles, pours)
+export function YourPalateSection({ bottles, pours, tastings }: YourPalateSectionProps) {
+  const palate = withSavedTastings(bottles, pours, tastings)
+  const insightText = buildPalateInsightText(palate.bottles, palate.pours)
   const averageProof = getAverageProof(bottles)
   const { user } = useAuth()
-  const palateProfile = buildPalateProfile(bottles, pours)
+  const palateProfile = buildPalateProfile(palate.bottles, palate.pours)
   const { state: interpretationState, interpretation } = usePalateInterpretation(user?.uid, palateProfile)
 
   if (!insightText) {

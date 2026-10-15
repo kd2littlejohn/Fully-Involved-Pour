@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ScoringPanel } from './ScoringPanel'
 import { MyTake, ResultsView } from './ResultsView'
 import { PartyAxeCard } from './PartyAxeCard'
+import { SaveToMyTastings } from './SaveToMyTastings'
 import { recallMyRound, rememberMyRound } from './guestSession'
 import { activeCategory, categoryStateLabel, formatScore } from './partyLabels'
 import type { Party, PartyBallot, PartyCategory, PartyCategoryResults, PartyGuest } from './types'
@@ -130,6 +131,7 @@ export function MyTastingView({
           {category.state === 'revealed' && categoryResults ? (
             <>
               <MyTake results={categoryResults} myScores={myScores} />
+              <SaveToMyTastings party={party} category={category} results={categoryResults} ballot={myBallot} />
               <ResultsView results={categoryResults} myParticipantKey={guest.participantKey} />
               <PartyAxeCard partyId={party.id} categoryId={category.id} />
             </>
