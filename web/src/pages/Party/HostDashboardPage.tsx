@@ -414,7 +414,7 @@ export function HostDashboardPage() {
                   <ul className={styles.list} aria-label="Bottle key access before reveal">
                     {keyLog.slice(0, 20).map((entry) => (
                       <li key={entry.id} className={styles.listItem}>
-                        <span className={`${styles.grow} ${styles.truncate}`}>
+                        <span className={styles.grow}>
                           {adminName(entry.actorUid)} · {entry.purpose === 'setup' ? 'editing setup' : 'viewed key'}
                           {entry.flaggedCategoryIds.length ? ' · tasting marked not fully blind' : ''}
                         </span>

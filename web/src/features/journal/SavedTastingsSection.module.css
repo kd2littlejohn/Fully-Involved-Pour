@@ -1,11 +1,11 @@
 .intro {
-  margin: 0 var(--fip-shell-x) var(--fip-space-3);
+  margin: 0 0 var(--fip-space-3);
   color: var(--fip-muted);
   font-size: var(--fip-text-sm);
 }
 
 .error {
-  margin: 0 var(--fip-shell-x) var(--fip-space-3);
+  margin: 0 0 var(--fip-space-3);
   color: var(--fip-error);
   font-size: var(--fip-text-sm);
 }
@@ -14,7 +14,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--fip-space-3);
-  margin: 0 var(--fip-shell-x);
+  margin: 0;
   padding: 0;
   list-style: none;
   max-width: 760px;
