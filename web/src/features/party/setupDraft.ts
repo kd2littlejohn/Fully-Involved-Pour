@@ -2,8 +2,8 @@
 // operations on it. Nothing here touches Firestore: the wizard builds a
 // draft, then hands it to partyAction (createParty / setCategories /
 // setSamples) in one go when the host saves.
-import type { Party, PartyBottle, PartySecrets, PartySettings } from './types'
-import { DEFAULT_PARTY_SETTINGS } from './types'
+import type { Party, PartyBottle, PartyFormat, PartySecrets, PartySettings } from './types'
+import { DEFAULT_PARTY_SETTINGS, partyFormat } from './types'
 
 export const MAX_CATEGORIES = 24
 export const MIN_SAMPLES = 2
@@ -43,6 +43,7 @@ export interface PartyDraft {
   settings: PartySettings
   // "I'm tasting too": the host scores alongside guests. On by default.
   hostTasting: boolean
+  format: PartyFormat
   categories: DraftCategory[]
 }
 
@@ -62,6 +63,7 @@ export function emptyDraft(): PartyDraft {
     capacity: '',
     settings: { ...DEFAULT_PARTY_SETTINGS },
     hostTasting: true,
+    format: 'blind',
     categories: [],
   }
 }
@@ -77,6 +79,7 @@ export function draftFromParty(party: Party, secrets: PartySecrets | undefined):
     capacity: party.capacity ? String(party.capacity) : '',
     settings: { ...DEFAULT_PARTY_SETTINGS, ...party.settings },
     hostTasting: party.hostTasting === true,
+    format: partyFormat(party),
     categories: party.categories.map((c) => ({
       key: c.id,
       id: c.id,

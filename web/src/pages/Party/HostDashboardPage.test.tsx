@@ -183,4 +183,15 @@ describe('HostDashboardPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'I’m tasting too' }))
     await waitFor(() => expect(mockSetHostTasting).toHaveBeenCalledWith('p1', true))
   })
+
+  it('regular tastings close voting straight to results, after a confirmation', async () => {
+    party = makeParty({ format: 'regular', categories: [makeCategory({ state: 'voting_open' })] })
+    renderPage()
+    expect(screen.getByText(/Regular tasting/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close voting' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Close voting & show results' }))
+    expect(mockSetState).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Show results' }))
+    await waitFor(() => expect(mockSetState).toHaveBeenCalledWith('p1', 'c1', 'revealed'))
+  })
 })

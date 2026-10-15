@@ -511,6 +511,77 @@ describe("host participation (I'm tasting too)", () => {
   });
 });
 
+describe("regular (non-blind) tastings", () => {
+  it("shows every bottle from the start, without the host's price or My Bar id", async () => {
+    const { host, g1 } = ids();
+    const { partyId, joinCode } = await call(host, "createParty", { details: { name: "Open flight" }, format: "regular", categories: [{ name: "Wheated" }] });
+    let party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(party.format).toBe("regular");
+    const categoryId = party.categories[0].id;
+    await call(host, "setSamples", {
+      partyId,
+      categoryId,
+      assignment: "manual",
+      samples: [
+        { bottle: { name: "Weller 12", distillery: "Buffalo Trace", proof: 90, price: 45, bottleId: "bar-1", source: "my-bar" }, label: "A" },
+        { bottle: { name: "Larceny", source: "manual" }, label: "B" },
+      ],
+    });
+    party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(party.categories[0].bottles).toEqual({ A: { name: "Weller 12", distillery: "Buffalo Trace", proof: 90 }, B: { name: "Larceny" } });
+    expect(JSON.stringify(party)).not.toContain("bar-1");
+    expect(JSON.stringify(party)).not.toContain('"price"');
+
+    // No reveal step: closing voting publishes results in one go, host's and guests' ballots alike.
+    await call(g1, "joinParty", { code: joinCode, nickname: "Ana" });
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    await call(g1, "saveBallot", { partyId, categoryId, scores: { A: { overall: 9 }, B: { overall: 6 } } });
+    await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 7 }, B: { overall: 8 } } });
+    await call(host, "setCategoryState", { partyId, categoryId, to: "revealed" });
+    party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(party.categories[0]).toMatchObject({ state: "revealed" });
+    expect(party.categories[0].votingClosedAt).toBeTruthy();
+    const results = (await db.doc(`parties/${partyId}/results/${categoryId}`).get()).data();
+    expect(results.samples.find((x) => x.label === "A")).toMatchObject({ average: 8, count: 2, rank: 1 });
+  });
+
+  it("keeps blind parties blind: no bottles on the party doc, and no skipping the close-then-reveal steps", async () => {
+    const { host } = ids();
+    const { partyId, party, categoryId } = await setupParty(host);
+    expect(party.format).toBe("blind");
+    expect(party.categories[0].bottles).toBeUndefined();
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    await expect(call(host, "setCategoryState", { partyId, categoryId, to: "revealed" })).rejects.toMatchObject({ code: "failed-precondition" });
+  });
+
+  it("switches format only before any round opens, publishing or removing bottles to match", async () => {
+    const { host } = ids();
+    const { partyId, categoryId } = await setupParty(host);
+    await call(host, "updateParty", { partyId, format: "regular" });
+    let party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(Object.keys(party.categories[0].bottles).sort()).toEqual(["A", "B", "C"]);
+    await call(host, "updateParty", { partyId, format: "blind" });
+    party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(party.categories[0].bottles).toBeUndefined();
+    expect(JSON.stringify(party)).not.toContain("Bottle Round");
+
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    await expect(call(host, "updateParty", { partyId, format: "regular" })).rejects.toMatchObject({ code: "failed-precondition" });
+    await expect(call(host, "createParty", { details: { name: "x" }, format: "mystery" })).rejects.toMatchObject({ code: "invalid-argument" });
+  });
+
+  it("gives a duplicated regular round its own visible bottles", async () => {
+    const { host } = ids();
+    const { partyId } = await call(host, "createParty", { details: { name: "Open" }, format: "regular", categories: [{ name: "R1" }] });
+    let party = (await db.doc(`parties/${partyId}`).get()).data();
+    const c1 = party.categories[0];
+    await call(host, "setSamples", { partyId, categoryId: c1.id, assignment: "random", samples: [bottle("X"), bottle("Y")] });
+    await call(host, "setCategories", { partyId, categories: [{ id: c1.id, name: c1.name }, { name: "R1 again", duplicateOf: c1.id }] });
+    party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(Object.values(party.categories[1].bottles).map((b) => b.name).sort()).toEqual(["X", "Y"]);
+  });
+});
+
 describe("guest-to-account claims", () => {
   it("moves a guest's party records to their new account with a single-use token", async () => {
     const { host, g1, g2, other } = ids();

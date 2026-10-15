@@ -22,6 +22,7 @@ import type {
   PartyBallotSummary,
   PartyCategory,
   PartyCategoryResults,
+  PartyFormat,
   PartyGuest,
   PartyPreview,
   PartyRecap,
@@ -85,13 +86,14 @@ export function createParty(input: {
   categories: PartyCategoryInput[]
   hostName: string
   hostTasting: boolean
+  format: PartyFormat
 }): Promise<{ partyId: string; joinCode: string; categories: { id: string; name: string }[] }> {
   return callParty('createParty', { ...input })
 }
 
 export function updateParty(
   partyId: string,
-  patch: { details?: PartyDetailsInput; settings?: Partial<PartySettings>; recapNotes?: string },
+  patch: { details?: PartyDetailsInput; settings?: Partial<PartySettings>; recapNotes?: string; format?: PartyFormat },
 ): Promise<{ ok: true }> {
   return callParty('updateParty', { partyId, ...patch })
 }

@@ -10,7 +10,7 @@ A hosted blind tasting for a whole room. It extends the Blind Room and leaves th
 | `/party/new`, `/party/:id/setup` | host | Create / edit wizard |
 | `/p/:code` | guests | Welcome, nickname join, recovery-code rejoin (QR and invite links point here) |
 | `/party/:id` | guests | Live round, scoring, results |
-| `/party/:id/host` | host | Live dashboard and round controls |
+| `/party/:id/host` | host | Live dashboard: Manage Party, plus My Tasting when the host is tasting too |
 | `/party/:id/ballots` | host | Paper Ballot Entry |
 | `/party/:id/print` | host | Printable scorecards |
 | `/party/:id/recap` | host + guests | Party Recap (after completion) |
@@ -35,7 +35,7 @@ Rankings come from a pure engine (`functions/party/scoring.js`). It runs at reve
 | Path | Contents | Read access |
 | --- | --- | --- |
 | `parties/{id}` | event details, settings, rounds (names snapshotted), counts, join code | host, joined guests, active displays |
-| `parties/{id}/guests/{uid}` | nickname, participant key, revoked flag | host, that guest |
+| `parties/{id}/guests/{uid}` | nickname, participant key, revoked flag; the host's own record has `isHost: true` | host, that guest |
 | `parties/{id}/ballots/{categoryId}__{participantKey}` | one ballot per participant per round | its owner only (guest, or host for paper) |
 | `parties/{id}/results/{categoryId}` | published results, written at reveal | host, guests, displays |
 | `parties/{id}/results/recap` | Party Recap, written at completion | host, guests, displays |
@@ -48,6 +48,24 @@ Rankings come from a pure engine (`functions/party/scoring.js`). It runs at reve
 Guests never get read access to `partySecrets`. They learn bottle identities only from a results document, and a results document exists only after the host reveals that round.
 
 Not even the host can read a guest's digital ballot (scores or private notes). The host sees who voted, and results are computed on the server.
+
+### Formats
+
+`parties/{id}.format` is `"blind"` (the default, and every party created before formats existed) or `"regular"`.
+
+- **Blind:** samples are letters, and bottles stay in `partySecrets` until the host reveals a round.
+- **Regular:** everyone sees the bottles while they score. Each round on the party doc carries `bottles: { [label]: { name, distillery?, type?, age?, proof?, imageUrl? } }`, never the host's price or My Bar id. There's no reveal step: the host closes voting with `voting_open → revealed`, which publishes results in one transaction. Blind parties can't skip `voting_closed`.
+- The format can change only until a round first opens for voting. Switching rewrites or strips each round's `bottles` to match.
+
+### The host tasting too
+
+"I'm tasting too" is on by default (`createParty` with `hostTasting: false` turns it off).
+
+- The host gets one guest record (`guests/{hostUid}`, `isHost: true`, participant key `h_…`) and scores through the same `saveBallot` as everyone else. That means one ballot per round, the same scale and deadlines, edits only while voting is open, and equal weight in results. They aren't counted in `counts.guests`.
+- `setHostTasting { enabled }` turns it off or on later. Off revokes the record and excludes the host's ballots in rounds not yet revealed (`excludedReason: "Host stopped tasting"`); on restores exactly those. All host controls keep working either way.
+- To prevent double counting, the host can't `joinParty` their own party, can't be removed with `removeGuest`, and can't enter a paper ballot under their own name while tasting.
+- On the dashboard, **My Tasting** is the guest scoring view (`MyTastingView`). It has no admin controls and no bottle mapping. Bottles appear only through revealed results, as for any guest.
+- **Blind integrity:** the host still sets up the flight and can open the mapping on Manage Party, so a host's blind ballot is only as blind as their setup. The setup screen says so and suggests someone else pours.
 
 ### Guests
 

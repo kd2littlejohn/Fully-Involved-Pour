@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { ProgressStepper } from '../../components/ui/ProgressStepper'
 import { SignInButton } from '../../components/domain/SignInButton'
@@ -35,10 +35,11 @@ import {
   updateParty,
 } from '../../data/repositories/party'
 import type { PartySettings, PartyTemplate, SavedTastingCategory } from '../../features/party/types'
+import { partyFormat } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
 import local from '../../features/party/setup/setup.module.css'
 
-const STEPS = ['Details', 'Categories', 'Bottles', 'Blind letters', 'Scoring']
+const STEPS = ['Details', 'Categories', 'Bottles', 'Sample letters', 'Scoring']
 
 // Create a Party (/party/new) and Edit Setup (/party/:partyId/setup) — one
 // guided flow. Everything is a local draft until the host saves; then the
@@ -53,7 +54,8 @@ export function PartySetupPage() {
   const party = useParty(partyId, isEdit && Boolean(user))
   const secrets = usePartySecrets(partyId, isEdit && Boolean(user))
 
-  const [draft, setDraft] = useState<PartyDraft>(emptyDraft)
+  const [searchParams] = useSearchParams()
+  const [draft, setDraft] = useState<PartyDraft>(() => ({ ...emptyDraft(), format: searchParams.get('format') === 'regular' ? 'regular' : 'blind' }))
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null)
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -96,6 +98,7 @@ export function PartySetupPage() {
     return <PartyMessage title="Party wrapped up" message="This party is complete, so its setup can no longer change." />
   }
 
+  const formatLocked = draft.categories.some((c) => c.locked)
   const problems = draftProblems(draft)
   const stepProblems = [problems.details, problems.categories, problems.bottles, [], []]
 
@@ -139,11 +142,16 @@ export function PartySetupPage() {
           categories: categories.map((c) => ({ libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
           hostName: profile?.displayName || user!.displayName || 'Your host',
           hostTasting: draft.hostTasting,
+          format: draft.format,
         })
         id = created.partyId
         serverIds = created.categories.map((c) => c.id)
       } else {
-        await updateParty(id, { details, settings: draft.settings })
+        await updateParty(id, {
+          details,
+          settings: draft.settings,
+          ...(draft.format !== (party.data ? partyFormat(party.data) : 'blind') ? { format: draft.format } : {}),
+        })
         if (draft.hostTasting !== (party.data?.hostTasting === true)) await setHostTasting(id, draft.hostTasting)
         const result = await setPartyCategories(
           id,
@@ -188,6 +196,33 @@ export function PartySetupPage() {
           <h2 id="details-heading" className={styles.sectionTitle}>
             Event details
           </h2>
+          <span className={styles.label} id="party-format-label">
+            Kind of tasting
+          </span>
+          <div className={styles.row} role="radiogroup" aria-labelledby="party-format-label">
+            {(['blind', 'regular'] as const).map((format) => (
+              <button
+                key={format}
+                type="button"
+                role="radio"
+                aria-checked={draft.format === format}
+                className={styles.choice}
+                style={{ flex: '1 1 200px', width: 'auto' }}
+                disabled={formatLocked}
+                onClick={() => setDraft((d) => ({ ...d, format }))}
+              >
+                <div>
+                  <strong>{format === 'blind' ? 'Blind tasting' : 'Regular tasting'}</strong>
+                  <div className={styles.muted}>
+                    {format === 'blind'
+                      ? 'Samples are A, B, C… Bottles stay hidden until you reveal them.'
+                      : 'Everyone sees each bottle while they score. Results show when voting closes.'}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          {formatLocked ? <p className={styles.muted}>A round has opened for voting, so the kind of tasting is set.</p> : null}
           <label className={styles.label} htmlFor="party-name">
             Event name *
           </label>
@@ -299,7 +334,7 @@ export function PartySetupPage() {
             checked={draft.hostTasting}
             onChange={(v) => setDraft((d) => ({ ...d, hostTasting: v }))}
           />
-          {draft.hostTasting ? (
+          {draft.hostTasting && draft.format === 'blind' ? (
             <p className={styles.muted}>
               You picked the bottles, so your own tasting can’t be fully blind. If you can, have someone else pour and label the samples.
             </p>

@@ -41,6 +41,26 @@ export interface PartyCategory {
   votingClosedAt: number | null
   revealedAt: number | null
   createdAt: number
+  // Regular tastings only: what everyone sees about each sample's bottle.
+  bottles?: Record<string, PartyPublicBottle>
+}
+
+// A regular tasting's visible bottle — never the host's price or My Bar id.
+export interface PartyPublicBottle {
+  name: string
+  distillery?: string
+  type?: string
+  age?: string
+  proof?: number
+  imageUrl?: string
+}
+
+// 'blind' hides bottles until reveal; 'regular' shows them from the start.
+// Absent on parties created before formats existed, which are blind.
+export type PartyFormat = 'blind' | 'regular'
+
+export function partyFormat(party: Pick<Party, 'format'>): PartyFormat {
+  return party.format === 'regular' ? 'regular' : 'blind'
 }
 
 export interface Party {
@@ -49,6 +69,7 @@ export interface Party {
   hostName: string
   // "I'm tasting too". Absent on parties created before host participation.
   hostTasting?: boolean
+  format?: PartyFormat
   name: string
   description: string
   eventDate: string | null

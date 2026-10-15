@@ -198,6 +198,34 @@ function recoveryKeyId(partyId, recoveryCode) {
 
 const HOST_OPT_OUT_REASON = "Host stopped tasting";
 
+function isRegular(party) {
+  return party.format === "regular";
+}
+
+// What a regular (non-blind) tasting shows everyone about a bottle. Never
+// the host's price or My Bar id.
+function publicBottle(bottle) {
+  const out = { name: bottle.name };
+  for (const key of ["distillery", "type", "age", "proof", "imageUrl"]) if (bottle[key] !== undefined) out[key] = bottle[key];
+  return out;
+}
+
+function publicBottles(samples) {
+  const out = {};
+  for (const s of samples || []) out[s.label] = publicBottle(s.bottle);
+  return out;
+}
+
+// Regular tastings carry each round's bottles on the party doc; blind ones
+// never do (the mapping stays in partySecrets until reveal).
+function withPublicBottles(party, category, samples) {
+  if (!isRegular(party)) {
+    const { bottles: _omit, ...rest } = category;
+    return rest;
+  }
+  return { ...category, bottles: publicBottles(samples) };
+}
+
 function hostGuestRecord(uid, hostName, now) {
   return {
     uid,
@@ -222,6 +250,7 @@ async function createParty(ctx) {
   const hostName = v.cleanText(ctx.data.hostName, 40) || "Your host";
   // "I'm tasting too" — on unless the host turns it off.
   const hostTasting = ctx.data.hostTasting !== false;
+  const format = v.validateFormat(ctx.data.format);
 
   const ref = ctx.db.collection("parties").doc();
   const code = await claimNewCode(ctx.db, ref.id, ctx.now);
@@ -230,6 +259,7 @@ async function createParty(ctx) {
     hostUid: ctx.uid,
     hostName,
     hostTasting,
+    format,
     ...details,
     status: "setup",
     settings,
@@ -245,6 +275,7 @@ async function createParty(ctx) {
   };
   const secretCategories = {};
   for (const c of categories) secretCategories[c.id] = { samples: [] };
+  if (format === "regular") for (const c of categories) c.bottles = {};
 
   const batch = ctx.db.batch();
   batch.set(ref, party);
@@ -265,6 +296,16 @@ async function updateParty(ctx) {
     if (ctx.data.details !== undefined || ctx.data.settings !== undefined) assertNotCompleted(party);
     if (ctx.data.details !== undefined) Object.assign(patch, v.validateDetails(ctx.data.details));
     if (ctx.data.settings !== undefined) patch.settings = v.validateSettings(ctx.data.settings, party.settings);
+    if (ctx.data.format !== undefined) {
+      const format = v.validateFormat(ctx.data.format);
+      if (format !== (party.format || "blind")) {
+        if (party.categories.some((c) => c.lockedAt)) throw precondition("A round has already opened for voting, so the tasting format is set.");
+        const secrets = (await tx.get(secretsRef(ctx.db, partyId))).data()?.categories || {};
+        const next = { ...party, format };
+        patch.format = format;
+        patch.categories = party.categories.map((c) => withPublicBottles(next, c, secrets[c.id]?.samples));
+      }
+    }
     if (ctx.data.recapNotes !== undefined) {
       patch.recapNotes = v.cleanText(ctx.data.recapNotes, v.LIMITS.MAX_HOST_NOTES);
       const recapRef = ctx.db.doc(`parties/${partyId}/results/recap`);
@@ -321,7 +362,7 @@ async function setCategories(ctx) {
           category.sampleLabels = samples.map((s) => s.label);
         }
         secretCategories[category.id] = { samples };
-        next.push(category);
+        next.push(withPublicBottles(party, category, samples));
       }
     }
 
@@ -358,7 +399,7 @@ async function setSamples(ctx) {
     const sampleLabels = samples.map((s) => s.label);
     const state = category.state === "ready" && samples.length < v.LIMITS.MIN_SAMPLES ? "draft" : category.state;
     tx.update(partyRef(ctx.db, partyId), {
-      categories: replaceCategory(party, { ...category, sampleLabels, state }),
+      categories: replaceCategory(party, withPublicBottles(party, { ...category, sampleLabels, state }, samples)),
       updatedAt: ctx.now,
     });
     tx.set(secretsRef(ctx.db, partyId), { categories: { [categoryId]: { samples } } }, { merge: true });
@@ -399,7 +440,10 @@ async function setCategoryState(ctx) {
     assertHost(ctx, party);
     assertNotCompleted(party);
     const category = findCategory(party, categoryId);
-    if (!TRANSITIONS[category.state].includes(to)) {
+    // A regular tasting has nothing to reveal: closing voting can publish
+    // results in the same step.
+    const regularClose = isRegular(party) && category.state === "voting_open" && to === "revealed";
+    if (!TRANSITIONS[category.state].includes(to) && !regularClose) {
       throw precondition(`This round is ${category.state.replace("_", " ")} and can't move to ${to.replace("_", " ")}.`);
     }
     if ((to === "ready" || to === "voting_open") && category.sampleLabels.length < v.LIMITS.MIN_SAMPLES) {
@@ -417,7 +461,7 @@ async function setCategoryState(ctx) {
       patch.status = "live";
       patch.currentCategoryId = categoryId;
     }
-    if (to === "voting_closed") updated.votingClosedAt = ctx.now;
+    if (to === "voting_closed" || regularClose) updated.votingClosedAt = ctx.now;
     if (to === "revealed") updated.revealedAt = ctx.now;
     patch.categories = replaceCategory(party, updated);
 

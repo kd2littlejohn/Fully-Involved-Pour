@@ -88,7 +88,10 @@ export function MyTastingView({
             </h2>
             {category.description ? <p className={styles.muted}>{category.description}</p> : null}
             <p className={styles.muted}>
-              {category.sampleLabels.length} samples: {category.sampleLabels.join(', ')}
+              {category.sampleLabels.length} samples:{' '}
+              {category.bottles
+                ? category.sampleLabels.map((l) => `${l}. ${category.bottles?.[l]?.name ?? '—'}`).join(' · ')
+                : category.sampleLabels.join(', ')}
             </p>
           </div>
 

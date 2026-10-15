@@ -1,3 +1,17 @@
+## Unreleased - Tasting experience and host participation
+
+Added
+- Home: two entries under Quick Actions. **Log a Tasting** goes straight to picking a bottle from My Bar and opens the existing Pour Story tasting. **Blind Tastings** opens the Blind Room. No new nav tab, and the hero and AXE Insight are unchanged.
+- Blind Room: four clear options (Start Solo Blind Tasting, Taste with Friends, Host a Tasting Party, Join a Tasting Party), with **Resume Tasting** above them for the most recent blind or party in progress.
+- Party Mode **regular tastings**: everyone sees the bottles while they score, and closing voting shows results with no reveal step. Blind stays the default, and existing parties are unchanged.
+- **I'm tasting too** (on by default): the host scores alongside guests from the same account. The host's ballot counts exactly like a guest's: one per round, same scale and deadlines, equal weight. It can be turned off or on later; off stops the host's ballots counting in rounds not yet revealed, and on restores them.
+- Host dashboard **Manage Party / My Tasting** switch: one tap, always at the top, with personal progress ("2 of 3 samples scored"). Unsaved scores, the chosen round and the last sample are kept when switching or leaving the page. My Tasting has no admin controls and stays blind until the reveal.
+
+Changed
+- Hosts can no longer join their own party as a guest, or enter a paper ballot under their own name while tasting. Both would double count; use My Tasting instead.
+
+Release notes: deploy the `partyAction` function before the website. No Firestore rules, index or data migration changes are needed.
+
 ## Unreleased - Legacy Bottle editing
 
 Added

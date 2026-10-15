@@ -27,7 +27,7 @@ import {
   setCurrentCategory,
   setHostTasting,
 } from '../../data/repositories/party'
-import type { Party, PartyCategory, PartyCategoryState, PartySecrets } from '../../features/party/types'
+import { partyFormat, type Party, type PartyCategory, type PartyCategoryState, type PartySecrets } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
 
 type Pending =
@@ -53,6 +53,16 @@ const ACTIONS: Record<PartyCategoryState, { to: PartyCategoryState; label: strin
     { to: 'voting_open', label: 'Reopen voting' },
   ],
   revealed: [],
+}
+
+// A regular tasting has nothing to reveal: closing voting shows results.
+const REGULAR_ACTIONS: Partial<Record<PartyCategoryState, { to: PartyCategoryState; label: string; primary?: boolean }[]>> = {
+  voting_open: [{ to: 'revealed', label: 'Close voting & show results', primary: true }],
+}
+
+const REGULAR_CLOSE = {
+  title: 'Close voting and show results?',
+  message: 'Voting ends for this round and everyone sees the rankings. This can’t be undone.',
 }
 
 // These change what guests can do or see, so they get a confirmation.
@@ -120,6 +130,7 @@ export function HostDashboardPage() {
   const revealedCount = p.categories.filter((c) => c.state === 'revealed').length
   const closedCount = p.categories.filter((c) => c.state === 'voting_closed').length
   const activeGuests = guests.data.filter((g) => !g.revoked && !g.isHost)
+  const regular = partyFormat(p) === 'regular'
   const progress = tasting ? myTastingProgress(p, myBallots.data) : null
   const totals = p.categories.reduce(
     (acc, c) => {
@@ -145,7 +156,7 @@ export function HostDashboardPage() {
   }
 
   function requestState(category: PartyCategory, to: PartyCategoryState) {
-    if (CONFIRM[to]) setPending({ kind: 'state', category, to })
+    if (CONFIRM[to] || (regular && to === 'revealed')) setPending({ kind: 'state', category, to })
     else void run(() => setCategoryState(p.id, category.id, to))
   }
 
@@ -165,7 +176,7 @@ export function HostDashboardPage() {
     <PartyPage back={{ to: '/blind/party', label: 'Party Mode' }} wide>
       <section className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
         <div className={styles.row}>
-          <span className={styles.eyebrow}>Host dashboard</span>
+          <span className={styles.eyebrow}>Host dashboard · {regular ? 'Regular tasting' : 'Blind tasting'}</span>
           <span className={`${styles.pill} ${p.status === 'live' ? styles.pillLive : completed ? styles.pillDone : ''}`}>{partyStatusLabel(p)}</span>
         </div>
         <h1 className={styles.title}>{p.name}</h1>
@@ -389,9 +400,9 @@ export function HostDashboardPage() {
 
       {pending?.kind === 'state' ? (
         <ConfirmDialog
-          title={CONFIRM[pending.to]!.title}
-          message={CONFIRM[pending.to]!.message}
-          confirmLabel={pending.to === 'revealed' ? 'Reveal' : 'Open voting'}
+          title={(regular && pending.to === 'revealed' ? REGULAR_CLOSE : CONFIRM[pending.to]!).title}
+          message={(regular && pending.to === 'revealed' ? REGULAR_CLOSE : CONFIRM[pending.to]!).message}
+          confirmLabel={pending.to === 'revealed' ? (regular ? 'Show results' : 'Reveal') : 'Open voting'}
           busy={busy}
           onCancel={() => setPending(null)}
           onConfirm={() => run(() => setCategoryState(p.id, pending.category.id, pending.to))}
@@ -485,7 +496,10 @@ function RoundCard({
   const counts = ballotCount(party, category.id)
   const samples = secrets?.categories?.[category.id]?.samples ?? []
   const isCurrent = party.currentCategoryId === category.id
-  const actions = ACTIONS[category.state].filter((a) => !(a.to === 'revealed' && !party.settings.revealByCategory))
+  const regular = partyFormat(party) === 'regular'
+  const actions = regular
+    ? (REGULAR_ACTIONS[category.state] ?? ACTIONS[category.state])
+    : ACTIONS[category.state].filter((a) => !(a.to === 'revealed' && !party.settings.revealByCategory))
   return (
     <section
       className={`${styles.card} ${category.state === 'voting_open' ? styles.cardHighlight : ''}`}
@@ -513,7 +527,7 @@ function RoundCard({
               {a.label}
             </Button>
           ))}
-          {category.state === 'voting_closed' && !party.settings.revealByCategory ? (
+          {category.state === 'voting_closed' && !party.settings.revealByCategory && !regular ? (
             <span className={styles.muted}>Revealed together at the end.</span>
           ) : null}
           {!isCurrent ? (
@@ -525,7 +539,7 @@ function RoundCard({
       ) : null}
       <div className={styles.row}>
         <Button variant="ghost" onClick={onToggleBottles} aria-expanded={showBottles}>
-          {showBottles ? 'Hide bottle mapping' : 'Show bottle mapping (only you)'}
+          {regular ? (showBottles ? 'Hide bottles' : 'Show bottles') : showBottles ? 'Hide bottle mapping' : 'Show bottle mapping (only you)'}
         </Button>
         {category.state === 'revealed' ? (
           <Button variant="ghost" onClick={onShowResults} aria-expanded={resultsOpen}>

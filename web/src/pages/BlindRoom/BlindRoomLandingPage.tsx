@@ -120,7 +120,7 @@ const OPTIONS = [
   {
     to: '/party/new',
     title: 'Host a Tasting Party',
-    meta: 'Rounds, QR-code join, digital or paper ballots. Guests don’t need an account.',
+    meta: 'Blind or regular rounds, QR-code join, digital or paper ballots. Guests don’t need an account.',
   },
   {
     to: '/p',

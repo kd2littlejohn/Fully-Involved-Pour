@@ -1,6 +1,6 @@
 import { bottlePhotoUrl } from '../photoUpload/bottlePhotoUrl'
 import type { Bottle } from '../../data/types'
-import type { PartyBottle } from './types'
+import type { PartyBottle, PartyPublicBottle } from './types'
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
 
@@ -21,6 +21,11 @@ export function partyBottleFromMyBar(bottle: Bottle): PartyBottle {
     ...(ID_PATTERN.test(bottle.id) ? { bottleId: bottle.id } : {}),
     source: 'my-bar',
   }
+}
+
+// A regular tasting's visible details — no price.
+export function publicBottleSummary(bottle: PartyPublicBottle): string {
+  return [bottle.distillery, bottle.type, bottle.age, bottle.proof ? `${bottle.proof} proof` : null].filter(Boolean).join(' · ')
 }
 
 export function bottleSummary(bottle: PartyBottle): string {

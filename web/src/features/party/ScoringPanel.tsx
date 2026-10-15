@@ -25,6 +25,7 @@ import {
   type SampleDraft,
 } from './scoringModel'
 import type { Party, PartyBallot, PartyCategory, PartySampleScore, PartyScoringMode } from './types'
+import { publicBottleSummary } from './partyBottle'
 import styles from './party.module.css'
 import s from './scoring.module.css'
 
@@ -179,8 +180,9 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
               </span>
               <div className={styles.grow}>
                 <h3 id={`sample-title-${label}`} className={styles.sectionTitle}>
-                  Sample {label}
+                  {category.bottles?.[label] ? category.bottles[label]!.name : `Sample ${label}`}
                 </h3>
+                {category.bottles?.[label] ? <div className={styles.muted}>{publicBottleSummary(category.bottles[label]!)}</div> : null}
                 <span className={styles.muted}>{frozen ? 'Submitted — locked by your host' : isSaved ? 'Saved ✓' : 'Not scored yet'}</span>
               </div>
             </div>
