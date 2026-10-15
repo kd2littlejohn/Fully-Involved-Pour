@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { ProgressStepper } from '../../components/ui/ProgressStepper'
 import { Field, controlClassName } from '../../components/ui/Field'
@@ -42,7 +42,10 @@ export function CreateBlindPage() {
   const { user } = useAuth()
   const { userDoc } = useUserData()
 
-  const [sessionType, setSessionType] = useState<BlindSessionType>('live')
+  // Blind Room's "Start Solo Blind Tasting" / "Taste with Friends" open
+  // this with ?type=solo or ?type=live so the first step is preselected.
+  const [searchParams] = useSearchParams()
+  const [sessionType, setSessionType] = useState<BlindSessionType>(() => (searchParams.get('type') === 'solo' ? 'solo' : 'live'))
   const [flightSize, setFlightSize] = useState(3)
   const [knowledgeMode, setKnowledgeMode] = useState<BlindKnowledgeMode>('single')
   const [name, setName] = useState('')

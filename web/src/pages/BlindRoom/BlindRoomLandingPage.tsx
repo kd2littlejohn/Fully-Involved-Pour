@@ -9,6 +9,8 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { BlindHistoryDeleteAction } from '../../features/blindRoom/BlindHistoryDeleteAction'
 import { useAuth } from '../../hooks/useAuth'
 import { getMyBlindRooms, sessionTypeLabel } from '../../data/repositories/blindRoom'
+import { getAttendedParties, getHostedParties } from '../../data/repositories/party'
+import type { Party } from '../../features/party/types'
 import { readHiddenBlindRoomIds } from '../../data/hiddenBlindRooms'
 import type { BlindParticipant, BlindRoom } from '../../data/types'
 import styles from './BlindRoomLandingPage.module.css'
@@ -71,12 +73,82 @@ function RoomCard({ room, isHost, uid, onDeleted }: RoomCardProps) {
   )
 }
 
+interface ResumeTarget {
+  name: string
+  kind: string
+  to: string
+  createdAt: number
+}
+
+// The single most recent thing in progress — a Solo/Friends blind or a
+// party you host or joined — so "Resume Tasting" is one tap.
+function pickResumeTarget(
+  rooms: { room: BlindRoom }[],
+  hosted: Party[],
+  attended: Party[],
+): ResumeTarget | null {
+  const candidates: ResumeTarget[] = [
+    ...rooms
+      .filter(({ room }) => ACTIVE_STATES.has(room.state) && room.state !== 'revealed')
+      .map(({ room }) => ({
+        name: room.name,
+        kind: room.sessionType === 'solo' ? 'Solo blind' : 'Blind with friends',
+        to: room.state === 'active' || room.state === 'awaiting_final_rank' ? `/blind/${room.id}/taste` : `/blind/${room.id}/lobby`,
+        createdAt: room.createdAt,
+      })),
+    ...hosted
+      .filter((p) => p.status !== 'completed')
+      .map((p) => ({ name: p.name, kind: 'Tasting party · You’re hosting', to: `/party/${p.id}/host`, createdAt: p.createdAt })),
+    ...attended
+      .filter((p) => p.status !== 'completed')
+      .map((p) => ({ name: p.name, kind: `Tasting party · Hosted by ${p.hostName}`, to: `/party/${p.id}`, createdAt: p.createdAt })),
+  ]
+  return candidates.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
+}
+
+const OPTIONS = [
+  {
+    to: '/blind/new?type=solo',
+    title: 'Start Solo Blind Tasting',
+    meta: 'Taste by yourself. No labels, just what you actually prefer.',
+  },
+  {
+    to: '/blind/new?type=live',
+    title: 'Taste with Friends',
+    meta: 'Create a blind room and share its code.',
+  },
+  {
+    to: '/party/new',
+    title: 'Host a Tasting Party',
+    meta: 'Rounds, QR-code join, digital or paper ballots. Guests don’t need an account.',
+  },
+  {
+    to: '/p',
+    title: 'Join a Tasting Party',
+    meta: 'Enter the host’s party code.',
+  },
+] as const
+
 export function BlindRoomLandingPage() {
   const { user, loading: authLoading } = useAuth()
   const [rooms, setRooms] = useState<{ room: BlindRoom; participant: BlindParticipant }[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
+  const [parties, setParties] = useState<{ hosted: Party[]; attended: Party[] }>({ hosted: [], attended: [] })
+
+  // Parties only feed "Resume Tasting"; if they fail to load, the page
+  // still works and the Party Mode hub has its own retry.
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    Promise.all([getHostedParties(user.uid).catch(() => []), getAttendedParties(user.uid).catch(() => [])]).then(([hosted, attended]) => {
+      if (!cancelled) setParties({ hosted, attended })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   useEffect(() => {
     setHiddenIds(user ? readHiddenBlindRoomIds(user.uid) : new Set())
@@ -152,27 +224,31 @@ export function BlindRoomLandingPage() {
     .filter(({ room }) => !ACTIVE_STATES.has(room.state))
     .sort((a, b) => b.room.createdAt - a.room.createdAt)
 
+  const resume = rooms ? pickResumeTarget(visible, parties.hosted, parties.attended) : null
+
   return (
     <>
       <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
 
-      <div className={styles.actions}>
-        <Link to="/blind/new">
-          <Button>Create Blind</Button>
-        </Link>
-        <Link to="/blind/join">
-          <Button variant="secondary">Join Blind</Button>
-        </Link>
-      </div>
-
-      {/* Party Mode: an additional experience for hosted group tastings —
-          Solo and Friends blinds above are unchanged. */}
-      <div className={styles.partyPromo}>
-        <Link to="/blind/party" className={styles.partyCard}>
-          <span className={styles.partyEyebrow}>New · Party Mode</span>
-          <span className={styles.cardName}>Host a blind tasting for the room</span>
-          <span className={styles.cardMeta}>Multiple categories and bottles, QR-code join, digital or paper ballots — guests don’t need an account.</span>
-        </Link>
+      <div className={styles.options}>
+        {resume ? (
+          <Link to={resume.to} className={`${styles.partyCard} ${styles.resume}`}>
+            <span className={styles.partyEyebrow}>Resume Tasting</span>
+            <span className={styles.cardName}>{resume.name}</span>
+            <span className={styles.cardMeta}>{resume.kind}</span>
+          </Link>
+        ) : null}
+        <div className={styles.optionGrid}>
+          {OPTIONS.map((option) => (
+            <Link key={option.to} to={option.to} className={styles.option}>
+              <span className={styles.optionTitle}>{option.title}</span>
+              <span className={styles.cardMeta}>{option.meta}</span>
+            </Link>
+          ))}
+        </div>
+        <p className={styles.secondary}>
+          Have a friend’s blind room code? <Link to="/blind/join">Join their blind</Link> · <Link to="/blind/party">All tasting parties</Link>
+        </p>
       </div>
 
       <Section title="Active Blinds">
