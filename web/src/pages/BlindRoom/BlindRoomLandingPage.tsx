@@ -86,6 +86,7 @@ function pickResumeTarget(
   rooms: { room: BlindRoom }[],
   hosted: Party[],
   attended: Party[],
+  uid: string,
 ): ResumeTarget | null {
   const candidates: ResumeTarget[] = [
     ...rooms
@@ -98,7 +99,12 @@ function pickResumeTarget(
       })),
     ...hosted
       .filter((p) => p.status !== 'completed')
-      .map((p) => ({ name: p.name, kind: 'Tasting party · You’re hosting', to: `/party/${p.id}/host`, createdAt: p.createdAt })),
+      .map((p) => ({
+        name: p.name,
+        kind: p.hostUid === uid ? 'Tasting party · You’re hosting' : 'Tasting party · You’re co-hosting',
+        to: `/party/${p.id}/host`,
+        createdAt: p.createdAt,
+      })),
     ...attended
       .filter((p) => p.status !== 'completed')
       .map((p) => ({ name: p.name, kind: `Tasting party · Hosted by ${p.hostName}`, to: `/party/${p.id}`, createdAt: p.createdAt })),
@@ -224,7 +230,7 @@ export function BlindRoomLandingPage() {
     .filter(({ room }) => !ACTIVE_STATES.has(room.state))
     .sort((a, b) => b.room.createdAt - a.room.createdAt)
 
-  const resume = rooms ? pickResumeTarget(visible, parties.hosted, parties.attended) : null
+  const resume = rooms ? pickResumeTarget(visible, parties.hosted, parties.attended, user.uid) : null
 
   return (
     <>

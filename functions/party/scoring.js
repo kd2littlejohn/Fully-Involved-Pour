@@ -182,6 +182,8 @@ function computeCategoryResults({ category, samples, ballots, showNicknames }) {
       source: ballot.source,
       scores,
       favoriteLabel: labels.includes(ballot.favoriteLabel) ? ballot.favoriteLabel : null,
+      // Counted exactly like every other ballot; only flagged.
+      ...(ballot.unblinded === true ? { unblinded: true } : {}),
     };
   });
 
@@ -194,6 +196,9 @@ function computeCategoryResults({ category, samples, ballots, showNicknames }) {
     peoplesChoice,
     awards,
     ballotsCounted: counted.length,
+    // Ballots that may not have been fully blind (a tasting host who set up
+    // or viewed the bottle key before finishing). Included, never dropped.
+    unblindedBallots: counted.filter((b) => b.unblinded === true).length,
     ratingsCounted: sampleStats.reduce((sum, s) => sum + s.count, 0),
     guestScores,
   };

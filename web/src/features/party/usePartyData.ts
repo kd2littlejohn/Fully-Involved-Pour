@@ -3,12 +3,11 @@ import {
   watchMyBallots,
   watchMyGuest,
   watchParty,
-  watchPartySecrets,
   watchRecap,
   watchResults,
   watchGuests,
 } from '../../data/repositories/party'
-import type { Party, PartyBallot, PartyCategoryResults, PartyGuest, PartyRecap, PartySecrets } from './types'
+import type { Party, PartyBallot, PartyCategoryResults, PartyGuest, PartyRecap } from './types'
 
 // Live subscriptions for Party Mode screens. A party is genuinely real-time
 // (rounds open and close, ballots arrive, results are revealed while
@@ -35,19 +34,6 @@ export function useParty(partyId: string | undefined, enabled = true): Live<Part
     return watchParty(
       partyId,
       (data) => setState({ data, loading: false, error: data ? null : 'missing' }),
-      (err) => setState({ data: undefined, loading: false, error: accessError(err) }),
-    )
-  }, [partyId, enabled])
-  return state
-}
-
-export function usePartySecrets(partyId: string | undefined, enabled = true): Live<PartySecrets | undefined> {
-  const [state, setState] = useState<Live<PartySecrets | undefined>>({ data: undefined, loading: true, error: null })
-  useEffect(() => {
-    if (!partyId || !enabled) return
-    return watchPartySecrets(
-      partyId,
-      (data) => setState({ data, loading: false, error: null }),
       (err) => setState({ data: undefined, loading: false, error: accessError(err) }),
     )
   }, [partyId, enabled])

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { LinkButton } from '../../components/ui/LinkButton'
@@ -8,13 +8,13 @@ import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/Part
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import { InvitePanel } from '../../features/party/InvitePanel'
 import { ResultsView } from '../../features/party/ResultsView'
-import { useMyBallots, useParty, usePartyGuests, usePartyResults, usePartySecrets } from '../../features/party/usePartyData'
+import { useMyBallots, useParty, usePartyGuests, usePartyResults } from '../../features/party/usePartyData'
 import { MyTastingView } from '../../features/party/MyTastingView'
 import { myTastingProgress, progressLabel } from '../../features/party/myTastingProgress'
 import { recallHostView, rememberHostView, type HostView } from '../../features/party/guestSession'
 import { ballotCount, categoryStateLabel, formatEventDate, partyStatusLabel } from '../../features/party/partyLabels'
-import { partyDisplayUrl } from '../../features/party/partyLinks'
-import { bottleSummary } from '../../features/party/partyBottle'
+import { partyCoHostUrl, partyDisplayUrl, shareOrCopy } from '../../features/party/partyLinks'
+import { bottleSummary, publicBottleSummary } from '../../features/party/partyBottle'
 import {
   completeParty,
   createDisplayLink,
@@ -26,8 +26,14 @@ import {
   setCategoryState,
   setCurrentCategory,
   setHostTasting,
+  getBottleKey,
+  getKeyAccessLog,
+  createCoHostInvite,
+  removeCoHost,
+  type BottleKey,
+  type KeyAccessEntry,
 } from '../../data/repositories/party'
-import { partyFormat, type Party, type PartyCategory, type PartyCategoryState, type PartySecrets } from '../../features/party/types'
+import { partyFormat, type Party, type PartyCategory, type PartyCategoryState } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
 
 type Pending =
@@ -37,6 +43,8 @@ type Pending =
   | { kind: 'delete' }
   | { kind: 'removeGuest'; uid: string; nickname: string }
   | { kind: 'stopTasting' }
+  | { kind: 'viewKey'; categoryId?: string }
+  | { kind: 'removeCoHost'; uid: string; name: string }
 
 const ACTIONS: Record<PartyCategoryState, { to: PartyCategoryState; label: string; primary?: boolean }[]> = {
   draft: [
@@ -86,9 +94,23 @@ export function HostDashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const party = useParty(partyId, Boolean(user))
   const isHost = Boolean(user && party.data && party.data.hostUid === user.uid)
-  const secrets = usePartySecrets(partyId, isHost)
-  const guests = usePartyGuests(partyId, isHost)
-  const results = usePartyResults(partyId, isHost)
+  // Host or co-host (pour assistant). Co-hosts run the event but never taste.
+  const isAdmin = Boolean(user && party.data && (isHost || party.data.coHostUids?.includes(user.uid)))
+  const guests = usePartyGuests(partyId, isAdmin)
+  const results = usePartyResults(partyId, isAdmin)
+  // The bottle key lives only in memory, fetched on an explicit, confirmed,
+  // server-logged request — never a live listener.
+  const [bottleKey, setBottleKey] = useState<BottleKey | null>(null)
+  const [keyLog, setKeyLog] = useState<KeyAccessEntry[]>([])
+  const [coHostLink, setCoHostLink] = useState<string | null>(null)
+  const isBlind = Boolean(party.data && partyFormat(party.data) === 'blind')
+  const refreshKeyLog = useCallback(() => {
+    if (!partyId || !isAdmin || !isBlind) return
+    getKeyAccessLog(partyId)
+      .then(setKeyLog)
+      .catch((err) => console.error('[party] key log', err))
+  }, [partyId, isAdmin, isBlind])
+  useEffect(refreshKeyLog, [refreshKeyLog])
   const [pending, setPending] = useState<Pending | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -121,8 +143,8 @@ export function HostDashboardPage() {
   if (authLoading || (user && party.loading)) return <PartyLoading />
   if (!user) return <PartyMessage title="Host dashboard" message="Sign in to your FIP account to run your party." action={<SignInButton />} />
   if (!party.data) return <PartyMessage title="Party not found" message="This party doesn’t exist, or you don’t have access to it." />
-  if (!isHost) {
-    return <PartyMessage title="Hosts only" message="This dashboard belongs to the party’s host." action={<LinkButton to={`/party/${party.data.id}`}>Go to the party</LinkButton>} />
+  if (!isAdmin) {
+    return <PartyMessage title="Hosts only" message="This dashboard belongs to the party’s host and co-hosts." action={<LinkButton to={`/party/${party.data.id}`}>Go to the party</LinkButton>} />
   }
 
   const p: Party = party.data
@@ -132,6 +154,50 @@ export function HostDashboardPage() {
   const activeGuests = guests.data.filter((g) => !g.revoked && !g.isHost)
   const regular = partyFormat(p) === 'regular'
   const progress = tasting ? myTastingProgress(p, myBallots.data) : null
+  const hostIsTasting = guests.data.some((g) => g.isHost && !g.revoked)
+  const coHosts = (p.coHostUids ?? []).map((uid) => ({ uid, name: p.coHosts?.[uid]?.name ?? 'Co-host' }))
+  const adminName = (uid: string) => (uid === p.hostUid ? `${p.hostName} (host)` : `${p.coHosts?.[uid]?.name ?? 'A co-host'} (co-host)`)
+  // Rounds where the tasting host's own scores won't count as fully blind.
+  const notBlindRounds = tasting && !regular ? p.categories.filter((c) => p.hostKeyViews?.[c.id]) : []
+
+  function samplesFor(category: PartyCategory): { label: string; name: string; summary: string }[] | null {
+    if (regular) {
+      return category.sampleLabels.map((label) => {
+        const b = category.bottles?.[label]
+        return { label, name: b?.name ?? '—', summary: b ? publicBottleSummary(b) : '' }
+      })
+    }
+    if (!bottleKey) return null
+    return (bottleKey.categories[category.id]?.samples ?? []).map((s) => ({ label: s.label, name: s.bottle.name, summary: bottleSummary(s.bottle) }))
+  }
+
+  function toggleBottles(category: PartyCategory) {
+    if (!regular && !bottleKey && !showBottles[category.id]) {
+      setPending({ kind: 'viewKey', categoryId: category.id })
+      return
+    }
+    setShowBottles((s) => ({ ...s, [category.id]: !s[category.id] }))
+  }
+
+  async function viewKey(categoryId?: string) {
+    const ok = await run(async () => setBottleKey(await getBottleKey(p.id)))
+    if (ok && categoryId) setShowBottles((s) => ({ ...s, [categoryId]: true }))
+    refreshKeyLog()
+  }
+
+  function hideKey() {
+    setBottleKey(null)
+    setShowBottles({})
+  }
+
+  async function inviteCoHost() {
+    await run(async () => {
+      const { token } = await createCoHostInvite(p.id)
+      const url = partyCoHostUrl(p.id, token)
+      setCoHostLink(url)
+      await shareOrCopy(`Co-host ${p.name}`, 'Help me run this tasting: you’ll set up the bottles and hold the key so I can taste blind.', url)
+    })
+  }
   const totals = p.categories.reduce(
     (acc, c) => {
       const counts = ballotCount(p, c.id)
@@ -303,9 +369,9 @@ export function HostDashboardPage() {
                 index={index}
                 party={p}
                 category={category}
-                secrets={secrets.data}
+                samples={samplesFor(category)}
                 showBottles={Boolean(showBottles[category.id])}
-                onToggleBottles={() => setShowBottles((s) => ({ ...s, [category.id]: !s[category.id] }))}
+                onToggleBottles={() => toggleBottles(category)}
                 onAction={(to) => requestState(category, to)}
                 onMakeCurrent={() => run(() => setCurrentCategory(p.id, category.id))}
                 onShowResults={() => setShowResults(showResults === category.id ? null : category.id)}
@@ -319,6 +385,89 @@ export function HostDashboardPage() {
           </div>
 
           <div className={styles.stack} style={{ gap: 'var(--fip-space-4)' }}>
+            {!regular ? (
+              <section className={styles.card} aria-labelledby="key-heading">
+                <div className={styles.spread}>
+                  <h2 id="key-heading" className={styles.sectionTitle}>
+                    Bottle key
+                  </h2>
+                  {bottleKey ? (
+                    <Button variant="ghost" onClick={hideKey}>
+                      Hide key
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" disabled={busy} onClick={() => setPending({ kind: 'viewKey' })}>
+                      View bottle key
+                    </Button>
+                  )}
+                </div>
+                <p className={styles.muted}>
+                  Which bottle is behind each letter. Guests never see it before the reveal, and every view before then is logged here.
+                </p>
+                {notBlindRounds.length ? (
+                  <p className={styles.notice} role="note">
+                    Your own scores in {notBlindRounds.map((c) => `“${c.name}”`).join(', ')} are marked <strong>not fully blind</strong>: you set up or
+                    viewed those bottles before finishing. They still count exactly like everyone else’s.
+                  </p>
+                ) : null}
+                {keyLog.length ? (
+                  <ul className={styles.list} aria-label="Bottle key access before reveal">
+                    {keyLog.slice(0, 20).map((entry) => (
+                      <li key={entry.id} className={styles.listItem}>
+                        <span className={`${styles.grow} ${styles.truncate}`}>
+                          {adminName(entry.actorUid)} · {entry.purpose === 'setup' ? 'editing setup' : 'viewed key'}
+                          {entry.flaggedCategoryIds.length ? ' · tasting marked not fully blind' : ''}
+                        </span>
+                        <span className={styles.muted}>{new Date(entry.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.muted}>No one has viewed the key before a reveal.</p>
+                )}
+              </section>
+            ) : null}
+
+            {isHost ? (
+              <section className={styles.card} aria-labelledby="cohost-heading">
+                <h2 id="cohost-heading" className={styles.sectionTitle}>
+                  Co-host / pour assistant
+                </h2>
+                <p className={styles.muted}>
+                  {regular
+                    ? 'Someone to help run the rounds and enter paper ballots.'
+                    : 'Want to taste blind too? A co-host sets up the bottles, pours and holds the key, so you never see it. Co-hosts run the event but don’t score.'}
+                </p>
+                {coHosts.length ? (
+                  <ul className={styles.list}>
+                    {coHosts.map((c) => (
+                      <li key={c.uid} className={styles.listItem}>
+                        <span className={`${styles.grow} ${styles.truncate}`}>{c.name}</span>
+                        {!completed ? (
+                          <Button variant="ghost" aria-label={`Remove co-host ${c.name}`} onClick={() => setPending({ kind: 'removeCoHost', uid: c.uid, name: c.name })}>
+                            Remove
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {!completed && coHosts.length < 3 ? (
+                  <Button variant="secondary" disabled={busy} onClick={() => void inviteCoHost()}>
+                    Invite a co-host
+                  </Button>
+                ) : null}
+                {coHostLink ? (
+                  <div className={styles.notice}>
+                    Send this one-time link to your co-host (valid 2 days). They’ll need an FIP account.
+                    <input className={styles.input} readOnly value={coHostLink} onFocus={(e) => e.currentTarget.select()} aria-label="Co-host invite link" style={{ marginTop: 8 }} />
+                  </div>
+                ) : null}
+              </section>
+            ) : (
+              <p className={styles.notice}>You’re a co-host for {p.hostName}’s party. You can run rounds and hold the bottle key, but co-hosts don’t score.</p>
+            )}
+
             <InvitePanel party={p} />
 
             <section className={styles.card} aria-labelledby="guests-heading">
@@ -333,9 +482,9 @@ export function HostDashboardPage() {
               </div>
               <div className={styles.listItem}>
                 <span className={`${styles.grow} ${styles.truncate}`}>
-                  {p.hostName} (you) · {tasting ? 'tasting too' : 'hosting only'}
+                  {p.hostName} {isHost ? '(you)' : '(host)'} · {hostIsTasting ? 'tasting too' : 'hosting only'}
                 </span>
-                {!completed ? (
+                {!completed && isHost ? (
                   tasting ? (
                     <Button variant="ghost" disabled={busy} onClick={() => setPending({ kind: 'stopTasting' })}>
                       Stop tasting
@@ -388,11 +537,13 @@ export function HostDashboardPage() {
               </section>
             ) : null}
 
-            <section className={styles.card}>
-              <Button variant="danger" onClick={() => setPending({ kind: 'delete' })}>
-                Delete party
-              </Button>
-            </section>
+            {isHost ? (
+              <section className={styles.card}>
+                <Button variant="danger" onClick={() => setPending({ kind: 'delete' })}>
+                  Delete party
+                </Button>
+              </section>
+            ) : null}
           </div>
         </div>
 
@@ -439,6 +590,31 @@ export function HostDashboardPage() {
           onConfirm={() => run(() => deleteParty(p.id)).then((ok) => ok && navigate('/blind/party', { replace: true }))}
         />
       ) : null}
+      {pending?.kind === 'viewKey' ? (
+        <ConfirmDialog
+          title="Show the bottle key?"
+          message={
+            tasting && p.categories.some((c) => c.state !== 'revealed')
+              ? 'You’re tasting too. Seeing the key marks your scores as not fully blind in every unrevealed round you haven’t finished scoring. They still count equally. This view is logged.'
+              : 'This shows which bottle is behind each letter in every round. Views before the reveal are logged for the host and co-hosts to see.'
+          }
+          confirmLabel="Show bottle key"
+          busy={busy}
+          onCancel={() => setPending(null)}
+          onConfirm={() => void viewKey(pending.categoryId)}
+        />
+      ) : null}
+      {pending?.kind === 'removeCoHost' ? (
+        <ConfirmDialog
+          title={`Remove ${pending.name} as co-host?`}
+          message="They lose access to the dashboard and the bottle key right away."
+          confirmLabel="Remove co-host"
+          danger
+          busy={busy}
+          onCancel={() => setPending(null)}
+          onConfirm={() => run(() => removeCoHost(p.id, pending.uid))}
+        />
+      ) : null}
       {pending?.kind === 'stopTasting' ? (
         <ConfirmDialog
           title="Stop tasting?"
@@ -468,7 +644,7 @@ function RoundCard({
   index,
   party,
   category,
-  secrets,
+  samples,
   showBottles,
   onToggleBottles,
   onAction,
@@ -482,7 +658,7 @@ function RoundCard({
   index: number
   party: Party
   category: PartyCategory
-  secrets: PartySecrets | undefined
+  samples: { label: string; name: string; summary: string }[] | null
   showBottles: boolean
   onToggleBottles: () => void
   onAction: (to: PartyCategoryState) => void
@@ -494,7 +670,6 @@ function RoundCard({
   children?: ReactNode
 }) {
   const counts = ballotCount(party, category.id)
-  const samples = secrets?.categories?.[category.id]?.samples ?? []
   const isCurrent = party.currentCategoryId === category.id
   const regular = partyFormat(party) === 'regular'
   const actions = regular
@@ -539,7 +714,7 @@ function RoundCard({
       ) : null}
       <div className={styles.row}>
         <Button variant="ghost" onClick={onToggleBottles} aria-expanded={showBottles}>
-          {regular ? (showBottles ? 'Hide bottles' : 'Show bottles') : showBottles ? 'Hide bottle mapping' : 'Show bottle mapping (only you)'}
+          {regular ? (showBottles ? 'Hide bottles' : 'Show bottles') : showBottles ? 'Hide bottle key' : 'Show bottle key'}
         </Button>
         {category.state === 'revealed' ? (
           <Button variant="ghost" onClick={onShowResults} aria-expanded={resultsOpen}>
@@ -547,20 +722,20 @@ function RoundCard({
           </Button>
         ) : null}
       </div>
-      {showBottles ? (
+      {showBottles && samples ? (
         samples.length ? (
           <ul className={styles.list}>
             {samples.map((s) => (
-              <li key={s.id} className={styles.listItem}>
+              <li key={s.label} className={styles.listItem}>
                 <span className={`${styles.sampleBadge} ${styles.sampleBadgeSmall}`} aria-hidden="true">
                   {s.label}
                 </span>
                 <div className={styles.grow}>
                   <div className={styles.truncate}>
                     <span className={styles.srOnly}>Sample {s.label}: </span>
-                    {s.bottle.name}
+                    {s.name}
                   </div>
-                  <div className={`${styles.muted} ${styles.truncate}`}>{bottleSummary(s.bottle)}</div>
+                  <div className={`${styles.muted} ${styles.truncate}`}>{s.summary}</div>
                 </div>
               </li>
             ))}

@@ -106,6 +106,12 @@ export function MyTastingView({
             </div>
           ) : null}
 
+          {guest.isHost && party.format !== 'regular' && party.hostKeyViews?.[category.id] && category.state !== 'revealed' ? (
+            <p className={styles.notice} role="note">
+              You’ve seen this round’s bottles, so your scores here are marked not fully blind. They still count like everyone else’s.
+            </p>
+          ) : null}
+
           {category.state === 'voting_open' && party.status !== 'completed' ? (
             <ScoringPanel key={category.id} party={party} category={category} ballot={myBallot} resumeAtLastSample={resumeAtLastSample} />
           ) : null}

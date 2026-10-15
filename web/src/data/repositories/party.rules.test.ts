@@ -18,6 +18,7 @@ const OTHER_GUEST = 'party-guest-2'
 const REVOKED = 'party-revoked'
 const TV = 'party-tv'
 const OUTSIDER = 'party-outsider'
+const COHOST = 'party-cohost'
 const PARTY = 'party-1'
 const OTHER_PARTY = 'party-2'
 
@@ -40,6 +41,7 @@ beforeEach(async () => {
       await setDoc(doc(db, 'parties', id), {
         id,
         hostUid: id === PARTY ? HOST : 'someone-else',
+        coHostUids: id === PARTY ? [COHOST] : [],
         name: 'Bourbon Night',
         status: 'live',
         categories: [{ id: 'c1', name: 'Wheated', state: 'voting_open', sampleLabels: ['A', 'B'] }],
@@ -102,12 +104,19 @@ describe('party documents', () => {
 })
 
 describe('unrevealed bottle mapping', () => {
-  it('is host-only and never writable from a client', async () => {
-    await assertSucceeds(getDoc(doc(as(HOST), 'partySecrets', PARTY)))
+  it('is readable by no client at all — not even the host or a co-host — and never writable', async () => {
+    // Admins get it only from the getBottleKey callable, which confirms and logs each view.
+    await assertFails(getDoc(doc(as(HOST), 'partySecrets', PARTY)))
+    await assertFails(getDoc(doc(as(COHOST), 'partySecrets', PARTY)))
     await assertFails(getDoc(doc(as(GUEST), 'partySecrets', PARTY)))
     await assertFails(getDoc(doc(as(TV), 'partySecrets', PARTY)))
     await assertFails(getDoc(doc(as(OUTSIDER), 'partySecrets', PARTY)))
     await assertFails(setDoc(doc(as(HOST), 'partySecrets', PARTY), { hostUid: HOST, categories: {} }))
+  })
+
+  it('co-host invites are server-only', async () => {
+    await assertFails(getDoc(doc(as(HOST), 'partyCoHostInvites', 'hash')))
+    await assertFails(setDoc(doc(as(OUTSIDER), 'partyCoHostInvites', 'hash'), { partyId: PARTY }))
   })
 
   it('server-only lookup collections are closed to every client', async () => {
@@ -115,6 +124,29 @@ describe('unrevealed bottle mapping', () => {
     await assertFails(getDoc(doc(as(HOST), 'partyGuestKeys', 'hash')))
     await assertFails(setDoc(doc(as(GUEST), 'partyCodes', 'NEWONE'), { partyId: PARTY }))
     await assertFails(setDoc(doc(as(GUEST), 'partyClaims', 'x'), { anonUid: GUEST }))
+  })
+})
+
+describe('co-hosts', () => {
+  it('read what the host reads to run the event — party, roster, results, audit, displays', async () => {
+    await assertSucceeds(getDoc(doc(as(COHOST), 'parties', PARTY)))
+    await assertSucceeds(getDocs(collection(as(COHOST), 'parties', PARTY, 'guests')))
+    await assertSucceeds(getDoc(doc(as(COHOST), 'parties', PARTY, 'results', 'c1')))
+    await assertSucceeds(getDocs(collection(as(COHOST), 'parties', PARTY, 'audit')))
+    await assertSucceeds(getDoc(doc(as(COHOST), 'parties', PARTY, 'displays', TV)))
+    await assertSucceeds(getDocs(query(collection(as(COHOST), 'parties'), where('coHostUids', 'array-contains', COHOST))))
+  })
+
+  it('never read anyone’s ballot, and only for their own party', async () => {
+    await assertFails(getDoc(doc(as(COHOST), 'parties', PARTY, 'ballots', 'c1__g_1')))
+    await assertFails(getDoc(doc(as(COHOST), 'parties', PARTY, 'ballots', 'c1__p_1')))
+    await assertFails(getDoc(doc(as(COHOST), 'parties', OTHER_PARTY)))
+    await assertFails(getDocs(collection(as(COHOST), 'parties', OTHER_PARTY, 'audit')))
+  })
+
+  it('cannot write party data directly', async () => {
+    await assertFails(updateDoc(doc(as(COHOST), 'parties', PARTY), { name: 'Mine now' }))
+    await assertFails(updateDoc(doc(as(COHOST), 'parties', PARTY), { coHostUids: [COHOST, OUTSIDER] }))
   })
 })
 

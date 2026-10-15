@@ -16,13 +16,17 @@ import {
   draftProblems,
   emptyDraft,
   finalizeLabels,
+  mergeBottleKey,
+  bottleKeyHidden,
   type DraftCategory,
   type PartyDraft,
 } from '../../features/party/setupDraft'
-import { useParty, usePartySecrets } from '../../features/party/usePartyData'
+import { useParty } from '../../features/party/usePartyData'
+import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import {
   createParty,
   deleteCustomCategory,
+  getBottleKey,
   deletePartyTemplate,
   getPartyTemplates,
   getSavedCategories,
@@ -52,7 +56,6 @@ export function PartySetupPage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, profile } = useUserData()
   const party = useParty(partyId, isEdit && Boolean(user))
-  const secrets = usePartySecrets(partyId, isEdit && Boolean(user))
 
   const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState<PartyDraft>(() => ({ ...emptyDraft(), format: searchParams.get('format') === 'regular' ? 'regular' : 'blind' }))
@@ -62,12 +65,39 @@ export function PartySetupPage() {
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<SavedTastingCategory[]>([])
   const [templates, setTemplates] = useState<PartyTemplate[]>([])
+  const [confirmKey, setConfirmKey] = useState(false)
+  const [loadingKey, setLoadingKey] = useState(false)
 
+  // Editing never pulls the bottle key on its own: rounds keep their saved
+  // bottles hidden until an admin opens the key for the Bottles or Letters
+  // step (confirmed and logged by the server). Regular tastings have
+  // nothing secret, so their bottles load straight away.
   useEffect(() => {
-    if (!isEdit || loadedFrom || !party.data || secrets.loading) return
-    setDraft(draftFromParty(party.data, secrets.data))
-    setLoadedFrom(party.data.id)
-  }, [isEdit, loadedFrom, party.data, secrets.loading, secrets.data])
+    if (!isEdit || loadedFrom || !party.data) return
+    const loaded = party.data
+    setDraft(draftFromParty(loaded))
+    setLoadedFrom(loaded.id)
+    if (partyFormat(loaded) === 'regular' && loaded.categories.some((c) => c.sampleLabels.length)) {
+      getBottleKey(loaded.id, 'setup')
+        .then((key) => setDraft((d) => mergeBottleKey(d, key)))
+        .catch((err) => setError(partyErrorMessage(err)))
+    }
+  }, [isEdit, loadedFrom, party.data])
+
+  async function openBottleKey() {
+    if (!partyId) return
+    setLoadingKey(true)
+    setError(null)
+    try {
+      const key = await getBottleKey(partyId, 'setup')
+      setDraft((d) => mergeBottleKey(d, key))
+      setConfirmKey(false)
+    } catch (err) {
+      setError(partyErrorMessage(err))
+    } finally {
+      setLoadingKey(false)
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -91,14 +121,18 @@ export function PartySetupPage() {
   if (isEdit && (party.error || !party.data)) {
     return <PartyMessage title="Party not found" message="This party doesn’t exist or you aren’t its host." />
   }
-  if (isEdit && party.data && party.data.hostUid !== user.uid) {
-    return <PartyMessage title="Hosts only" message="Only this party’s host can edit its setup." />
+  const isHost = !isEdit || party.data?.hostUid === user.uid
+  if (isEdit && party.data && !isHost && !party.data.coHostUids?.includes(user.uid)) {
+    return <PartyMessage title="Hosts only" message="Only this party’s host and co-hosts can edit its setup." />
   }
   if (isEdit && party.data?.status === 'completed') {
     return <PartyMessage title="Party wrapped up" message="This party is complete, so its setup can no longer change." />
   }
 
   const formatLocked = draft.categories.some((c) => c.locked)
+  const keyHidden = bottleKeyHidden(draft)
+  // A tasting host choosing bottles themselves knows them (blind only).
+  const hostWillKnow = isHost && draft.hostTasting && draft.format === 'blind' && draft.categories.some((c) => !c.locked)
   const problems = draftProblems(draft)
   const stepProblems = [problems.details, problems.categories, problems.bottles, [], []]
 
@@ -152,7 +186,7 @@ export function PartySetupPage() {
           settings: draft.settings,
           ...(draft.format !== (party.data ? partyFormat(party.data) : 'blind') ? { format: draft.format } : {}),
         })
-        if (draft.hostTasting !== (party.data?.hostTasting === true)) await setHostTasting(id, draft.hostTasting)
+        if (isHost && draft.hostTasting !== (party.data?.hostTasting === true)) await setHostTasting(id, draft.hostTasting)
         const result = await setPartyCategories(
           id,
           categories.map((c) => ({ ...(c.id ? { id: c.id } : {}), libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
@@ -318,24 +352,64 @@ export function PartySetupPage() {
         />
       ) : null}
 
-      {step === 2 ? <BottlesStep categories={draft.categories} onChange={setCategories} myBar={myBar} /> : null}
-      {step === 3 ? <LabelsStep categories={draft.categories} onChange={setCategories} /> : null}
+      {(step === 2 || step === 3) && keyHidden ? (
+        <section className={styles.card} aria-labelledby="key-gate-heading">
+          <h2 id="key-gate-heading" className={styles.sectionTitle}>
+            Bottles are hidden
+          </h2>
+          <p className={styles.muted}>
+            This party’s bottles stay out of sight until you open the bottle key, so you can edit everything else without seeing them.
+          </p>
+          <Button onClick={() => setConfirmKey(true)} disabled={loadingKey}>
+            {loadingKey ? 'Opening…' : 'Show bottle key to edit'}
+          </Button>
+        </section>
+      ) : null}
+      {step === 2 && !keyHidden ? (
+        <>
+          {hostWillKnow ? (
+            <p className={styles.notice} role="note">
+              You’re tasting too, so choosing these bottles marks your own scores in these rounds as <strong>not fully blind</strong>. They still count. To taste
+              blind, leave the bottles empty and invite a co-host from your dashboard to add them.
+            </p>
+          ) : null}
+          <BottlesStep categories={draft.categories} onChange={setCategories} myBar={myBar} />
+        </>
+      ) : null}
+      {step === 3 && !keyHidden ? <LabelsStep categories={draft.categories} onChange={setCategories} /> : null}
+      {confirmKey ? (
+        <ConfirmDialog
+          title="Show the bottle key?"
+          message={
+            isHost && draft.hostTasting
+              ? 'You’re tasting too. Seeing the bottles marks your scores as not fully blind in every unrevealed round you haven’t finished scoring. They still count equally. This view is logged.'
+              : 'This shows every round’s bottles and letters. Views before the reveal are logged for the host and co-hosts to see.'
+          }
+          confirmLabel="Show bottle key"
+          busy={loadingKey}
+          onCancel={() => setConfirmKey(false)}
+          onConfirm={() => void openBottleKey()}
+        />
+      ) : null}
 
       {step === 4 ? (
         <section className={styles.card} aria-labelledby="settings-heading">
           <h2 id="settings-heading" className={styles.sectionTitle}>
             Scoring and reveal
           </h2>
-          <ToggleRow
-            id="host-tasting"
-            label="I’m tasting too"
-            hint="Score each round alongside your guests from My Tasting on your dashboard. Your scores count exactly like everyone else’s."
-            checked={draft.hostTasting}
-            onChange={(v) => setDraft((d) => ({ ...d, hostTasting: v }))}
-          />
-          {draft.hostTasting && draft.format === 'blind' ? (
+          {isHost ? (
+            <ToggleRow
+              id="host-tasting"
+              label="I’m tasting too"
+              hint="Score each round alongside your guests from My Tasting on your dashboard. Your scores count exactly like everyone else’s."
+              checked={draft.hostTasting}
+              onChange={(v) => setDraft((d) => ({ ...d, hostTasting: v }))}
+            />
+          ) : null}
+          {isHost && draft.hostTasting && draft.format === 'blind' ? (
             <p className={styles.muted}>
-              You picked the bottles, so your own tasting can’t be fully blind. If you can, have someone else pour and label the samples.
+              If you pick, label or pour the bottles yourself, your own scores are marked not fully blind (they still count). A co-host can set up the bottles so
+              you taste blind.
             </p>
           ) : null}
           <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>

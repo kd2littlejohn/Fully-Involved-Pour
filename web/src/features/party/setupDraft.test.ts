@@ -13,6 +13,8 @@ import {
   normalizeLabels,
   removeSample,
   shuffleLabels,
+  mergeBottleKey,
+  bottleKeyHidden,
   type DraftSample,
 } from './setupDraft'
 import type { Party } from './types'
@@ -125,5 +127,43 @@ describe('setup draft', () => {
 
   it('has the host tasting too by default for a new party', () => {
     expect(emptyDraft().hostTasting).toBe(true)
+  })
+
+  it('loads an existing party with its bottles hidden until the key is opened, and never loses them', () => {
+    const party = {
+      name: 'Night',
+      description: '',
+      eventDate: null,
+      coverImageUrl: '',
+      capacity: null,
+      settings: {},
+      categories: [
+        { id: 'c1', libraryId: null, name: 'Rye', description: '', lockedAt: null, sampleLabels: ['A', 'B', 'C'] },
+        { id: 'c2', libraryId: null, name: 'Empty', description: '', lockedAt: null, sampleLabels: [] },
+      ],
+    } as unknown as Party
+    const draft = draftFromParty(party)
+    expect(bottleKeyHidden(draft)).toBe(true)
+    expect(draft.categories[0]).toMatchObject({ hiddenCount: 3, samples: [], samplesDirty: false })
+    // Hidden bottles still count toward the two-bottle minimum.
+    expect(draftProblems(draft).bottles).toEqual([])
+    // Edits made while hidden survive opening the key.
+    const renamed = { ...draft, name: 'Renamed', categories: draft.categories.map((c) => ({ ...c, name: c.name + '!' })) }
+    const opened = mergeBottleKey(renamed, {
+      categories: {
+        c1: {
+          samples: [
+            { id: 's1', label: 'B', bottle: bottle('Pikesville') },
+            { id: 's2', label: 'A', bottle: bottle('Rittenhouse') },
+            { id: 's3', label: 'C', bottle: bottle('Sazerac') },
+          ],
+        },
+      },
+    })
+    expect(bottleKeyHidden(opened)).toBe(false)
+    expect(opened.name).toBe('Renamed')
+    expect(opened.categories[0]!.name).toBe('Rye!')
+    expect(opened.categories[0]!.samples.map((s) => s.bottle.name)).toEqual(['Pikesville', 'Rittenhouse', 'Sazerac'])
+    expect(opened.categories[0]!.samplesDirty).toBe(false)
   })
 })

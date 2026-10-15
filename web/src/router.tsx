@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { createElement, lazy, Suspense, type ReactNode } from 'react'
 import { createHashRouter, Navigate } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { RouteFallback } from './components/layout/RouteFallback'
@@ -235,6 +235,9 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
   ...partyRoute('/party/:partyId/setup', <PartySetupPage />),
   ...partyRoute('/party/:partyId', <GuestPartyPage />),
   ...partyRoute('/party/:partyId/host', <HostDashboardPage />),
+  // Created inline (not a top-level const) so router.tsx doesn't grow another
+  // fast-refresh lint warning.
+  ...partyRoute('/party/:partyId/cohost', createElement(lazy(() => import('./pages/Party/CoHostAcceptPage').then((m) => ({ default: m.CoHostAcceptPage }))))),
   ...partyRoute('/party/:partyId/ballots', <PaperBallotsPage />),
   ...partyRoute('/party/:partyId/print', <PrintScorecardsPage />),
   ...partyRoute('/party/:partyId/recap', <PartyRecapPage />),

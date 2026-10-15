@@ -511,6 +511,143 @@ describe("host participation (I'm tasting too)", () => {
   });
 });
 
+describe("bottle key, co-hosts and blind integrity", () => {
+  it("serves the bottle key only to admins, only after confirmation, and logs views before reveal", async () => {
+    const { host, other, g1 } = ids();
+    const { partyId, joinCode, party } = await setupParty(host);
+    await call(g1, "joinParty", { code: joinCode, nickname: "Ana" });
+    await expect(call(host, "getBottleKey", { partyId })).rejects.toMatchObject({ code: "invalid-argument" });
+    await expect(call(g1, "getBottleKey", { partyId, confirm: true })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(other, "getBottleKey", { partyId, confirm: true })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(anon(host.uid), "getBottleKey", { partyId, confirm: true })).rejects.toMatchObject({ code: "permission-denied" });
+
+    const key = await call(host, "getBottleKey", { partyId, confirm: true });
+    expect(key.categories[party.categories[0].id].samples.map((s) => s.label)).toEqual(["A", "B", "C"]);
+    const audit = await db.collection(`parties/${partyId}/audit`).where("type", "==", "bottle-key-viewed").get();
+    expect(audit.size).toBe(1);
+    expect(audit.docs[0].data()).toMatchObject({ actorUid: host.uid, role: "host", purpose: "key" });
+    expect(audit.docs[0].data().unrevealedCategoryIds).toEqual([party.categories[0].id]);
+  });
+
+  it("flags the tasting host's unfinished ballot when they view the key, but keeps counting it equally", async () => {
+    const { host, g1 } = ids();
+    // A co-host sets up the bottles, so the host starts out blind.
+    const { partyId, joinCode } = await call(host, "createParty", { details: { name: "Blind for real" }, categories: [{ name: "R1" }] });
+    const { token } = await call(host, "createCoHostInvite", { partyId });
+    const cohost = account(`pm-cohost-${n}`);
+    await call(cohost, "acceptCoHost", { partyId, token, name: "Pat" });
+    let party = (await db.doc(`parties/${partyId}`).get()).data();
+    const categoryId = party.categories[0].id;
+    await call(cohost, "setSamples", { partyId, categoryId, assignment: "random", samples: [bottle("X"), bottle("Y"), bottle("Z")] });
+    await call(cohost, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(party.hostKeyViews?.[categoryId]).toBeUndefined();
+
+    await call(g1, "joinParty", { code: joinCode, nickname: "Ana" });
+    await call(g1, "saveBallot", { partyId, categoryId, scores: { A: { overall: 6 }, B: { overall: 6 } } });
+    const { ballotId } = await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 8 } } });
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data().unblinded).toBeUndefined();
+
+    const key = await call(host, "getBottleKey", { partyId, confirm: true });
+    expect(key.flaggedCategoryIds).toEqual([categoryId]);
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data().unblinded).toBe(true);
+    // Edits after seeing the key stay flagged.
+    await call(host, "saveBallot", { partyId, categoryId, scores: { B: { overall: 10 } } });
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data().unblinded).toBe(true);
+
+    await call(cohost, "setCategoryState", { partyId, categoryId, to: "voting_closed" });
+    await call(cohost, "setCategoryState", { partyId, categoryId, to: "revealed" });
+    const results = (await db.doc(`parties/${partyId}/results/${categoryId}`).get()).data();
+    expect(results.ballotsCounted).toBe(2);
+    expect(results.unblindedBallots).toBe(1);
+    expect(results.samples.find((x) => x.label === "A")).toMatchObject({ average: 7, count: 2 });
+    expect(results.guestScores.find((g) => g.name === "Your host")).toMatchObject({ unblinded: true });
+  });
+
+  it("does not flag a ballot the host finished before viewing the key", async () => {
+    const { host } = ids();
+    const { partyId } = await call(host, "createParty", { details: { name: "Finished first" }, categories: [{ name: "R1" }] });
+    const { token } = await call(host, "createCoHostInvite", { partyId });
+    const cohost = account(`pm-cohost-${n}`);
+    await call(cohost, "acceptCoHost", { partyId, token });
+    const categoryId = (await db.doc(`parties/${partyId}`).get()).data().categories[0].id;
+    await call(cohost, "setSamples", { partyId, categoryId, assignment: "random", samples: [bottle("X"), bottle("Y")] });
+    await call(cohost, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    const { ballotId } = await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 8 }, B: { overall: 5 } } });
+    const key = await call(host, "getBottleKey", { partyId, confirm: true });
+    expect(key.flaggedCategoryIds).toEqual([]);
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data().unblinded).toBeUndefined();
+  });
+
+  it("marks a host who set up the bottles themselves, even if they turn tasting on later", async () => {
+    const { host } = ids();
+    const { partyId, categoryId } = await setupParty(host, { settings: undefined });
+    await call(host, "setHostTasting", { partyId, enabled: false });
+    expect((await db.doc(`parties/${partyId}`).get()).data().hostKeyViews[categoryId]).toBeTruthy();
+    await call(host, "setHostTasting", { partyId, enabled: true });
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    const { ballotId } = await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 8 } } });
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data().unblinded).toBe(true);
+  });
+
+  it("never flags regular tastings, and co-host key views don't flag the host", async () => {
+    const { host } = ids();
+    const { partyId } = await call(host, "createParty", { details: { name: "Open" }, format: "regular", categories: [{ name: "R1" }] });
+    const categoryId = (await db.doc(`parties/${partyId}`).get()).data().categories[0].id;
+    await call(host, "setSamples", { partyId, categoryId, assignment: "random", samples: [bottle("X"), bottle("Y")] });
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    const { ballotId } = await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 8 } } });
+    await call(host, "getBottleKey", { partyId, confirm: true });
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data().unblinded).toBeUndefined();
+    expect((await db.collection(`parties/${partyId}/audit`).where("type", "==", "bottle-key-viewed").get()).size).toBe(0);
+  });
+
+  it("co-hosts can run the event but not delete it, change host tasting, manage co-hosts, or join as a guest", async () => {
+    const { host, other } = ids();
+    const { partyId, joinCode, categoryId } = await setupParty(host);
+    const { token } = await call(host, "createCoHostInvite", { partyId });
+    await expect(call(other, "createCoHostInvite", { partyId })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(anon(`pm-anon-${n}`), "acceptCoHost", { partyId, token })).rejects.toMatchObject({ code: "permission-denied" });
+    await call(other, "acceptCoHost", { partyId, token, name: "Pat" });
+    // Single use.
+    await expect(call(account(`pm-third-${n}`), "acceptCoHost", { partyId, token })).rejects.toMatchObject({ code: "not-found" });
+    const party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(party.coHostUids).toEqual([other.uid]);
+    expect(party.coHosts[other.uid]).toMatchObject({ name: "Pat" });
+
+    await expect(call(other, "setCategoryState", { partyId, categoryId, to: "voting_open" })).resolves.toMatchObject({ state: "voting_open" });
+    await expect(call(other, "savePaperBallot", { partyId, categoryId, ballotNumber: "7", scores: { A: { overall: 5 } } })).resolves.toBeTruthy();
+    await expect(call(other, "getBottleKey", { partyId, confirm: true })).resolves.toBeTruthy();
+    const view = (await db.collection(`parties/${partyId}/audit`).where("type", "==", "bottle-key-viewed").get()).docs[0].data();
+    expect(view).toMatchObject({ actorUid: other.uid, role: "cohost", flaggedCategoryIds: [] });
+
+    await expect(call(other, "deleteParty", { partyId, confirm: true })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(other, "setHostTasting", { partyId, enabled: false })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(other, "removeCoHost", { partyId, uid: other.uid })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(other, "joinParty", { code: joinCode, nickname: "Pat" })).rejects.toMatchObject({ code: "failed-precondition" });
+
+    await call(host, "removeCoHost", { partyId, uid: other.uid });
+    await expect(call(other, "getBottleKey", { partyId, confirm: true })).rejects.toMatchObject({ code: "permission-denied" });
+  });
+
+  it("rejects expired, wrong-party and guest co-host invites", async () => {
+    const { host, g1 } = ids();
+    const { partyId, joinCode } = await setupParty(host);
+    const other = await setupParty(host);
+    const { token } = await call(host, "createCoHostInvite", { partyId });
+    await expect(call(account(`pm-x-${n}`), "acceptCoHost", { partyId: other.partyId, token })).rejects.toMatchObject({ code: "not-found" });
+    // Someone already tasting as a guest can't become a co-host.
+    const guestAccount = account(`pm-guestacct-${n}`);
+    await call(guestAccount, "joinParty", { code: joinCode, nickname: "Lee" });
+    await expect(call(guestAccount, "acceptCoHost", { partyId, token })).rejects.toMatchObject({ code: "failed-precondition" });
+    const expired = await call(host, "createCoHostInvite", { partyId });
+    const hash = (await db.collection("partyCoHostInvites").where("partyId", "==", partyId).get()).docs;
+    await Promise.all(hash.map((d) => d.ref.update({ expiresAt: Date.now() - 1 })));
+    await expect(call(account(`pm-late-${n}`), "acceptCoHost", { partyId, token: expired.token })).rejects.toMatchObject({ code: "failed-precondition" });
+    void g1;
+  });
+});
+
 describe("regular (non-blind) tastings", () => {
   it("shows every bottle from the start, without the host's price or My Bar id", async () => {
     const { host, g1 } = ids();

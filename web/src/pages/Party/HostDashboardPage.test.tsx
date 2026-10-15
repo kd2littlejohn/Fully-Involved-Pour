@@ -9,6 +9,10 @@ import type { Party, PartyBallot, PartyGuest } from '../../features/party/types'
 const mockUseAuth = vi.fn()
 const mockSetState = vi.fn()
 const mockSetHostTasting = vi.fn()
+const mockGetBottleKey = vi.fn()
+const mockGetKeyAccessLog = vi.fn()
+const mockCreateCoHostInvite = vi.fn()
+const mockRemoveCoHost = vi.fn()
 let party: Party | undefined
 const SAM: PartyGuest = { uid: 'g1', participantKey: 'k', nickname: 'Sam', joinedAt: 1, revoked: false }
 const HOST: PartyGuest = { uid: 'host-1', participantKey: 'h_1', nickname: 'Kevin', joinedAt: 0, revoked: false, isHost: true }
@@ -18,11 +22,6 @@ let myBallots: PartyBallot[] = []
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => mockUseAuth() }))
 vi.mock('../../features/party/usePartyData', () => ({
   useParty: () => ({ data: party, loading: false, error: party ? null : 'missing' }),
-  usePartySecrets: () => ({
-    data: { partyId: 'p1', hostUid: 'host-1', categories: { c1: { samples: [{ id: 's1', label: 'A', bottle: { name: 'Secret Weller', source: 'manual' } }] } } },
-    loading: false,
-    error: null,
-  }),
   usePartyGuests: () => ({ data: guests, loading: false, error: null }),
   usePartyResults: () => ({ data: {}, loading: false, error: null }),
   useMyBallots: (_p: string, _u: string, enabled: boolean) => ({ data: enabled ? myBallots : [], loading: false, error: null }),
@@ -33,6 +32,10 @@ vi.mock('../../data/repositories/party', async (importOriginal) => {
     ...actual,
     setCategoryState: (...a: unknown[]) => mockSetState(...a),
     setHostTasting: (...a: unknown[]) => mockSetHostTasting(...a),
+    getBottleKey: (...a: unknown[]) => mockGetBottleKey(...a),
+    getKeyAccessLog: (...a: unknown[]) => mockGetKeyAccessLog(...a),
+    createCoHostInvite: (...a: unknown[]) => mockCreateCoHostInvite(...a),
+    removeCoHost: (...a: unknown[]) => mockRemoveCoHost(...a),
   }
 })
 
@@ -50,6 +53,13 @@ describe('HostDashboardPage', () => {
   beforeEach(() => {
     mockSetState.mockReset().mockResolvedValue({ state: 'ok' })
     mockSetHostTasting.mockReset().mockResolvedValue({ ok: true })
+    mockGetBottleKey.mockReset().mockResolvedValue({
+      categories: { c1: { samples: [{ id: 's1', label: 'A', bottle: { name: 'Secret Weller', source: 'manual' } }] } },
+      flaggedCategoryIds: [],
+    })
+    mockGetKeyAccessLog.mockReset().mockResolvedValue([])
+    mockCreateCoHostInvite.mockReset().mockResolvedValue({ token: 'TOKEN123', expiresAt: 1 })
+    mockRemoveCoHost.mockReset().mockResolvedValue({ ok: true })
     localStorage.clear()
     guests = [SAM]
     myBallots = []
@@ -72,11 +82,60 @@ describe('HostDashboardPage', () => {
     expect(screen.getByText(/2 digital · 1 paper ballots/)).toBeInTheDocument()
   })
 
-  it('keeps the bottle mapping hidden until the host asks to see it', async () => {
+  it('never loads the bottle key until an admin confirms, then shows it in the round', async () => {
     renderPage()
+    expect(mockGetBottleKey).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Show bottle key' }))
+    expect(screen.getByRole('heading', { name: 'Show the bottle key?' })).toBeInTheDocument()
+    expect(mockGetBottleKey).not.toHaveBeenCalled()
+    await userEvent.click(within(screen.getByRole('dialog', { hidden: true })).getByRole('button', { name: 'Show bottle key', hidden: true }))
+    expect(await screen.findByText('Secret Weller')).toBeInTheDocument()
+    expect(mockGetBottleKey).toHaveBeenCalledWith('p1')
+    // Hiding drops it from memory: showing again asks again.
+    await userEvent.click(screen.getByRole('button', { name: 'Hide key' }))
     expect(screen.queryByText('Secret Weller')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Show bottle mapping/ }))
-    expect(screen.getByText('Secret Weller')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Show bottle key' }))
+    expect(screen.getByRole('heading', { name: 'Show the bottle key?' })).toBeInTheDocument()
+  })
+
+  it('cancelling the confirmation never fetches the key', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'View bottle key' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel', hidden: true }))
+    expect(mockGetBottleKey).not.toHaveBeenCalled()
+  })
+
+  it('lists who viewed the key before the reveal', async () => {
+    party = makeParty({ coHostUids: ['co-1'], coHosts: { 'co-1': { name: 'Pat', addedAt: 1 } } })
+    mockGetKeyAccessLog.mockResolvedValue([
+      { id: 'a1', actorUid: 'co-1', role: 'cohost', purpose: 'setup', at: 2, flaggedCategoryIds: [] },
+      { id: 'a2', actorUid: 'host-1', role: 'host', purpose: 'key', at: 1, flaggedCategoryIds: ['c1'] },
+    ])
+    renderPage()
+    const log = await screen.findByRole('list', { name: 'Bottle key access before reveal' })
+    expect(log).toHaveTextContent('Pat (co-host) · editing setup')
+    expect(log).toHaveTextContent('Kevin (host) · viewed key · tasting marked not fully blind')
+  })
+
+  it('invites a co-host with a one-time link', async () => {
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Invite a co-host' }))
+    await waitFor(() => expect(mockCreateCoHostInvite).toHaveBeenCalledWith('p1'))
+    expect((await screen.findByLabelText('Co-host invite link') as HTMLInputElement).value).toContain('#/party/p1/cohost?t=TOKEN123')
+  })
+
+  it('a co-host runs the event but gets no My Tasting, delete, co-host or host-tasting controls', () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'co-1' }, loading: false })
+    guests = [SAM, HOST]
+    party = makeParty({ hostTasting: true, coHostUids: ['co-1'], coHosts: { 'co-1': { name: 'Pat', addedAt: 1 } } })
+    renderPage()
+    expect(screen.getByRole('button', { name: 'Close voting' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /My Tasting/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete party' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Invite a co-host' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Stop tasting' })).not.toBeInTheDocument()
+    expect(screen.getByText(/You’re a co-host/)).toBeInTheDocument()
+    expect(screen.getByText(/Kevin \(host\) · tasting too/)).toBeInTheDocument()
   })
 
   it('requires confirmation before revealing, and never reveals on its own', async () => {
@@ -165,6 +224,18 @@ describe('HostDashboardPage', () => {
       renderPage()
       expect(screen.getByRole('tab', { name: /My Tasting/ })).toHaveAttribute('aria-selected', 'true')
       expect(screen.getByLabelText('Overall enjoyment', { selector: '#overall-C' })).toHaveValue('6')
+    })
+
+    it('tells the tasting host which rounds are marked not fully blind', () => {
+      party = makeParty({ hostTasting: true, hostKeyViews: { c1: 5 } })
+      renderPage()
+      expect(screen.getByRole('note')).toHaveTextContent('“Wheated Bourbon” are marked not fully blind')
+    })
+
+    it('warns a tasting host before showing the key', async () => {
+      renderPage()
+      await userEvent.click(screen.getByRole('button', { name: 'View bottle key' }))
+      expect(screen.getByRole('dialog', { hidden: true })).toHaveTextContent('marks your scores as not fully blind')
     })
 
     it('asks before the host stops tasting, and keeps host controls', async () => {
