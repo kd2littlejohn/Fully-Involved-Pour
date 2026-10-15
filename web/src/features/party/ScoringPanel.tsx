@@ -3,7 +3,15 @@ import { Button } from '../../components/ui/Button'
 import { TapChip } from '../../components/ui/TapChip'
 import { ScoreInput } from './ScoreInput'
 import { saveBallot, partyErrorMessage } from '../../data/repositories/party'
-import { clearScoreDraft, loadScoreDraft, recallScoringMode, rememberScoringMode, saveScoreDraft } from './guestSession'
+import {
+  clearScoreDraft,
+  loadScoreDraft,
+  recallLastSample,
+  recallScoringMode,
+  rememberLastSample,
+  rememberScoringMode,
+  saveScoreDraft,
+} from './guestSession'
 import {
   DETAILED_DESCRIPTOR_GROUPS,
   DETAILED_FIELDS,
@@ -24,12 +32,15 @@ interface ScoringPanelProps {
   party: Party
   category: PartyCategory
   ballot: PartyBallot | undefined
+  // Scroll back to the sample last worked on (the host's My Tasting, after
+  // switching away to manage the party and coming back).
+  resumeAtLastSample?: boolean
 }
 
 // A guest's digital ballot for the open round. Quick and Detailed share one
 // draft, so switching never drops anything; unsent edits are also kept on
 // this device so a refresh mid-pour loses nothing.
-export function ScoringPanel({ party, category, ballot }: ScoringPanelProps) {
+export function ScoringPanel({ party, category, ballot, resumeAtLastSample = false }: ScoringPanelProps) {
   const labels = category.sampleLabels
   const locked = party.settings?.allowEdits === false
   const [mode, setMode] = useState<PartyScoringMode>(() => recallScoringMode() ?? party.settings?.defaultScoring ?? 'quick')
@@ -54,6 +65,14 @@ export function ScoringPanel({ party, category, ballot }: ScoringPanelProps) {
     saveScoreDraft(party.id, category.id, draft)
   }, [draft, party.id, category.id])
 
+  useEffect(() => {
+    if (!resumeAtLastSample) return
+    const label = recallLastSample(party.id, category.id)
+    if (label) document.getElementById(`sample-${label}`)?.scrollIntoView?.({ block: 'center' })
+    // Only on first mount for this round.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category.id])
+
   const saved = ballot?.scores ?? {}
   const scoredCount = labels.filter((l) => saved[l]).length
   const pending = useMemo(() => labels.filter((l) => sampleChanged(draft.samples[l]!, saved[l], mode)), [labels, draft, saved, mode])
@@ -61,6 +80,7 @@ export function ScoringPanel({ party, category, ballot }: ScoringPanelProps) {
   const predictionDirty = party.settings?.predictions && draft.predictionLabel !== (ballot?.predictionLabel ?? null) && !(locked && ballot?.predictionLabel)
 
   function updateSample(label: string, patch: Partial<SampleDraft>) {
+    rememberLastSample(party.id, category.id, label)
     setDraft((d) => ({ ...d, samples: { ...d.samples, [label]: { ...d.samples[label]!, ...patch } } }))
   }
 

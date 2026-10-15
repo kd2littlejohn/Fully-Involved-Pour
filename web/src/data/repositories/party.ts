@@ -84,6 +84,7 @@ export function createParty(input: {
   settings: PartySettings
   categories: PartyCategoryInput[]
   hostName: string
+  hostTasting: boolean
 }): Promise<{ partyId: string; joinCode: string; categories: { id: string; name: string }[] }> {
   return callParty('createParty', { ...input })
 }
@@ -106,6 +107,12 @@ export function setPartySamples(
   assignment: 'random' | 'manual',
 ): Promise<{ samples: PartySample[] }> {
   return callParty('setSamples', { partyId, categoryId, samples, assignment })
+}
+
+// "I'm tasting too" after creation. Off stops the host's ballots counting in
+// rounds not yet revealed; on restores them.
+export function setHostTasting(partyId: string, enabled: boolean): Promise<{ ok: true; hostTasting: boolean }> {
+  return callParty('setHostTasting', { partyId, enabled })
 }
 
 export function deleteParty(partyId: string): Promise<{ ok: true }> {

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from '../../components/ui/Button'
 import { LinkButton } from '../../components/ui/LinkButton'
@@ -8,7 +8,10 @@ import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/Part
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import { InvitePanel } from '../../features/party/InvitePanel'
 import { ResultsView } from '../../features/party/ResultsView'
-import { useParty, usePartyGuests, usePartyResults, usePartySecrets } from '../../features/party/usePartyData'
+import { useMyBallots, useParty, usePartyGuests, usePartyResults, usePartySecrets } from '../../features/party/usePartyData'
+import { MyTastingView } from '../../features/party/MyTastingView'
+import { myTastingProgress, progressLabel } from '../../features/party/myTastingProgress'
+import { recallHostView, rememberHostView, type HostView } from '../../features/party/guestSession'
 import { ballotCount, categoryStateLabel, formatEventDate, partyStatusLabel } from '../../features/party/partyLabels'
 import { partyDisplayUrl } from '../../features/party/partyLinks'
 import { bottleSummary } from '../../features/party/partyBottle'
@@ -22,6 +25,7 @@ import {
   revokeDisplays,
   setCategoryState,
   setCurrentCategory,
+  setHostTasting,
 } from '../../data/repositories/party'
 import type { Party, PartyCategory, PartyCategoryState, PartySecrets } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
@@ -32,6 +36,7 @@ type Pending =
   | { kind: 'complete' }
   | { kind: 'delete' }
   | { kind: 'removeGuest'; uid: string; nickname: string }
+  | { kind: 'stopTasting' }
 
 const ACTIONS: Record<PartyCategoryState, { to: PartyCategoryState; label: string; primary?: boolean }[]> = {
   draft: [
@@ -81,6 +86,27 @@ export function HostDashboardPage() {
   const [displayLink, setDisplayLink] = useState<string | null>(null)
   const [showBottles, setShowBottles] = useState<Record<string, boolean>>({})
   const [showResults, setShowResults] = useState<string | null>(null)
+  const hostGuest = user ? guests.data.find((g) => g.uid === user.uid && g.isHost) : undefined
+  const tasting = Boolean(isHost && hostGuest && !hostGuest.revoked)
+  const myBallots = useMyBallots(partyId, user?.uid, tasting)
+  const [viewChoice, setViewChoice] = useState<HostView>(() => (partyId ? recallHostView(partyId) : null) ?? 'manage')
+  const view: HostView = tasting ? viewChoice : 'manage'
+  // Each view keeps its own scroll position, so switching back lands on
+  // the same round controls or the same sample.
+  const scrollByView = useRef<Record<HostView, number>>({ manage: 0, tasting: 0 })
+  const lastView = useRef<HostView>(view)
+  useLayoutEffect(() => {
+    if (lastView.current === view) return
+    lastView.current = view
+    window.scrollTo?.({ top: scrollByView.current[view] })
+  }, [view])
+
+  function switchView(next: HostView) {
+    if (next === view) return
+    scrollByView.current[view] = window.scrollY
+    setViewChoice(next)
+    if (partyId) rememberHostView(partyId, next)
+  }
 
   if (authLoading || (user && party.loading)) return <PartyLoading />
   if (!user) return <PartyMessage title="Host dashboard" message="Sign in to your FIP account to run your party." action={<SignInButton />} />
@@ -93,7 +119,8 @@ export function HostDashboardPage() {
   const completed = p.status === 'completed'
   const revealedCount = p.categories.filter((c) => c.state === 'revealed').length
   const closedCount = p.categories.filter((c) => c.state === 'voting_closed').length
-  const activeGuests = guests.data.filter((g) => !g.revoked)
+  const activeGuests = guests.data.filter((g) => !g.revoked && !g.isHost)
+  const progress = tasting ? myTastingProgress(p, myBallots.data) : null
   const totals = p.categories.reduce(
     (acc, c) => {
       const counts = ballotCount(p, c.id)
@@ -143,150 +170,221 @@ export function HostDashboardPage() {
         </div>
         <h1 className={styles.title}>{p.name}</h1>
         {formatEventDate(p.eventDate) ? <p className={styles.muted}>{formatEventDate(p.eventDate)}</p> : null}
-        <div className={styles.row}>
-          {!completed ? (
-            <LinkButton to={`/party/${p.id}/setup`} variant="secondary">
-              Edit setup
-            </LinkButton>
-          ) : null}
-          <LinkButton to={`/party/${p.id}/ballots`} variant="secondary">
-            Paper ballots
-          </LinkButton>
-          <LinkButton to={`/party/${p.id}/print`} variant="secondary">
-            Print scorecards
-          </LinkButton>
-          <Button variant="secondary" onClick={openDisplay}>
-            TV display
-          </Button>
-          {completed ? <LinkButton to={`/party/${p.id}/recap`}>Party recap</LinkButton> : null}
-        </div>
-        {displayLink ? (
-          <div className={styles.notice}>
-            Display opened in a new tab. To use another screen, open this read-only link there (valid 24 hours):
-            <input className={styles.input} readOnly value={displayLink} onFocus={(e) => e.currentTarget.select()} aria-label="Display link" style={{ marginTop: 8 }} />
-            <Button variant="ghost" onClick={() => run(() => revokeDisplays(p.id)).then((ok) => ok && setDisplayLink(null))}>
-              Disconnect all displays
-            </Button>
-          </div>
-        ) : null}
       </section>
 
-      {error ? (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
+      {tasting ? (
+        <div className={styles.viewSwitch} role="tablist" aria-label="Host dashboard">
+          <button
+            type="button"
+            role="tab"
+            id="host-tab-manage"
+            aria-selected={view === 'manage'}
+            aria-controls="host-panel-manage"
+            className={styles.viewTab}
+            onClick={() => switchView('manage')}
+          >
+            <span className={styles.viewTabTitle}>Manage Party</span>
+            <span className={styles.viewTabMeta}>
+              {activeGuests.length} {activeGuests.length === 1 ? 'guest' : 'guests'}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="host-tab-tasting"
+            aria-selected={view === 'tasting'}
+            aria-controls="host-panel-tasting"
+            className={styles.viewTab}
+            onClick={() => switchView('tasting')}
+          >
+            <span className={styles.viewTabTitle}>My Tasting</span>
+            <span className={`${styles.viewTabMeta} ${progress?.complete ? styles.viewTabDone : ''}`}>
+              {progress ? progressLabel(progress) : completed ? 'Party wrapped up' : 'No round open yet'}
+            </span>
+          </button>
+        </div>
       ) : null}
 
-      <div className={styles.statRow}>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{activeGuests.length}</span>
-          <span className={styles.statLabel}>Guests</span>
+      {tasting ? (
+        <div id="host-panel-tasting" role="tabpanel" aria-labelledby="host-tab-tasting" hidden={view !== 'tasting'} className={`${styles.stack} ${styles.viewPanel}`} style={{ gap: 'var(--fip-space-5)' }}>
+          <MyTastingView party={p} guest={hostGuest!} ballots={myBallots.data} results={results.data} resumeAtLastSample />
         </div>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{totals.digital}</span>
-          <span className={styles.statLabel}>Digital ballots</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>{totals.paper}</span>
-          <span className={styles.statLabel}>Paper ballots</span>
-        </div>
-        <div className={styles.stat}>
-          <span className={styles.statValue}>
-            {revealedCount}/{p.categories.length}
-          </span>
-          <span className={styles.statLabel}>Rounds revealed</span>
-        </div>
-      </div>
+      ) : null}
 
-      <div className={styles.grid} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', alignItems: 'start' }}>
-        <div className={styles.stack} style={{ gap: 'var(--fip-space-4)' }}>
-          <div className={styles.spread}>
-            <h2 className={styles.sectionTitle}>Rounds</h2>
-            {closedCount > 0 && !completed ? (
-              <Button variant={p.settings.revealByCategory ? 'secondary' : 'primary'} onClick={() => setPending({ kind: 'revealAll' })}>
-                Reveal all closed rounds ({closedCount})
-              </Button>
+      <div
+        id="host-panel-manage"
+        role={tasting ? 'tabpanel' : undefined}
+        aria-labelledby={tasting ? 'host-tab-manage' : undefined}
+        hidden={view !== 'manage'}
+        className={`${styles.stack} ${styles.viewPanel}`}
+        style={{ gap: 'var(--fip-space-5)' }}
+      >
+        <section className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
+          <div className={styles.row}>
+            {!completed ? (
+              <LinkButton to={`/party/${p.id}/setup`} variant="secondary">
+                Edit setup
+              </LinkButton>
             ) : null}
-          </div>
-          {p.categories.length === 0 ? <p className={styles.muted}>No rounds yet. Add some in Edit setup.</p> : null}
-          {p.categories.map((category, index) => (
-            <RoundCard
-              key={category.id}
-              index={index}
-              party={p}
-              category={category}
-              secrets={secrets.data}
-              showBottles={Boolean(showBottles[category.id])}
-              onToggleBottles={() => setShowBottles((s) => ({ ...s, [category.id]: !s[category.id] }))}
-              onAction={(to) => requestState(category, to)}
-              onMakeCurrent={() => run(() => setCurrentCategory(p.id, category.id))}
-              onShowResults={() => setShowResults(showResults === category.id ? null : category.id)}
-              resultsOpen={showResults === category.id}
-              busy={busy}
-              disabled={completed}
-            >
-              {showResults === category.id && results.data[category.id] ? <ResultsView results={results.data[category.id]!} /> : null}
-            </RoundCard>
-          ))}
-        </div>
-
-        <div className={styles.stack} style={{ gap: 'var(--fip-space-4)' }}>
-          <InvitePanel party={p} />
-
-          <section className={styles.card} aria-labelledby="guests-heading">
-            <div className={styles.spread}>
-              <h2 id="guests-heading" className={styles.sectionTitle}>
-                Guests
-              </h2>
-              <span className={styles.pill}>
-                {activeGuests.length}
-                {p.capacity ? ` / ${p.capacity}` : ''}
-              </span>
-            </div>
-            {activeGuests.length === 0 ? (
-              <p className={styles.muted}>Guests appear here as they join.</p>
-            ) : (
-              <ul className={styles.list}>
-                {activeGuests
-                  .sort((a, b) => a.joinedAt - b.joinedAt)
-                  .map((g) => (
-                    <li key={g.uid} className={styles.listItem}>
-                      <span className={`${styles.grow} ${styles.truncate}`}>
-                        {g.nickname}
-                        {g.uid === user.uid ? ' (you)' : ''}
-                      </span>
-                      {!completed && g.uid !== user.uid ? (
-                        <Button variant="ghost" aria-label={`Remove ${g.nickname}`} onClick={() => setPending({ kind: 'removeGuest', uid: g.uid, nickname: g.nickname })}>
-                          Remove
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-              </ul>
-            )}
-            <p className={styles.muted}>Guests never see each other’s names here. Hosting and tasting? Join with your own phone like a guest.</p>
-          </section>
-
-          {!completed ? (
-            <section className={styles.card} aria-labelledby="wrap-heading">
-              <h2 id="wrap-heading" className={styles.sectionTitle}>
-                Wrap up the party
-              </h2>
-              <p className={styles.muted}>Closes any open voting and builds the Party Recap from revealed rounds.</p>
-              <label className={styles.label} htmlFor="host-notes">
-                Host notes for the recap (optional)
-              </label>
-              <textarea id="host-notes" className={styles.input} rows={3} maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} />
-              <Button onClick={() => setPending({ kind: 'complete' })}>Complete party</Button>
-            </section>
-          ) : null}
-
-          <section className={styles.card}>
-            <Button variant="danger" onClick={() => setPending({ kind: 'delete' })}>
-              Delete party
+            <LinkButton to={`/party/${p.id}/ballots`} variant="secondary">
+              Paper ballots
+            </LinkButton>
+            <LinkButton to={`/party/${p.id}/print`} variant="secondary">
+              Print scorecards
+            </LinkButton>
+            <Button variant="secondary" onClick={openDisplay}>
+              TV display
             </Button>
-          </section>
+            {completed ? <LinkButton to={`/party/${p.id}/recap`}>Party recap</LinkButton> : null}
+          </div>
+          {displayLink ? (
+            <div className={styles.notice}>
+              Display opened in a new tab. To use another screen, open this read-only link there (valid 24 hours):
+              <input className={styles.input} readOnly value={displayLink} onFocus={(e) => e.currentTarget.select()} aria-label="Display link" style={{ marginTop: 8 }} />
+              <Button variant="ghost" onClick={() => run(() => revokeDisplays(p.id)).then((ok) => ok && setDisplayLink(null))}>
+                Disconnect all displays
+              </Button>
+            </div>
+          ) : null}
+        </section>
+
+        {error ? (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className={styles.statRow}>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{activeGuests.length}</span>
+            <span className={styles.statLabel}>Guests</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{totals.digital}</span>
+            <span className={styles.statLabel}>Digital ballots</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>{totals.paper}</span>
+            <span className={styles.statLabel}>Paper ballots</span>
+          </div>
+          <div className={styles.stat}>
+            <span className={styles.statValue}>
+              {revealedCount}/{p.categories.length}
+            </span>
+            <span className={styles.statLabel}>Rounds revealed</span>
+          </div>
         </div>
+
+        <div className={styles.grid} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', alignItems: 'start' }}>
+          <div className={styles.stack} style={{ gap: 'var(--fip-space-4)' }}>
+            <div className={styles.spread}>
+              <h2 className={styles.sectionTitle}>Rounds</h2>
+              {closedCount > 0 && !completed ? (
+                <Button variant={p.settings.revealByCategory ? 'secondary' : 'primary'} onClick={() => setPending({ kind: 'revealAll' })}>
+                  Reveal all closed rounds ({closedCount})
+                </Button>
+              ) : null}
+            </div>
+            {p.categories.length === 0 ? <p className={styles.muted}>No rounds yet. Add some in Edit setup.</p> : null}
+            {p.categories.map((category, index) => (
+              <RoundCard
+                key={category.id}
+                index={index}
+                party={p}
+                category={category}
+                secrets={secrets.data}
+                showBottles={Boolean(showBottles[category.id])}
+                onToggleBottles={() => setShowBottles((s) => ({ ...s, [category.id]: !s[category.id] }))}
+                onAction={(to) => requestState(category, to)}
+                onMakeCurrent={() => run(() => setCurrentCategory(p.id, category.id))}
+                onShowResults={() => setShowResults(showResults === category.id ? null : category.id)}
+                resultsOpen={showResults === category.id}
+                busy={busy}
+                disabled={completed}
+              >
+                {showResults === category.id && results.data[category.id] ? <ResultsView results={results.data[category.id]!} /> : null}
+              </RoundCard>
+            ))}
+          </div>
+
+          <div className={styles.stack} style={{ gap: 'var(--fip-space-4)' }}>
+            <InvitePanel party={p} />
+
+            <section className={styles.card} aria-labelledby="guests-heading">
+              <div className={styles.spread}>
+                <h2 id="guests-heading" className={styles.sectionTitle}>
+                  Guests
+                </h2>
+                <span className={styles.pill}>
+                  {activeGuests.length}
+                  {p.capacity ? ` / ${p.capacity}` : ''}
+                </span>
+              </div>
+              <div className={styles.listItem}>
+                <span className={`${styles.grow} ${styles.truncate}`}>
+                  {p.hostName} (you) · {tasting ? 'tasting too' : 'hosting only'}
+                </span>
+                {!completed ? (
+                  tasting ? (
+                    <Button variant="ghost" disabled={busy} onClick={() => setPending({ kind: 'stopTasting' })}>
+                      Stop tasting
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" disabled={busy} onClick={() => run(() => setHostTasting(p.id, true))}>
+                      I’m tasting too
+                    </Button>
+                  )
+                ) : null}
+              </div>
+              {activeGuests.length === 0 ? (
+                <p className={styles.muted}>Guests appear here as they join.</p>
+              ) : (
+                <ul className={styles.list}>
+                  {activeGuests
+                    .sort((a, b) => a.joinedAt - b.joinedAt)
+                    .map((g) => (
+                      <li key={g.uid} className={styles.listItem}>
+                        <span className={`${styles.grow} ${styles.truncate}`}>
+                          {g.nickname}
+                          {g.uid === user.uid ? ' (you)' : ''}
+                        </span>
+                        {!completed && g.uid !== user.uid ? (
+                          <Button variant="ghost" aria-label={`Remove ${g.nickname}`} onClick={() => setPending({ kind: 'removeGuest', uid: g.uid, nickname: g.nickname })}>
+                            Remove
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                </ul>
+              )}
+              <p className={styles.muted}>
+                Guests never see each other’s names here.{' '}
+                {tasting ? 'Score your own pours in My Tasting; your ballot counts the same as every guest’s.' : 'Tasting along? Turn on “I’m tasting too” to score from this dashboard.'}
+              </p>
+            </section>
+
+            {!completed ? (
+              <section className={styles.card} aria-labelledby="wrap-heading">
+                <h2 id="wrap-heading" className={styles.sectionTitle}>
+                  Wrap up the party
+                </h2>
+                <p className={styles.muted}>Closes any open voting and builds the Party Recap from revealed rounds.</p>
+                <label className={styles.label} htmlFor="host-notes">
+                  Host notes for the recap (optional)
+                </label>
+                <textarea id="host-notes" className={styles.input} rows={3} maxLength={1000} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <Button onClick={() => setPending({ kind: 'complete' })}>Complete party</Button>
+              </section>
+            ) : null}
+
+            <section className={styles.card}>
+              <Button variant="danger" onClick={() => setPending({ kind: 'delete' })}>
+                Delete party
+              </Button>
+            </section>
+          </div>
+        </div>
+
       </div>
 
       {pending?.kind === 'state' ? (
@@ -328,6 +426,16 @@ export function HostDashboardPage() {
           busy={busy}
           onCancel={() => setPending(null)}
           onConfirm={() => run(() => deleteParty(p.id)).then((ok) => ok && navigate('/blind/party', { replace: true }))}
+        />
+      ) : null}
+      {pending?.kind === 'stopTasting' ? (
+        <ConfirmDialog
+          title="Stop tasting?"
+          message="You keep every host control. Your scores in rounds that aren’t revealed yet stop counting; turn tasting back on to restore them."
+          confirmLabel="Stop tasting"
+          busy={busy}
+          onCancel={() => setPending(null)}
+          onConfirm={() => run(() => setHostTasting(p.id, false))}
         />
       ) : null}
       {pending?.kind === 'removeGuest' ? (

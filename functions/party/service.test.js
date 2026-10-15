@@ -417,6 +417,100 @@ describe("reveal, recap and displays", () => {
   });
 });
 
+describe("host participation (I'm tasting too)", () => {
+  it("is on by default: the host scores through one guest record, without a QR join or a second account", async () => {
+    const { host, g1 } = ids();
+    const { partyId, joinCode, categoryId } = await setupParty(host);
+    const party = (await db.doc(`parties/${partyId}`).get()).data();
+    expect(party.hostTasting).toBe(true);
+    expect(party.counts.guests).toBe(0);
+    const hostGuest = (await db.doc(`parties/${partyId}/guests/${host.uid}`).get()).data();
+    expect(hostGuest).toMatchObject({ uid: host.uid, isHost: true, revoked: false, nickname: "Your host" });
+    // Scanning their own QR code never makes a second participant.
+    await expect(call(host, "joinParty", { code: joinCode, nickname: "Host again" })).rejects.toMatchObject({ code: "failed-precondition" });
+
+    await call(g1, "joinParty", { code: joinCode, nickname: "Max" });
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 9 }, B: { overall: 5 } }, favoriteLabel: "A" });
+    // Editable while voting is open, still one ballot.
+    await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 7 } } });
+    await call(g1, "saveBallot", { partyId, categoryId, scores: { A: { overall: 5 }, B: { overall: 9 } }, favoriteLabel: "B" });
+    const ballots = await db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", hostGuest.participantKey).get();
+    expect(ballots.size).toBe(1);
+    expect(ballots.docs[0].data()).toMatchObject({ ownerUid: host.uid, source: "digital", scores: { A: { overall: 7 }, B: { overall: 5 } } });
+    expect((await db.doc(`parties/${partyId}`).get()).data().counts.digital[categoryId]).toBe(2);
+
+    // Same deadline as everyone: closed means closed for the host too.
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_closed" });
+    await expect(call(host, "saveBallot", { partyId, categoryId, scores: { C: { overall: 8 } } })).rejects.toMatchObject({ code: "failed-precondition" });
+
+    // Equal weight: A = (7 + 5) / 2, B = (5 + 9) / 2, both ballots counted once.
+    await call(host, "setCategoryState", { partyId, categoryId, to: "revealed" });
+    const results = (await db.doc(`parties/${partyId}/results/${categoryId}`).get()).data();
+    expect(results.samples.find((x) => x.label === "A")).toMatchObject({ average: 6, count: 2 });
+    expect(results.samples.find((x) => x.label === "B")).toMatchObject({ average: 7, count: 2 });
+    expect(results.ballotsCounted).toBe(2);
+  });
+
+  it("can be turned off at creation, and turned on later from the dashboard", async () => {
+    const { host } = ids();
+    const { partyId } = await call(host, "createParty", { details: { name: "Hosting only" }, hostTasting: false, categories: [{ name: "R1" }] });
+    expect((await db.doc(`parties/${partyId}`).get()).data().hostTasting).toBe(false);
+    expect((await db.doc(`parties/${partyId}/guests/${host.uid}`).get()).exists).toBe(false);
+    await call(host, "setHostTasting", { partyId, enabled: true });
+    expect((await db.doc(`parties/${partyId}/guests/${host.uid}`).get()).data()).toMatchObject({ isHost: true, revoked: false });
+    expect((await db.doc(`parties/${partyId}`).get()).data().hostTasting).toBe(true);
+  });
+
+  it("turning it off stops the host's unrevealed ballots counting; turning it back on restores them, never duplicating", async () => {
+    const { host } = ids();
+    const { partyId, categoryId } = await setupParty(host);
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    const { ballotId } = await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 8 } } });
+
+    await call(host, "setHostTasting", { partyId, enabled: false });
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data()).toMatchObject({ excluded: true });
+    expect((await db.doc(`parties/${partyId}`).get()).data().counts.digital[categoryId]).toBe(0);
+    await expect(call(host, "saveBallot", { partyId, categoryId, scores: { B: { overall: 8 } } })).rejects.toMatchObject({ code: "permission-denied" });
+    // Still the host: management keeps working.
+    await expect(call(host, "setCategoryState", { partyId, categoryId, to: "voting_closed" })).resolves.toBeTruthy();
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+
+    await call(host, "setHostTasting", { partyId, enabled: true });
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data()).toMatchObject({ excluded: false });
+    expect((await db.doc(`parties/${partyId}`).get()).data().counts.digital[categoryId]).toBe(1);
+    await call(host, "saveBallot", { partyId, categoryId, scores: { B: { overall: 6 } } });
+    const all = await db.collection(`parties/${partyId}/ballots`).where("categoryId", "==", categoryId).get();
+    expect(all.size).toBe(1);
+  });
+
+  it("keeps a guest-excluded ballot excluded when the host turns tasting back on", async () => {
+    const { host } = ids();
+    const { partyId, categoryId } = await setupParty(host);
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    const { ballotId } = await call(host, "saveBallot", { partyId, categoryId, scores: { A: { overall: 8 } } });
+    await call(host, "setBallotExcluded", { partyId, ballotId, excluded: true, reason: "Duplicate" });
+    await call(host, "setHostTasting", { partyId, enabled: false });
+    await call(host, "setHostTasting", { partyId, enabled: true });
+    expect((await db.doc(`parties/${partyId}/ballots/${ballotId}`).get()).data()).toMatchObject({ excluded: true, excludedReason: "Duplicate" });
+  });
+
+  it("can't be removed like a guest, toggled by anyone else, or doubled up with a paper ballot in the host's name", async () => {
+    const { host, other } = ids();
+    const { partyId, categoryId } = await setupParty(host);
+    await expect(call(host, "removeGuest", { partyId, guestUid: host.uid })).rejects.toMatchObject({ code: "failed-precondition" });
+    await expect(call(other, "setHostTasting", { partyId, enabled: false })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(anon(host.uid), "setHostTasting", { partyId, enabled: false })).rejects.toMatchObject({ code: "permission-denied" });
+    await expect(call(host, "setHostTasting", { partyId, enabled: "yes" })).rejects.toMatchObject({ code: "invalid-argument" });
+    await call(host, "setCategoryState", { partyId, categoryId, to: "voting_open" });
+    await expect(call(host, "savePaperBallot", { partyId, categoryId, nickname: "your HOST", scores: { A: { overall: 9 } } })).rejects.toMatchObject({
+      code: "failed-precondition",
+    });
+    // Other paper ballots are unaffected.
+    await expect(call(host, "savePaperBallot", { partyId, categoryId, nickname: "Grandpa", scores: { A: { overall: 9 } } })).resolves.toBeTruthy();
+  });
+});
+
 describe("guest-to-account claims", () => {
   it("moves a guest's party records to their new account with a single-use token", async () => {
     const { host, g1, g2, other } = ids();

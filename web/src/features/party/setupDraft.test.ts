@@ -119,5 +119,11 @@ describe('setup draft', () => {
     expect(draft.categories[0]).toMatchObject({ id: 'c1', locked: true, samplesDirty: false })
     expect(draft.categories[0]!.samples[0]).toMatchObject({ label: 'B', bottle: { name: 'Pikesville' } })
     expect(draft.categories[1]!.locked).toBe(false)
+    // Parties from before host participation start with it off.
+    expect(draft.hostTasting).toBe(false)
+  })
+
+  it('has the host tasting too by default for a new party', () => {
+    expect(emptyDraft().hostTasting).toBe(true)
   })
 })

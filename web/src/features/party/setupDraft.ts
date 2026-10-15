@@ -41,6 +41,8 @@ export interface PartyDraft {
   coverImageUrl: string
   capacity: string
   settings: PartySettings
+  // "I'm tasting too": the host scores alongside guests. On by default.
+  hostTasting: boolean
   categories: DraftCategory[]
 }
 
@@ -59,6 +61,7 @@ export function emptyDraft(): PartyDraft {
     coverImageUrl: '',
     capacity: '',
     settings: { ...DEFAULT_PARTY_SETTINGS },
+    hostTasting: true,
     categories: [],
   }
 }
@@ -73,6 +76,7 @@ export function draftFromParty(party: Party, secrets: PartySecrets | undefined):
     coverImageUrl: party.coverImageUrl ?? '',
     capacity: party.capacity ? String(party.capacity) : '',
     settings: { ...DEFAULT_PARTY_SETTINGS, ...party.settings },
+    hostTasting: party.hostTasting === true,
     categories: party.categories.map((c) => ({
       key: c.id,
       id: c.id,

@@ -47,6 +47,8 @@ export interface Party {
   id: string
   hostUid: string
   hostName: string
+  // "I'm tasting too". Absent on parties created before host participation.
+  hostTasting?: boolean
   name: string
   description: string
   eventDate: string | null
@@ -99,6 +101,8 @@ export interface PartyGuest {
   joinedAt: number
   revoked: boolean
   isAccount?: boolean
+  // The host's own record when they're tasting too. Not a counted guest.
+  isHost?: boolean
 }
 
 export interface PartySampleScore {

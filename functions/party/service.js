@@ -15,7 +15,9 @@
 //
 // Collections (see firestore.rules for the read side):
 //   parties/{partyId}                  event, categories (snapshotted), counts
-//   parties/{partyId}/guests/{uid}     one per joined identity
+//   parties/{partyId}/guests/{uid}     one per joined identity, plus the
+//                                      host's own when they're tasting too
+//                                      (isHost: true; not a counted guest)
 //   parties/{partyId}/ballots/{id}     id = `${categoryId}__${participantKey}`
 //   parties/{partyId}/results/{id}     per category at reveal; 'recap' at completion
 //   parties/{partyId}/audit/{id}       privileged change log (host-readable)
@@ -194,6 +196,21 @@ function recoveryKeyId(partyId, recoveryCode) {
 // ---------------------------------------------------------------------------
 // Host: setup
 
+const HOST_OPT_OUT_REASON = "Host stopped tasting";
+
+function hostGuestRecord(uid, hostName, now) {
+  return {
+    uid,
+    participantKey: v.randomId("h_"),
+    nickname: hostName,
+    nicknameKey: v.nicknameKey(hostName),
+    joinedAt: now,
+    revoked: false,
+    isAccount: true,
+    isHost: true,
+  };
+}
+
 async function createParty(ctx) {
   assertAccount(ctx);
   await limit(ctx, "create");
@@ -203,6 +220,8 @@ async function createParty(ctx) {
   if (categoriesInput.length > v.LIMITS.MAX_CATEGORIES) throw v.invalid(`A party can have up to ${v.LIMITS.MAX_CATEGORIES} rounds.`);
   const categories = categoriesInput.map((c) => newCategory(v.validateCategoryInput(c), ctx.now));
   const hostName = v.cleanText(ctx.data.hostName, 40) || "Your host";
+  // "I'm tasting too" — on unless the host turns it off.
+  const hostTasting = ctx.data.hostTasting !== false;
 
   const ref = ctx.db.collection("parties").doc();
   const code = await claimNewCode(ctx.db, ref.id, ctx.now);
@@ -210,6 +229,7 @@ async function createParty(ctx) {
     id: ref.id,
     hostUid: ctx.uid,
     hostName,
+    hostTasting,
     ...details,
     status: "setup",
     settings,
@@ -229,6 +249,7 @@ async function createParty(ctx) {
   const batch = ctx.db.batch();
   batch.set(ref, party);
   batch.set(secretsRef(ctx.db, ref.id), { partyId: ref.id, hostUid: ctx.uid, categories: secretCategories, display: null });
+  if (hostTasting) batch.set(ctx.db.doc(`parties/${ref.id}/guests/${ctx.uid}`), hostGuestRecord(ctx.uid, hostName, ctx.now));
   batch.set(ctx.db.collection(`parties/${ref.id}/audit`).doc(), { type: "party-created", actorUid: ctx.uid, at: ctx.now });
   await batch.commit();
   return { partyId: ref.id, joinCode: code, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
@@ -519,6 +540,7 @@ async function removeGuest(ctx) {
     const guestSnap = await tx.get(guestRef);
     if (!guestSnap.exists) throw notFound("That guest isn't in this party.");
     const guest = guestSnap.data();
+    if (guest.isHost) throw precondition("That's you. Turn off “I'm tasting too” instead.");
     if (guest.revoked) return { ok: true };
     const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", guest.participantKey));
     const revealed = new Set(party.categories.filter((c) => c.state === "revealed").map((c) => c.id));
@@ -533,6 +555,49 @@ async function removeGuest(ctx) {
     tx.update(partyRef(ctx.db, partyId), { ...counts, "counts.guests": FieldValue.increment(-1), updatedAt: ctx.now });
     auditEvent(tx, ctx.db, partyId, ctx, "guest-removed", { guestUid, nickname: guest.nickname });
     return { ok: true };
+  });
+}
+
+// "I'm tasting too": the host scores through the same guest record and
+// saveBallot path as everyone else (one ballot per round, same scale and
+// deadlines, equal weight), never a second account or a QR join. Turning
+// it off stops their ballots counting in rounds not yet revealed; turning
+// it back on restores exactly those, so nothing is lost or duplicated.
+async function setHostTasting(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  if (typeof ctx.data.enabled !== "boolean") throw v.invalid("Enabled must be true or false.");
+  const enabled = ctx.data.enabled;
+  await limit(ctx, "host");
+  return ctx.db.runTransaction(async (tx) => {
+    const party = await readParty(tx, ctx.db, partyId);
+    assertHost(ctx, party);
+    assertNotCompleted(party);
+    const guestRef = ctx.db.doc(`parties/${partyId}/guests/${ctx.uid}`);
+    const guestSnap = await tx.get(guestRef);
+    const guest = guestSnap.exists ? guestSnap.data() : null;
+    if (guest && !guest.isHost) throw precondition("You already joined this party as a guest.");
+    const revealed = new Set(party.categories.filter((c) => c.state === "revealed").map((c) => c.id));
+    const counts = {};
+    if (guest) {
+      const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", guest.participantKey));
+      for (const doc of ballots.docs) {
+        const ballot = doc.data();
+        if (revealed.has(ballot.categoryId)) continue;
+        if (!enabled && !ballot.excluded) {
+          tx.update(doc.ref, { excluded: true, excludedReason: HOST_OPT_OUT_REASON, updatedAt: ctx.now });
+          counts[`counts.digital.${ballot.categoryId}`] = FieldValue.increment(-1);
+        } else if (enabled && ballot.excluded && ballot.excludedReason === HOST_OPT_OUT_REASON) {
+          tx.update(doc.ref, { excluded: false, excludedReason: null, updatedAt: ctx.now });
+          counts[`counts.digital.${ballot.categoryId}`] = FieldValue.increment(1);
+        }
+      }
+      tx.update(guestRef, enabled ? { revoked: false, revokedAt: null } : { revoked: true, revokedAt: ctx.now });
+    } else if (enabled) {
+      tx.set(guestRef, hostGuestRecord(ctx.uid, party.hostName || "Your host", ctx.now));
+    }
+    tx.update(partyRef(ctx.db, partyId), { ...counts, hostTasting: enabled, updatedAt: ctx.now });
+    auditEvent(tx, ctx.db, partyId, ctx, enabled ? "host-tasting-on" : "host-tasting-off", {});
+    return { ok: true, hostTasting: enabled };
   });
 }
 
@@ -586,6 +651,12 @@ async function savePaperBallot(ctx) {
     const favoriteLabel = v.validateOptionalLabel(ctx.data.favoriteLabel, category.sampleLabels, "Favorite");
     const predictionLabel = v.validateOptionalLabel(ctx.data.predictionLabel, category.sampleLabels, "Prediction");
     const identityKey = paperKey(ballotNumber || nickname);
+    if (nickname && party.hostTasting) {
+      const hostGuest = await tx.get(ctx.db.doc(`parties/${partyId}/guests/${party.hostUid}`));
+      if (hostGuest.exists && !hostGuest.data().revoked && hostGuest.data().nicknameKey === v.nicknameKey(nickname)) {
+        throw precondition("That's your own name. Score your pours in My Tasting so your ballot counts once.");
+      }
+    }
 
     const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("categoryId", "==", categoryId));
     const all = ballots.docs.map((d) => d.data());
@@ -748,6 +819,7 @@ async function joinParty(ctx) {
 
   return ctx.db.runTransaction(async (tx) => {
     const party = await readParty(tx, ctx.db, partyId);
+    if (party.hostUid === ctx.uid) throw precondition("You're hosting this party. Turn on “I'm tasting too” from your dashboard to score.");
     const guestRef = ctx.db.doc(`parties/${partyId}/guests/${ctx.uid}`);
     const existing = await tx.get(guestRef);
     if (existing.exists) {
@@ -993,6 +1065,7 @@ const ACTIONS = {
   setInvite,
   rotateJoinCode,
   removeGuest,
+  setHostTasting,
   deleteParty,
   savePaperBallot,
   deletePaperBallot,

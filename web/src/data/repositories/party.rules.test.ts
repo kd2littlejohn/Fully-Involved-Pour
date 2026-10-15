@@ -141,6 +141,19 @@ describe('guests and ballots', () => {
     await assertFails(getDocs(collection(as(GUEST), 'parties', PARTY, 'ballots')))
   })
 
+  it('a host who is tasting too reads their own ballot like any guest, and no one else can', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'parties', PARTY, 'guests', HOST), { uid: HOST, nickname: 'Host', revoked: false, participantKey: 'h_1', isHost: true })
+      await setDoc(doc(db, 'parties', PARTY, 'ballots', 'c1__h_1'), { ownerUid: HOST, source: 'digital', categoryId: 'c1', scores: { A: { overall: 9 } } })
+    })
+    await assertSucceeds(getDocs(query(collection(as(HOST), 'parties', PARTY, 'ballots'), where('ownerUid', '==', HOST))))
+    await assertFails(getDoc(doc(as(GUEST), 'parties', PARTY, 'ballots', 'c1__h_1')))
+    await assertFails(getDoc(doc(as(GUEST), 'parties', PARTY, 'guests', HOST)))
+    // Being a taster never opens the host's guest record to writes either.
+    await assertFails(updateDoc(doc(as(HOST), 'parties', PARTY, 'guests', HOST), { revoked: true }))
+  })
+
   it('ballots cannot be written directly, so votes always pass server validation', async () => {
     await assertFails(setDoc(doc(as(GUEST), 'parties', PARTY, 'ballots', 'c1__g_1'), { ownerUid: GUEST, scores: { A: { overall: 10 } } }))
     await assertFails(updateDoc(doc(as(GUEST), 'parties', PARTY, 'ballots', 'c1__g_1'), { scores: {} }))

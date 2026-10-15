@@ -29,6 +29,7 @@ import {
   partyErrorMessage,
   saveCustomCategory,
   savePartyTemplate,
+  setHostTasting,
   setPartyCategories,
   setPartySamples,
   updateParty,
@@ -137,11 +138,13 @@ export function PartySetupPage() {
           settings: draft.settings,
           categories: categories.map((c) => ({ libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
           hostName: profile?.displayName || user!.displayName || 'Your host',
+          hostTasting: draft.hostTasting,
         })
         id = created.partyId
         serverIds = created.categories.map((c) => c.id)
       } else {
         await updateParty(id, { details, settings: draft.settings })
+        if (draft.hostTasting !== (party.data?.hostTasting === true)) await setHostTasting(id, draft.hostTasting)
         const result = await setPartyCategories(
           id,
           categories.map((c) => ({ ...(c.id ? { id: c.id } : {}), libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
@@ -289,6 +292,18 @@ export function PartySetupPage() {
           <h2 id="settings-heading" className={styles.sectionTitle}>
             Scoring and reveal
           </h2>
+          <ToggleRow
+            id="host-tasting"
+            label="I’m tasting too"
+            hint="Score each round alongside your guests from My Tasting on your dashboard. Your scores count exactly like everyone else’s."
+            checked={draft.hostTasting}
+            onChange={(v) => setDraft((d) => ({ ...d, hostTasting: v }))}
+          />
+          {draft.hostTasting ? (
+            <p className={styles.muted}>
+              You picked the bottles, so your own tasting can’t be fully blind. If you can, have someone else pour and label the samples.
+            </p>
+          ) : null}
           <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
             <span className={styles.label} id="scoring-mode-label">
               Default scoring for guests

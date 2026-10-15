@@ -58,3 +58,34 @@ export function recallScoringMode(): 'quick' | 'detailed' | null {
   const value = read('scoringMode')
   return value === 'quick' || value === 'detailed' ? value : null
 }
+
+// The host's dashboard view (Manage Party or My Tasting), so coming back
+// from Paper Ballots or a refresh lands where they left off.
+export type HostView = 'manage' | 'tasting'
+
+export function rememberHostView(partyId: string, view: HostView): void {
+  write(`hostView.${partyId}`, view)
+}
+
+export function recallHostView(partyId: string): HostView | null {
+  const value = read(`hostView.${partyId}`)
+  return value === 'manage' || value === 'tasting' ? value : null
+}
+
+// The round a taster last chose to look at, and the sample they last
+// touched in it — reopening My Tasting returns to both.
+export function rememberMyRound(partyId: string, categoryId: string): void {
+  write(`round.${partyId}`, categoryId)
+}
+
+export function recallMyRound(partyId: string): string | null {
+  return read(`round.${partyId}`)
+}
+
+export function rememberLastSample(partyId: string, categoryId: string, label: string): void {
+  write(`sample.${partyId}.${categoryId}`, label)
+}
+
+export function recallLastSample(partyId: string, categoryId: string): string | null {
+  return read(`sample.${partyId}.${categoryId}`)
+}

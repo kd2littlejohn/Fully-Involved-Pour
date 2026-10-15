@@ -478,3 +478,68 @@
     padding-right: var(--fip-space-8);
   }
 }
+
+/* Host dashboard: Manage Party | My Tasting. Sticky so switching is always
+   one tap, and short so it never covers a scoring form. */
+.viewSwitch {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px) + var(--fip-space-2));
+  z-index: 15;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--fip-radius-lg);
+  border: 1px solid var(--fip-border);
+  background: rgba(20, 16, 12, 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--fip-shadow-card);
+}
+
+.viewTab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 48px;
+  padding: var(--fip-space-1) var(--fip-space-2);
+  border: 0;
+  border-radius: var(--fip-radius-md);
+  background: transparent;
+  color: var(--fip-cream-soft);
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.viewTab[aria-selected='true'] {
+  background: var(--fip-amber);
+  color: var(--fip-black);
+}
+
+.viewTab:focus-visible {
+  outline: none;
+  box-shadow: var(--fip-focus);
+}
+
+.viewTabTitle {
+  font-size: var(--fip-text-sm);
+  font-weight: 700;
+}
+
+.viewTabMeta {
+  font-size: var(--fip-text-xs);
+  opacity: 0.85;
+}
+
+.viewTabDone {
+  font-weight: 700;
+}
+
+/* The inactive dashboard view stays mounted (so drafts and scroll survive)
+   but must really be hidden — .stack's display would otherwise win. */
+.viewPanel[hidden] {
+  display: none !important;
+}
