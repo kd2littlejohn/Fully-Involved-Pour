@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import styles from './OverflowMenu.module.css'
 
 export interface OverflowMenuItem {
@@ -7,6 +7,10 @@ export interface OverflowMenuItem {
   tone?: 'default' | 'danger'
   disabled?: boolean
 }
+
+// Room kept clear for fixed chrome at the bottom of the screen (the mobile
+// bottom nav plus the iPhone home indicator).
+const BOTTOM_CHROME_PX = 96
 
 interface OverflowMenuProps {
   items: OverflowMenuItem[]
@@ -20,22 +24,43 @@ interface OverflowMenuProps {
 // bottle cards later).
 export function OverflowMenu({ items, label = 'More actions' }: OverflowMenuProps) {
   const [open, setOpen] = useState(false)
+  const [dropUp, setDropUp] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Open upward when the menu would otherwise run under the bottom nav
+  // (e.g. a card low on an iPhone screen) and there's more room above.
+  useLayoutEffect(() => {
+    if (!open) {
+      setDropUp(false)
+      return
+    }
+    const root = rootRef.current
+    const panel = panelRef.current
+    if (!root || !panel) return
+    const trigger = root.getBoundingClientRect()
+    const needed = panel.offsetHeight + 8
+    const below = window.innerHeight - trigger.bottom - BOTTOM_CHROME_PX
+    const above = trigger.top
+    setDropUp(needed > below && above > below)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
 
-    function handlePointerDown(event: MouseEvent) {
+    // pointerdown, not mousedown: iOS Safari doesn't send mouse events for
+    // taps on non-interactive areas, so an outside tap would never close it.
+    function handlePointerDown(event: PointerEvent) {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false)
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') setOpen(false)
     }
 
-    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
   }, [open])
@@ -63,7 +88,7 @@ export function OverflowMenu({ items, label = 'More actions' }: OverflowMenuProp
       </button>
 
       {open ? (
-        <div className={styles.panel} role="menu">
+        <div ref={panelRef} className={dropUp ? `${styles.panel} ${styles.panelUp}` : styles.panel} role="menu">
           {items.map((item) => (
             <button
               key={item.label}

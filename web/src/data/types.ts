@@ -114,7 +114,20 @@ export interface Bottle {
   coreBarScore?: number
   priority?: number
   legacyShelf?: boolean
+  // Short "why it matters" line — the quote shown on My Bar's Legacy Bottle
+  // card (and the field the original app wrote).
   legacyShelfReason?: string
+  // The Legacy Story: the memory and personal significance of the bottle,
+  // deliberately kept apart from tasting `notes`/`flavors` (how it tastes).
+  // Like legacyShelfReason these stay on the bottle when Legacy status is
+  // removed or moved to another bottle, so re-designating it restores them.
+  legacyStoryTitle?: string
+  legacyStory?: string
+  // Optional meaningful details: the occasion or person behind it, and the
+  // date it became meaningful (YYYY-MM-DD, like the other bottle dates).
+  legacyOccasion?: string
+  legacyDate?: string
+  legacyStoryUpdatedAt?: number
   flavors?: string[]
   notes?: string
   gallery?: GalleryPhoto[]

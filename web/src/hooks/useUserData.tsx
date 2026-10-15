@@ -65,6 +65,7 @@ interface UserDataState {
   signedIn: boolean
   addBottle: (input: NewBottleInput) => Promise<string | undefined>
   updateBottle: (bottleId: string, patch: BottlePatch) => Promise<void>
+  changeLegacyBottle: (fromBottleId: string, toBottleId: string, patch?: BottlePatch) => Promise<void>
   setBottleRarity: (bottleId: string, rarity: BottleRarity) => Promise<void>
   acceptRaritySuggestions: (bottleIds: string[]) => Promise<void>
   storeRaritySuggestions: (entries: { bottleId: string; suggestion: RaritySuggestion }[]) => Promise<void>
@@ -110,6 +111,7 @@ const UserDataContext = createContext<UserDataState>({
   signedIn: false,
   addBottle: async () => {},
   updateBottle: async () => {},
+  changeLegacyBottle: async () => {},
   setBottleRarity: async () => {},
   acceptRaritySuggestions: async () => {},
   storeRaritySuggestions: async () => {},
@@ -377,6 +379,23 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       await saveUserDoc(user.uid, { bottles: nextBottles })
     },
     [user, mockMode],
+  )
+
+  // Moves Legacy status from one existing bottle to another in a single
+  // write. Only the legacyShelf flag moves: the previous bottle keeps its
+  // story, inventory and tasting history untouched, and no bottle record
+  // is ever created or removed.
+  const changeLegacyBottle = useCallback(
+    async (fromBottleId: string, toBottleId: string, patch: BottlePatch = {}) => {
+      await applyBottleUpdates((bottles) =>
+        bottles.map((b) => {
+          if (b.id === toBottleId) return { ...b, ...patch, legacyShelf: true }
+          if (b.id === fromBottleId) return { ...b, legacyShelf: false }
+          return b
+        }),
+      )
+    },
+    [applyBottleUpdates],
   )
 
   const setBottleRarity = useCallback(
@@ -1151,6 +1170,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       signedIn: Boolean(user),
       addBottle,
       updateBottle,
+      changeLegacyBottle,
       setBottleRarity,
       acceptRaritySuggestions,
       storeRaritySuggestions,
@@ -1196,6 +1216,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       user,
       addBottle,
       updateBottle,
+      changeLegacyBottle,
       setBottleRarity,
       acceptRaritySuggestions,
       storeRaritySuggestions,
