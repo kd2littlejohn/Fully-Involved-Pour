@@ -281,11 +281,23 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/parties/$(partyId)).data;
     }
 
-    // Host or co-host (pour assistant). Co-hosts run the event; they never
-    // taste and never read anyone's ballot.
+    // Host or co-host (pour assistant), recognised by their own protected
+    // admin record (parties/{partyId}/admins/{uid}; functions/party/
+    // admins.js). The party document no longer carries admin uids, so
+    // guests can't read them.
+    //
+    // Backward compatibility: a party created before admin records existed
+    // still has hostUid / coHostUids on its document until the server
+    // migrates it (on that party's next action). The fallback keeps those
+    // hosts and co-hosts working in between; once migrated the fields are
+    // gone, so the fallback can't match anything.
     function isPartyAdmin(partyId) {
-      let party = partyData(partyId);
-      return party.hostUid == request.auth.uid || request.auth.uid in party.get('coHostUids', []);
+      return exists(/databases/$(database)/documents/parties/$(partyId)/admins/$(request.auth.uid))
+             || isLegacyPartyAdmin(partyData(partyId));
+    }
+
+    function isLegacyPartyAdmin(party) {
+      return party.get('hostUid', null) == request.auth.uid || request.auth.uid in party.get('coHostUids', []);
     }
 
     function isPartyGuest(partyId) {
@@ -300,11 +312,21 @@ service cloud.firestore {
 
     match /parties/{partyId} {
       allow read: if request.auth != null
-                   && (resource.data.hostUid == request.auth.uid
-                       || request.auth.uid in resource.data.get('coHostUids', [])
+                   && (exists(/databases/$(database)/documents/parties/$(partyId)/admins/$(request.auth.uid))
+                       || isLegacyPartyAdmin(resource.data)
                        || isPartyGuest(partyId)
                        || isPartyDisplay(partyId));
       allow write: if false;
+
+      // Who administers the party: one record per host / co-host, holding
+      // their uid. Readable by that admin and the party's other admins
+      // (the dashboard needs a co-host's uid to remove them); never by
+      // guests or TV displays. Server-written only, so no one can make
+      // themselves an admin.
+      match /admins/{adminUid} {
+        allow read: if request.auth != null && (adminUid == request.auth.uid || isPartyAdmin(partyId));
+        allow write: if false;
+      }
 
       // Private guest records (uid, recovery and account details) are
       // visible to admins and to the guest themselves only. Everyone else
@@ -352,6 +374,12 @@ service cloud.firestore {
         allow read: if request.auth != null && (displayUid == request.auth.uid || isPartyAdmin(partyId));
         allow write: if false;
       }
+    }
+
+    // "Parties I run": the same lookup-free pattern over the caller's own
+    // admin records.
+    match /{path=**}/admins/{adminUid} {
+      allow list: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
     // "Parties I attended" — collection-group query over guest records

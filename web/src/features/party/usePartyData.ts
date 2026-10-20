@@ -7,8 +7,11 @@ import {
   watchResults,
   watchGuests,
   watchRoster,
+  watchMyAdmin,
+  watchAdmins,
+  migrateParty,
 } from '../../data/repositories/party'
-import type { PartyRosterEntry, Party, PartyBallot, PartyCategoryResults, PartyGuest, PartyRecap } from './types'
+import type { PartyAdmin, PartyAdminRole, PartyRosterEntry, Party, PartyBallot, PartyCategoryResults, PartyGuest, PartyRecap } from './types'
 
 // Live subscriptions for Party Mode screens. A party is genuinely real-time
 // (rounds open and close, ballots arrive, results are revealed while
@@ -27,8 +30,20 @@ function accessError(err: unknown): string {
   return code === 'permission-denied' ? 'denied' : 'unavailable'
 }
 
+// A party document from before admin records existed still names its
+// admins by uid; ask the server to move them (once per page load).
+const migrationRequested = new Set<string>()
+function hasLegacyAdmins(data: unknown): boolean {
+  return Boolean(data && typeof data === 'object' && ['hostUid', 'coHostUids', 'coHosts'].some((f) => f in (data as object)))
+}
+
 export function useParty(partyId: string | undefined, enabled = true): Live<Party | undefined> {
   const [state, setState] = useState<Live<Party | undefined>>({ data: undefined, loading: true, error: null })
+  useEffect(() => {
+    if (!partyId || !hasLegacyAdmins(state.data) || migrationRequested.has(partyId)) return
+    migrationRequested.add(partyId)
+    migrateParty(partyId).catch((err) => console.error('[party] migrate', err))
+  }, [partyId, state.data])
   useEffect(() => {
     if (!partyId || !enabled) return
     setState((s) => ({ ...s, loading: true, error: null }))
@@ -117,6 +132,41 @@ export function usePartyRoster(partyId: string | undefined, enabled = true): Liv
   useEffect(() => {
     if (!partyId || !enabled) return
     return watchRoster(
+      partyId,
+      (data) => setState({ data, loading: false, error: null }),
+      (err) => setState({ data: [], loading: false, error: accessError(err) }),
+    )
+  }, [partyId, enabled])
+  return state
+}
+
+// The signed-in account's role in this party, from its own protected admin
+// record: 'host', 'cohost', or null for everyone else.
+export function useMyAdminRole(partyId: string | undefined, uid: string | undefined): { role: PartyAdminRole | null; loading: boolean } {
+  const [state, setState] = useState<{ key: string; role: PartyAdminRole | null; loading: boolean }>({ key: '', role: null, loading: true })
+  const key = partyId && uid ? `${partyId}:${uid}` : ''
+  useEffect(() => {
+    if (!partyId || !uid) {
+      setState({ key: '', role: null, loading: false })
+      return
+    }
+    setState({ key: `${partyId}:${uid}`, role: null, loading: true })
+    return watchMyAdmin(
+      partyId,
+      uid,
+      (admin) => setState({ key: `${partyId}:${uid}`, role: admin?.role ?? null, loading: false }),
+      () => setState({ key: `${partyId}:${uid}`, role: null, loading: false }),
+    )
+  }, [partyId, uid])
+  return { role: state.key === key ? state.role : null, loading: key !== '' && (state.key !== key || state.loading) }
+}
+
+// Everyone who runs the party (admins only).
+export function usePartyAdmins(partyId: string | undefined, enabled = true): Live<PartyAdmin[]> {
+  const [state, setState] = useState<Live<PartyAdmin[]>>({ data: [], loading: true, error: null })
+  useEffect(() => {
+    if (!partyId || !enabled) return
+    return watchAdmins(
       partyId,
       (data) => setState({ data, loading: false, error: null }),
       (err) => setState({ data: [], loading: false, error: accessError(err) }),

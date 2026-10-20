@@ -20,7 +20,6 @@ export function makeCategory(overrides: Partial<PartyCategory> = {}): PartyCateg
 export function makeParty(overrides: Partial<Party> = {}): Party {
   return {
     id: 'p1',
-    hostUid: 'host-1',
     hostName: 'Kevin',
     name: 'Bourbon Night',
     description: '',

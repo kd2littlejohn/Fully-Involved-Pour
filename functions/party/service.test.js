@@ -611,9 +611,11 @@ describe("bottle key, co-hosts and blind integrity", () => {
     await call(other, "acceptCoHost", { partyId, token, name: "Pat" });
     // Single use.
     await expect(call(account(`pm-third-${n}`), "acceptCoHost", { partyId, token })).rejects.toMatchObject({ code: "not-found" });
+    // Recorded in the protected admin record, never on the guest-readable party doc.
     const party = (await db.doc(`parties/${partyId}`).get()).data();
-    expect(party.coHostUids).toEqual([other.uid]);
-    expect(party.coHosts[other.uid]).toMatchObject({ name: "Pat" });
+    expect(party.coHostUids).toBeUndefined();
+    expect(party.coHosts).toBeUndefined();
+    expect((await db.doc(`parties/${partyId}/admins/${other.uid}`).get()).data()).toMatchObject({ uid: other.uid, role: "cohost", name: "Pat" });
 
     await expect(call(other, "setCategoryState", { partyId, categoryId, to: "voting_open" })).resolves.toMatchObject({ state: "voting_open" });
     await expect(call(other, "savePaperBallot", { partyId, categoryId, ballotNumber: "7", scores: { A: { overall: 5 } } })).resolves.toBeTruthy();

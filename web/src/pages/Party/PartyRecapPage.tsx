@@ -6,7 +6,7 @@ import fipIcon from '../../assets/brand/fip-icon.svg'
 import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/PartyChrome'
 import { KeepYourResults } from '../../features/party/KeepYourResults'
 import { useGuestIdentity } from '../../features/party/useGuestIdentity'
-import { useMyBallots, useParty, usePartyRecap } from '../../features/party/usePartyData'
+import { useMyAdminRole, useMyBallots, useParty, usePartyRecap } from '../../features/party/usePartyData'
 import { formatEventDate, formatScore } from '../../features/party/partyLabels'
 import { recapImageLines, renderRecapImage } from '../../features/party/recapImage'
 import type { PartyRecap } from '../../features/party/types'
@@ -26,6 +26,7 @@ export function PartyRecapPage() {
   const { partyId } = useParams<{ partyId: string }>()
   const { user, loading } = useGuestIdentity()
   const party = useParty(partyId, Boolean(user))
+  const adminRole = useMyAdminRole(partyId, user?.uid)
   const recap = usePartyRecap(partyId, Boolean(user) && !party.error)
   const ballots = useMyBallots(partyId, user?.uid, Boolean(user) && !party.error)
   const [status, setStatus] = useState<string | null>(null)
@@ -46,12 +47,12 @@ export function PartyRecapPage() {
       <PartyMessage
         title="Not wrapped up yet"
         message="The recap appears when the host completes the party."
-        action={<LinkButton to={p.hostUid === user.uid ? `/party/${p.id}/host` : `/party/${p.id}`}>Back to the party</LinkButton>}
+        action={<LinkButton to={adminRole.role === 'host' ? `/party/${p.id}/host` : `/party/${p.id}`}>Back to the party</LinkButton>}
       />
     )
   }
   const r = recap.data
-  const isHost = p.hostUid === user.uid
+  const isHost = adminRole.role === 'host'
   const mine = ballots.data.filter((b) => b.source === 'digital' && !b.excluded)
 
   async function share() {

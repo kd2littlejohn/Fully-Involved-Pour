@@ -89,7 +89,7 @@ describe('BlindRoomLandingPage', () => {
   it('puts Resume Tasting above the options for the most recent thing in progress', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockGetMyBlindRooms.mockResolvedValue([{ room: room({ id: 'old', name: 'Older blind', createdAt: 1 }), participant }])
-    mockGetHostedParties.mockResolvedValue([{ id: 'pty', name: 'Bourbon Night', status: 'live', hostUid: 'host-1', hostName: 'Kev', createdAt: 5 }])
+    mockGetHostedParties.mockResolvedValue([{ id: 'pty', name: 'Bourbon Night', status: 'live', myRole: 'host', hostName: 'Kev', createdAt: 5 }])
     renderPage()
 
     const resume = await screen.findByRole('link', { name: /Resume Tasting/ })
@@ -97,6 +97,15 @@ describe('BlindRoomLandingPage', () => {
     expect(resume).toHaveTextContent('Bourbon Night')
     expect(resume).toHaveTextContent('You’re hosting')
     expect(resume.compareDocumentPosition(screen.getByRole('link', { name: /Start Solo Blind Tasting/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('labels a party this account co-hosts from its admin record role', async () => {
+    mockUseAuth.mockReturnValue({ user: { uid: 'co-1' }, loading: false })
+    mockGetMyBlindRooms.mockResolvedValue([])
+    mockGetHostedParties.mockResolvedValue([{ id: 'pty', name: 'Bourbon Night', status: 'live', myRole: 'cohost', hostName: 'Kev', createdAt: 5 }])
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: /Resume Tasting/ })).toHaveTextContent('You’re co-hosting')
   })
 
   it('resumes an in-progress blind at its tasting screen, and ignores finished ones', async () => {
