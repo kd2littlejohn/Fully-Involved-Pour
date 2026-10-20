@@ -21,7 +21,7 @@ import {
   type DraftCategory,
   type PartyDraft,
 } from '../../features/party/setupDraft'
-import { useParty } from '../../features/party/usePartyData'
+import { useMyAdminRole, useParty } from '../../features/party/usePartyData'
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import {
   createParty,
@@ -56,6 +56,7 @@ export function PartySetupPage() {
   const { user, loading: authLoading } = useAuth()
   const { userDoc, profile } = useUserData()
   const party = useParty(partyId, isEdit && Boolean(user))
+  const adminRole = useMyAdminRole(isEdit ? partyId : undefined, user?.uid)
 
   const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState<PartyDraft>(() => ({ ...emptyDraft(), format: searchParams.get('format') === 'regular' ? 'regular' : 'blind' }))
@@ -108,7 +109,7 @@ export function PartySetupPage() {
   const setCategories = useCallback((categories: DraftCategory[]) => setDraft((d) => ({ ...d, categories })), [])
   const setSettings = (patch: Partial<PartySettings>) => setDraft((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
 
-  if (authLoading || (isEdit && user && (party.loading || !loadedFrom) && !party.error)) return <PartyLoading />
+  if (authLoading || (isEdit && user && (adminRole.loading || ((party.loading || !loadedFrom) && !party.error)))) return <PartyLoading />
   if (!user) {
     return (
       <PartyMessage
@@ -121,8 +122,9 @@ export function PartySetupPage() {
   if (isEdit && (party.error || !party.data)) {
     return <PartyMessage title="Party not found" message="This party doesn’t exist or you aren’t its host." />
   }
-  const isHost = !isEdit || party.data?.hostUid === user.uid
-  if (isEdit && party.data && !isHost && !party.data.coHostUids?.includes(user.uid)) {
+  // From this account's own protected admin record.
+  const isHost = !isEdit || adminRole.role === 'host'
+  if (isEdit && party.data && adminRole.role === null) {
     return <PartyMessage title="Hosts only" message="Only this party’s host and co-hosts can edit its setup." />
   }
   if (isEdit && party.data?.status === 'completed') {

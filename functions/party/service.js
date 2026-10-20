@@ -21,6 +21,9 @@
 //   parties/{partyId}/ballots/{id}     id = `${categoryId}__${participantKey}`
 //   parties/{partyId}/results/{id}     per category at reveal; 'recap' at completion
 //   parties/{partyId}/audit/{id}       privileged change log (host-readable)
+//   parties/{partyId}/admins/{uid}     host and co-hosts (admins.js): who may
+//                                      administer. Admin-readable only; the
+//                                      party doc itself holds no admin uids
 //   parties/{partyId}/roster/{id}      public "Who's Tasting" list (roster.js):
 //                                      names, roles, status. Members read it
 //   parties/{partyId}/displays/{uid}   read-only presentation sessions
@@ -40,6 +43,7 @@ const { assertNotRateLimited } = require("../rateLimit");
 const { computeCategoryResults, computeRecap } = require("./scoring");
 const v = require("./validation");
 const roster = require("./roster");
+const admins = require("./admins");
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -97,11 +101,17 @@ async function limitIp(ctx, bucket) {
 }
 
 // `tx` is a transaction, or null for a plain read.
+// The party plus who administers it (hostUid / coHostUids / coHosts, from
+// the protected admin records; admins.js). Those fields exist only in
+// memory: party document writes always use explicit patches, so they never
+// return to the guest-readable document.
 async function readParty(tx, db, partyId) {
   const ref = partyRef(db, partyId);
   const snap = tx ? await tx.get(ref) : await ref.get();
   if (!snap.exists) throw notFound("That party doesn't exist.");
-  return snap.data();
+  const query = admins.adminsQuery(db, partyId);
+  const records = tx ? await tx.get(query) : await query.get();
+  return admins.withAdmins(snap.data(), records.docs.map((d) => d.data()));
 }
 
 function assertAccount(ctx) {
@@ -203,7 +213,9 @@ async function lookupCode(db, rawCode) {
   const code = v.normalizeCode(rawCode);
   const snap = await db.doc(`partyCodes/${code}`).get();
   if (!snap.exists) return null;
-  return { code, partyId: snap.data().partyId };
+  const partyId = snap.data().partyId;
+  await admins.migrateLegacyAdmins(db, partyId);
+  return { code, partyId };
 }
 
 function formatRecovery(code) {
@@ -294,7 +306,6 @@ async function createParty(ctx) {
   const code = await claimNewCode(ctx.db, ref.id, ctx.now);
   const party = {
     id: ref.id,
-    hostUid: ctx.uid,
     hostName,
     hostTasting,
     format,
@@ -317,6 +328,7 @@ async function createParty(ctx) {
 
   const batch = ctx.db.batch();
   batch.set(ref, party);
+  batch.set(admins.adminRef(ctx.db, ref.id, ctx.uid), admins.hostRecord(ctx.uid, hostName, ctx.now));
   batch.set(secretsRef(ctx.db, ref.id), { partyId: ref.id, hostUid: ctx.uid, categories: secretCategories, display: null });
   if (hostTasting) batch.set(ctx.db.doc(`parties/${ref.id}/guests/${ctx.uid}`), hostGuestRecord(ctx.uid, hostName, ctx.now));
   batch.set(roster.rosterRef(ctx.db, ref.id, roster.HOST_ROSTER_ID), roster.hostEntry(party, Boolean(hostTasting), ctx.now));
@@ -776,11 +788,8 @@ async function acceptCoHost(ctx) {
     if (guest.exists && !guest.data().revoked) throw precondition("You've joined this party as a guest. Co-hosts know the bottles, so they can't also score.");
     if ((party.coHostUids || []).length >= MAX_CO_HOSTS) throw precondition(`A party can have up to ${MAX_CO_HOSTS} co-hosts.`);
     tx.delete(inviteRef);
-    tx.update(partyRef(ctx.db, partyId), {
-      coHostUids: FieldValue.arrayUnion(ctx.uid),
-      [`coHosts.${ctx.uid}`]: { name, addedAt: ctx.now },
-      updatedAt: ctx.now,
-    });
+    tx.set(admins.adminRef(ctx.db, partyId, ctx.uid), admins.coHostRecord(ctx.uid, name, ctx.now));
+    tx.update(partyRef(ctx.db, partyId), { updatedAt: ctx.now });
     tx.set(roster.rosterRef(ctx.db, partyId, roster.coHostRosterId(partyId, ctx.uid)), roster.coHostEntry(partyId, ctx.uid, { name, addedAt: ctx.now }));
     auditEvent(tx, ctx.db, partyId, ctx, "cohost-added", { uid: ctx.uid, name });
     return { partyId, alreadyCoHost: false };
@@ -795,11 +804,8 @@ async function removeCoHost(ctx) {
     const party = await readParty(tx, ctx.db, partyId);
     assertHost(ctx, party);
     if (!isCoHost(party, uid)) return { ok: true };
-    tx.update(partyRef(ctx.db, partyId), {
-      coHostUids: FieldValue.arrayRemove(uid),
-      [`coHosts.${uid}`]: FieldValue.delete(),
-      updatedAt: ctx.now,
-    });
+    tx.delete(admins.adminRef(ctx.db, partyId, uid));
+    tx.update(partyRef(ctx.db, partyId), { updatedAt: ctx.now });
     tx.delete(roster.rosterRef(ctx.db, partyId, roster.coHostRosterId(partyId, uid)));
     auditEvent(tx, ctx.db, partyId, ctx, "cohost-removed", { uid });
     return { ok: true };
@@ -808,6 +814,14 @@ async function removeCoHost(ctx) {
 
 // Backfills (or repairs) the public roster from the private records, for
 // parties created before it existed. Admins only; idempotent.
+// Any member may ask: the handler has already migrated the party by the
+// time this runs. Lets a page that sees legacy fields trigger the upgrade.
+async function migrateParty(ctx) {
+  v.requireId(ctx.data.partyId, "party");
+  await limit(ctx, "preview");
+  return { ok: true };
+}
+
 async function syncRoster(ctx) {
   const partyId = v.requireId(ctx.data.partyId, "party");
   await limit(ctx, "host");
@@ -1296,6 +1310,7 @@ const ACTIONS = {
   acceptCoHost,
   removeCoHost,
   syncRoster,
+  migrateParty,
   deleteParty,
   savePaperBallot,
   deletePaperBallot,
@@ -1332,6 +1347,11 @@ async function handlePartyAction(db, request) {
     data,
     now: Date.now(),
   };
+  // Older parties: move admin uids off the guest-readable party document
+  // before anything else reads it (admins.js). A no-op once migrated.
+  if (typeof data.partyId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(data.partyId)) {
+    await admins.migrateLegacyAdmins(db, data.partyId);
+  }
   return ACTIONS[action](ctx);
 }
 

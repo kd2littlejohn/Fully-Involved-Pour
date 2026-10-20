@@ -6,7 +6,7 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/PartyChrome'
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
-import { useParty } from '../../features/party/usePartyData'
+import { useMyAdminRole, useParty } from '../../features/party/usePartyData'
 import { ballotCount, categoryStateLabel, formatScore } from '../../features/party/partyLabels'
 import { deletePaperBallot, listBallots, partyErrorMessage, savePaperBallot, setBallotExcluded } from '../../data/repositories/party'
 import type { PartyBallotSummary, PartyCategory } from '../../features/party/types'
@@ -37,6 +37,7 @@ export function PaperBallotsPage() {
   const { partyId } = useParams<{ partyId: string }>()
   const { user, loading: authLoading } = useAuth()
   const party = useParty(partyId, Boolean(user))
+  const adminRole = useMyAdminRole(partyId, user?.uid)
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [ballots, setBallots] = useState<PartyBallotSummary[]>([])
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -47,7 +48,8 @@ export function PaperBallotsPage() {
   const [confirmDelete, setConfirmDelete] = useState<PartyBallotSummary | null>(null)
 
   const p = party.data
-  const isHost = Boolean(user && p && p.hostUid === user.uid)
+  // From this account's own protected admin record.
+  const isHost = adminRole.role === 'host'
   const enterable = (c: PartyCategory) => c.state === 'voting_open' || c.state === 'voting_closed'
   const category = p?.categories.find((c) => c.id === categoryId) ?? p?.categories.find(enterable) ?? p?.categories[0]
 
@@ -69,7 +71,7 @@ export function PaperBallotsPage() {
     void refresh()
   }, [refresh, countsKey])
 
-  if (authLoading || (user && party.loading)) return <PartyLoading />
+  if (authLoading || (user && (party.loading || adminRole.loading))) return <PartyLoading />
   if (!user) return <PartyMessage title="Paper ballots" message="Sign in as the host to enter paper ballots." action={<SignInButton />} />
   if (!p || !isHost) return <PartyMessage title="Hosts only" message="Only the party’s host can enter paper ballots." />
 

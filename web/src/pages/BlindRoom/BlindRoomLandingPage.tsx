@@ -9,7 +9,7 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import { BlindHistoryDeleteAction } from '../../features/blindRoom/BlindHistoryDeleteAction'
 import { useAuth } from '../../hooks/useAuth'
 import { getMyBlindRooms, sessionTypeLabel } from '../../data/repositories/blindRoom'
-import { getAttendedParties, getHostedParties } from '../../data/repositories/party'
+import { getAttendedParties, getHostedParties, type HostedParty } from '../../data/repositories/party'
 import type { Party } from '../../features/party/types'
 import { readHiddenBlindRoomIds } from '../../data/hiddenBlindRooms'
 import type { BlindParticipant, BlindRoom } from '../../data/types'
@@ -84,9 +84,8 @@ interface ResumeTarget {
 // party you host or joined — so "Resume Tasting" is one tap.
 function pickResumeTarget(
   rooms: { room: BlindRoom }[],
-  hosted: Party[],
+  hosted: HostedParty[],
   attended: Party[],
-  uid: string,
 ): ResumeTarget | null {
   const candidates: ResumeTarget[] = [
     ...rooms
@@ -101,7 +100,7 @@ function pickResumeTarget(
       .filter((p) => p.status !== 'completed')
       .map((p) => ({
         name: p.name,
-        kind: p.hostUid === uid ? 'Tasting party · You’re hosting' : 'Tasting party · You’re co-hosting',
+        kind: p.myRole === 'host' ? 'Tasting party · You’re hosting' : 'Tasting party · You’re co-hosting',
         to: `/party/${p.id}/host`,
         createdAt: p.createdAt,
       })),
@@ -141,7 +140,7 @@ export function BlindRoomLandingPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
-  const [parties, setParties] = useState<{ hosted: Party[]; attended: Party[] }>({ hosted: [], attended: [] })
+  const [parties, setParties] = useState<{ hosted: HostedParty[]; attended: Party[] }>({ hosted: [], attended: [] })
 
   // Parties only feed "Resume Tasting"; if they fail to load, the page
   // still works and the Party Mode hub has its own retry.
@@ -230,7 +229,7 @@ export function BlindRoomLandingPage() {
     .filter(({ room }) => !ACTIVE_STATES.has(room.state))
     .sort((a, b) => b.room.createdAt - a.room.createdAt)
 
-  const resume = rooms ? pickResumeTarget(visible, parties.hosted, parties.attended, user.uid) : null
+  const resume = rooms ? pickResumeTarget(visible, parties.hosted, parties.attended) : null
 
   return (
     <>

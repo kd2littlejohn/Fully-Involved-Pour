@@ -18,6 +18,7 @@ import {
 import { db, functions } from '../firebase'
 import type {
   Party,
+  PartyAdmin,
   PartyBallot,
   PartyBallotSummary,
   PartyCategory,
@@ -365,17 +366,53 @@ export function syncRoster(partyId: string): Promise<{ count: number }> {
   return callParty('syncRoster', { partyId })
 }
 
+// The caller's own admin record for a party (host / co-host), or none.
+export function watchMyAdmin(
+  partyId: string,
+  uid: string,
+  onValue: (admin: PartyAdmin | undefined) => void,
+  onError?: (err: unknown) => void,
+): Unsubscribe {
+  return watchDoc<PartyAdmin>(['parties', partyId, 'admins', uid], onValue, onError)
+}
+
+// Everyone who runs the party. Readable by its admins only.
+export function watchAdmins(partyId: string, onValue: (admins: PartyAdmin[]) => void, onError?: (err: unknown) => void): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'parties', partyId, 'admins'),
+    (snap) => onValue(snap.docs.map((d) => d.data() as PartyAdmin)),
+    (err) => onError?.(err),
+  )
+}
+
+// Moves an older party's admin uids off its guest-readable document. The
+// server does this on any party action; this lets a page ask for it.
+export function migrateParty(partyId: string): Promise<{ ok: true }> {
+  return callParty('migrateParty', { partyId })
+}
+
 // --- Party lists ----------------------------------------------------------------
 
-// Parties this account runs: as host, or as a co-host / pour assistant.
-export async function getHostedParties(uid: string): Promise<Party[]> {
-  const [hosted, coHosted] = await Promise.all([
-    getDocs(query(collection(db, 'parties'), where('hostUid', '==', uid))),
-    getDocs(query(collection(db, 'parties'), where('coHostUids', 'array-contains', uid))).catch(() => null),
-  ])
-  const byId = new Map<string, Party>()
-  for (const d of [...hosted.docs, ...(coHosted?.docs ?? [])]) byId.set(d.id, d.data() as Party)
-  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt)
+// Parties this account runs, as host or co-host: found through its own
+// protected admin records (the party documents carry no admin uids).
+export interface HostedParty extends Party {
+  myRole: PartyAdmin['role']
+}
+
+export async function getHostedParties(uid: string): Promise<HostedParty[]> {
+  const records = await getDocs(query(collectionGroup(db, 'admins'), where('uid', '==', uid)))
+  const parties: HostedParty[] = []
+  for (const record of records.docs) {
+    const partyId = record.ref.parent.parent?.id
+    if (!partyId) continue
+    try {
+      const snap = await getDoc(doc(db, 'parties', partyId))
+      if (snap.exists()) parties.push({ ...(snap.data() as Party), myRole: (record.data() as PartyAdmin).role })
+    } catch (err) {
+      console.error('[party] could not load hosted party', { partyId, err })
+    }
+  }
+  return parties.sort((a, b) => b.createdAt - a.createdAt)
 }
 
 // Parties this identity joined as a guest (excluding ones it hosts).
@@ -387,10 +424,9 @@ export async function getAttendedParties(uid: string): Promise<Party[]> {
     if (!partyId || (guestDoc.data() as PartyGuest).revoked) continue
     try {
       const partySnap = await getDoc(doc(db, 'parties', partyId))
-      if (partySnap.exists()) {
-        const party = partySnap.data() as Party
-        if (party.hostUid !== uid) parties.push(party)
-      }
+      // The host's own tasting record is a guest record too; their party
+      // is already listed among the parties they run.
+      if (partySnap.exists() && !(guestDoc.data() as PartyGuest).isHost) parties.push(partySnap.data() as Party)
     } catch (err) {
       console.error('[party] could not load attended party', { partyId, err })
     }

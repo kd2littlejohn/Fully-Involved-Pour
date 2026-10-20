@@ -5,7 +5,7 @@ import { SignInButton } from '../../components/domain/SignInButton'
 import fipIcon from '../../assets/brand/fip-icon.svg'
 import { useAuth } from '../../hooks/useAuth'
 import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/PartyChrome'
-import { useParty } from '../../features/party/usePartyData'
+import { useMyAdminRole, useParty } from '../../features/party/usePartyData'
 import { formatEventDate } from '../../features/party/partyLabels'
 import type { Party, PartyCategory } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
@@ -83,12 +83,13 @@ export function PrintScorecardsPage() {
   const { partyId } = useParams<{ partyId: string }>()
   const { user, loading: authLoading } = useAuth()
   const party = useParty(partyId, Boolean(user))
+  const adminRole = useMyAdminRole(partyId, user?.uid)
   const [copies, setCopies] = useState('1')
   const [selected, setSelected] = useState<Record<string, boolean>>({})
 
-  if (authLoading || (user && party.loading)) return <PartyLoading />
+  if (authLoading || (user && (party.loading || adminRole.loading))) return <PartyLoading />
   if (!user) return <PartyMessage title="Print scorecards" message="Sign in as the host to print scorecards." action={<SignInButton />} />
-  if (!party.data || party.data.hostUid !== user.uid) return <PartyMessage title="Hosts only" message="Only the party’s host can print scorecards." />
+  if (!party.data || adminRole.role !== 'host') return <PartyMessage title="Hosts only" message="Only the party’s host can print scorecards." />
 
   const p = party.data
   const count = Math.max(1, Math.min(60, Number(copies) || 1))

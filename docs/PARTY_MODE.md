@@ -35,7 +35,8 @@ Rankings come from a pure engine (`functions/party/scoring.js`). It runs at reve
 
 | Path | Contents | Read access |
 | --- | --- | --- |
-| `parties/{id}` | event details, settings, rounds (names snapshotted), counts, join code | host, joined guests, active displays |
+| `parties/{id}` | event details, settings, rounds (names snapshotted), counts, join code, host's display name. **No host or co-host uids** | host, co-hosts, joined guests, active displays |
+| `parties/{id}/admins/{uid}` | who runs the party: `{ uid, role: host \| cohost, name, addedAt }`. Rules and the server recognise admins by their own record here | that admin and the party's other admins (never guests or displays) |
 | `parties/{id}/guests/{uid}` | nickname, participant key, revoked flag; the host's own record has `isHost: true` | host, that guest |
 | `parties/{id}/roster/{rosterId}` | public "Who's Tasting" list: display name, role (host / co-host / guest), tasting flag, per-round status (`tasting` / `submitted`). Ids are participant keys, `host`, or a one-way hash for co-hosts. Never uids, emails, scores or notes | host, co-hosts, joined guests (not displays) |
 | `parties/{id}/ballots/{categoryId}__{participantKey}` | one ballot per participant per round | its owner only (guest, or host for paper) |
@@ -122,6 +123,14 @@ Once a round's bottles are known (a revealed blind round, or a regular round's r
   - the overall rating is kept as given
   - unowned bottles get stand-in records
 - Anonymous guests use **Keep my results** to link an account first.
+
+### Admin identities
+
+- **Where uids live:** host and co-host uids are kept only in `parties/{id}/admins/{uid}` (`functions/party/admins.js`), never on the party document that guests and TV displays read. Responses to guests (preview, join, ballots) carry no admin uid either.
+- **How admins are recognised:** `firestore.rules` checks that the caller's own admin record exists; the server's `readParty` loads the same records. Records are server-written only, so nobody can make themselves an admin.
+- **"Parties I run":** a collection-group query over the caller's own admin records.
+- **Older parties:** parties created before this kept `hostUid`, `coHostUids` and `coHosts` on the party document. The server moves them into admin records and deletes them from the document (`migrateLegacyAdmins`, idempotent) on that party's next action of any kind: a guest joining, a host opening the dashboard, a ballot. Pages that still see the old fields also ask for the migration.
+- **Rules fallback:** until a party is migrated, a rules fallback lets its host and co-hosts keep working. Once the old fields are gone, the fallback matches nothing.
 
 ### Who's Tasting
 

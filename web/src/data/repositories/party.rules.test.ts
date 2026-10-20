@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { assertFails, assertSucceeds, initializeTestEnvironment, type RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import { collection, collectionGroup, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore'
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 const RULES_PATH = resolve(__dirname, '../../../../firestore.rules')
 
@@ -21,6 +21,7 @@ const OUTSIDER = 'party-outsider'
 const COHOST = 'party-cohost'
 const PARTY = 'party-1'
 const OTHER_PARTY = 'party-2'
+const LEGACY_PARTY = 'party-legacy'
 
 beforeAll(async () => {
   testEnv = await initializeTestEnvironment({
@@ -38,15 +39,30 @@ beforeEach(async () => {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
     for (const id of [PARTY, OTHER_PARTY]) {
+      // No admin uids on the party document: admins are recognised by
+      // their protected records below.
       await setDoc(doc(db, 'parties', id), {
         id,
-        hostUid: id === PARTY ? HOST : 'someone-else',
-        coHostUids: id === PARTY ? [COHOST] : [],
+        hostName: 'Kevin',
         name: 'Bourbon Night',
         status: 'live',
         categories: [{ id: 'c1', name: 'Wheated', state: 'voting_open', sampleLabels: ['A', 'B'] }],
       })
     }
+    await setDoc(doc(db, 'parties', PARTY, 'admins', HOST), { uid: HOST, role: 'host', name: 'Kevin', addedAt: 1 })
+    await setDoc(doc(db, 'parties', PARTY, 'admins', COHOST), { uid: COHOST, role: 'cohost', name: 'Pat', addedAt: 2 })
+    await setDoc(doc(db, 'parties', OTHER_PARTY, 'admins', 'someone-else'), { uid: 'someone-else', role: 'host', name: 'Other', addedAt: 1 })
+    // A party created before admin records existed, not migrated yet.
+    await setDoc(doc(db, 'parties', LEGACY_PARTY), {
+      id: LEGACY_PARTY,
+      hostUid: HOST,
+      coHostUids: [COHOST],
+      hostName: 'Kevin',
+      name: 'Old Night',
+      status: 'completed',
+      categories: [],
+    })
+    await setDoc(doc(db, 'parties', LEGACY_PARTY, 'guests', GUEST), { uid: GUEST, nickname: 'Kev', revoked: false, participantKey: 'g_7' })
     await setDoc(doc(db, 'partySecrets', PARTY), {
       partyId: PARTY,
       hostUid: HOST,
@@ -100,9 +116,11 @@ describe('party documents', () => {
     await assertFails(updateDoc(doc(as(GUEST), 'parties', PARTY), { name: 'x' }))
   })
 
-  it('lets hosts list their own parties', async () => {
-    await assertSucceeds(getDocs(query(collection(as(HOST), 'parties'), where('hostUid', '==', HOST))))
-    await assertFails(getDocs(query(collection(as(OUTSIDER), 'parties'), where('hostUid', '==', HOST))))
+  it('lets hosts and co-hosts list the parties they run, through their own admin records', async () => {
+    await assertSucceeds(getDocs(query(collectionGroup(as(HOST), 'admins'), where('uid', '==', HOST))))
+    await assertSucceeds(getDocs(query(collectionGroup(as(COHOST), 'admins'), where('uid', '==', COHOST))))
+    await assertFails(getDocs(query(collectionGroup(as(OUTSIDER), 'admins'), where('uid', '==', HOST))))
+    await assertFails(getDocs(query(collectionGroup(as(GUEST), 'admins'))))
   })
 })
 
@@ -137,7 +155,6 @@ describe('co-hosts', () => {
     await assertSucceeds(getDoc(doc(as(COHOST), 'parties', PARTY, 'results', 'c1')))
     await assertSucceeds(getDocs(collection(as(COHOST), 'parties', PARTY, 'audit')))
     await assertSucceeds(getDoc(doc(as(COHOST), 'parties', PARTY, 'displays', TV)))
-    await assertSucceeds(getDocs(query(collection(as(COHOST), 'parties'), where('coHostUids', 'array-contains', COHOST))))
   })
 
   it('never read anyone’s ballot, and only for their own party', async () => {
@@ -149,7 +166,7 @@ describe('co-hosts', () => {
 
   it('cannot write party data directly', async () => {
     await assertFails(updateDoc(doc(as(COHOST), 'parties', PARTY), { name: 'Mine now' }))
-    await assertFails(updateDoc(doc(as(COHOST), 'parties', PARTY), { coHostUids: [COHOST, OUTSIDER] }))
+    await assertFails(setDoc(doc(as(COHOST), 'parties', PARTY, 'admins', OUTSIDER), { uid: OUTSIDER, role: 'cohost', name: 'Friend' }))
   })
 })
 
@@ -261,5 +278,50 @@ describe("Who's Tasting roster", () => {
   it('leaves the private guest records closed to other guests', async () => {
     await assertFails(getDocs(collection(as(GUEST), 'parties', PARTY, 'guests')))
     await assertFails(getDoc(doc(as(GUEST), 'parties', PARTY, 'guests', OTHER_GUEST)))
+  })
+})
+
+describe('admin identities', () => {
+  it('admin records are readable by the party’s admins only — never by guests, displays or outsiders', async () => {
+    await assertSucceeds(getDoc(doc(as(HOST), 'parties', PARTY, 'admins', COHOST)))
+    await assertSucceeds(getDocs(collection(as(COHOST), 'parties', PARTY, 'admins')))
+    await assertFails(getDocs(collection(as(GUEST), 'parties', PARTY, 'admins')))
+    await assertFails(getDoc(doc(as(GUEST), 'parties', PARTY, 'admins', HOST)))
+    const anonymous = testEnv.authenticatedContext(OTHER_GUEST, { firebase: { sign_in_provider: 'anonymous' } }).firestore()
+    await assertFails(getDoc(doc(anonymous, 'parties', PARTY, 'admins', HOST)))
+    await assertFails(getDocs(collection(as(TV), 'parties', PARTY, 'admins')))
+    await assertFails(getDocs(collection(as(OUTSIDER), 'parties', PARTY, 'admins')))
+    await assertFails(getDocs(collection(as(HOST), 'parties', OTHER_PARTY, 'admins')))
+  })
+
+  it('the party document guests read carries no host or co-host uid', async () => {
+    const snap = await assertSucceeds(getDoc(doc(as(GUEST), 'parties', PARTY)))
+    const json = JSON.stringify(snap.data())
+    expect(json).not.toContain(HOST)
+    expect(json).not.toContain(COHOST)
+  })
+
+  it('no one can make themselves an admin', async () => {
+    await assertFails(setDoc(doc(as(GUEST), 'parties', PARTY, 'admins', GUEST), { uid: GUEST, role: 'host', name: 'Me' }))
+    await assertFails(setDoc(doc(as(OUTSIDER), 'parties', PARTY, 'admins', OUTSIDER), { uid: OUTSIDER, role: 'cohost', name: 'Me' }))
+    await assertFails(updateDoc(doc(as(COHOST), 'parties', PARTY, 'admins', COHOST), { role: 'host' }))
+    await assertFails(deleteDoc(doc(as(HOST), 'parties', PARTY, 'admins', COHOST)))
+    await assertFails(updateDoc(doc(as(GUEST), 'parties', PARTY), { hostUid: GUEST }))
+  })
+
+  it('guests gain no admin access: no guest records, audit log or bottle mapping', async () => {
+    await assertFails(getDocs(collection(as(GUEST), 'parties', PARTY, 'guests')))
+    await assertFails(getDocs(collection(as(GUEST), 'parties', PARTY, 'audit')))
+    await assertFails(getDocs(collection(as(GUEST), 'parties', PARTY, 'displays')))
+    await assertFails(getDoc(doc(as(GUEST), 'partySecrets', PARTY)))
+  })
+
+  it('keeps an un-migrated older party working for its host, co-host and guests', async () => {
+    await assertSucceeds(getDoc(doc(as(HOST), 'parties', LEGACY_PARTY)))
+    await assertSucceeds(getDoc(doc(as(COHOST), 'parties', LEGACY_PARTY)))
+    await assertSucceeds(getDocs(collection(as(HOST), 'parties', LEGACY_PARTY, 'guests')))
+    await assertSucceeds(getDoc(doc(as(GUEST), 'parties', LEGACY_PARTY)))
+    await assertFails(getDoc(doc(as(OUTSIDER), 'parties', LEGACY_PARTY)))
+    await assertFails(getDocs(collection(as(GUEST), 'parties', LEGACY_PARTY, 'guests')))
   })
 })

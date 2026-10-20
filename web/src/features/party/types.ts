@@ -65,15 +65,12 @@ export function partyFormat(party: Pick<Party, 'format'>): PartyFormat {
 
 export interface Party {
   id: string
-  hostUid: string
   hostName: string
   // "I'm tasting too". Absent on parties created before host participation.
   hostTasting?: boolean
   format?: PartyFormat
   // Co-hosts / pour assistants: other FIP accounts who run the event and
   // hold the bottle key, so the host can taste blind. They never taste.
-  coHostUids?: string[]
-  coHosts?: Record<string, { name: string; addedAt: number }>
   // When the host first knew each round's bottles (set them up or opened
   // the bottle key). Their ballots in those rounds are marked not fully blind.
   hostKeyViews?: Record<string, number>
@@ -113,6 +110,18 @@ export interface PartySample {
   id: string
   label: string
   bottle: PartyBottle
+}
+
+// parties/{partyId}/admins/{uid}: who runs the party. Readable by that
+// admin and the party's other admins only; the party document itself holds
+// no admin uids (functions/party/admins.js).
+export type PartyAdminRole = 'host' | 'cohost'
+
+export interface PartyAdmin {
+  uid: string
+  role: PartyAdminRole
+  name: string
+  addedAt: number
 }
 
 // partySecrets/{partyId} — readable by the host only.

@@ -32,7 +32,10 @@ async function loadPartyAxeContext(db, uid, { partyId, categoryId }) {
   const party = partySnap.data();
   const guestSnap = await db.doc(`parties/${partyId}/guests/${uid}`).get();
   const guest = guestSnap.exists && !guestSnap.data().revoked ? guestSnap.data() : null;
-  if (!guest && party.hostUid !== uid) throw new HttpsError("permission-denied", "Join the party to ask AXE about it.");
+  // The host is recognised by their protected admin record (or, on a party
+  // not migrated yet, the old hostUid field).
+  const isHost = !guest && ((await db.doc(`parties/${partyId}/admins/${uid}`).get()).data()?.role === "host" || party.hostUid === uid);
+  if (!guest && !isHost) throw new HttpsError("permission-denied", "Join the party to ask AXE about it.");
   const resultsSnap = await db.doc(`parties/${partyId}/results/${categoryId}`).get();
   if (!resultsSnap.exists) throw new HttpsError("failed-precondition", "AXE can talk about this round once it's revealed.");
   let myBallot = null;

@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HostDashboardPage } from './HostDashboardPage'
 import { makeCategory, makeParty } from '../../features/party/__fixtures__/party'
-import type { Party, PartyBallot, PartyGuest, PartyRosterEntry } from '../../features/party/types'
+import type { Party, PartyAdmin, PartyBallot, PartyGuest, PartyRosterEntry } from '../../features/party/types'
 
 const mockUseAuth = vi.fn()
 const mockSetState = vi.fn()
@@ -21,6 +21,10 @@ let myBallots: PartyBallot[] = []
 const ROSTER_HOST: PartyRosterEntry = { id: 'host', name: 'Kevin', role: 'host', tasting: true, joinedAt: 0, progress: {} }
 const ROSTER_SAM: PartyRosterEntry = { id: 'k', name: 'Sam', role: 'guest', tasting: true, joinedAt: 1, progress: {} }
 let roster: PartyRosterEntry[] = [ROSTER_HOST, ROSTER_SAM]
+// Roles come from the protected admin records, never the party document.
+const HOST_ADMIN: PartyAdmin = { uid: 'host-1', role: 'host', name: 'Kevin', addedAt: 0 }
+const PAT_ADMIN: PartyAdmin = { uid: 'co-1', role: 'cohost', name: 'Pat', addedAt: 1 }
+let admins: PartyAdmin[] = [HOST_ADMIN]
 const mockSyncRoster = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => mockUseAuth() }))
@@ -29,6 +33,8 @@ vi.mock('../../features/party/usePartyData', () => ({
   usePartyGuests: () => ({ data: guests, loading: false, error: null }),
   usePartyResults: () => ({ data: {}, loading: false, error: null }),
   usePartyRoster: () => ({ data: roster, loading: false, error: null }),
+  useMyAdminRole: (_p: string, uid?: string) => ({ role: admins.find((a) => a.uid === uid)?.role ?? null, loading: false }),
+  usePartyAdmins: (_p: string, enabled: boolean) => ({ data: enabled ? admins : [], loading: false, error: null }),
   useMyBallots: (_p: string, _u: string, enabled: boolean) => ({ data: enabled ? myBallots : [], loading: false, error: null }),
 }))
 vi.mock('../../data/repositories/party', async (importOriginal) => {
@@ -58,6 +64,7 @@ function renderPage() {
 describe('HostDashboardPage', () => {
   beforeEach(() => {
     roster = [ROSTER_HOST, ROSTER_SAM]
+    admins = [HOST_ADMIN]
     mockSyncRoster.mockReset().mockResolvedValue({ count: 2 })
     mockSetState.mockReset().mockResolvedValue({ state: 'ok' })
     mockSetHostTasting.mockReset().mockResolvedValue({ ok: true })
@@ -114,7 +121,7 @@ describe('HostDashboardPage', () => {
   })
 
   it('lists who viewed the key before the reveal', async () => {
-    party = makeParty({ coHostUids: ['co-1'], coHosts: { 'co-1': { name: 'Pat', addedAt: 1 } } })
+    admins = [HOST_ADMIN, PAT_ADMIN]
     mockGetKeyAccessLog.mockResolvedValue([
       { id: 'a1', actorUid: 'co-1', role: 'cohost', purpose: 'setup', at: 2, flaggedCategoryIds: [] },
       { id: 'a2', actorUid: 'host-1', role: 'host', purpose: 'key', at: 1, flaggedCategoryIds: ['c1'] },
@@ -135,7 +142,8 @@ describe('HostDashboardPage', () => {
   it('a co-host runs the event but gets no My Tasting, delete, co-host or host-tasting controls', () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'co-1' }, loading: false })
     guests = [SAM, HOST]
-    party = makeParty({ hostTasting: true, coHostUids: ['co-1'], coHosts: { 'co-1': { name: 'Pat', addedAt: 1 } } })
+    admins = [HOST_ADMIN, PAT_ADMIN]
+    party = makeParty({ hostTasting: true })
     renderPage()
     expect(screen.getByRole('button', { name: 'Close voting' })).toBeInTheDocument()
     expect(screen.queryByRole('tab', { name: /My Tasting/ })).not.toBeInTheDocument()

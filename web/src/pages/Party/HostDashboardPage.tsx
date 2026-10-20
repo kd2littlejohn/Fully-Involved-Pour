@@ -8,7 +8,7 @@ import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/Part
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import { InvitePanel } from '../../features/party/InvitePanel'
 import { ResultsView } from '../../features/party/ResultsView'
-import { useMyBallots, useParty, usePartyGuests, usePartyResults, usePartyRoster } from '../../features/party/usePartyData'
+import { useMyAdminRole, useMyBallots, useParty, usePartyAdmins, usePartyGuests, usePartyResults, usePartyRoster } from '../../features/party/usePartyData'
 import { TastingIndicator, WhoIsTasting } from '../../features/party/WhoIsTasting'
 import { coHostRosterId } from '../../features/party/rosterView'
 import { MyTastingView } from '../../features/party/MyTastingView'
@@ -96,9 +96,12 @@ export function HostDashboardPage() {
   const navigate = useNavigate()
   const { user, loading: authLoading } = useAuth()
   const party = useParty(partyId, Boolean(user))
-  const isHost = Boolean(user && party.data && party.data.hostUid === user.uid)
-  // Host or co-host (pour assistant). Co-hosts run the event but never taste.
-  const isAdmin = Boolean(user && party.data && (isHost || party.data.coHostUids?.includes(user.uid)))
+  // Host or co-host (pour assistant), from this account's own protected
+  // admin record. Co-hosts run the event but never taste.
+  const adminRole = useMyAdminRole(partyId, user?.uid)
+  const isHost = adminRole.role === 'host'
+  const isAdmin = adminRole.role !== null
+  const admins = usePartyAdmins(partyId, isAdmin)
   const guests = usePartyGuests(partyId, isAdmin)
   const results = usePartyResults(partyId, isAdmin)
   const roster = usePartyRoster(partyId, isAdmin)
@@ -167,7 +170,7 @@ export function HostDashboardPage() {
     if (partyId) rememberHostView(partyId, next)
   }
 
-  if (authLoading || (user && party.loading)) return <PartyLoading />
+  if (authLoading || (user && (party.loading || adminRole.loading))) return <PartyLoading />
   if (!user) return <PartyMessage title="Host dashboard" message="Sign in to your FIP account to run your party." action={<SignInButton />} />
   if (!party.data) return <PartyMessage title="Party not found" message="This party doesn’t exist, or you don’t have access to it." />
   if (!isAdmin) {
@@ -182,8 +185,12 @@ export function HostDashboardPage() {
   const regular = partyFormat(p) === 'regular'
   const progress = tasting ? myTastingProgress(p, myBallots.data) : null
   const hostIsTasting = guests.data.some((g) => g.isHost && !g.revoked)
-  const coHosts = (p.coHostUids ?? []).map((uid) => ({ uid, name: p.coHosts?.[uid]?.name ?? 'Co-host' }))
-  const adminName = (uid: string) => (uid === p.hostUid ? `${p.hostName} (host)` : `${p.coHosts?.[uid]?.name ?? 'A co-host'} (co-host)`)
+  const coHosts = admins.data.filter((a) => a.role === 'cohost').sort((a, b) => a.addedAt - b.addedAt)
+  const adminName = (uid: string) => {
+    const admin = admins.data.find((a) => a.uid === uid)
+    if (!admin) return 'A former co-host'
+    return admin.role === 'host' ? `${p.hostName} (host)` : `${admin.name} (co-host)`
+  }
   // Rounds where the tasting host's own scores won't count as fully blind.
   const notBlindRounds = tasting && !regular ? p.categories.filter((c) => p.hostKeyViews?.[c.id]) : []
 
