@@ -6,8 +6,9 @@ import {
   watchRecap,
   watchResults,
   watchGuests,
+  watchRoster,
 } from '../../data/repositories/party'
-import type { Party, PartyBallot, PartyCategoryResults, PartyGuest, PartyRecap } from './types'
+import type { PartyRosterEntry, Party, PartyBallot, PartyCategoryResults, PartyGuest, PartyRecap } from './types'
 
 // Live subscriptions for Party Mode screens. A party is genuinely real-time
 // (rounds open and close, ballots arrive, results are revealed while
@@ -102,6 +103,20 @@ export function usePartyGuests(partyId: string | undefined, enabled = true): Liv
   useEffect(() => {
     if (!partyId || !enabled) return
     return watchGuests(
+      partyId,
+      (data) => setState({ data, loading: false, error: null }),
+      (err) => setState({ data: [], loading: false, error: accessError(err) }),
+    )
+  }, [partyId, enabled])
+  return state
+}
+
+// The shared "Who's Tasting" list: live for every member of the party.
+export function usePartyRoster(partyId: string | undefined, enabled = true): Live<PartyRosterEntry[]> {
+  const [state, setState] = useState<Live<PartyRosterEntry[]>>({ data: [], loading: true, error: null })
+  useEffect(() => {
+    if (!partyId || !enabled) return
+    return watchRoster(
       partyId,
       (data) => setState({ data, loading: false, error: null }),
       (err) => setState({ data: [], loading: false, error: accessError(err) }),

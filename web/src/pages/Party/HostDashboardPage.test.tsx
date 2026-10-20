@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { HostDashboardPage } from './HostDashboardPage'
 import { makeCategory, makeParty } from '../../features/party/__fixtures__/party'
-import type { Party, PartyBallot, PartyGuest } from '../../features/party/types'
+import type { Party, PartyBallot, PartyGuest, PartyRosterEntry } from '../../features/party/types'
 
 const mockUseAuth = vi.fn()
 const mockSetState = vi.fn()
@@ -18,12 +18,17 @@ const SAM: PartyGuest = { uid: 'g1', participantKey: 'k', nickname: 'Sam', joine
 const HOST: PartyGuest = { uid: 'host-1', participantKey: 'h_1', nickname: 'Kevin', joinedAt: 0, revoked: false, isHost: true }
 let guests: PartyGuest[] = [SAM]
 let myBallots: PartyBallot[] = []
+const ROSTER_HOST: PartyRosterEntry = { id: 'host', name: 'Kevin', role: 'host', tasting: true, joinedAt: 0, progress: {} }
+const ROSTER_SAM: PartyRosterEntry = { id: 'k', name: 'Sam', role: 'guest', tasting: true, joinedAt: 1, progress: {} }
+let roster: PartyRosterEntry[] = [ROSTER_HOST, ROSTER_SAM]
+const mockSyncRoster = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => mockUseAuth() }))
 vi.mock('../../features/party/usePartyData', () => ({
   useParty: () => ({ data: party, loading: false, error: party ? null : 'missing' }),
   usePartyGuests: () => ({ data: guests, loading: false, error: null }),
   usePartyResults: () => ({ data: {}, loading: false, error: null }),
+  usePartyRoster: () => ({ data: roster, loading: false, error: null }),
   useMyBallots: (_p: string, _u: string, enabled: boolean) => ({ data: enabled ? myBallots : [], loading: false, error: null }),
 }))
 vi.mock('../../data/repositories/party', async (importOriginal) => {
@@ -36,6 +41,7 @@ vi.mock('../../data/repositories/party', async (importOriginal) => {
     getKeyAccessLog: (...a: unknown[]) => mockGetKeyAccessLog(...a),
     createCoHostInvite: (...a: unknown[]) => mockCreateCoHostInvite(...a),
     removeCoHost: (...a: unknown[]) => mockRemoveCoHost(...a),
+    syncRoster: (...a: unknown[]) => mockSyncRoster(...a),
   }
 })
 
@@ -51,6 +57,8 @@ function renderPage() {
 
 describe('HostDashboardPage', () => {
   beforeEach(() => {
+    roster = [ROSTER_HOST, ROSTER_SAM]
+    mockSyncRoster.mockReset().mockResolvedValue({ count: 2 })
     mockSetState.mockReset().mockResolvedValue({ state: 'ok' })
     mockSetHostTasting.mockReset().mockResolvedValue({ ok: true })
     mockGetBottleKey.mockReset().mockResolvedValue({
@@ -76,7 +84,7 @@ describe('HostDashboardPage', () => {
 
   it('shows guests, ballot counts, the join code and QR', () => {
     renderPage()
-    expect(screen.getByText('Sam')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Participants' })).getByText('Sam')).toBeInTheDocument()
     expect(screen.getByText('OAK 742')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /QR code to join Bourbon Night/ })).toBeInTheDocument()
     expect(screen.getByText(/2 digital · 1 paper ballots/)).toBeInTheDocument()
@@ -264,5 +272,23 @@ describe('HostDashboardPage', () => {
     expect(mockSetState).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Show results' }))
     await waitFor(() => expect(mockSetState).toHaveBeenCalledWith('p1', 'c1', 'revealed'))
+  })
+
+  it('shows the shared Who’s Tasting list, with management kept in a separate Participants section', () => {
+    renderPage()
+    const shared = screen.getByRole('region', { name: 'Who’s Tasting' })
+    expect(within(shared).getByText('2 participants')).toBeInTheDocument()
+    expect(within(shared).getByText(/Kevin/).closest('li')).toHaveTextContent('(You)')
+    expect(within(shared).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument()
+    const manage = screen.getByRole('region', { name: 'Participants' })
+    expect(within(manage).getByRole('button', { name: 'Remove Sam' })).toBeInTheDocument()
+    expect(mockSyncRoster).not.toHaveBeenCalled()
+  })
+
+  it('builds the roster once for a party created before it existed', async () => {
+    roster = []
+    renderPage()
+    await waitFor(() => expect(mockSyncRoster).toHaveBeenCalledTimes(1))
+    expect(mockSyncRoster).toHaveBeenCalledWith('p1')
   })
 })

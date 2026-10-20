@@ -306,8 +306,9 @@ service cloud.firestore {
                        || isPartyDisplay(partyId));
       allow write: if false;
 
-      // Guest records (nicknames) are visible to the host and to the guest
-      // themselves only — other guests see a count, never the roster.
+      // Private guest records (uid, recovery and account details) are
+      // visible to admins and to the guest themselves only. Everyone else
+      // sees the public roster below instead.
       match /guests/{guestUid} {
         allow read: if request.auth != null && (guestUid == request.auth.uid || isPartyAdmin(partyId));
         allow write: if false;
@@ -327,6 +328,18 @@ service cloud.firestore {
       match /results/{resultId} {
         allow read: if request.auth != null
                      && (isPartyAdmin(partyId) || isPartyGuest(partyId) || isPartyDisplay(partyId));
+        allow write: if false;
+      }
+
+      // "Who's Tasting": the shared participant list every member of THIS
+      // party can see: host, co-hosts and joined guests (anonymous QR-code
+      // guests included), never outsiders, revoked guests or TV displays.
+      // Server-written (functions/party/roster.js) with only a display
+      // name, role, tasting flag and per-round status; never uids, emails,
+      // scores or notes. The private guests/{uid} records above stay
+      // admin- and self-only.
+      match /roster/{rosterId} {
+        allow read: if request.auth != null && (isPartyAdmin(partyId) || isPartyGuest(partyId));
         allow write: if false;
       }
 

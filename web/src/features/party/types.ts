@@ -133,6 +133,23 @@ export interface PartyGuest {
   isHost?: boolean
 }
 
+// parties/{partyId}/roster/{id}: the public "Who's Tasting" list, written
+// by the server and readable by every member of the party. Only what the
+// shared list shows: never a uid, email, score or note.
+export type PartyRosterRole = 'host' | 'cohost' | 'guest'
+export type PartyRosterProgress = 'tasting' | 'submitted'
+
+export interface PartyRosterEntry {
+  // A guest's participant key, "host", or a one-way hash for a co-host.
+  id: string
+  name: string
+  role: PartyRosterRole
+  // Counted in "N tasting". Co-hosts never taste; the host may or may not.
+  tasting: boolean
+  joinedAt: number
+  progress: Record<string, PartyRosterProgress>
+}
+
 export interface PartySampleScore {
   overall: number
   nose?: number

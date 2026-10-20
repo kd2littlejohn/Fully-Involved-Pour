@@ -4,7 +4,8 @@ import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/Part
 import { MyTastingView } from '../../features/party/MyTastingView'
 import { KeepYourResults } from '../../features/party/KeepYourResults'
 import { useGuestIdentity } from '../../features/party/useGuestIdentity'
-import { useMyBallots, useMyGuest, useParty, usePartyResults } from '../../features/party/usePartyData'
+import { useMyBallots, useMyGuest, useParty, usePartyResults, usePartyRoster } from '../../features/party/usePartyData'
+import { TastingIndicator, WhoIsTasting } from '../../features/party/WhoIsTasting'
 import { recallRecoveryCode } from '../../features/party/guestSession'
 import styles from '../../features/party/party.module.css'
 
@@ -19,6 +20,7 @@ export function GuestPartyPage() {
   const party = useParty(partyId, isGuest)
   const ballots = useMyBallots(partyId, user?.uid, isGuest)
   const results = usePartyResults(partyId, isGuest)
+  const roster = usePartyRoster(partyId, isGuest)
 
   if (identityLoading || (user && guest.loading)) return <PartyLoading />
   if (!user || !guest.data) {
@@ -52,7 +54,10 @@ export function GuestPartyPage() {
   return (
     <PartyPage>
       <section className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
-        <span className={styles.eyebrow}>Hi, {guest.data.nickname}</span>
+        <div className={styles.spread}>
+          <span className={styles.eyebrow}>Hi, {guest.data.nickname}</span>
+          <TastingIndicator party={p} entries={roster.data} myRosterId={guest.data.participantKey} />
+        </div>
         <h1 className={styles.title}>{p.name}</h1>
         {p.status === 'completed' ? (
           <div className={styles.row}>
@@ -65,6 +70,8 @@ export function GuestPartyPage() {
       </section>
 
       <MyTastingView party={p} guest={guest.data} ballots={ballots.data} results={results.data} />
+
+      <WhoIsTasting party={p} entries={roster.data} myRosterId={guest.data.participantKey} loading={roster.loading} />
 
       {user.isAnonymous && (anyRevealed || p.status === 'completed') ? <KeepYourResults /> : null}
 
