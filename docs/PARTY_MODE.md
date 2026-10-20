@@ -37,6 +37,7 @@ Rankings come from a pure engine (`functions/party/scoring.js`). It runs at reve
 | --- | --- | --- |
 | `parties/{id}` | event details, settings, rounds (names snapshotted), counts, join code | host, joined guests, active displays |
 | `parties/{id}/guests/{uid}` | nickname, participant key, revoked flag; the host's own record has `isHost: true` | host, that guest |
+| `parties/{id}/roster/{rosterId}` | public "Who's Tasting" list: display name, role (host / co-host / guest), tasting flag, per-round status (`tasting` / `submitted`). Ids are participant keys, `host`, or a one-way hash for co-hosts. Never uids, emails, scores or notes | host, co-hosts, joined guests (not displays) |
 | `parties/{id}/ballots/{categoryId}__{participantKey}` | one ballot per participant per round | its owner only (guest, or host for paper) |
 | `parties/{id}/results/{categoryId}` | published results, written at reveal | host, guests, displays |
 | `parties/{id}/results/recap` | Party Recap, written at completion | host, guests, displays |
@@ -121,6 +122,15 @@ Once a round's bottles are known (a revealed blind round, or a regular round's r
   - the overall rating is kept as given
   - unowned bottles get stand-in records
 - Anonymous guests use **Keep my results** to link an account first.
+
+### Who's Tasting
+
+Every member of a party sees the same read-only list of who's there:
+- **Where it appears:** the guest screen (a "N Tasting" chip by the title opens it without leaving the scoring view) and the host dashboard. Managing people (removing guests, host tasting on/off) stays in the dashboard's separate **Participants** section, for admins only.
+- **Data source:** the list reads `parties/{id}/roster`, which `functions/party/roster.js` keeps in step inside the same transactions as joins, removals, host tasting, co-host changes and ballot saves. It never makes the private `guests` records readable.
+- **Count:** the host while tasting, plus guests. Co-hosts and a host who isn't scoring are listed under "Hosting, not tasting" and aren't counted.
+- **Status:** comes from saved ballots in the round that's open for voting. **Joined** means no ballot yet, **Tasting** means some samples are scored, **Submitted** means all of them are. Between rounds everyone shows as Joined.
+- **Older parties:** parties created before the roster existed get one built automatically the first time an admin opens the dashboard (the `syncRoster` action).
 
 ### Guests
 

@@ -26,6 +26,7 @@ import type {
   PartyGuest,
   PartyPreview,
   PartyRecap,
+  PartyRosterEntry,
   PartySample,
   PartySampleScore,
   PartyScoringMode,
@@ -344,6 +345,24 @@ export function watchGuests(partyId: string, onValue: (guests: PartyGuest[]) => 
     (snap) => onValue(snap.docs.map((d) => d.data() as PartyGuest)),
     (err) => onError?.(err),
   )
+}
+
+// The shared "Who's Tasting" list. Every party member may read it.
+export function watchRoster(
+  partyId: string,
+  onValue: (entries: PartyRosterEntry[]) => void,
+  onError?: (err: unknown) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'parties', partyId, 'roster'),
+    (snap) => onValue(snap.docs.map((d) => d.data() as PartyRosterEntry)),
+    (err) => onError?.(err),
+  )
+}
+
+// Admins only: builds the roster for a party created before it existed.
+export function syncRoster(partyId: string): Promise<{ count: number }> {
+  return callParty('syncRoster', { partyId })
 }
 
 // --- Party lists ----------------------------------------------------------------

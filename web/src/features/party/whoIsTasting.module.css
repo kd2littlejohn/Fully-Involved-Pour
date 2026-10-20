@@ -1,0 +1,127 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--fip-space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--fip-space-3);
+  min-height: 56px;
+  padding: var(--fip-space-2) var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--fip-font-display);
+  font-size: var(--fip-text-lg);
+  background: linear-gradient(160deg, var(--fip-amber), var(--fip-copper));
+  color: var(--fip-black);
+}
+
+.who {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.you {
+  color: var(--fip-amber);
+  font-weight: 500;
+}
+
+.role {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+}
+
+.status {
+  flex: 0 0 auto;
+  border-radius: var(--fip-radius-round);
+  padding: 2px var(--fip-space-3);
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  background: var(--fip-card);
+  color: var(--fip-cream-soft);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.statusLive {
+  background: var(--fip-amber-soft);
+  color: var(--fip-amber-hover);
+  border-color: var(--fip-border);
+}
+
+.statusDone {
+  background: rgba(116, 146, 63, 0.18);
+  color: #b5cc8a;
+  border-color: rgba(116, 146, 63, 0.4);
+}
+
+.subhead {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+  letter-spacing: var(--fip-tracking-label);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.footnote {
+  color: var(--fip-muted);
+  font-size: var(--fip-text-xs);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fip-space-2);
+  min-height: 36px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  background: var(--fip-card-soft);
+  color: var(--fip-cream);
+  font: inherit;
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.chip:hover {
+  border-color: var(--fip-border-strong);
+}
+
+.chip:focus-visible {
+  outline: none;
+  box-shadow: var(--fip-focus);
+}
+
+.chipDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fip-success);
+}

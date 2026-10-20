@@ -8,7 +8,9 @@ import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/Part
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import { InvitePanel } from '../../features/party/InvitePanel'
 import { ResultsView } from '../../features/party/ResultsView'
-import { useMyBallots, useParty, usePartyGuests, usePartyResults } from '../../features/party/usePartyData'
+import { useMyBallots, useParty, usePartyGuests, usePartyResults, usePartyRoster } from '../../features/party/usePartyData'
+import { TastingIndicator, WhoIsTasting } from '../../features/party/WhoIsTasting'
+import { coHostRosterId } from '../../features/party/rosterView'
 import { MyTastingView } from '../../features/party/MyTastingView'
 import { myTastingProgress, progressLabel } from '../../features/party/myTastingProgress'
 import { recallHostView, rememberHostView, type HostView } from '../../features/party/guestSession'
@@ -32,6 +34,7 @@ import {
   removeCoHost,
   type BottleKey,
   type KeyAccessEntry,
+  syncRoster,
 } from '../../data/repositories/party'
 import { partyFormat, type Party, type PartyCategory, type PartyCategoryState } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
@@ -98,6 +101,30 @@ export function HostDashboardPage() {
   const isAdmin = Boolean(user && party.data && (isHost || party.data.coHostUids?.includes(user.uid)))
   const guests = usePartyGuests(partyId, isAdmin)
   const results = usePartyResults(partyId, isAdmin)
+  const roster = usePartyRoster(partyId, isAdmin)
+  // "(You)" in the shared list: the host's entry is "host"; a co-host's is a
+  // one-way hash of the party and their uid (the roster never holds uids).
+  const [coHostId, setCoHostId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!partyId || !user || isHost || !isAdmin) return
+    let cancelled = false
+    coHostRosterId(partyId, user.uid)
+      .then((id) => !cancelled && setCoHostId(id))
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [partyId, user, isHost, isAdmin])
+  const myRosterId = isHost ? 'host' : coHostId
+  // Parties created before the shared roster existed have no entries yet:
+  // build them once from the private records (server-side, admins only).
+  const rosterSynced = useRef(false)
+  const needsRoster = isAdmin && !roster.loading && !roster.error && !roster.data.some((e) => e.role === 'host')
+  useEffect(() => {
+    if (!needsRoster || !partyId || rosterSynced.current) return
+    rosterSynced.current = true
+    syncRoster(partyId).catch((err) => console.error('[party] roster sync', err))
+  }, [needsRoster, partyId])
   // The bottle key lives only in memory, fetched on an explicit, confirmed,
   // server-logged request — never a live listener.
   const [bottleKey, setBottleKey] = useState<BottleKey | null>(null)
@@ -284,6 +311,7 @@ export function HostDashboardPage() {
 
       {tasting ? (
         <div id="host-panel-tasting" role="tabpanel" aria-labelledby="host-tab-tasting" hidden={view !== 'tasting'} className={`${styles.stack} ${styles.viewPanel}`} style={{ gap: 'var(--fip-space-5)' }}>
+          <TastingIndicator party={p} entries={roster.data} myRosterId={myRosterId} />
           <MyTastingView party={p} guest={hostGuest!} ballots={myBallots.data} results={results.data} resumeAtLastSample />
         </div>
       ) : null}
@@ -468,12 +496,15 @@ export function HostDashboardPage() {
               <p className={styles.notice}>You’re a co-host for {p.hostName}’s party. You can run rounds and hold the bottle key, but co-hosts don’t score.</p>
             )}
 
+            <WhoIsTasting party={p} entries={roster.data} myRosterId={myRosterId} loading={roster.loading} />
+
             <InvitePanel party={p} />
 
-            <section className={styles.card} aria-labelledby="guests-heading">
+            {/* Admin controls, kept apart from the shared, read-only list above. */}
+            <section className={styles.card} aria-labelledby="participants-heading">
               <div className={styles.spread}>
-                <h2 id="guests-heading" className={styles.sectionTitle}>
-                  Guests
+                <h2 id="participants-heading" className={styles.sectionTitle}>
+                  Participants
                 </h2>
                 <span className={styles.pill}>
                   {activeGuests.length}
@@ -518,7 +549,7 @@ export function HostDashboardPage() {
                 </ul>
               )}
               <p className={styles.muted}>
-                Guests never see each other’s names here.{' '}
+                Everyone in the party sees names in Who’s Tasting; only you and your co-hosts can remove someone.{' '}
                 {tasting ? 'Score your own pours in My Tasting; your ballot counts the same as every guest’s.' : 'Tasting along? Turn on “I’m tasting too” to score from this dashboard.'}
               </p>
             </section>

@@ -21,6 +21,8 @@
 //   parties/{partyId}/ballots/{id}     id = `${categoryId}__${participantKey}`
 //   parties/{partyId}/results/{id}     per category at reveal; 'recap' at completion
 //   parties/{partyId}/audit/{id}       privileged change log (host-readable)
+//   parties/{partyId}/roster/{id}      public "Who's Tasting" list (roster.js):
+//                                      names, roles, status. Members read it
 //   parties/{partyId}/displays/{uid}   read-only presentation sessions
 //   partySecrets/{partyId}             bottle mapping + display token hash. No
 //                                      client reads it, host included: admins
@@ -37,6 +39,7 @@ const { FieldValue } = require("firebase-admin/firestore");
 const { assertNotRateLimited } = require("../rateLimit");
 const { computeCategoryResults, computeRecap } = require("./scoring");
 const v = require("./validation");
+const roster = require("./roster");
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -316,6 +319,7 @@ async function createParty(ctx) {
   batch.set(ref, party);
   batch.set(secretsRef(ctx.db, ref.id), { partyId: ref.id, hostUid: ctx.uid, categories: secretCategories, display: null });
   if (hostTasting) batch.set(ctx.db.doc(`parties/${ref.id}/guests/${ctx.uid}`), hostGuestRecord(ctx.uid, hostName, ctx.now));
+  batch.set(roster.rosterRef(ctx.db, ref.id, roster.HOST_ROSTER_ID), roster.hostEntry(party, Boolean(hostTasting), ctx.now));
   batch.set(ctx.db.collection(`parties/${ref.id}/audit`).doc(), { type: "party-created", actorUid: ctx.uid, at: ctx.now });
   await batch.commit();
   return { partyId: ref.id, joinCode: code, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
@@ -633,6 +637,7 @@ async function removeGuest(ctx) {
       counts[`counts.digital.${ballot.categoryId}`] = FieldValue.increment(-1);
     }
     tx.update(guestRef, { revoked: true, revokedAt: ctx.now });
+    tx.delete(roster.rosterRef(ctx.db, partyId, guest.participantKey));
     tx.update(partyRef(ctx.db, partyId), { ...counts, "counts.guests": FieldValue.increment(-1), updatedAt: ctx.now });
     auditEvent(tx, ctx.db, partyId, ctx, "guest-removed", { guestUid, nickname: guest.nickname });
     return { ok: true };
@@ -677,6 +682,10 @@ async function setHostTasting(ctx) {
       tx.set(guestRef, hostGuestRecord(ctx.uid, party.hostName || "Your host", ctx.now));
     }
     tx.update(partyRef(ctx.db, partyId), { ...counts, hostTasting: enabled, updatedAt: ctx.now });
+    // Merged without `progress`, so the host's per-round status survives
+    // switching tasting off and back on.
+    const { progress: _keep, ...hostEntry } = roster.hostEntry(party, enabled, guest?.joinedAt || ctx.now);
+    tx.set(roster.rosterRef(ctx.db, partyId, roster.HOST_ROSTER_ID), hostEntry, { merge: true });
     auditEvent(tx, ctx.db, partyId, ctx, enabled ? "host-tasting-on" : "host-tasting-off", {});
     return { ok: true, hostTasting: enabled };
   });
@@ -772,6 +781,7 @@ async function acceptCoHost(ctx) {
       [`coHosts.${ctx.uid}`]: { name, addedAt: ctx.now },
       updatedAt: ctx.now,
     });
+    tx.set(roster.rosterRef(ctx.db, partyId, roster.coHostRosterId(partyId, ctx.uid)), roster.coHostEntry(partyId, ctx.uid, { name, addedAt: ctx.now }));
     auditEvent(tx, ctx.db, partyId, ctx, "cohost-added", { uid: ctx.uid, name });
     return { partyId, alreadyCoHost: false };
   });
@@ -790,9 +800,21 @@ async function removeCoHost(ctx) {
       [`coHosts.${uid}`]: FieldValue.delete(),
       updatedAt: ctx.now,
     });
+    tx.delete(roster.rosterRef(ctx.db, partyId, roster.coHostRosterId(partyId, uid)));
     auditEvent(tx, ctx.db, partyId, ctx, "cohost-removed", { uid });
     return { ok: true };
   });
+}
+
+// Backfills (or repairs) the public roster from the private records, for
+// parties created before it existed. Admins only; idempotent.
+async function syncRoster(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  await limit(ctx, "host");
+  const party = await readParty(null, ctx.db, partyId);
+  assertAdmin(ctx, party);
+  const count = await roster.rebuildRoster(ctx.db, party);
+  return { count };
 }
 
 async function deleteParty(ctx) {
@@ -1038,6 +1060,7 @@ async function joinParty(ctx) {
       isAccount: !ctx.isAnonymous,
     });
     tx.set(ctx.db.doc(`partyGuestKeys/${recoveryKeyId(partyId, recoveryCode)}`), { partyId, participantKey, uid: ctx.uid, createdAt: ctx.now });
+    tx.set(roster.rosterRef(ctx.db, partyId, participantKey), roster.guestEntry({ participantKey, nickname, joinedAt: ctx.now }));
     tx.update(partyRef(ctx.db, partyId), { "counts.guests": FieldValue.increment(1) });
     return { partyId, nickname, recoveryCode: formatRecovery(recoveryCode), alreadyJoined: false };
   });
@@ -1123,6 +1146,8 @@ async function saveBallot(ctx) {
     const snap = await tx.get(ref);
     const before = snap.exists ? snap.data() : null;
     if (before && before.ownerUid !== ctx.uid) throw denied("That ballot belongs to someone else.");
+    const rosterDoc = roster.rosterRef(ctx.db, partyId, roster.guestRosterId(guest));
+    const rosterSnap = await tx.get(rosterDoc);
     const unblinded = before?.unblinded === true || Boolean(guest.isHost && party.format !== "regular" && party.hostKeyViews?.[categoryId]);
 
     let mergedScores = scores;
@@ -1158,6 +1183,9 @@ async function saveBallot(ctx) {
       revision: before ? (before.revision || 1) + 1 : 1,
     });
     if (!before) tx.update(partyRef(ctx.db, partyId), { [`counts.digital.${categoryId}`]: FieldValue.increment(1) });
+    // Status only (tasting / submitted), never a score. A party from before
+    // the roster existed has no entry until an admin rebuilds it.
+    if (rosterSnap.exists) tx.update(rosterDoc, { [`progress.${categoryId}`]: roster.progressStatus({ scores: mergedScores }, category) });
     return { ballotId: ref.id, scores: mergedScores, favoriteLabel: favorite, predictionLabel: prediction, locked: party.settings?.allowEdits === false };
   });
 }
@@ -1267,6 +1295,7 @@ const ACTIONS = {
   createCoHostInvite,
   acceptCoHost,
   removeCoHost,
+  syncRoster,
   deleteParty,
   savePaperBallot,
   deletePaperBallot,

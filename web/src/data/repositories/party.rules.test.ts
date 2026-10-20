@@ -63,6 +63,9 @@ beforeEach(async () => {
     await setDoc(doc(db, 'parties', PARTY, 'ballots', 'c1__p_1'), { ownerUid: HOST, source: 'paper', categoryId: 'c1', scores: { A: { overall: 6 } } })
     await setDoc(doc(db, 'parties', PARTY, 'results', 'c1'), { categoryId: 'c1', samples: [] })
     await setDoc(doc(db, 'parties', PARTY, 'audit', 'e1'), { type: 'party-created' })
+    await setDoc(doc(db, 'parties', PARTY, 'roster', 'host'), { id: 'host', name: 'Kevin', role: 'host', tasting: true, joinedAt: 1, progress: {} })
+    await setDoc(doc(db, 'parties', PARTY, 'roster', 'g_1'), { id: 'g_1', name: 'Kev', role: 'guest', tasting: true, joinedAt: 2, progress: {} })
+    await setDoc(doc(db, 'parties', OTHER_PARTY, 'roster', 'g_9'), { id: 'g_9', name: 'Kev', role: 'guest', tasting: true, joinedAt: 2, progress: {} })
     await setDoc(doc(db, 'partyCodes', 'OAK742'), { partyId: PARTY })
     await setDoc(doc(db, 'partyGuestKeys', 'hash'), { partyId: PARTY, uid: GUEST })
   })
@@ -223,5 +226,40 @@ describe('saved categories and setups', () => {
     await assertFails(setDoc(doc(as(GUEST), 'users', HOST, 'partyCategories', 'x'), { name: 'Sneaky' }))
     await assertSucceeds(setDoc(doc(as(HOST), 'users', HOST, 'partyTemplates', 't1'), { name: 'Usual', categories: [] }))
     await assertFails(getDocs(collection(as(GUEST), 'users', HOST, 'partyTemplates')))
+  })
+})
+
+describe("Who's Tasting roster", () => {
+  it('is readable by every member of the party, including anonymous QR-code guests', async () => {
+    await assertSucceeds(getDocs(collection(as(HOST), 'parties', PARTY, 'roster')))
+    await assertSucceeds(getDocs(collection(as(COHOST), 'parties', PARTY, 'roster')))
+    await assertSucceeds(getDocs(collection(as(GUEST), 'parties', PARTY, 'roster')))
+    await assertSucceeds(getDocs(collection(as(OTHER_GUEST), 'parties', PARTY, 'roster')))
+    const anonymous = testEnv.authenticatedContext(GUEST, { firebase: { sign_in_provider: 'anonymous' } }).firestore()
+    await assertSucceeds(getDoc(doc(anonymous, 'parties', PARTY, 'roster', 'host')))
+  })
+
+  it('is closed to outsiders, removed guests, TV displays and the signed-out', async () => {
+    await assertFails(getDocs(collection(as(OUTSIDER), 'parties', PARTY, 'roster')))
+    await assertFails(getDocs(collection(as(REVOKED), 'parties', PARTY, 'roster')))
+    await assertFails(getDocs(collection(as(TV), 'parties', PARTY, 'roster')))
+    await assertFails(getDocs(collection(testEnv.unauthenticatedContext().firestore(), 'parties', PARTY, 'roster')))
+  })
+
+  it('never crosses into another party', async () => {
+    await assertFails(getDocs(collection(as(OTHER_GUEST), 'parties', OTHER_PARTY, 'roster')))
+    await assertFails(getDocs(collection(as(COHOST), 'parties', OTHER_PARTY, 'roster')))
+    await assertFails(getDocs(query(collectionGroup(as(GUEST), 'roster'))))
+  })
+
+  it('cannot be written by anyone, host included', async () => {
+    await assertFails(setDoc(doc(as(HOST), 'parties', PARTY, 'roster', 'fake'), { name: 'Ghost', role: 'guest', tasting: true }))
+    await assertFails(updateDoc(doc(as(GUEST), 'parties', PARTY, 'roster', 'g_1'), { name: 'Impostor', role: 'host' }))
+    await assertFails(deleteDoc(doc(as(COHOST), 'parties', PARTY, 'roster', 'g_1')))
+  })
+
+  it('leaves the private guest records closed to other guests', async () => {
+    await assertFails(getDocs(collection(as(GUEST), 'parties', PARTY, 'guests')))
+    await assertFails(getDoc(doc(as(GUEST), 'parties', PARTY, 'guests', OTHER_GUEST)))
   })
 })
