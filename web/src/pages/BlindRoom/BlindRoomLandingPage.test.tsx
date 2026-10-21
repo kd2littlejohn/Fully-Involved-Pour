@@ -85,6 +85,11 @@ describe('BlindRoomLandingPage', () => {
     const art = screen.getByRole('img', { name: /Glencairn glasses/ })
     expect(art).toHaveAttribute('width', '1536')
     expect(art).toHaveAttribute('height', '1024')
+    const mobile = art.parentElement?.querySelector('source')
+    expect(mobile).toHaveAttribute('media', '(max-width: 599px)')
+    expect(mobile?.getAttribute('srcset')).toMatch(/tasting-room-hero-mobile/)
+    expect(mobile).toHaveAttribute('width', '1080')
+    expect(mobile).toHaveAttribute('height', '1350')
     expect(screen.getAllByText('Tasting Room')).toHaveLength(1)
   })
 
