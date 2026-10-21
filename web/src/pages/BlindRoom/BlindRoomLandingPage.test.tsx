@@ -29,6 +29,11 @@ vi.mock('../../data/repositories/party', () => ({
   getAttendedParties: (...args: unknown[]) => mockGetAttendedParties(...args),
 }))
 
+const mockUseUserData = vi.fn()
+vi.mock('../../hooks/useUserData', () => ({
+  useUserData: () => mockUseUserData(),
+}))
+
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -63,6 +68,7 @@ describe('BlindRoomLandingPage', () => {
     mockDeleteBlindRoom.mockResolvedValue(undefined)
     mockGetHostedParties.mockResolvedValue([])
     mockGetAttendedParties.mockResolvedValue([])
+    mockUseUserData.mockReturnValue({ userDoc: { bottles: [], pours: [] } })
   })
 
   it('prompts sign-in when signed out', () => {
@@ -71,19 +77,48 @@ describe('BlindRoomLandingPage', () => {
     expect(screen.getByText('Taste blind. Decide for yourself.')).toBeInTheDocument()
   })
 
-  it('offers the four ways into a blind tasting, plus joining a friend’s blind', async () => {
+  it('shows the Tasting Room hero with its painted words available to screen readers', () => {
+    mockUseAuth.mockReturnValue({ user: null, loading: false })
+    renderPage()
+    expect(screen.getByRole('heading', { level: 1, name: 'Tasting Room' })).toBeInTheDocument()
+    expect(screen.getByText(/Good whiskey tastes even better together/)).toBeInTheDocument()
+    const art = screen.getByRole('img', { name: /Glencairn glasses/ })
+    expect(art).toHaveAttribute('width', '1536')
+    expect(art).toHaveAttribute('height', '1024')
+    const mobile = art.parentElement?.querySelector('source')
+    expect(mobile).toHaveAttribute('media', '(max-width: 599px)')
+    expect(mobile?.getAttribute('srcset')).toMatch(/tasting-room-hero-mobile/)
+    expect(mobile).toHaveAttribute('width', '1080')
+    expect(mobile).toHaveAttribute('height', '1350')
+    expect(screen.getAllByText('Tasting Room')).toHaveLength(1)
+  })
+
+  it('offers regular, blind (solo or with friends), host and join, plus joining a friend’s blind', async () => {
     mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
     mockGetMyBlindRooms.mockResolvedValue([])
     renderPage()
 
     expect(await screen.findByText('No active Blind Rooms.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Start Solo Blind Tasting/ })).toHaveAttribute('href', '/blind/new?type=solo')
-    expect(screen.getByRole('link', { name: /Taste with Friends/ })).toHaveAttribute('href', '/blind/new?type=live')
-    expect(screen.getByRole('link', { name: /Host a Tasting Party/ })).toHaveAttribute('href', '/party/new')
-    expect(screen.getByRole('link', { name: /Join a Tasting Party/ })).toHaveAttribute('href', '/p')
+    expect(screen.getByRole('link', { name: /Regular Tasting/ })).toHaveAttribute('href', '/bottles/new')
+    expect(screen.getByText('Blind Tasting').parentElement).toHaveTextContent('without knowing the bottle until reveal')
+    expect(screen.getByRole('link', { name: 'Solo Blind' })).toHaveAttribute('href', '/blind/new?type=solo')
+    expect(screen.getByRole('link', { name: 'Blind with Friends' })).toHaveAttribute('href', '/blind/new?type=live')
+    expect(screen.getByRole('link', { name: /Host a Party/ })).toHaveAttribute('href', '/party/new')
+    expect(screen.getByRole('link', { name: /Join a Party/ })).toHaveAttribute('href', '/p')
     expect(screen.getByRole('link', { name: 'Join their blind' })).toHaveAttribute('href', '/blind/join')
     expect(screen.getByRole('link', { name: 'All tasting parties' })).toHaveAttribute('href', '/blind/party')
     expect(screen.queryByText('Resume Tasting')).not.toBeInTheDocument()
+  })
+
+  it('starts a regular tasting from a bottle in My Bar when there is one', async () => {
+    const user = userEvent.setup()
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockUseUserData.mockReturnValue({ userDoc: { bottles: [{ id: 'b1', name: 'Blanton’s', status: 'open' }], pours: [] } })
+    mockGetMyBlindRooms.mockResolvedValue([])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /Regular Tasting/ }))
+    expect(screen.getByRole('dialog', { name: 'Which bottle?' })).toBeInTheDocument()
   })
 
   it('puts Resume Tasting above the options for the most recent thing in progress', async () => {
@@ -96,7 +131,7 @@ describe('BlindRoomLandingPage', () => {
     expect(resume).toHaveAttribute('href', '/party/pty/host')
     expect(resume).toHaveTextContent('Bourbon Night')
     expect(resume).toHaveTextContent('You’re hosting')
-    expect(resume.compareDocumentPosition(screen.getByRole('link', { name: /Start Solo Blind Tasting/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(resume.compareDocumentPosition(screen.getByRole('link', { name: 'Solo Blind' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('labels a party this account co-hosts from its admin record role', async () => {

@@ -1,0 +1,43 @@
+<!--
+  Source for web/src/assets/tasting-room-hero-mobile.webp (1080 x 1350) and
+  its 720 x 900 copy. Built from the approved desktop artwork, not a new
+  painting: the lounge, Glencairn flight, journal and the glasses mark are
+  the original's pixels; the title, tagline and description are re-set at
+  phone-legible sizes in FIP's own Fraunces and Inter.
+
+  To regenerate, put these next to this file and screenshot .c at
+  1080 x 1350 in headless Chromium:
+    orig.webp      = web/src/assets/tasting-room-hero.webp
+    fraunces-variable.woff2 = web/src/assets/fonts/fraunces-variable.woff2
+    inter.woff2    = web/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2
+    icon.png       = orig.webp cropped to (690, 40, 845, 170), with its
+                     near-black background level (about rgb 17,14,11)
+                     subtracted so it screens cleanly onto the backdrop
+-->
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Fraunces;src:url(fraunces-variable.woff2) format('woff2');font-weight:100 900}
+@font-face{font-family:Inter;src:url(inter.woff2) format('woff2');font-weight:100 900}
+html,body{margin:0;background:#0d0a08}
+.c{position:relative;width:1080px;height:1350px;overflow:hidden;background:#0d0a08}
+/* Lounge backdrop for the text: the artwork's own upper band, softened so its painted words dissolve into bokeh. */
+.back{position:absolute;left:-120px;top:-60px;width:1320px;height:920px;background:url(orig.webp) no-repeat;background-size:1680px auto;background-position:-260px 0;filter:blur(28px) brightness(.55) saturate(1.05)}
+.shade{position:absolute;inset:0 0 auto 0;height:860px;background:radial-gradient(ellipse 70% 60% at 50% 38%,rgba(10,7,5,.55),rgba(10,7,5,.15) 70%,rgba(10,7,5,0)),linear-gradient(to bottom,rgba(10,7,5,.35),rgba(10,7,5,.1) 60%,rgba(10,7,5,0))}
+/* The scene: the artwork itself, sharp, from just under its painted text down. */
+.scene{position:absolute;left:-262px;top:358px;width:1500px;height:1000px;background:url(orig.webp) no-repeat;background-size:1500px 1000px;
+ -webkit-mask-image:linear-gradient(to bottom,transparent 0,transparent 428px,#000 476px)}
+.text{position:absolute;left:0;right:0;top:40px;display:flex;flex-direction:column;align-items:center;text-align:center}
+.mark{display:flex;align-items:center;gap:34px}
+.mark i{display:block;width:150px;height:2px;background:linear-gradient(to right,rgba(201,162,102,0),#c9a266)}
+.mark i:last-child{background:linear-gradient(to left,rgba(201,162,102,0),#c9a266)}
+.mark img{width:176px;height:auto;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(closest-side,#000 75%,transparent)}
+h1{margin:18px 0 0;font:600 150px/1 Fraunces;font-variation-settings:'opsz' 144,'SOFT' 0,'WONK' 0;letter-spacing:-.01em;color:#f3e4c8;background:linear-gradient(to bottom,#fbf1de,#e9d3ad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 4px 18px rgba(0,0,0,.55))}
+.tag{margin:28px 0 0;font:500 41px/1.38 Inter;letter-spacing:.2em;color:#d0a866;text-transform:uppercase;text-shadow:0 2px 12px rgba(0,0,0,.7)}
+.desc{margin:24px 0 0;max-width:900px;font:400 50px/1.32 Fraunces;font-variation-settings:'opsz' 24;color:#f0e6d6;text-shadow:0 2px 14px rgba(0,0,0,.8)}
+</style></head><body><div class="c">
+<div class="back"></div><div class="shade"></div><div class="scene"></div>
+<div class="text">
+ <div class="mark"><i></i><img src="icon.png" alt=""><i></i></div>
+ <h1>Tasting Room</h1>
+ <p class="tag">Good whiskey tastes<br>even better together</p>
+ <p class="desc">Explore new bottles, share your notes, and create unforgettable tasting experiences with friends.</p>
+</div></div></body></html>
