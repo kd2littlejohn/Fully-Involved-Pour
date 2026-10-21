@@ -79,13 +79,14 @@
 }
 
 /* The four ways in (and Resume, when something's in progress) — one tap
-   each, two columns on phones. */
+   each, two columns on phones, one row on wide screens. Same width as the
+   hero above it. */
 .options {
   display: flex;
   flex-direction: column;
   gap: var(--fip-space-3);
   padding: 0 var(--fip-shell-x) var(--fip-space-6);
-  max-width: 760px;
+  max-width: calc(960px + 2 * var(--fip-shell-x));
 }
 
 .resume {
@@ -108,13 +109,59 @@
   border: 1px solid var(--fip-border-subtle);
   background: var(--fip-card);
   color: inherit;
+  font: inherit;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
   transition: border-color var(--fip-motion-fast) var(--fip-ease);
 }
 
 .option:hover,
 .option:focus-visible {
   border-color: var(--fip-amber);
+}
+
+/* Blind Tasting holds its two ways in (Solo, with Friends) as links of
+   their own, so the card itself isn't a target. */
+.optionGroup {
+  cursor: default;
+}
+
+.optionGroup:hover,
+.optionGroup:focus-within {
+  border-color: var(--fip-border-subtle);
+}
+
+.subOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fip-space-2);
+  margin-top: auto;
+  padding-top: var(--fip-space-2);
+}
+
+.subOption {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--fip-space-3);
+  border-radius: var(--fip-radius-round);
+  border: 1px solid var(--fip-border);
+  color: var(--fip-amber);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.subOption:hover,
+.subOption:focus-visible {
+  border-color: var(--fip-amber);
+}
+
+@media (min-width: 900px) {
+  .optionGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .optionTitle {

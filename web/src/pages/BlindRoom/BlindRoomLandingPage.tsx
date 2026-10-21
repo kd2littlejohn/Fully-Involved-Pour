@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PageHeader } from '../../components/layout/PageHeader'
 import { Section } from '../../components/layout/Section'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/Badge'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { BlindHistoryDeleteAction } from '../../features/blindRoom/BlindHistoryDeleteAction'
+import { TastingRoomHero } from '../../features/blindRoom/TastingRoomHero'
+import { usePourHub } from '../../features/startAPour/usePourHub'
+import { useUserData } from '../../hooks/useUserData'
 import { useAuth } from '../../hooks/useAuth'
 import { getMyBlindRooms, sessionTypeLabel } from '../../data/repositories/blindRoom'
 import { getAttendedParties, getHostedParties, type HostedParty } from '../../data/repositories/party'
@@ -111,28 +113,51 @@ function pickResumeTarget(
   return candidates.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
 }
 
-const OPTIONS = [
-  {
-    to: '/blind/new?type=solo',
-    title: 'Start Solo Blind Tasting',
-    meta: 'Taste by yourself. No labels, just what you actually prefer.',
-  },
-  {
-    to: '/blind/new?type=live',
-    title: 'Taste with Friends',
-    meta: 'Create a blind room and share its code.',
-  },
-  {
-    to: '/party/new',
-    title: 'Host a Tasting Party',
-    meta: 'Blind or regular rounds, QR-code join, digital or paper ballots. Guests don’t need an account.',
-  },
-  {
-    to: '/p',
-    title: 'Join a Tasting Party',
-    meta: 'Enter the host’s party code.',
-  },
-] as const
+// The Tasting Room's ways in: a regular tasting of a bottle you can see
+// (the Pour Story, from a bottle in My Bar), a blind (solo or with
+// friends), and hosting or joining a party. One tap each.
+function TastingOptions() {
+  const hub = usePourHub()
+  const { userDoc } = useUserData()
+  const hasBottles = userDoc.bottles.some((b) => b.status !== 'wishlist')
+
+  return (
+    <nav className={styles.optionGrid} aria-label="Tastings">
+      {hasBottles ? (
+        <button type="button" className={styles.option} onClick={hub.openTasting}>
+          <span className={styles.optionTitle}>Regular Tasting</span>
+          <span className={styles.cardMeta}>Record a tasting with the bottle identity visible.</span>
+        </button>
+      ) : (
+        <Link to="/bottles/new" className={styles.option}>
+          <span className={styles.optionTitle}>Regular Tasting</span>
+          <span className={styles.cardMeta}>Record a tasting with the bottle visible. Add a bottle to My Bar first.</span>
+        </Link>
+      )}
+      <div className={`${styles.option} ${styles.optionGroup}`}>
+        <span className={styles.optionTitle}>Blind Tasting</span>
+        <span className={styles.cardMeta}>Explore whiskey without knowing the bottle until reveal.</span>
+        <span className={styles.subOptions}>
+          <Link to="/blind/new?type=solo" className={styles.subOption}>
+            Solo Blind
+          </Link>
+          <Link to="/blind/new?type=live" className={styles.subOption}>
+            Blind with Friends
+          </Link>
+        </span>
+      </div>
+      <Link to="/party/new" className={styles.option}>
+        <span className={styles.optionTitle}>Host a Party</span>
+        <span className={styles.cardMeta}>Create a hosted Regular or Blind Tasting event. Guests don’t need an account.</span>
+      </Link>
+      <Link to="/p" className={styles.option}>
+        <span className={styles.optionTitle}>Join a Party</span>
+        <span className={styles.cardMeta}>Join an existing tasting using a code or invitation.</span>
+      </Link>
+      {hub.modal}
+    </nav>
+  )
+}
 
 export function BlindRoomLandingPage() {
   const { user, loading: authLoading } = useAuth()
@@ -194,13 +219,13 @@ export function BlindRoomLandingPage() {
   }, [user, retryKey])
 
   if (authLoading) {
-    return <PageHeader eyebrow="Journey" title="Blind Room" />
+    return <TastingRoomHero />
   }
 
   if (!user) {
     return (
       <>
-        <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
+        <TastingRoomHero />
         <EmptyState
           title="Taste blind. Decide for yourself."
           message="Sign in to start a Blind Room, solo or with friends."
@@ -213,7 +238,7 @@ export function BlindRoomLandingPage() {
   if (loadError) {
     return (
       <>
-        <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
+        <TastingRoomHero />
         <EmptyState
           title="We couldn’t load your Blind Rooms."
           message={`Check your connection and try again. (${loadError})`}
@@ -233,7 +258,7 @@ export function BlindRoomLandingPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Journey" title="Blind Room" subtitle="Remove the label. Find out what you actually prefer." />
+      <TastingRoomHero />
 
       <div className={styles.options}>
         {resume ? (
@@ -243,14 +268,7 @@ export function BlindRoomLandingPage() {
             <span className={styles.cardMeta}>{resume.kind}</span>
           </Link>
         ) : null}
-        <div className={styles.optionGrid}>
-          {OPTIONS.map((option) => (
-            <Link key={option.to} to={option.to} className={styles.option}>
-              <span className={styles.optionTitle}>{option.title}</span>
-              <span className={styles.cardMeta}>{option.meta}</span>
-            </Link>
-          ))}
-        </div>
+        <TastingOptions />
         <p className={styles.secondary}>
           Have a friend’s blind room code? <Link to="/blind/join">Join their blind</Link> · <Link to="/blind/party">All tasting parties</Link>
         </p>

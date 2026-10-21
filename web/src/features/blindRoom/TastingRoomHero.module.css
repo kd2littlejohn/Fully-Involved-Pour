@@ -1,0 +1,29 @@
+/* Full content width at the artwork's own 3:2 proportions, never cropped
+   (its text is part of the image). The width/height attributes plus
+   aspect-ratio reserve the space before it loads, so nothing shifts. */
+.hero {
+  padding: var(--fip-space-4) var(--fip-shell-x) var(--fip-space-4);
+}
+
+.art {
+  display: block;
+  width: 100%;
+  max-width: 960px;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
+  border-radius: var(--fip-radius-lg);
+  background: var(--fip-card);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
