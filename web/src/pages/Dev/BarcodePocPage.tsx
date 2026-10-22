@@ -313,10 +313,12 @@ export function BarcodePocPage() {
     if (DRY_RUN) return 'not remembered (preview)'
     if (!user || isMockAuthEnabled() || !gtin13 || !draft) return 'not recorded (no barcode or no signed-in user)'
     if (lookup?.yours.some((e) => e.bottleId && e.bottleId === bottleId)) return 'already remembered'
+    const origin = selected?.origin ?? 'manual'
+    if (origin === 'google') return 'not remembered (Google suggestion)'
     await saveBarcodeEntry(user.uid, {
       gtin13,
       bottle: draftToBottle(draft),
-      origin: selected?.origin ?? 'manual',
+      origin,
       candidateId: selected?.candidateId ?? null,
       bottleId: bottleId ?? null,
       submitForReview,

@@ -1,3 +1,17 @@
+## Unreleased - Scan Barcode: Google first
+
+Added
+- **Google first for unknown barcodes.** When FIP's catalog and your own bottles don't know a barcode, Scan Barcode searches Google (Gemini with Google Search grounding) automatically and lists its suggestions as *Google suggestion · not verified*, with Google's source links and Search Suggestions. If Google can't identify it, the app offers *Ask AXE*, *Scan Front Label with AXE* or manual entry. The same barcode isn't sent to Google twice in one session.
+- **Controls:** server-side key only, sign-in required, 30 Google lookups per user per hour, a monthly spending limit, an off switch and optional App Check, all in `appConfig/barcodeGoogle` (no redeploy). Google is **off** until the owner turns it on.
+- **Catalog review:** `barcode-review.js unmatched` lists the most-scanned barcodes FIP doesn't know yet, so administrators verify those first and Google is needed less over time.
+
+Fixed
+- **Black camera preview on iPhone.** The scanner now sets Safari's inline-playback attributes before attaching the camera, waits for a real picture, retries with simpler camera settings if the preview stays black, offers *Tap to start the camera* when the phone blocks auto-play, and always releases a camera it no longer needs.
+
+Data: nothing Google returns is stored. A bottle picked from a Google suggestion is saved to My Bar or your Wishlist as usual, but isn't remembered as a barcode entry and can't be suggested for the shared catalog. New server-only documents: `appConfig/barcodeGoogle` and `aiSpend/gemini-YYYY-MM`.
+
+Release notes: the `GEMINI_API_KEY` secret must exist before this deploys (the workflow checks). See docs/BARCODE_POC.md → "Turning on Google".
+
 ## Unreleased - Scan Barcode
 
 Added

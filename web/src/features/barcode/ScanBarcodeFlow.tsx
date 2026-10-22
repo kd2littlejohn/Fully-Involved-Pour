@@ -6,6 +6,7 @@ import type { Bottle } from '../../data/types'
 import {
   identifyBottleLabel,
   lookupBarcode,
+  lookupBarcodeWithGoogle,
   type BarcodeBottle,
   type BarcodeLookupResult,
   type EntryOrigin,
@@ -19,15 +20,18 @@ import { findInBar, planIncreaseQuantity, type BarMatches } from './inventory'
 import { BarcodeMatchList } from './BarcodeMatchList'
 import { BarcodeBottleForm } from './BarcodeBottleForm'
 import { BarcodeSaveActions } from './BarcodeSaveActions'
+import { GoogleSearchSuggestions } from './GoogleSearchSuggestions'
 import styles from './ScanBarcodeFlow.module.css'
 
 // Scan Barcode on Add Bottle (docs/BARCODE_POC.md → "How it works"):
-//   scan → FIP's catalog + your own saved bottles (free) → pick your
-//   release, or ask AXE / scan the front label / enter it yourself → check
-//   the details → Add to My Bar / Wishlist (continues in the Add Bottle form,
-//   which saves it) or Increase quantity / Move to My Bar on a bottle you
-//   already have (saved here, through the same inventory hooks).
-// Decoding happens on the phone; AI runs only when the user asks for it.
+//   scan → FIP's catalog + your own saved bottles (free) → if neither knows
+//   the barcode, Google (Gemini + Search grounding) automatically → pick
+//   your release, or ask AXE / scan the front label / enter it yourself →
+//   check the details → Add to My Bar / Wishlist (continues in the Add
+//   Bottle form, which saves it) or Increase quantity / Move to My Bar on a
+//   bottle you already have (saved here, through the same inventory hooks).
+// Decoding happens on the phone. Google runs on its own only for unknown
+// barcodes (once per barcode per session); AXE only when the user asks.
 
 export interface BarcodeHandoff {
   bottle: BarcodeBottle
@@ -58,6 +62,9 @@ function generateId(): string {
 
 function cameraErrorMessage(err: unknown): string {
   const name = err instanceof Error ? err.name : ''
+  if (name === 'CameraNoPictureError' || name === 'NotReadableError') {
+    return 'The camera opened but showed no picture. Close any other app using the camera, then tap Scan Barcode to try again — or take a photo or type the digits below.'
+  }
   if (name === 'NotAllowedError' || name === 'SecurityError') {
     return 'Camera access is off for FIP. Allow it in your browser settings, or take a photo or type the digits below.'
   }
@@ -75,6 +82,10 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
   const { userDoc, updateBottle, addBottleInstance } = useUserData()
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<LiveScanner | null>(null)
+  const startRef = useRef<AbortController | null>(null)
+  // A stream iOS opened but wouldn't auto-play: a tap starts it.
+  const tapStreamRef = useRef<MediaStream | null>(null)
+  const [needsTap, setNeedsTap] = useState(false)
   const labelInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<Step>('scan')
@@ -84,7 +95,7 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
   const [decoded, setDecoded] = useState<DecodedBarcode | null>(null)
   const [lookup, setLookup] = useState<BarcodeLookupResult | null>(null)
   const [labelScan, setLabelScan] = useState<LabelScanResult | null>(null)
-  const [busy, setBusy] = useState<'catalog' | 'axe' | 'label' | 'save' | null>(null)
+  const [busy, setBusy] = useState<'catalog' | 'google' | 'axe' | 'label' | 'save' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<BarcodeOption | null>(null)
   const [draft, setDraft] = useState<BottleDraft | null>(null)
@@ -102,23 +113,72 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
     [draft, bottles, gtin13, selected],
   )
 
+  function releaseTapStream() {
+    tapStreamRef.current?.getTracks().forEach((track) => track.stop())
+    tapStreamRef.current = null
+    setNeedsTap(false)
+  }
+
+  // Cancels a start still in progress too, so a camera opened after the
+  // user moved on is released straight away (on iPhone a camera left open
+  // turns the next preview black).
   function stopCamera() {
+    startRef.current?.abort()
+    startRef.current = null
     scannerRef.current?.stop()
     scannerRef.current = null
+    releaseTapStream()
     setScanning(false)
   }
 
-  async function startCamera() {
-    if (!videoRef.current) return
+  async function startCamera(stream?: MediaStream) {
+    const video = videoRef.current
+    if (!video) return
+    startRef.current?.abort()
+    const controller = new AbortController()
+    startRef.current = controller
     setCameraError(null)
     setScanning(true)
     try {
-      scannerRef.current = await startLiveScan(videoRef.current, (result) => {
-        scannerRef.current = null
-        setScanning(false)
-        void accept(result)
-      })
+      const scanner = await startLiveScan(
+        video,
+        (result) => {
+          scannerRef.current = null
+          setScanning(false)
+          void accept(result)
+        },
+        { signal: controller.signal, stream },
+      )
+      if (controller.signal.aborted) {
+        scanner.stop()
+        return
+      }
+      scannerRef.current = scanner
     } catch (err) {
+      if (controller.signal.aborted) return
+      if (err instanceof Error && err.name === 'CameraNeedsTapError') {
+        tapStreamRef.current = (err as Error & { stream?: MediaStream }).stream ?? null
+        setNeedsTap(true)
+        return
+      }
+      setScanning(false)
+      setCameraError(cameraErrorMessage(err))
+    } finally {
+      if (startRef.current === controller) startRef.current = null
+    }
+  }
+
+  async function startAfterTap() {
+    const video = videoRef.current
+    const stream = tapStreamRef.current
+    if (!video || !stream) return
+    tapStreamRef.current = null
+    setNeedsTap(false)
+    try {
+      await video.play()
+      void startCamera(stream)
+    } catch (err) {
+      stream.getTracks().forEach((track) => track.stop())
       setScanning(false)
       setCameraError(cameraErrorMessage(err))
     }
@@ -128,7 +188,11 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
   // away; always release it when leaving.
   useEffect(() => {
     void startCamera()
-    return () => scannerRef.current?.stop()
+    return () => {
+      startRef.current?.abort()
+      scannerRef.current?.stop()
+      tapStreamRef.current?.getTracks().forEach((track) => track.stop())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
   }, [])
 
@@ -142,13 +206,25 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
     setStep('choose')
     if (result.normalized.restricted) return
     setBusy('catalog')
+    let catalog: BarcodeLookupResult
     try {
-      setLookup(await lookupBarcode(result.normalized.gtin13))
+      catalog = await lookupBarcode(result.normalized.gtin13)
+      setLookup(catalog)
     } catch (err) {
       setError(errorText(err, 'FIP’s catalog couldn’t be checked. You can still identify the bottle below.'))
-    } finally {
       setBusy(null)
+      return
     }
+    // Nothing in FIP's catalog or your own bottles: ask Google straight away.
+    if (catalog.status === 'no-match' && catalog.googleAvailable) {
+      setBusy('google')
+      try {
+        setLookup(await lookupBarcodeWithGoogle(result.normalized.gtin13))
+      } catch {
+        setLookup({ ...catalog, google: { status: 'error' } })
+      }
+    }
+    setBusy(null)
   }
 
   async function decodePhoto(file: File | undefined) {
@@ -187,7 +263,9 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
     setBusy('axe')
     setError(null)
     try {
-      setLookup(await lookupBarcode(gtin13, { useAxe: true }))
+      const withAxe = await lookupBarcode(gtin13, { useAxe: true })
+      // Keep Google's suggestions listed alongside AXE's.
+      setLookup((previous) => ({ ...withAxe, google: previous?.google }))
     } catch (err) {
       setError(errorText(err, 'AXE can’t look this barcode up right now.'))
     } finally {
@@ -236,7 +314,7 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
       printedBarcode: decoded ? decoded.raw.replace(/\D/g, '') : null,
       origin: selected?.origin ?? (labelScan ? 'axe-label' : 'manual'),
       candidateId: selected?.candidateId ?? null,
-      submitForReview,
+      submitForReview: submitForReview && selected?.origin !== 'google',
     })
   }
 
@@ -256,7 +334,17 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
   }
 
   const axe = lookup?.axe
+  const google = lookup?.google
   const label = labelScan?.axe.label
+  const googleNote = !google
+    ? null
+    : google.status === 'identified'
+      ? google.result?.confidence === 'low'
+        ? 'Google isn’t sure about this one. Check it carefully against your label, or ask AXE.'
+        : null
+      : google.status === 'not-found'
+        ? 'Google couldn’t identify this barcode. Ask AXE, scan the front label, or enter it yourself.'
+        : 'Google search isn’t available right now. Ask AXE, scan the front label, or enter it yourself.'
 
   return (
     <div className={styles.flow}>
@@ -272,8 +360,13 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
 
       {/* Always mounted so the camera can restart from any step (Scan again). */}
       <div className={styles.viewfinder} hidden={!scanning}>
-        <video ref={videoRef} className={styles.video} playsInline muted />
+        <video ref={videoRef} className={styles.video} playsInline muted autoPlay />
         <div className={styles.guide} aria-hidden="true" />
+        {needsTap ? (
+          <button type="button" className={styles.tapToStart} onClick={() => void startAfterTap()}>
+            Tap to start the camera
+          </button>
+        ) : null}
       </div>
 
       {step === 'scan' ? (
@@ -337,6 +430,8 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
             </p>
           ) : null}
           {busy === 'catalog' ? <p className={styles.hint}>Checking FIP’s catalog…</p> : null}
+          {busy === 'google' ? <p className={styles.hint}>Not in FIP’s catalog yet. Searching Google…</p> : null}
+          {googleNote && !busy ? <p className={styles.hint}>{googleNote}</p> : null}
           {busy === 'label' ? <p className={styles.hint}>AXE is reading the label…</p> : null}
           {axe && !axe.identified ? <p className={styles.hint}>AXE couldn’t tie this barcode to a product.</p> : null}
           {labelScan && !labelScan.axe.identified ? <p className={styles.hint}>AXE couldn’t identify the bottle from that label.</p> : null}
@@ -360,12 +455,13 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
               {error}
             </p>
           ) : null}
-          {busy !== 'catalog' ? (
+          {busy !== 'catalog' && busy !== 'google' ? (
             <BarcodeMatchList
               options={options}
               selectedKey={selected?.key ?? null}
               inBarKeys={inBarKeys}
               onSelect={choose}
+              googleSearchEntryPoint={google?.searchEntryPoint}
               onAskAxe={gtin13 && !decoded?.normalized.restricted && !axe ? () => void askAxe() : undefined}
               askAxeBusy={busy === 'axe'}
               onScanLabel={() => labelInputRef.current?.click()}
@@ -385,10 +481,13 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
                 ? 'From FIP’s verified catalog.'
                 : selected.trust === 'yours'
                   ? 'From what you saved before.'
-                  : 'An AXE suggestion — not verified. Check it against your label.'
+                  : selected.trust === 'google'
+                    ? 'A Google suggestion — not verified. Check it against your label.'
+                    : 'An AXE suggestion — not verified. Check it against your label.'
               : 'Enter what the label says.'}{' '}
             Batch, barrel and proof come only from FIP’s verified catalog or your own label.
           </p>
+          {selected?.trust === 'google' && google?.searchEntryPoint ? <GoogleSearchSuggestions html={google.searchEntryPoint} /> : null}
           <BarcodeBottleForm draft={draft} onChange={setDraft} />
           {error ? (
             <p className={styles.error} role="alert">
@@ -399,8 +498,9 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
             matches={matches}
             canSave={Boolean(draft.values.name.trim())}
             busy={busy === 'save'}
-            submitForReview={submitForReview}
+            submitForReview={submitForReview && selected?.origin !== 'google'}
             onSubmitForReviewChange={setSubmitForReview}
+            canSubmitForReview={selected?.origin !== 'google'}
             onAdd={handOff}
             onIncrease={(bottle) => void increase(bottle)}
           />

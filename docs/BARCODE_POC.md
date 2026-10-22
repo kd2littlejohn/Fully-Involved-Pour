@@ -2,8 +2,13 @@
 
 Status: **released on Add Bottle** (Phase 1). Add Bottle opens with a
 **Scan Barcode** option, and new bottles have a Scan Barcode button under
-the name field. AXE (Claude) identification runs only when the user asks.
-AI-answer reuse is off, and Gemini is not enabled.
+the name field.
+
+**Google first (built, switched off).** For a barcode FIP's catalog doesn't
+know, Scan Barcode asks Google (Gemini + Grounding with Google Search)
+automatically, then offers AXE (Claude) if Google can't identify it. The
+code ships with Google **off** until the owner approves the Gemini setup
+and turns it on — see "Turning on Google" below. AI-answer reuse is off.
 
 The Phase 0 investigation (decoder benchmarks, emulator runs, the terms
 review) is kept below. The field test on phones was skipped by decision on
@@ -28,10 +33,11 @@ Bottle):
 
 1. **Scan.** The barcode is decoded and validated on the phone.
 2. **Free lookup.** FIP's verified catalog and the user's own saved entries are checked (Firestore only, no AI).
-3. **Pick your bottle.** Every candidate for that barcode is listed, each labelled **Verified by FIP**, **Saved by you**, or **AXE suggestion · not verified**, plus **In your bar** where it applies.
-4. **Not listed?** The user can choose **Ask AXE about this barcode** (Claude + web search), **Scan Front Label with AXE** (label photo + barcode), or **Enter details manually**. AI runs only when the user taps one of the first two.
-5. **Check the details.** Every pre-filled value is tagged: *Verified*, *Saved by you*, *AXE suggestion*, *From your label — check it*, or *You*. A label reading that disagrees with a verified value is shown next to it ("Your label shows 94 · Use that"), never applied silently.
-6. **Add it.** If the same release is already in My Bar, **Increase quantity** comes first; a Wishlist copy offers **Move to My Bar**. Both save straight away. Otherwise **Add to My Bar** or **Add to Wishlist** fills the regular Add Bottle form (name, distillery, type, proof, size, age and status), where photo, price, quantity and rarity can be added; **Add Bottle** saves it with the barcode in `upc`. Other releases with the same barcode are mentioned but never treated as duplicates. An opt-in checkbox suggests the bottle for FIP's shared catalog.
+3. **Google, automatically, for an unknown barcode.** When neither has it and Google is on, the app asks Google (Gemini + Google Search grounding) with the decoded digits. Not asked again for the same barcode for 30 minutes in the same tab. Skipped (never an error) when Google is off, over the monthly budget, over the user's 30-per-hour limit, or missing App Check when that's required.
+4. **Pick your bottle.** Every candidate for that barcode is listed, each labelled **Verified by FIP**, **Saved by you**, **Google suggestion · not verified** or **AXE suggestion · not verified**, plus **In your bar** where it applies. Google suggestions show Google's own source links and the **Google Search Suggestions** chips.
+5. **Not listed, or Google couldn't tell?** The app says so and offers **Ask AXE about this barcode** (Claude + web search), **Scan Front Label with AXE** (label photo + barcode), or **Enter details manually**. AXE runs only when the user taps one of the first two.
+6. **Check the details.** Every pre-filled value is tagged: *Verified*, *Saved by you*, *Google suggestion*, *AXE suggestion*, *From your label — check it*, or *You*. A label reading that disagrees with a verified value is shown next to it ("Your label shows 94 · Use that"), never applied silently.
+7. **Add it.** If the same release is already in My Bar, **Increase quantity** comes first; a Wishlist copy offers **Move to My Bar**. Both save straight away. Otherwise **Add to My Bar** or **Add to Wishlist** fills the regular Add Bottle form (name, distillery, type, proof, size, age and status), where photo, price, quantity and rarity can be added; **Add Bottle** saves it with the barcode in `upc`. Other releases with the same barcode are mentioned but never treated as duplicates. An opt-in checkbox suggests the bottle for FIP's shared catalog (not shown for a Google suggestion — see "Google terms").
 
 When the barcode says a release's proof varies, the form's "Ask AI to fill in the rest" never supplies a proof: only the label can.
 
@@ -40,7 +46,7 @@ variable proofs come only from:
 - an **administrator-verified** catalog entry (for example, one specific batch), or
 - the user's **own label**, read by AXE or typed, and marked as such.
 
-AXE candidates never carry them, and the server strips them. A
+Google and AXE candidates never carry them, and the server strips them. A
 variable-proof release is never pre-filled with a proof.
 
 **Inventory data model: unchanged.** Saving goes through the existing
@@ -55,7 +61,9 @@ variable-proof release is never pre-filled with a proof.
 |---|---|---|
 | `upcMappings/{gtin13}` | `status: "verified"`, `candidates: [...]`: every verified release for that barcode. A candidate can be a whole product line ("proof varies") or one specific batch, barrel or store pick with its own proof. | Signed-in users read. **No client writes.** Administrators only. |
 | `users/{uid}/barcodeEntries/{id}` | What this user said a barcode is, one entry per release they saved, with the My Bar bottle it became and an opt-in `submitForReview`. | **Owner only.** Never read by anyone else's lookup. No price field. |
-| `upcPending/{gtin13}` | Server-only review queue: how often an unknown barcode was looked up. Can also hold the last unverified **Claude** suggestion for 30-day reuse, but that is **off** (`REUSE_AI_SUGGESTIONS = false`) until the terms review below is signed off. | **No client access.** Never holds Gemini output. |
+| `upcPending/{gtin13}` | Server-only review queue: how often an unknown barcode was looked up, and how often Google and AXE were asked (counts only). Can also hold the last unverified **Claude** suggestion for 30-day reuse, but that is **off** (`REUSE_AI_SUGGESTIONS = false`) until the terms review below is signed off. | **No client access.** Never holds Google output. |
+| `appConfig/barcodeGoogle` | Google step switches: `enabled` (off unless `true`), `monthlyBudgetUsd` (default 20), `requireAppCheck`, `model`. Read by the function at most once a minute, so a change applies within a minute, no redeploy. | **No client access.** Edit in the Firebase console. |
+| `aiSpend/gemini-YYYY-MM` | Estimated Gemini spend this month (calls, search queries, USD), counted conservatively as if every search were billed. Google is skipped once it reaches the budget. | **No client access.** |
 
 **How the catalog grows.** Users save what they own, privately. Some tick
 "Suggest for FIP's shared catalog". An administrator runs
@@ -259,70 +267,75 @@ FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 GCLOUD_PROJECT=fully-involved-pour \
 VITE_MOCK_AUTH=false VITE_FIREBASE_EMULATORS=true npm run dev   # in web/
 ```
 
-## Gemini with Google Search grounding: what enabling it involves
+## Google step (Gemini + Grounding with Google Search)
 
-**Not enabled. No key created, nothing configured.** The code path exists
-(`functions/barcode/providers/gemini.js`), but only the script uses it, and
-only when `GEMINI_API_KEY` is set.
+**Code:** `functions/barcode/providers/gemini.js` (the call),
+`functions/barcode/lookup.js` (`useGoogle`), `functions/barcode/googleConfig.js`
+(switches), `web/src/features/barcode/GoogleSearchSuggestions.tsx` (the
+required chips).
 
-**Existing infrastructure.** FIP has no Firebase AI Logic or Gemini setup
-today. All FIP AI runs on Anthropic Claude through Cloud Functions. Firebase
-AI Logic's web SDK does support Grounding with Google Search
-(`tools: [{ googleSearch: {} }]`), and `firebase/ai` already ships inside the
-`firebase` package FIP uses, so no new library is needed. It is still a new
-service to enable.
+- **Server-side only.** The Gemini Developer API key is the `GEMINI_API_KEY` Functions secret; it never reaches a browser. Same pattern as AXE.
+- **Who can trigger it:** signed-in users only, through the app's own flow; 30 Google lookups per user per hour.
+- **Spending limit:** `appConfig/barcodeGoogle.monthlyBudgetUsd` (default $20). Spend is estimated from Google's reported usage and every search query is counted at the paid rate, so the estimate runs high. Past the budget Google is skipped and AXE is offered. Also set a **Project Spend Cap** in Google AI Studio (hard stop at Google, about 10 minutes' lag) and a Cloud Billing budget alert.
+- **App Check:** supported but off (`requireAppCheck`). FIP has no App Check today; turning it on needs a reCAPTCHA Enterprise key and a web-app change, so it's a separate approval.
+- **Accuracy guard:** an answer counts only if Google actually searched (grounding chunks) and returned Search Suggestions. Only Google's own grounding links are shown as sources; URLs the model writes itself are ignored. Batch, barrel and variable proof are stripped, as for AXE.
+- **Barcode images** aren't sent to Google: the phone has already decoded the digits exactly, and an image would add cost without adding information. The comparison script can still test barcode photos (`--modes photo`).
 
-**Ways to wire it, if approved:**
+### Google terms (Gemini API Additional Terms, grounding)
 
-| Option | Setup | Notes |
-|---|---|---|
-| A. Gemini Developer API key, called from the existing Cloud Function | Create a key in Google AI Studio on the FIP Google Cloud project; store it as a Functions secret (`GEMINI_API_KEY`) | Fits FIP's current pattern: server-side, rate limited, cache checked first. **Recommended if Gemini wins.** This is also what the comparison script uses. |
-| B. Firebase AI Logic (client SDK) | Console → AI Logic → enable, choose the Gemini Developer API backend; turn on **App Check** | Calls go from the browser, so the cache-first order and rate limits would have to move client-side or depend on App Check. |
-| C. Vertex AI Gemini from the Cloud Function | Enable the Vertex AI API; the function's service account authenticates, so no key is needed | Same pricing model; more Google Cloud setup. |
+Read on 2026-10-22 through search-engine copies of ai.google.dev (the site
+itself is blocked from the build environment). Re-read the live text before
+turning Google on.
 
-**Pricing.** Google's pricing pages are blocked from this environment's
-network, so these figures come from several third-party trackers that
-agree. **Verify them on ai.google.dev/gemini-api/docs/pricing before
-approving.**
+- **Search Suggestions must be shown** with a grounded answer, to the user who asked. FIP shows them under Google's suggestions and on the details screen when a Google suggestion is picked, unmodified, in a sandboxed frame.
+- **No storing, caching or building on grounded results** (beyond narrow exceptions). So FIP stores **no Google output**: no `upcPending` suggestion, no `barcodeEntries` entry for a bottle picked from Google, no submission to the shared catalog. A Google-identified bottle can be verified into the catalog only by an administrator from the label or the producer (`barcode-review.js add`); `promote` refuses Google-origin entries.
+- **Session de-duplication** keeps the answer Google already gave in the tab's memory for 30 minutes, so rescanning the same bottle doesn't call Google again. Nothing is written to storage. If the live terms forbid even that, set `GOOGLE_SESSION_MS` to 0 in `web/src/data/repositories/barcode.ts`.
+- The bottle the user saves to My Bar (with its barcode in `upc`) is the user's own record of their bottle, confirmed and editable by them.
+- **Data use:** with grounding, Google keeps prompts and responses for 30 days for abuse and debugging (can't be turned off). On the free tier, Google may also use content to improve its products; on the paid tier it doesn't. Only the barcode digits are sent: no user data.
 
-- Gemini 3 Flash: about $0.50 per 1M input tokens and $3.00 per 1M output tokens (including thinking).
-- Grounding on Gemini 3 models: **5,000 search queries per month free**, shared across Gemini 3 models, then **$14 per 1,000 search queries**. One prompt can run several queries.
-- Gemini 2.5 models are billed per grounded prompt instead (reportedly 1,500 per day free, then $35 per 1,000).
-- The free allowance is per billing account, and the project already bills Cloud Functions, so usage past the allowance is charged automatically. Set a **budget alert** first.
+### Turning on Google (needs the owner's approval)
 
-**Terms that affect FIP's design.** These come from Google's grounding
-documentation and secondary summaries; the terms text itself should be read
-before production.
+1. **Google AI Studio** (aistudio.google.com) → sign in as the project owner → accept the Gemini API terms → **Get API key** → create it in the existing `fully-involved-pour` project. That enables the Generative Language API on the project.
+2. **Billing:** link the project's existing billing account in AI Studio (paid tier, so content isn't used for training). Set a **Project Spend Cap** (suggested $25/month) there.
+3. **Restrict the key:** Google Cloud console → APIs & Services → Credentials → the key → API restrictions → *Generative Language API* only.
+4. **Store it as a secret:** `firebase functions:secrets:set GEMINI_API_KEY --project fully-involved-pour`, or Secret Manager → Create secret `GEMINI_API_KEY`. Then grant **Secret Manager Secret Accessor** on that secret to `fully-involved-pour@appspot.gserviceaccount.com` (the functions' runtime account), because the deploy account can't grant it. The deploy workflow refuses to deploy until the secret exists.
+5. **Measure accuracy** (no production change): `GEMINI_API_KEY=… node functions/scripts/barcode-poc.js --sample functions/scripts/barcode-accuracy-set.json --confirm-spend` (30 real barcodes; about $0.15 inside the free search allowance, at most about $1.50).
+6. **Release** through the normal workflow (merge → approve *production-functions* → approve *production-website*). Google is still off.
+7. **Switch on:** Firebase console → Firestore → create `appConfig/barcodeGoogle` with `enabled: true` (boolean) and `monthlyBudgetUsd: 20` (number). Set `enabled: false` to switch it off again at any time.
 
-- Wherever a grounded answer is shown, the **Google Search Suggestions** element returned with it must be shown too, unmodified and linking straight to Google. That's a visible UI requirement on FIP's confirmation screen.
-- Summaries of the terms say grounded results may be shown only to the user who asked, and may **not be cached or stored**. That conflicts with "cache verified UPC mappings" if the stored facts came from Gemini. The design stores only what each user saves (privately), administrator-verified candidates, and time-limited **Claude** suggestions. It never stores Gemini output. Whether a user-saved entry that started from a grounded Gemini answer can be promoted to the shared catalog needs a read of the Gemini API Additional Terms before production.
-- Claude's web search has a per-search price ($10 per 1,000 searches, plus result tokens) and no such display requirement. No comparable storage restriction was found, but its terms should be checked before production, because the 30-day reuse of Claude suggestions depends on it.
+**Pricing (Gemini Developer API, paid tier).** From Google's pricing page
+via search-engine copies and third-party trackers that agree; verify on
+ai.google.dev/gemini-api/docs/pricing before approving.
 
-## Cost picture (to be replaced by measured numbers)
+- Gemini 3 Flash: $0.50 per 1M input tokens, $3.00 per 1M output tokens (thinking included).
+- Grounding with Google Search on Gemini 3 models: **5,000 search queries per month free** (shared across Gemini 3 models, per billing account), then **$14 per 1,000 queries**. One lookup usually runs 1–2 queries.
+- AI Studio usage tiers have their own monthly caps (Tier 1 reportedly $250/month across the billing account).
+
+## Cost picture
 
 | Event | Expected cost |
 |---|---|
 | Decode (ZXing or built-in) | $0 |
 | Every scan: verified catalog + your entries | 1 document read + 1 small query, effectively $0 |
-| Unknown barcode someone already asked AXE about (within 30 days) | $0 once reuse is switched on; full price while it's off (today) |
-| Scan Front Label with AXE (Claude vision + up to 3 web searches) | about $0.05–0.12 per label, to be measured by the `label` mode |
-| Unknown barcode, Claude Opus 5.5 + web search | about $0.04–0.10 per lookup (tokens ~$4/$20 per 1M plus $0.01 per search, up to 3 searches) |
-| Unknown barcode, Claude Sonnet 4.6 + web search | similar order, measured by the script |
-| Unknown barcode, Gemini 3 Flash + grounding | tokens about $0.005–0.02; searches $0 within 5,000/month, then about $0.014 each |
+| Unknown barcode → Google (Gemini 3 Flash + grounding) | tokens about $0.002–0.005; searches $0 within 5,000/month, then about $0.014–0.03 per lookup |
+| Rescan of the same barcode in the same session | $0 (no new Google call) |
+| Google couldn't tell → user asks AXE (Claude Opus 5.5 + web search) | about $0.04–0.10 per lookup |
+| Scan Front Label with AXE | about $0.05–0.12 per label |
 
-AI never runs automatically. It runs only when the user taps Ask AXE or Scan
-Front Label. Once reuse is switched on, a barcode costs AI money at most once
-per 30 days across all users, and $0 for everyone once an administrator
-verifies it.
+Google runs automatically only for barcodes FIP's catalog doesn't know.
+Every barcode an administrator verifies stops costing anything, for every
+user, so Google use falls as the catalog grows. `barcode-review.js
+unmatched` lists the most-scanned unknown barcodes, the ones worth verifying
+first.
 
 ## Remaining limitations
 
-- **Not field-tested on real phones.** Decoding was benchmarked in Chromium (fake camera and synthetic images) and the flow was run end to end on emulators. iPhone Safari camera behaviour, real-world catalog hit rate, AXE accuracy, latency and cost are unmeasured until people use it.
+- **Not field-tested on real phones.** Decoding was benchmarked in Chromium (fake camera and synthetic images) and the flow was run end to end on emulators. The camera now opens its own stream, sets iPhone Safari's inline-playback attributes first, waits for a real frame, retries with plainer settings if the preview stays black, offers "Tap to start the camera" when auto-play is blocked, and always releases a camera it no longer needs (a camera left open is the usual cause of a black preview on iPhone). That fix is tested in jsdom, not on a real iPhone.
 - **The verified catalog starts empty.** Every barcode starts as "no match" until administrators promote submissions (`functions/scripts/barcode-review.js`) or users' own saved entries answer their own repeat scans.
 - **The AXE live path is untested.** It has never been exercised against the real Anthropic API from production (tests stub it). The first real calls will show whether the model and web-search settings in `functions/barcode/providers/claude.js` are accepted. Failures show "AXE can't look this barcode up right now" and manual entry still works.
 - **Batch, barrel and store pick** are kept in the bottle name until the release-field proposal below is approved.
 - **AI-answer reuse is off**, so repeat unknown scans pay again, pending the terms sign-off.
-- **Gemini is not enabled.**
+- **Google is built but off** until the owner completes "Turning on Google".
 
 ## Proposal: release fields on `Bottle` (for approval, not built)
 

@@ -18,6 +18,8 @@ interface BarcodeSaveActionsProps {
   busy: boolean
   submitForReview: boolean
   onSubmitForReviewChange: (value: boolean) => void
+  /** False for a Google suggestion: it can't be offered to FIP's catalog. */
+  canSubmitForReview?: boolean
   onAdd: (status: 'sealed' | 'wishlist') => void
   onIncrease: (bottle: Bottle) => void
 }
@@ -28,6 +30,7 @@ export function BarcodeSaveActions({
   busy,
   submitForReview,
   onSubmitForReviewChange,
+  canSubmitForReview = true,
   onAdd,
   onIncrease,
 }: BarcodeSaveActionsProps) {
@@ -58,10 +61,12 @@ export function BarcodeSaveActions({
           Add to Wishlist
         </Button>
       </div>
-      <label className={styles.checkbox}>
-        <input type="checkbox" checked={submitForReview} onChange={(e) => onSubmitForReviewChange(e.target.checked)} />
-        Suggest this bottle for FIP's shared catalog. It stays private until FIP checks it.
-      </label>
+      {canSubmitForReview ? (
+        <label className={styles.checkbox}>
+          <input type="checkbox" checked={submitForReview} onChange={(e) => onSubmitForReviewChange(e.target.checked)} />
+          Suggest this bottle for FIP's shared catalog. It stays private until FIP checks it.
+        </label>
+      ) : null}
     </div>
   )
 }

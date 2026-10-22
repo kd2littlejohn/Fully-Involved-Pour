@@ -2,9 +2,10 @@ import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
 
-// Scan Barcode proof of concept — client side of functions/barcode/lookup.js.
-// The server decides the order: FIP-verified candidates and this user's own
-// saved entries first, and AXE (Claude) only when the user asks for it.
+// Scan Barcode — client side of functions/barcode/lookup.js. The order:
+// FIP-verified candidates and this user's own saved entries first; Google
+// (Gemini + Search grounding) for a barcode they don't cover; AXE (Claude)
+// when the user asks after Google couldn't identify it.
 
 export type ReleaseKind = 'standard' | 'barrel-proof-batch' | 'single-barrel' | 'store-pick' | 'limited-release'
 
@@ -31,7 +32,8 @@ export interface VerifiedCandidate extends BarcodeBottle {
   id: string
 }
 
-export type EntryOrigin = 'verified' | 'axe-barcode' | 'axe-label' | 'manual'
+/** 'google' is never saved as a barcode entry (Google's terms); it only labels a hand-off. */
+export type EntryOrigin = 'verified' | 'axe-barcode' | 'axe-label' | 'manual' | 'google'
 
 export interface YourEntry {
   entryId: string
@@ -81,6 +83,24 @@ export interface AxeSuggestion {
   cached: boolean
 }
 
+/**
+ * Google's answer for an unknown barcode. Anything but 'identified' /
+ * 'not-found' means Google wasn't asked (switched off, over budget or the
+ * hourly limit, App Check missing) or failed — the app offers AXE instead.
+ */
+export type GoogleStatus = 'identified' | 'not-found' | 'off' | 'budget' | 'rate-limited' | 'app-check' | 'error'
+
+export interface GoogleLookup {
+  status: GoogleStatus
+  /** Same shape as an AXE suggestion; sources are Google's own grounding links. */
+  result?: Omit<AxeSuggestion, 'cached'>
+  /** Google Search Suggestions (HTML) — must be shown with the result. */
+  searchEntryPoint?: string | null
+  latencyMs?: number
+  costUsd?: number | null
+  model?: string
+}
+
 export type LookupStatus = 'matched' | 'no-match' | 'suggested' | 'not-found' | 'restricted'
 
 export interface BarcodeLookupResult {
@@ -91,6 +111,9 @@ export interface BarcodeLookupResult {
   verified: VerifiedCandidate[]
   yours: YourEntry[]
   axe?: AxeSuggestion
+  /** Plain lookup only: whether the app should ask Google next. */
+  googleAvailable?: boolean
+  google?: GoogleLookup
   latencyMs?: number
   costUsd?: number | null
   model?: string
@@ -105,9 +128,33 @@ export interface LabelScanResult {
   model?: string
 }
 
+type LookupRequest = { barcode: string; useAxe?: boolean; useGoogle?: boolean }
+
 export async function lookupBarcode(barcode: string, options: { useAxe?: boolean } = {}): Promise<BarcodeLookupResult> {
-  const callable = httpsCallable<{ barcode: string; useAxe?: boolean }, BarcodeLookupResult>(functions, 'lookupBarcode')
+  const callable = httpsCallable<LookupRequest, BarcodeLookupResult>(functions, 'lookupBarcode')
   return (await callable({ barcode, useAxe: options.useAxe })).data
+}
+
+// Rescanning the same bottle while the app is open shouldn't ask Google
+// again. Kept in memory only, for this tab and a short while, so it is just
+// the answer already shown to this user — never stored.
+const GOOGLE_SESSION_MS = 30 * 60 * 1000
+const googleThisSession = new Map<string, { at: number; result: BarcodeLookupResult }>()
+
+export function clearGoogleSessionMemory(): void {
+  googleThisSession.clear()
+}
+
+export async function lookupBarcodeWithGoogle(gtin13: string): Promise<BarcodeLookupResult> {
+  const remembered = googleThisSession.get(gtin13)
+  if (remembered && Date.now() - remembered.at < GOOGLE_SESSION_MS) return remembered.result
+  const callable = httpsCallable<LookupRequest, BarcodeLookupResult>(functions, 'lookupBarcode')
+  const result = (await callable({ barcode: gtin13, useGoogle: true })).data
+  // Only answers Google actually gave; a skipped or failed call can be retried.
+  if (result.google?.status === 'identified' || result.google?.status === 'not-found') {
+    googleThisSession.set(gtin13, { at: Date.now(), result })
+  }
+  return result
 }
 
 export async function identifyBottleLabel(input: {
@@ -125,13 +172,14 @@ export async function identifyBottleLabel(input: {
 // Saves what this user says the barcode is, privately (see firestore.rules
 // users/{uid}/barcodeEntries). `submitForReview` only asks an administrator
 // to consider it for the shared catalog; nothing becomes shared until they
-// verify it.
+// verify it. A bottle identified by Google is never saved here: Google's
+// terms don't allow storing its grounded results or building on them.
 export async function saveBarcodeEntry(
   uid: string,
   entry: {
     gtin13: string
     bottle: BarcodeBottle
-    origin: EntryOrigin
+    origin: Exclude<EntryOrigin, 'google'>
     candidateId?: string | null
     bottleId?: string | null
     submitForReview: boolean

@@ -337,12 +337,15 @@ export function AddBottlePage() {
         const id = await addBottle(payload)
         // Remember, privately, which bottle this barcode was — the next scan
         // then answers instantly and offers Increase quantity. Best effort:
-        // a failure here never affects the saved bottle.
-        if (id && user && barcode?.gtin13) {
+        // a failure here never affects the saved bottle. Not for a Google
+        // suggestion: Google's terms don't allow keeping its results (the
+        // bottle itself, with its barcode, is still in My Bar).
+        const origin = barcode?.origin
+        if (id && user && barcode?.gtin13 && origin && origin !== 'google') {
           void saveBarcodeEntry(user.uid, {
             gtin13: barcode.gtin13,
             bottle: barcode.bottle,
-            origin: barcode.origin,
+            origin,
             candidateId: barcode.candidateId,
             bottleId: id,
             submitForReview: barcode.submitForReview,

@@ -1,22 +1,22 @@
-// Gemini + Grounding with Google Search for an unknown barcode — proof of
-// concept comparison only. NOT wired into any Cloud Function: it runs only
-// from scripts/barcodePoc.mjs, and only when GEMINI_API_KEY is set, so
-// nothing here enables or bills a Google service until the owner approves
-// it and supplies a key.
+// Gemini + Grounding with Google Search: Scan Barcode's first external
+// lookup for a barcode FIP's catalog doesn't know (lookup.js), and the
+// Gemini side of the Claude-vs-Gemini comparison (scripts/barcode-poc.js).
 //
-// Calls the Gemini Developer API REST endpoint — the same models and
-// grounding pricing that Firebase AI Logic's "Gemini Developer API" backend
-// uses — so results carry over to a Firebase AI Logic integration.
+// Calls the Gemini Developer API REST endpoint with the key from the
+// GEMINI_API_KEY Functions secret; the key never reaches a client.
 //
-// Google's terms for grounded results (display the Search Suggestions
-// returned in groundingMetadata.searchEntryPoint; limits on storing grounded
-// results) apply to any production use. See docs/BARCODE_POC.md.
+// Google's terms for grounded results apply wherever this is shown (see
+// docs/BARCODE_POC.md → "Google terms"): the Search Suggestions returned in
+// groundingMetadata.searchEntryPoint must be displayed with the result, to
+// the user who asked; grounded results are not cached, stored or used to
+// build FIP's catalog.
 
 const { SYSTEM_PROMPT, LABEL_SYSTEM_PROMPT, PHOTO_PROMPT, upcPrompt, labelPrompt, extractJson, guardResult } = require("../identify");
 const { geminiCost } = require("../pricing");
 
 const DEFAULT_GEMINI_MODEL = "gemini-3-flash";
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+const TIMEOUT_MS = 25000;
 
 // Same three modes as providers/claude.js.
 function buildRequest(mode, normalized, photo) {
@@ -33,12 +33,29 @@ async function listGeminiModels(apiKey) {
   return (data.models || []).map((m) => m.name.replace(/^models\//, ""));
 }
 
-async function identifyWithGemini({ apiKey, model = DEFAULT_GEMINI_MODEL, normalized, photo, mode = photo ? "photo" : "upc", thinkingLevel = "low" }) {
+// Grounding sources as Google returns them (redirect links + site titles).
+// Only these count as evidence, and they are what the app shows.
+function groundingSourcesOf(grounding) {
+  return (grounding.groundingChunks || [])
+    .filter((chunk) => chunk.web?.uri)
+    .map((chunk) => ({ url: chunk.web.uri, title: chunk.web.title || chunk.web.domain || null }));
+}
+
+async function identifyWithGemini({
+  apiKey,
+  model = DEFAULT_GEMINI_MODEL,
+  normalized,
+  photo,
+  mode = photo ? "photo" : "upc",
+  thinkingLevel = "low",
+  fetchImpl = fetch,
+}) {
   const started = Date.now();
   const request = buildRequest(mode, normalized, photo);
-  const response = await fetch(`${API_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
+  const response = await fetchImpl(`${API_BASE}/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: request.system }] },
       contents: [{ role: "user", parts: request.parts }],
@@ -51,27 +68,34 @@ async function identifyWithGemini({ apiKey, model = DEFAULT_GEMINI_MODEL, normal
   }
   const data = await response.json();
   const candidate = data.candidates?.[0];
-  const text = (candidate?.content?.parts || []).map((p) => p.text || "").join("");
+  const text = (candidate?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || "").join("");
   const grounding = candidate?.groundingMetadata || {};
-  const groundingSources = (grounding.groundingChunks || [])
-    .filter((chunk) => chunk.web?.uri)
-    .map((chunk) => ({ url: chunk.web.uri, title: chunk.web.title }));
+  const groundingSources = groundingSourcesOf(grounding);
   const searchQueries = (grounding.webSearchQueries || []).length;
   const raw = extractJson(text);
+  const result = guardResult(raw, groundingSources, { labelPhoto: mode === "label", groundingOnly: true });
+  // An answer Google grounded must be shown with its Search Suggestions; one
+  // without them is not shown at all.
+  const searchEntryPoint = grounding.searchEntryPoint?.renderedContent || null;
+  if (result.identified && !searchEntryPoint) {
+    result.identified = false;
+    result.candidates = [];
+    result.guard = "no-search-suggestions";
+  }
 
   return {
     provider: "gemini",
     model,
     mode,
-    result: guardResult(raw, groundingSources, { labelPhoto: mode === "label" }),
+    result,
+    searchEntryPoint,
     raw,
     latencyMs: Date.now() - started,
     stopReason: candidate?.finishReason || null,
     usage: { ...data.usageMetadata, webSearchQueries: searchQueries },
     cost: geminiCost(model, data.usageMetadata, searchQueries),
-    // Must be shown wherever a grounded answer is displayed in production.
-    hasSearchEntryPoint: Boolean(grounding.searchEntryPoint?.renderedContent),
+    hasSearchEntryPoint: Boolean(searchEntryPoint),
   };
 }
 
-module.exports = { identifyWithGemini, listGeminiModels, DEFAULT_GEMINI_MODEL };
+module.exports = { identifyWithGemini, listGeminiModels, groundingSourcesOf, DEFAULT_GEMINI_MODEL };

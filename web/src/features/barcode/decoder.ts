@@ -113,86 +113,194 @@ export function createReadConfirmer(confirmations: number) {
   }
 }
 
-const CAMERA_CONSTRAINTS: MediaStreamConstraints = {
-  audio: false,
-  video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+// Tried in order. Some iPhones hand back a stream that never shows a frame
+// (a black preview) for a high-resolution request, so the camera is
+// re-opened with plainer constraints before giving up.
+const CAMERA_ATTEMPTS: MediaStreamConstraints[] = [
+  { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+  { audio: false, video: { facingMode: { ideal: 'environment' } } },
+  { audio: false, video: true },
+]
+const FIRST_FRAME_TIMEOUT_MS = 4000
+
+/** play() was refused (iOS Low Power Mode, autoplay rules): a tap on the preview starts it. */
+export class CameraNeedsTapError extends Error {
+  constructor() {
+    super('Tap to start the camera.')
+    this.name = 'CameraNeedsTapError'
+  }
+}
+
+/** The camera opened but never produced a picture. */
+export class CameraNoPictureError extends Error {
+  constructor() {
+    super('The camera opened but shows no picture.')
+    this.name = 'CameraNoPictureError'
+  }
+}
+
+function abortError(): Error {
+  return new DOMException('Camera start cancelled.', 'AbortError')
+}
+
+function waitForFirstFrame(video: HTMLVideoElement, timeoutMs: number): Promise<boolean> {
+  const hasFrame = () => video.readyState >= 2 && video.videoWidth > 0
+  if (hasFrame()) return Promise.resolve(true)
+  return new Promise((resolve) => {
+    const done = (ok: boolean) => {
+      clearTimeout(timer)
+      clearInterval(poll)
+      video.removeEventListener('loadeddata', check)
+      video.removeEventListener('playing', check)
+      resolve(ok)
+    }
+    const check = () => {
+      if (hasFrame()) done(true)
+    }
+    const timer = setTimeout(() => done(hasFrame()), timeoutMs)
+    const poll = setInterval(check, 100)
+    video.addEventListener('loadeddata', check)
+    video.addEventListener('playing', check)
+  })
+}
+
+function releaseStream(video: HTMLVideoElement, stream: MediaStream | null) {
+  stream?.getTracks().forEach((track) => track.stop())
+  if (video.srcObject === stream) video.srcObject = null
+}
+
+// Opens the back camera into `video` and waits until it really shows a
+// picture. Owns the stream (rather than leaving it to ZXing) so that every
+// path that gives up — no picture, cancelled, refused — releases the camera:
+// on iPhone a camera still held from an earlier attempt makes the next
+// preview black.
+export async function openCamera(video: HTMLVideoElement, { signal }: { signal?: AbortSignal } = {}): Promise<MediaStream> {
+  // iOS Safari plays a camera stream inline only with these set before the
+  // stream is attached; without them the preview stays black.
+  video.setAttribute('playsinline', 'true')
+  video.setAttribute('webkit-playsinline', 'true')
+  video.setAttribute('muted', '')
+  video.muted = true
+  video.autoplay = true
+
+  let lastError: unknown = new CameraNoPictureError()
+  for (const constraints of CAMERA_ATTEMPTS) {
+    if (signal?.aborted) throw abortError()
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints)
+    } catch (err) {
+      const name = err instanceof Error ? err.name : ''
+      // Permission problems won't change with other constraints.
+      if (name === 'NotAllowedError' || name === 'SecurityError') throw err
+      lastError = err
+      continue
+    }
+    if (signal?.aborted) {
+      releaseStream(video, stream)
+      throw abortError()
+    }
+    video.srcObject = stream
+    try {
+      await video.play()
+    } catch (err) {
+      const name = err instanceof Error ? err.name : ''
+      if (name === 'NotAllowedError') {
+        // Keep the stream attached: a tap on the preview can start it.
+        throw Object.assign(new CameraNeedsTapError(), { stream })
+      }
+      if (name === 'AbortError' && signal?.aborted) {
+        releaseStream(video, stream)
+        throw abortError()
+      }
+      // Other play() rejections (interrupted by a new load) can still end
+      // up playing; the frame check below decides.
+    }
+    if (await waitForFirstFrame(video, FIRST_FRAME_TIMEOUT_MS)) {
+      if (signal?.aborted) {
+        releaseStream(video, stream)
+        throw abortError()
+      }
+      return stream
+    }
+    releaseStream(video, stream)
+    lastError = new CameraNoPictureError()
+  }
+  throw lastError
 }
 
 export async function startLiveScan(
   video: HTMLVideoElement,
   onDecoded: (decoded: DecodedBarcode) => void,
-  { engine: preference = 'auto', confirmations = 2 }: { engine?: EnginePreference; confirmations?: number } = {},
+  {
+    engine: preference = 'auto',
+    confirmations = 2,
+    signal,
+    stream: existingStream,
+  }: { engine?: EnginePreference; confirmations?: number; signal?: AbortSignal; stream?: MediaStream } = {},
 ): Promise<LiveScanner> {
   const engine = await resolveEngine(preference)
   const confirmer = createReadConfirmer(confirmations)
   const cameraStart = performance.now()
   const stats: LiveScanStats = { engine, msToCamera: 0, rejectedReads: 0 }
-  let readyAt = 0
+  // Load the decoder while the camera starts, not after.
+  const zxing = engine === 'zxing' ? createZxingReader() : null
+  const stream = existingStream ?? (await openCamera(video, { signal }))
+  const readyAt = performance.now()
+  stats.msToCamera = Math.round(readyAt - cameraStart)
   let done = false
+  let stopDecoder = () => {}
 
-  const accept = (raw: string, format: string, stop: () => void) => {
+  const stop = () => {
+    done = true
+    stopDecoder()
+    releaseStream(video, stream)
+  }
+  const accept = (raw: string, format: string) => {
     if (done) return
     const normalized = confirmer.offer(raw)
     stats.rejectedReads = confirmer.rejected
     if (!normalized) return
-    done = true
     stop()
     onDecoded({ raw, format, engine, normalized, msToDecode: Math.round(performance.now() - readyAt) })
   }
 
-  if (engine === 'zxing') {
-    const { reader, BarcodeFormat } = await createZxingReader()
-    video.addEventListener(
-      'playing',
-      () => {
-        readyAt = performance.now()
-        stats.msToCamera = Math.round(readyAt - cameraStart)
-      },
-      { once: true },
-    )
-    const controls = await reader.decodeFromConstraints(CAMERA_CONSTRAINTS, video, (result, _error, ctl) => {
-      if (result) accept(result.getText(), BarcodeFormat[result.getBarcodeFormat()], () => ctl.stop())
-    })
-    return {
-      stats,
-      stop: () => {
-        done = true
-        controls.stop()
-      },
+  try {
+    if (zxing) {
+      const { reader, BarcodeFormat } = await zxing
+      if (signal?.aborted) throw abortError()
+      const controls = await reader.decodeFromVideoElement(video, (result) => {
+        if (result) accept(result.getText(), BarcodeFormat[result.getBarcodeFormat()])
+      })
+      stopDecoder = () => controls.stop()
+      if (done) controls.stop()
+      return { stats, stop }
     }
-  }
 
-  const Ctor = nativeCtor()
-  if (!Ctor) throw new Error('This browser has no built-in barcode detector.')
-  const detector = new Ctor({ formats: NATIVE_FORMATS })
-  const stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS)
-  video.srcObject = stream
-  video.setAttribute('playsinline', 'true')
-  video.muted = true
-  await video.play()
-  readyAt = performance.now()
-  stats.msToCamera = Math.round(readyAt - cameraStart)
-
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const stop = () => {
-    done = true
-    if (timer) clearTimeout(timer)
-    stream.getTracks().forEach((track) => track.stop())
-    video.srcObject = null
-  }
-  const tick = async () => {
-    if (done) return
-    try {
-      if (video.readyState >= 2) {
-        for (const found of await detector.detect(video)) accept(found.rawValue, found.format.toUpperCase(), stop)
+    const Ctor = nativeCtor()
+    if (!Ctor) throw new Error('This browser has no built-in barcode detector.')
+    const detector = new Ctor({ formats: NATIVE_FORMATS })
+    let timer: ReturnType<typeof setTimeout> | undefined
+    stopDecoder = () => {
+      if (timer) clearTimeout(timer)
+    }
+    const tick = async () => {
+      if (done) return
+      try {
+        if (video.readyState >= 2) {
+          for (const found of await detector.detect(video)) accept(found.rawValue, found.format.toUpperCase())
+        }
+      } catch {
+        // A frame that fails to decode is normal; keep scanning.
       }
-    } catch {
-      // A frame that fails to decode is normal; keep scanning.
+      if (!done) timer = setTimeout(tick, 80)
     }
-    if (!done) timer = setTimeout(tick, 80)
+    void tick()
+    return { stats, stop }
+  } catch (err) {
+    stop()
+    throw err
   }
-  void tick()
-  return { stats, stop }
 }
 
 // Still-photo fallback (and the "barcode photo" test): decode one image.

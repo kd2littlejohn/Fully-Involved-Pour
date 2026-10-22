@@ -91,6 +91,30 @@ describe('buildOptions', () => {
     expect(options[0]?.sources).toEqual([])
   })
 
+  it('lists Google suggestions after your own entries and before AXE, with Google’s sources and no batch or barrel', () => {
+    const google = { ...axe([{ name: 'Google Bourbon', releaseKind: 'standard', proof: 90 }, { name: 'Example Bourbon', releaseKind: 'standard' }]) }
+    const options = buildOptions(
+      lookup({
+        yours: [{ entryId: 'e1', origin: 'manual', candidateId: null, bottleId: null, submitForReview: false, bottle: bottle() }],
+        google: { status: 'identified', searchEntryPoint: '<div></div>', result: { ...google, sources: [{ url: 'https://g.example/r', title: 'g.example' }] } },
+        axe: axe([{ name: 'AXE Bourbon', releaseKind: 'standard' }, { name: 'Google Bourbon', releaseKind: 'standard' }]),
+      }),
+      null,
+    )
+    expect(options.map((o) => [o.trust, o.bottle.name])).toEqual([
+      ['yours', 'Example Bourbon'],
+      ['google', 'Google Bourbon'],
+      ['axe', 'AXE Bourbon'],
+    ])
+    expect(options[1]).toMatchObject({ origin: 'google', sources: [{ url: 'https://g.example/r', title: 'g.example' }] })
+    expect(options[1]?.bottle).toMatchObject({ batch: null, barrel: null, storePick: null })
+  })
+
+  it('ignores a Google answer that did not identify the bottle', () => {
+    const notFound = { ...axe([{ name: 'Google Bourbon', releaseKind: 'standard' }]), identified: false }
+    expect(buildOptions(lookup({ google: { status: 'not-found', result: notFound } }), null)).toEqual([])
+  })
+
   it('returns nothing when there is no match and no AXE identification', () => {
     expect(buildOptions(lookup({ status: 'no-match' }), null)).toEqual([])
   })

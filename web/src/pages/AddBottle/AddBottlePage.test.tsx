@@ -148,6 +148,9 @@ vi.mock('../../features/barcode/ScanBarcodeFlow', () => ({
       <button type="button" onClick={() => onUse({ ...SCANNED, status: 'wishlist' })}>
         fake-add-to-wishlist
       </button>
+      <button type="button" onClick={() => onUse({ ...SCANNED, status: 'sealed', origin: 'google', candidateId: null })}>
+        fake-add-google
+      </button>
       <button type="button" onClick={() => onUpdatedExisting('existing-1')}>
         fake-increased
       </button>
@@ -524,6 +527,17 @@ describe('AddBottlePage', () => {
       expect(mockAddBottle.mock.calls[0]?.[0].proof).toBeUndefined()
       expect(mockSaveBarcodeEntry).toHaveBeenCalledWith('user-1', expect.objectContaining({ gtin13: '0036000291452', bottleId: 'new-1', candidateId: 'c924', origin: 'verified' }))
       expect(mockNavigate).toHaveBeenCalledWith('/collection/new-1')
+    })
+
+    it('saves a bottle Google identified, with its barcode, but never remembers the Google answer', async () => {
+      mockAddBottle.mockResolvedValue('new-g')
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: /^Scan Barcode/ }))
+      await userEvent.click(await screen.findByRole('button', { name: 'fake-add-google' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+      expect(mockAddBottle).toHaveBeenCalledWith(expect.objectContaining({ status: 'sealed', upc: '036000291452' }))
+      expect(mockSaveBarcodeEntry).not.toHaveBeenCalled()
+      expect(mockNavigate).toHaveBeenCalledWith('/collection/new-g')
     })
 
     it('adds to the Wishlist when that was chosen in the scanner', async () => {
