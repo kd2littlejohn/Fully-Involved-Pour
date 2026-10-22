@@ -1,4 +1,4 @@
-// Scan Barcode proof of concept (docs/BARCODE_POC.md). Cheapest and most
+// Scan Barcode on Add Bottle (docs/BARCODE_POC.md). Cheapest and most
 // trusted first; AI only when the user asks for it.
 //
 // lookupBarcode({ barcode, useAxe? })
@@ -13,11 +13,8 @@
 //   "Scan Front Label with AXE": Claude reads the label photo, combined with
 //   the barcode when there is one. Never cached (it describes one photo).
 //
-// While this is a proof of concept, the two AI paths are limited to tester
-// accounts listed in barcodePocTesters/{uid} (created by hand in the
-// Firebase console; no client can read or write it), so a public preview
-// link can't run up AI cost. The free catalog lookup is open to any
-// signed-in user.
+// Both AI paths are open to any signed-in FIP user, rate-limited per user
+// per hour; the catalog lookup is free.
 //
 // One barcode can return several candidates. Nothing here picks one: the
 // user chooses, and only what they confirm is saved (to their own private
@@ -68,13 +65,6 @@ function costUsd(call) {
   return typeof call?.cost?.total === "number" ? call.cost.total : null;
 }
 
-async function assertTester(db, uid) {
-  const tester = await db.doc(`barcodePocTesters/${uid}`).get();
-  if (!tester.exists) {
-    throw new HttpsError("permission-denied", "AXE barcode identification is limited to Phase 0 testers for now.");
-  }
-}
-
 async function readCatalog(db, uid, gtin13) {
   const [mapping, entries] = await Promise.all([
     db.doc(`upcMappings/${gtin13}`).get(),
@@ -120,7 +110,6 @@ async function handleLookupBarcode(db, request, { apiKey, assertNotRateLimited, 
     return { ...base, status: verified.length || yours.length ? "matched" : "no-match", verified, yours };
   }
 
-  await assertTester(db, uid);
   const pending = reuseAiSuggestions ? await pendingRef.get() : null;
   const cached = pending?.exists ? pending.data().suggestion : null;
   if (cached && cached.provider === "claude" && cached.expiresAt > now() && cached.result) {
@@ -183,7 +172,6 @@ async function handleIdentifyBottleLabel(db, request, { apiKey, assertNotRateLim
     if (normalized.restricted) normalized = null;
   }
 
-  await assertTester(db, uid);
   await assertNotRateLimited(uid, "identifyBottleLabel", { maxCalls: LABEL_SCANS_PER_HOUR });
   let call;
   try {

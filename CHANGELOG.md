@@ -1,17 +1,18 @@
-## Unreleased - Scan Barcode proof of concept (development only)
+## Unreleased - Scan Barcode
 
 Added
-- Phase 0 of Scan Barcode, development builds only. Nothing user-facing changes, and the production website build is unchanged. See `docs/BARCODE_POC.md`.
-- On-device UPC-A / UPC-E / EAN-13 decoding: the browser's built-in detector where available, free ZXing elsewhere (iPhone Safari). Includes a fix for ZXing 0.23.0, which cannot decode UPC-E.
-- One barcode, several bottles: lookups return every verified release for a barcode (standard, batches, single barrels, store picks), plus the user's own saved entries. The user always picks; each option is labelled Verified by FIP, Saved by you, or AXE suggestion · not verified.
-- AXE only when asked: "Ask AXE about this barcode" (Claude + web search) and "Scan Front Label with AXE" (label photo + barcode). Batch, barrel and variable proof never come from AI, and what AXE reads on the user's own label is shown separately as "From your label — check it".
-- Increase Quantity instead of a duplicate when the release is already in My Bar, and Move to My Bar for a Wishlist copy. Uses the existing inventory hooks and the existing `upc` field; no data model change.
-- FIP's own catalog: `upcMappings` (verified candidates, read-only to clients), private `users/{uid}/barcodeEntries`, a server-only `upcPending` review queue, and `scripts/barcode-review.js` to promote submissions. Reusing a recent Claude suggestion for an unknown barcode is built in but off for now; Gemini output is never stored.
-- Dev page `#/dev/barcode` and `functions/scripts/barcode-poc.js` for the 30-bottle Claude vs Gemini comparison (barcode, barcode-photo and front-label modes).
-- Phone field test: a label-triggered, 7-day Firebase Hosting preview channel of the PoC page (`.github/workflows/barcode-preview.yml`; never the live site, and nothing is saved from it). Each confirmed bottle is recorded on the phone and sent with Copy or Share; `scripts/barcode-poc-summary.js` summarizes them offline.
-- AXE in the PoC is limited to accounts in `barcodePocTesters`, and every AXE suggestion lists its sources. Reusing stored AI answers is off until Anthropic's terms are signed off.
+- **Scan Barcode on Add Bottle.** It's the first option when adding a bottle, and a button under the name field of a new bottle. The barcode (UPC-A, UPC-E or EAN-13) is read on the phone with the camera, a photo, or typed digits.
+- **One barcode, several bottles.** FIP's verified catalog and your own saved bottles are checked first, at no AI cost. Every matching release (standard, barrel-proof batches, single barrels, store picks) is listed and labelled *Verified by FIP*, *Saved by you* or *AXE suggestion · not verified*, so you pick yours.
+- **AXE only when you ask.** *Ask AXE about this barcode* and *Scan Front Label with AXE* (label photo plus barcode) suggest releases with their sources. Batch, barrel and variable proof never come from AI; what AXE reads on your own label is marked "From your label — check it".
+- **No duplicates.** If the release is already in My Bar, *Increase quantity* adds another sealed bottle through the existing instance model; a Wishlist copy offers *Move to My Bar*. Otherwise *Add to My Bar* or *Add to Wishlist* fills the regular Add Bottle form, so photo, price, quantity and rarity work as before.
+- **Your bottles are remembered privately.** The next scan of that barcode answers instantly. Opt-in suggestions to FIP's shared catalog stay private until an administrator verifies them (`functions/scripts/barcode-review.js`).
 
-Release notes: none. Not for release. `lookupBarcode` and `identifyBottleLabel` are outside the automatic functions deploy target, and the rules and index take effect only if deployed by hand.
+Changed
+- When a scanned release's proof varies, "Ask AI to fill in the rest" no longer fills in a proof.
+
+Data: the barcode is stored in the existing `upc` field on a bottle, and batch, barrel and store pick become part of the bottle name. New collections: `upcMappings` (verified catalog, read-only to clients), `users/{uid}/barcodeEntries` (private), and `upcPending` (server-only review queue). No migration is needed.
+
+Release notes: the release workflow now always deploys `lookupBarcode` and `identifyBottleLabel` with the functions, and checks they're live. After the website, publish Firestore rules and indexes (`firebase deploy --only firestore:rules,firestore:indexes`). Until then, everything works except remembering scanned barcodes. AI-answer reuse is off and Gemini is not enabled.
 
 ## Unreleased - Tasting experience and host participation
 

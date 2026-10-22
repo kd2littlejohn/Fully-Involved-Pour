@@ -71,9 +71,7 @@ beforeEach(async () => {
     db.doc("rateLimits/bc-bob_lookupBarcode").delete(),
     clearUser("bc-alice"),
     clearUser("bc-bob"),
-    db.doc("barcodePocTesters/bc-alice").set({ addedBy: "test" }),
-    db.doc("barcodePocTesters/bc-bob").set({ addedBy: "test" }),
-    db.doc("barcodePocTesters/bc-carol").delete(),
+    db.doc("rateLimits/bc-carol_lookupBarcode").delete(),
   ]);
 });
 
@@ -162,10 +160,8 @@ describe("lookupBarcode", () => {
     expect(result.costUsd).toBeGreaterThan(0);
   });
 
-  it("limits AI to Phase 0 testers, while the free catalog lookup stays open", async () => {
-    await expect(lookup("bc-carol", { barcode: UPC, useAxe: true })).rejects.toMatchObject({ code: "permission-denied" });
-    expect((await lookup("bc-carol", { barcode: UPC })).status).toBe("no-match");
-    expect(sent).toHaveLength(0);
+  it("is available to any signed-in user", async () => {
+    expect((await lookup("bc-carol", { barcode: UPC, useAxe: true })).status).toBe("suggested");
   });
 
   it("does not reuse or store AI suggestions by default (pending terms sign-off)", async () => {
@@ -268,11 +264,6 @@ describe("identifyBottleLabel", () => {
   it("derives proof from a printed ABV", async () => {
     reply = claudeReply({ ...LABEL_REPLY, label: { name: "Example", abv: 53.5 } });
     expect((await label("bc-alice", { imageBase64: IMAGE })).axe.label.proof).toBe(107);
-  });
-
-  it("is limited to Phase 0 testers", async () => {
-    await expect(label("bc-carol", { imageBase64: IMAGE })).rejects.toMatchObject({ code: "permission-denied" });
-    expect(sent).toHaveLength(0);
   });
 
   it("has its own rate limit", async () => {

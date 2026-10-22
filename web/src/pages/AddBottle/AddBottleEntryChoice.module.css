@@ -19,6 +19,10 @@
   cursor: pointer;
 }
 
+.primary {
+  border-color: var(--fip-amber);
+}
+
 .card:hover {
   border-color: var(--fip-amber);
 }

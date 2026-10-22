@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { Combobox } from '../../components/ui/Combobox'
+import { Button } from '../../components/ui/Button'
 import { lookupBottleInfo, lookupDistillery, type DistilleryInfoResult } from '../../data/repositories/ai'
 import { distilleryToOption, searchDistilleries } from '../../data/distillery/search'
 import styles from './FieldsCard.module.css'
@@ -22,6 +23,14 @@ interface EssentialFieldsCardProps {
   values: EssentialFieldsValues
   onChange: (patch: Partial<EssentialFieldsValues>) => void
   nameError?: string
+  /** Shows a Scan Barcode button under the name (new bottles only). */
+  onScanBarcode?: () => void
+  /**
+   * Set when a scanned barcode says this release's proof varies by batch or
+   * barrel: AI auto-fill then never supplies a proof — only the user's own
+   * label can.
+   */
+  proofVaries?: boolean
 }
 
 // How long to let typing settle before auto-firing the lookup — long enough
@@ -48,7 +57,7 @@ interface DistilleryBioState {
   info: DistilleryInfoResult | null
 }
 
-export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFieldsCardProps) {
+export function EssentialFieldsCard({ values, onChange, nameError, onScanBarcode, proofVaries = false }: EssentialFieldsCardProps) {
   const [lookingUp, setLookingUp] = useState(false)
   const [aiStatus, setAiStatus] = useState<string | null>(null)
   const [distilleryBio, setDistilleryBio] = useState<DistilleryBioState | null>(null)
@@ -92,7 +101,7 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
         distillery: values.distillery.trim() || info.distillery || values.distillery,
         type: values.type.trim() || info.type || values.type,
         region: values.region.trim() || info.region || values.region,
-        proof: values.proof || (info.proof ? String(info.proof) : values.proof),
+        proof: values.proof || (info.proof && !proofVaries ? String(info.proof) : values.proof),
         ageStatement: values.ageStatement.trim() || info.ageStatement || values.ageStatement,
         mashBillCorn: values.mashBillCorn || (info.mashBillCorn ? String(info.mashBillCorn) : values.mashBillCorn),
         mashBillRyeWheat:
@@ -149,6 +158,12 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
         <p className={styles.fieldError} role="alert">
           {nameError}
         </p>
+      ) : null}
+
+      {onScanBarcode ? (
+        <Button variant="secondary" onClick={onScanBarcode}>
+          Scan Barcode
+        </Button>
       ) : null}
 
       <button
@@ -208,7 +223,7 @@ export function EssentialFieldsCard({ values, onChange, nameError }: EssentialFi
             inputMode="decimal"
             value={values.proof}
             onChange={(e) => onChange({ proof: e.target.value })}
-            placeholder="90"
+            placeholder={proofVaries ? 'From your label' : '90'}
           />
         </Field>
 

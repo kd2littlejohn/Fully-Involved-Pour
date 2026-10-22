@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
@@ -15,7 +15,15 @@ import { EssentialFieldsCard, type EssentialFieldsValues } from './EssentialFiel
 import { OwnershipFieldsCard, type OwnershipFieldsValues } from './OwnershipFieldsCard'
 import { BottleInstancesCard, blankInstanceDraft, type InstanceDraft } from './BottleInstancesCard'
 import { RarityFieldsCard, blankRarityFieldsValues, type RarityFieldsValues } from './RarityFieldsCard'
+import { RouteFallback } from '../../components/layout/RouteFallback'
+import { saveBarcodeEntry } from '../../data/repositories/barcode'
+import { composeBarName } from '../../features/barcode/inventory'
+import type { BarcodeHandoff } from '../../features/barcode/ScanBarcodeFlow'
 import styles from './AddBottlePage.module.css'
+
+// Loaded only when someone taps Scan Barcode, so the camera/decoder code
+// never weighs on a plain Add Bottle.
+const ScanBarcodeFlow = lazy(() => import('../../features/barcode/ScanBarcodeFlow').then((m) => ({ default: m.ScanBarcodeFlow })))
 
 function generateInstanceId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -53,7 +61,9 @@ function buildDraftInstance(draft: InstanceDraft, id: string, createdAt: number)
 // 'choice' only ever applies to a fresh, from-scratch add (see the initial
 // state below) — editing an existing bottle or arriving with a prefill
 // (e.g. "Add to Wishlist" from Discover) always goes straight to 'form'.
-type Mode = 'choice' | 'form'
+// 'scan' is Scan Barcode (features/barcode/ScanBarcodeFlow), reachable from
+// the choice screen or the form of a new bottle; it hands back to 'form'.
+type Mode = 'choice' | 'scan' | 'form'
 
 interface LocationState {
   defaultStatus?: BottleStatus
@@ -118,6 +128,10 @@ export function AddBottlePage() {
   const [instanceDrafts, setInstanceDrafts] = useState<InstanceDraft[]>([])
 
   const [mode, setMode] = useState<Mode>(() => (isEditing || state?.prefill?.name ? 'form' : 'choice'))
+  // Where Cancel in Scan Barcode returns to.
+  const [scanReturnMode, setScanReturnMode] = useState<Mode>('choice')
+  // Set once a scanned bottle has been handed to the form.
+  const [barcode, setBarcode] = useState<BarcodeHandoff | null>(null)
 
   // Reveals/resizes "Your Bottles" the moment Quantity is 2+ — never for an
   // already-multi-instance bottle, which manages its own instances via
@@ -198,6 +212,32 @@ export function AddBottlePage() {
     }))
   }
 
+  function openScanner() {
+    setScanReturnMode(mode === 'form' ? 'form' : 'choice')
+    setMode('scan')
+  }
+
+  // Add to My Bar / Wishlist from Scan Barcode: fill the form (the user can
+  // still add a photo, price, quantity and rarity), then the normal Add
+  // Bottle button saves it. Batch, barrel and store pick become part of the
+  // name, the existing convention (see features/barcode/inventory.ts).
+  function handleBarcodeUse(handoff: BarcodeHandoff) {
+    const b = handoff.bottle
+    setEssential((prev) => ({
+      ...prev,
+      name: composeBarName(b),
+      distillery: b.distillery ?? '',
+      type: b.category ?? prev.type,
+      proof: b.proof != null ? String(b.proof) : '',
+      bottleSize: b.sizeMl != null ? String(b.sizeMl) : '',
+      ageStatement: b.ageStatement ?? '',
+    }))
+    setOwnership((prev) => ({ ...prev, status: handoff.status }))
+    setNameError(null)
+    setBarcode(handoff)
+    setMode('form')
+  }
+
   async function handleSubmit() {
     if (submitting) return
     const name = essential.name.trim()
@@ -240,6 +280,9 @@ export function AddBottlePage() {
         rarityReason: rarity.rarityReason,
         rarityConfirmedAt: rarity.rarityConfirmedAt,
         raritySuggestion: rarity.raritySuggestion,
+        // Only a new bottle added through Scan Barcode carries its barcode;
+        // editing never touches an existing bottle's upc.
+        ...(!isEditing && barcode?.printedBarcode ? { upc: barcode.printedBarcode } : {}),
       }
 
       // Once a bottle already has multiple instances, this form never
@@ -292,6 +335,19 @@ export function AddBottlePage() {
         navigate(`/collection/${bottleId}`)
       } else {
         const id = await addBottle(payload)
+        // Remember, privately, which bottle this barcode was — the next scan
+        // then answers instantly and offers Increase quantity. Best effort:
+        // a failure here never affects the saved bottle.
+        if (id && user && barcode?.gtin13) {
+          void saveBarcodeEntry(user.uid, {
+            gtin13: barcode.gtin13,
+            bottle: barcode.bottle,
+            origin: barcode.origin,
+            candidateId: barcode.candidateId,
+            bottleId: id,
+            submitForReview: barcode.submitForReview,
+          }).catch((err) => console.warn('Barcode entry not saved', err))
+        }
         navigate(id ? `/collection/${id}` : '/collection')
       }
     } catch (err) {
@@ -361,13 +417,30 @@ export function AddBottlePage() {
 
       {mode === 'choice' ? (
         <div className={styles.content}>
-          <AddBottleEntryChoice onScanLabel={() => setMode('form')} onManualEntry={() => setMode('form')} />
+          <AddBottleEntryChoice onScanBarcode={openScanner} onScanLabel={() => setMode('form')} onManualEntry={() => setMode('form')} />
         </div>
+      ) : null}
+
+      {mode === 'scan' ? (
+        <Suspense fallback={<RouteFallback />}>
+          <ScanBarcodeFlow
+            onUse={handleBarcodeUse}
+            onUpdatedExisting={(id) => navigate(`/collection/${id}`)}
+            onCancel={() => setMode(scanReturnMode)}
+          />
+        </Suspense>
       ) : null}
 
       {mode === 'form' ? (
         <>
           <div className={styles.content}>
+            {barcode ? (
+              <p className={styles.barcodeNote}>
+                {barcode.printedBarcode ? `From barcode ${barcode.printedBarcode}, adding` : 'Adding'} to{' '}
+                {ownership.status === 'wishlist' ? 'your Wishlist' : 'My Bar'}. Check the details, add a photo or price if you like,
+                then tap Add Bottle.
+              </p>
+            ) : null}
             <BottlePhotoHero imageUrl={photo.imageUrl} name={essential.name} onImageChange={setPhoto} onScanResult={handleScanResult} />
 
             <div className={styles.cards}>
@@ -378,6 +451,8 @@ export function AddBottlePage() {
                   if (patch.name?.trim()) setNameError(null)
                 }}
                 nameError={nameError ?? undefined}
+                onScanBarcode={isEditing ? undefined : openScanner}
+                proofVaries={barcode?.bottle.proofVaries ?? false}
               />
               <OwnershipFieldsCard
                 values={ownership}

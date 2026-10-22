@@ -4,8 +4,8 @@ import styles from './Barcode.module.css'
 
 // The bottles a scanned barcode could be. Several releases often share one
 // barcode, so the user always picks; every row says how far it can be
-// trusted. Built for the Phase 0 PoC page and meant to move into Add
-// Bottle unchanged in Phase 1.
+// trusted. Used by Scan Barcode on Add Bottle (ScanBarcodeFlow) and the
+// dev diagnostics page.
 
 function hostname(url: string): string {
   try {

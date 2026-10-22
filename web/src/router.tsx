@@ -269,11 +269,4 @@ function barcodePocRoute() {
   }
 }
 
-// The temporary barcode preview channel (.github/workflows/
-// barcode-preview.yml) serves ONLY the scanner page: every other path
-// redirects to it, so nothing in that build can open My Bar, Add Bottle or
-// any other screen that edits real data. __FIP_BARCODE_POC__ is the literal
-// false in a production build, so this is dropped there.
-export const router = createHashRouter(
-  __FIP_BARCODE_POC__ ? [barcodePocRoute(), { path: '*', element: <Navigate to="/dev/barcode" replace /> }] : routes,
-)
+export const router = createHashRouter(routes)

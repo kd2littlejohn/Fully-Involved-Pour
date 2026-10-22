@@ -604,10 +604,9 @@ Set "found" to false ONLY if no spirits bottle is visible in the image at all. I
   },
 );
 
-// Scan Barcode proof of concept: FIP-verified candidates and the caller's
-// own saved entries first; Claude + web search only when the user asks
-// AXE. Only the dev-only Barcode PoC page calls these today — see
-// functions/barcode/lookup.js and docs/BARCODE_POC.md.
+// Scan Barcode on Add Bottle: FIP-verified candidates and the caller's own
+// saved entries first; Claude + web search only when the user asks AXE.
+// See functions/barcode/lookup.js and docs/BARCODE_POC.md.
 exports.lookupBarcode = onCall({ secrets: [anthropicApiKey], cors: true }, (request) =>
   handleLookupBarcode(admin.firestore(), request, { apiKey: anthropicApiKey.value(), assertNotRateLimited }),
 );
