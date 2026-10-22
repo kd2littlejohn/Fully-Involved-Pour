@@ -175,28 +175,44 @@ so the unknown-barcode counter threw. It now imports `FieldValue` from
 
 The page runs on a **temporary Firebase Hosting preview channel**: a
 separate HTTPS address that expires after 7 days. The live site is never
-touched, and no functions, rules or indexes are deployed. In this build the
-page **never writes to My Bar**: Add and Increase show what *would* happen.
+touched, and no functions, rules or indexes are deployed.
 
-### One-time setup (GitHub and Firebase websites, about 5 minutes)
+**What the preview build can and can't do (verified 2026-10-22):**
+- **Scanner page only.** Every other path (My Bar, Add Bottle, Settings, Profile, Party…) redirects to the scanner, so no screen that edits your bar exists there.
+- **Nothing is saved.** On the scanner page, Add and Increase are a dry run that says what would happen.
+- **No sign-in needed** for the camera test. Signed out, it makes no Firestore reads or writes at all; the production rules (unchanged) require sign-in. Your recorded results stay in Safari's storage on your phone until you copy or share them.
+- **No AI.** The barcode AI functions aren't deployed, and signed out the AXE buttons are hidden. The preview exposes no AI feature that wasn't already reachable from the live site.
+- **No secrets.** The page code is already public (the repository is public), and the Firebase web config in it is a public identifier, the same one the live site ships. The deploy key stays in GitHub Secrets.
+- **The link is public.** The preview bot posts it as a PR comment. Anyone who opens it gets an empty scanner that saves nothing.
 
-1. **Start the preview.** On PR #42 in the GitHub app or website, tap **Labels** and add `barcode-preview` (create it the first time). After about 4 minutes a bot comments a link such as `https://fully-involved-pour--barcode-poc-xxxxxxxx.web.app`. Every later push refreshes the same address. Removing the label stops new previews. If the job fails asking for credentials, tell me: the deploy key may be limited to the production environment.
-2. **Let Google sign-in work there** (needed for FIP's catalog and AXE; scanning works without it). Firebase console → Authentication → Settings → **Authorized domains** → Add domain → paste the preview address without `https://`.
-3. **AXE on the phone** also needs the two barcode functions deployed (see "Real AXE lookups" below) and your account on the tester list. Firebase console → Authentication → Users → copy your **User UID**. Then Firestore → Start collection `barcodePocTesters` → Document ID = that UID → add a field `addedBy` (string) → Save.
+**Deploy credential, verified from run history:** the workflow uses the
+same `FIREBASE_SERVICE_ACCOUNT_FULLY_INVOLVED_POUR` repository secret as the
+live deploy. That secret deployed Hosting successfully on 2026-10-07 from a
+job with no environment gate, so it's available to same-repository PR
+workflows. It was created by `firebase init hosting:github`, which grants
+the Hosting role preview channels need.
+
+### Starting the preview from the GitHub app on your iPhone
+
+1. Open the **GitHub** app → your `Fully-Involved-Pour` repository → **Pull Requests** → **#42**.
+2. Scroll to **Labels** (or tap **⋯** → **Edit** → **Labels**). Type `barcode-preview`; if it doesn't exist yet, tap **Create "barcode-preview"**, then select it and tap **Done**.
+3. Wait about 4 minutes. Under **Checks**, *Deploy Barcode PoC preview channel* turns green, and a **firebase** bot comment appears with a link like `https://fully-involved-pour--barcode-poc-xxxxxxxx.web.app`.
+4. Tap the link; it opens in Safari straight on the scanner (the address ends `#/dev/barcode`). Optionally tap **Share → Add to Home Screen** to test the installed app too.
+5. Tap **Scan Barcode** and allow camera access.
+
+If step 3 fails, open the failed check and send me a screenshot of the error.
 
 ### Scanning 30 bottles
 
-Open the link **plus `/#/dev/barcode`** in Safari on your iPhone. Optionally
-add it to your Home Screen to test that too. Sign in, allow the camera, then
-for each bottle:
+For each bottle:
 
-1. Tap **Scan Barcode** and hold the barcode inside the frame. If it won't read, try **Decode a photo**, or type the digits.
-2. **Pick your bottle** from the list. If it isn't there, try **Ask AXE about this barcode** or **Scan Front Label with AXE**, or **Enter details manually**.
-3. **Fix anything that doesn't match the label in your hand** (name, proof, batch, barrel, store pick, release). What you correct is how accuracy is measured.
-4. Tap **Record this bottle**.
+1. Tap **Scan Barcode** and hold the barcode inside the frame. If it won't read, try **Decode a photo**, or type the digits. Which one worked is recorded.
+2. Tap **Enter details manually** and type what the label says: name, distillery, proof, batch, barrel, store pick, release. (FIP's catalog and AXE aren't switched on in this preview yet.)
+3. Tap **Record this bottle**.
 
 Aim for at least 5 each of barrel-proof batches, single barrels and store
-picks. Results stay on the phone until you send them.
+picks. Try a few in poor light, on curved labels, and the small UPC-E codes
+on 50 ml or 375 ml bottles.
 
 ### Sending the results
 
@@ -206,8 +222,15 @@ picks. Results stay on the phone until you send them.
 
 ### Afterwards
 
-Remove the label (the channel also expires on its own after 7 days), remove
-the authorized domain, and delete the `barcodePocTesters` document.
+Remove the `barcode-preview` label to stop new previews; the channel also
+deletes itself after 7 days.
+
+### Later: catalog and AXE on the phone
+
+This needs the barcode Cloud Functions deployed (see below, not approved
+yet). Then:
+1. Add the preview address under Firebase console → Authentication → Settings → **Authorized domains**, so Google sign-in works there.
+2. Add your User UID as a document in a `barcodePocTesters` collection.
 
 ## Real AXE lookups without exposing keys
 

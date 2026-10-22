@@ -174,7 +174,15 @@ export function BarcodePocPage() {
       setLookup(await lookupBarcode(code))
       setCatalogMs(Math.round(performance.now() - started))
     } catch (err) {
-      setError(err instanceof Error ? `Catalog lookup failed: ${err.message}` : 'Catalog lookup failed.')
+      // On the preview channel the barcode Cloud Functions aren't deployed
+      // yet; say so plainly instead of showing a raw error.
+      setError(
+        DRY_RUN
+          ? 'FIP’s catalog isn’t switched on for this preview yet. Enter the bottle manually to record it.'
+          : err instanceof Error
+            ? `Catalog lookup failed: ${err.message}`
+            : 'Catalog lookup failed.',
+      )
     } finally {
       setBusy(null)
     }

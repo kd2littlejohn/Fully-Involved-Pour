@@ -242,22 +242,10 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
   ...partyRoute('/party/:partyId/print', <PrintScorecardsPage />),
   ...partyRoute('/party/:partyId/recap', <PartyRecapPage />),
   ...partyRoute('/party/:partyId/display', <PartyDisplayPage />),
-  // Scan Barcode Phase 0 proof of concept (docs/BARCODE_POC.md). Dev builds
-  // and the temporary barcode preview channel only: both flags fold to false
-  // in a production build, so this route, the page and its chunk are dropped
-  // entirely — never shipped to the live site.
-  ...(import.meta.env.DEV || __FIP_BARCODE_POC__
-    ? [
-        {
-          path: '/dev/barcode',
-          element: (
-            <Suspense fallback={<RouteFallback />}>
-              {createElement(lazy(() => import('./pages/Dev/BarcodePocPage').then((m) => ({ default: m.BarcodePocPage }))))}
-            </Suspense>
-          ),
-        },
-      ]
-    : []),
+  // Scan Barcode Phase 0 proof of concept (docs/BARCODE_POC.md), dev builds
+  // only. import.meta.env.DEV folds to false in a production build, so the
+  // route, the page and its chunk are dropped — never shipped to the live site.
+  ...(import.meta.env.DEV ? [barcodePocRoute()] : []),
 ]
 
 function partyRoute(path: string, element: ReactNode) {
@@ -270,4 +258,22 @@ function partyRoute(path: string, element: ReactNode) {
   ]
 }
 
-export const router = createHashRouter(routes)
+function barcodePocRoute() {
+  return {
+    path: '/dev/barcode',
+    element: (
+      <Suspense fallback={<RouteFallback />}>
+        {createElement(lazy(() => import('./pages/Dev/BarcodePocPage').then((m) => ({ default: m.BarcodePocPage }))))}
+      </Suspense>
+    ),
+  }
+}
+
+// The temporary barcode preview channel (.github/workflows/
+// barcode-preview.yml) serves ONLY the scanner page: every other path
+// redirects to it, so nothing in that build can open My Bar, Add Bottle or
+// any other screen that edits real data. __FIP_BARCODE_POC__ is the literal
+// false in a production build, so this is dropped there.
+export const router = createHashRouter(
+  __FIP_BARCODE_POC__ ? [barcodePocRoute(), { path: '*', element: <Navigate to="/dev/barcode" replace /> }] : routes,
+)
