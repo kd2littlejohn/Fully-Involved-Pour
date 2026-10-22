@@ -28,6 +28,7 @@ const PRICES = {
     models: {
       "gemini-3-flash": { input: 0.5, output: 3 },
       "gemini-3-flash-preview": { input: 0.5, output: 3 },
+      "gemini-3.5-flash": { input: 1.5, output: 9 },
     },
   },
 };

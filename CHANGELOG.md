@@ -1,3 +1,12 @@
+## Unreleased - Scan Barcode: Google step fixes
+
+Fixed
+- **Google identification didn't run in production.** The Google step now picks a Gemini model the API key can actually use (read from Google's model list) instead of assuming one, and ignores stray whitespace around the stored key.
+- **No more silent fallback to "No match".** When Google is skipped or fails, Scan Barcode says why (switched off, no key, spending limit, hourly limit, key rejected, quota, model unavailable, timeout, network) before offering AXE, front-label scan or manual entry. The function logs the same reason.
+
+Added
+- *Scan Barcode Google check* workflow (run by hand): checks the live Google step for a barcode (082184009017 by default) and reports the switch, budget, model and failure reason.
+
 ## Unreleased - Scan Barcode: Google first
 
 Added

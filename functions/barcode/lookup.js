@@ -32,7 +32,7 @@ const { FieldValue } = require("firebase-admin/firestore");
 const { HttpsError } = require("firebase-functions/v2/https");
 const { normalizeBarcode } = require("./gtin");
 const { identifyWithClaude } = require("./providers/claude");
-const { identifyWithGemini, DEFAULT_GEMINI_MODEL } = require("./providers/gemini");
+const { identifyWithGemini, resolveGeminiModel, DEFAULT_GEMINI_MODEL } = require("./providers/gemini");
 
 const AI_LOOKUPS_PER_HOUR = 20;
 const LABEL_SCANS_PER_HOUR = 20;
@@ -100,10 +100,19 @@ function monthKey(ms) {
   return new Date(ms).toISOString().slice(0, 7);
 }
 
-// Whether Google may be asked right now. Never throws: anything but
-// "available" just means the app offers AXE instead.
+// Whether Google may be asked right now. Never throws. Anything but
+// "available" is reported to the app (which says why and offers AXE) and
+// logged, so a Google step that isn't running is never silent:
+//   off           appConfig/barcodeGoogle.enabled isn't true
+//   config-error  that document couldn't be read
+//   no-key        the GEMINI_API_KEY secret is empty
+//   app-check     App Check is required and the request has none
+//   budget        this month's estimated spend reached monthlyBudgetUsd
 async function googleAvailability(db, request, google, now) {
-  if (!google || !google.enabled || !google.apiKey) return "off";
+  if (!google) return "off";
+  if (google.configError) return "config-error";
+  if (!google.enabled) return "off";
+  if (!google.apiKey) return "no-key";
   if (google.requireAppCheck && !request.app) return "app-check";
   const spend = await db.doc(`aiSpend/gemini-${monthKey(now())}`).get();
   const spent = spend.exists ? spend.data().estimatedUsd || 0 : 0;
@@ -111,21 +120,32 @@ async function googleAvailability(db, request, google, now) {
   return "available";
 }
 
+function logUnavailable(gtin13, availability) {
+  if (availability !== "available") console.warn("Google barcode lookup skipped", JSON.stringify({ gtin13, reason: availability }));
+}
+
 async function askGoogle(db, request, { normalized, google, assertNotRateLimited, now, pendingRef }) {
   const availability = await googleAvailability(db, request, google, now);
+  logUnavailable(normalized.gtin13, availability);
   if (availability !== "available") return { status: availability };
   try {
     await assertNotRateLimited(request.auth.uid, "lookupBarcodeGoogle", { maxCalls: GOOGLE_LOOKUPS_PER_HOUR });
   } catch (error) {
-    if (error?.code === "resource-exhausted") return { status: "rate-limited" };
+    if (error?.code === "resource-exhausted") {
+      logUnavailable(normalized.gtin13, "rate-limited");
+      return { status: "rate-limited" };
+    }
     throw error;
   }
   let call;
   try {
-    call = await (google.identify || identifyWithGemini)({ apiKey: google.apiKey, model: google.model || DEFAULT_GEMINI_MODEL, normalized, mode: "upc" });
+    const model = await (google.resolveModel || resolveGeminiModel)(google.apiKey, google.model || DEFAULT_GEMINI_MODEL);
+    call = await (google.identify || identifyWithGemini)({ apiKey: google.apiKey, model, normalized, mode: "upc" });
   } catch (error) {
-    console.error("Google barcode lookup failed", error.message);
-    return { status: "error" };
+    // reason: model-unavailable | auth | quota | unavailable | bad-request | timeout | unknown
+    const reason = error?.reason || (error?.name === "TimeoutError" || error?.name === "AbortError" ? "timeout" : "unknown");
+    console.error("Google barcode lookup failed", JSON.stringify({ gtin13: normalized.gtin13, reason, message: String(error?.message || error).slice(0, 400) }));
+    return { status: "error", reason };
   }
   const { guard, ...result } = call.result;
   const cost = costUsd(call);
@@ -189,12 +209,15 @@ async function handleLookupBarcode(db, request, { apiKey, google = null, assertN
         { merge: true },
       );
     }
+    const googleStatus = await googleAvailability(db, request, google, now);
+    if (!matched) logUnavailable(gtin13, googleStatus);
     return {
       ...base,
       status: matched ? "matched" : "no-match",
       verified,
       yours,
-      googleAvailable: (await googleAvailability(db, request, google, now)) === "available",
+      googleAvailable: googleStatus === "available",
+      googleStatus,
     };
   }
 

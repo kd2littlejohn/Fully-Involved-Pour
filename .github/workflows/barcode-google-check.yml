@@ -1,0 +1,63 @@
+name: Scan Barcode Google check
+
+# Run by hand (Actions → Scan Barcode Google check → Run workflow) to check
+# that the live Google step of Scan Barcode identifies a barcode, and if it
+# doesn't, why: the switch in appConfig/barcodeGoogle, the monthly budget,
+# the deployed function's answer, and its recent Google log lines.
+# Read-only apart from one Gemini call (about $0.01) and the test user's
+# rate-limit counter. Uses the same keyless deploy identity as releases,
+# which works only from main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upc:
+        description: Barcode digits to test
+        default: "082184009017"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_ID: fully-involved-pour
+  WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER || 'projects/801004541737/locations/global/workloadIdentityPools/github/providers/github-actions' }}
+  DEPLOY_SA: ${{ vars.GCP_SERVICE_ACCOUNT || 'github-functions-deployer@fully-involved-pour.iam.gserviceaccount.com' }}
+
+jobs:
+  check:
+    name: Check Google identification
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: cd functions && npm ci
+      - name: Authenticate to Google Cloud (keyless)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+          create_credentials_file: true
+          export_environment_variables: true
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Recent Google lookup log lines (last 24 hours)
+        # Only the function's own Google lines: barcode, model, reason,
+        # counts and Google's error text. No user content.
+        run: |
+          since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          filter="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"lookupbarcode\" AND textPayload:\"Google barcode lookup\" AND timestamp>=\"${since}\""
+          gcloud logging read "$filter" --project "$PROJECT_ID" --limit 20 --format 'value(timestamp,severity,textPayload)' || echo "Couldn't read logs."
+      - name: Check the live Google step
+        env:
+          GCP_SERVICE_ACCOUNT: ${{ env.DEPLOY_SA }}
+          UPC: ${{ inputs.upc }}
+        run: node functions/scripts/barcode-google-check.js

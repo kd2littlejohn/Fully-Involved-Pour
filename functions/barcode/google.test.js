@@ -17,6 +17,7 @@ const admin = require("firebase-admin");
 const { lookupBarcode } = require("../index.js");
 const { handleLookupBarcode, GOOGLE_LOOKUPS_PER_HOUR } = require("./lookup.js");
 const { resetGoogleConfigCache, sanitize } = require("./googleConfig.js");
+const { resetGeminiModelCache, resolveGeminiModel, classifyFailure } = require("./providers/gemini.js");
 const { assertNotRateLimited } = require("../rateLimit.js");
 
 const db = admin.firestore();
@@ -58,6 +59,9 @@ function geminiReply(json, { chunks = [{ web: { uri: "https://vertexaisearch.clo
 
 let sent = [];
 let reply;
+// What Google's model list returns for the key (read before each call).
+let available = ["gemini-3-flash", "gemini-3.5-flash"];
+const modelList = () => ({ models: available.map((m) => ({ name: `models/${m}`, supportedGenerationMethods: ["generateContent"] })) });
 const ON = { enabled: true, apiKey: "test-gemini-key", monthlyBudgetUsd: 20, requireAppCheck: false, model: "gemini-3-flash" };
 const deps = (google = ON, extra = {}) => ({ apiKey: "test-key", google, assertNotRateLimited, ...extra });
 const call = (uid, data, google, request = {}) => handleLookupBarcode(db, { auth: { uid }, data: { barcode: UPC, ...data }, ...request }, deps(google));
@@ -65,10 +69,13 @@ const call = (uid, data, google, request = {}) => handleLookupBarcode(db, { auth
 beforeEach(async () => {
   sent = [];
   reply = geminiReply(ANSWER);
+  available = ["gemini-3-flash", "gemini-3.5-flash"];
   resetGoogleConfigCache();
+  resetGeminiModelCache();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url, init) => {
+      if (String(url).includes("/models?")) return { ok: true, json: async () => modelList() };
       sent.push({ url: String(url), headers: init.headers, body: JSON.parse(init.body) });
       return { ok: true, json: async () => reply };
     }),
@@ -90,7 +97,7 @@ afterEach(() => {
 describe("Google step: switched off", () => {
   it("is off unless appConfig/barcodeGoogle.enabled is true", async () => {
     const run = (data) => lookupBarcode.run({ auth: { uid: "bg-alice" }, data: { barcode: UPC, ...data } });
-    expect(await run({})).toMatchObject({ status: "no-match", googleAvailable: false });
+    expect(await run({})).toMatchObject({ status: "no-match", googleAvailable: false, googleStatus: "off" });
     expect((await run({ useGoogle: true })).google).toEqual({ status: "off" });
     await db.doc("appConfig/barcodeGoogle").set({ enabled: false });
     resetGoogleConfigCache();
@@ -106,9 +113,23 @@ describe("Google step: switched off", () => {
     expect(sent).toHaveLength(1);
   });
 
-  it("stays off without an API key", async () => {
-    expect((await call("bg-alice", { useGoogle: true }, { ...ON, apiKey: "" })).google).toEqual({ status: "off" });
+  it("says when the API key is missing", async () => {
+    expect(await call("bg-alice", {}, { ...ON, apiKey: "" })).toMatchObject({ googleAvailable: false, googleStatus: "no-key" });
+    expect((await call("bg-alice", { useGoogle: true }, { ...ON, apiKey: "" })).google).toEqual({ status: "no-key" });
     expect(sent).toHaveLength(0);
+  });
+
+  it("says when the switch couldn't be read", async () => {
+    expect(await call("bg-alice", {}, { ...ON, enabled: false, configError: true })).toMatchObject({ googleStatus: "config-error" });
+  });
+
+  it("trims a pasted key before using it", async () => {
+    process.env.GEMINI_API_KEY = "test-gemini-key\n";
+    await db.doc("appConfig/barcodeGoogle").set({ enabled: true });
+    const result = await lookupBarcode.run({ auth: { uid: "bg-alice" }, data: { barcode: UPC, useGoogle: true } });
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    expect(result.google.status).toBe("identified");
+    expect(sent[0].headers["x-goog-api-key"]).toBe("test-gemini-key");
   });
 
   it("reads config defensively", () => {
@@ -120,7 +141,7 @@ describe("Google step: switched off", () => {
 
 describe("Google step: switched on", () => {
   it("is not called by the plain catalog lookup, which only says it is available", async () => {
-    expect(await call("bg-alice", {})).toMatchObject({ status: "no-match", googleAvailable: true });
+    expect(await call("bg-alice", {})).toMatchObject({ status: "no-match", googleAvailable: true, googleStatus: "available" });
     expect(sent).toHaveLength(0);
   });
 
@@ -204,9 +225,34 @@ describe("Google step: switched on", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it("turns a Gemini outage into a status, not an error", async () => {
+  it("turns a Gemini outage into a status with a reason, not an error", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503, text: async () => "unavailable" })));
-    expect((await call("bg-alice", { useGoogle: true })).google).toEqual({ status: "error" });
+    expect((await call("bg-alice", { useGoogle: true })).google).toEqual({ status: "error", reason: "unavailable" });
+  });
+
+  it("reports a rejected key, an exhausted quota and a missing model by name", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 400, text: async () => '{"error":{"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}' })));
+    expect((await call("bg-alice", { useGoogle: true })).google).toEqual({ status: "error", reason: "auth" });
+    expect(classifyFailure(429, "RESOURCE_EXHAUSTED")).toBe("quota");
+    expect(classifyFailure(404, "models/gemini-x is not found for API version v1beta")).toBe("model-unavailable");
+  });
+
+  it("uses a model the key can actually call, not an assumed name", async () => {
+    available = ["gemini-3-flash-preview", "gemini-3.5-flash"];
+    await call("bg-alice", { useGoogle: true });
+    expect(sent[0].url).toContain("/models/gemini-3-flash-preview:generateContent");
+    resetGeminiModelCache();
+    available = ["gemini-3.5-flash"];
+    const result = await call("bg-alice", { useGoogle: true });
+    expect(sent[1].url).toContain("/models/gemini-3.5-flash:generateContent");
+    expect(result.google.model).toBe("gemini-3.5-flash");
+  });
+
+  it("falls back to any Flash model the key offers, and names the problem when there is none", async () => {
+    const list = (models) => ({ ok: true, json: async () => ({ models: models.map((m) => ({ name: `models/${m}`, supportedGenerationMethods: ["generateContent"] })) }) });
+    expect(await resolveGeminiModel("k", "gemini-3-flash", { fetchImpl: async () => list(["gemini-4.1-flash", "gemini-embedding-001"]) })).toBe("gemini-4.1-flash");
+    resetGeminiModelCache();
+    await expect(resolveGeminiModel("k", "gemini-3-flash", { fetchImpl: async () => list(["gemini-embedding-001"]) })).rejects.toMatchObject({ reason: "model-unavailable" });
   });
 
   it("still returns verified and saved candidates alongside Google's", async () => {

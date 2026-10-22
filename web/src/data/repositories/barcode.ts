@@ -88,10 +88,23 @@ export interface AxeSuggestion {
  * 'not-found' means Google wasn't asked (switched off, over budget or the
  * hourly limit, App Check missing) or failed — the app offers AXE instead.
  */
-export type GoogleStatus = 'identified' | 'not-found' | 'off' | 'budget' | 'rate-limited' | 'app-check' | 'error'
+export type GoogleStatus =
+  | 'identified'
+  | 'not-found'
+  | 'off'
+  | 'config-error'
+  | 'no-key'
+  | 'budget'
+  | 'rate-limited'
+  | 'app-check'
+  | 'error'
+
+/** Why a Google call failed (status 'error'). 'network' = the app couldn't reach FIP's server. */
+export type GoogleErrorReason = 'model-unavailable' | 'auth' | 'quota' | 'unavailable' | 'bad-request' | 'timeout' | 'network' | 'unknown'
 
 export interface GoogleLookup {
   status: GoogleStatus
+  reason?: GoogleErrorReason
   /** Same shape as an AXE suggestion; sources are Google's own grounding links. */
   result?: Omit<AxeSuggestion, 'cached'>
   /** Google Search Suggestions (HTML) — must be shown with the result. */
@@ -113,6 +126,8 @@ export interface BarcodeLookupResult {
   axe?: AxeSuggestion
   /** Plain lookup only: whether the app should ask Google next. */
   googleAvailable?: boolean
+  /** Plain lookup only: 'available', or why Google won't be asked. */
+  googleStatus?: 'available' | GoogleStatus
   google?: GoogleLookup
   latencyMs?: number
   costUsd?: number | null

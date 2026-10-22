@@ -21,6 +21,7 @@ import { BarcodeMatchList } from './BarcodeMatchList'
 import { BarcodeBottleForm } from './BarcodeBottleForm'
 import { BarcodeSaveActions } from './BarcodeSaveActions'
 import { GoogleSearchSuggestions } from './GoogleSearchSuggestions'
+import { googleMessage } from './googleMessage'
 import styles from './ScanBarcodeFlow.module.css'
 
 // Scan Barcode on Add Bottle (docs/BARCODE_POC.md → "How it works"):
@@ -221,7 +222,7 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
       try {
         setLookup(await lookupBarcodeWithGoogle(result.normalized.gtin13))
       } catch {
-        setLookup({ ...catalog, google: { status: 'error' } })
+        setLookup({ ...catalog, google: { status: 'error', reason: 'network' } })
       }
     }
     setBusy(null)
@@ -336,15 +337,8 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
   const axe = lookup?.axe
   const google = lookup?.google
   const label = labelScan?.axe.label
-  const googleNote = !google
-    ? null
-    : google.status === 'identified'
-      ? google.result?.confidence === 'low'
-        ? 'Google isn’t sure about this one. Check it carefully against your label, or ask AXE.'
-        : null
-      : google.status === 'not-found'
-        ? 'Google couldn’t identify this barcode. Ask AXE, scan the front label, or enter it yourself.'
-        : 'Google search isn’t available right now. Ask AXE, scan the front label, or enter it yourself.'
+  // Only for a barcode nothing in FIP matched (the case Google is for).
+  const googleNote = lookup?.status === 'matched' && !google ? null : googleMessage(google, lookup?.googleStatus)
 
   return (
     <div className={styles.flow}>
@@ -431,7 +425,11 @@ export function ScanBarcodeFlow({ onUse, onUpdatedExisting, onCancel }: ScanBarc
           ) : null}
           {busy === 'catalog' ? <p className={styles.hint}>Checking FIP’s catalog…</p> : null}
           {busy === 'google' ? <p className={styles.hint}>Not in FIP’s catalog yet. Searching Google…</p> : null}
-          {googleNote && !busy ? <p className={styles.hint}>{googleNote}</p> : null}
+          {googleNote && !busy ? (
+            <p className={googleNote.kind === 'problem' ? styles.error : styles.hint} role={googleNote.kind === 'problem' ? 'alert' : undefined}>
+              {googleNote.text}
+            </p>
+          ) : null}
           {busy === 'label' ? <p className={styles.hint}>AXE is reading the label…</p> : null}
           {axe && !axe.identified ? <p className={styles.hint}>AXE couldn’t tie this barcode to a product.</p> : null}
           {labelScan && !labelScan.axe.identified ? <p className={styles.hint}>AXE couldn’t identify the bottle from that label.</p> : null}

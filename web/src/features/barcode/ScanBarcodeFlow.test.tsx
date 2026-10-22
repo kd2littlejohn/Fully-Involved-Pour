@@ -256,12 +256,34 @@ describe('ScanBarcodeFlow', () => {
       expect(mockLookupGoogle).not.toHaveBeenCalled()
     })
 
-    it('does not ask Google when it is switched off', async () => {
-      mockLookup.mockResolvedValue(lookupResult({ status: 'no-match', verified: [], googleAvailable: false }))
+    it('does not ask Google when it is switched off, and says so instead of a bare "no match"', async () => {
+      mockLookup.mockResolvedValue(lookupResult({ status: 'no-match', verified: [], googleAvailable: false, googleStatus: 'off' }))
       render(<ScanBarcodeFlow {...props()} />)
       await scan()
       expect(await screen.findByText("No match in FIP's catalog yet.")).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('Google search is turned off in FIP right now.')
       expect(mockLookupGoogle).not.toHaveBeenCalled()
+    })
+
+    it('shows why Google failed when its key is rejected', async () => {
+      mockLookup.mockResolvedValue(lookupResult({ status: 'no-match', verified: [], googleAvailable: true, googleStatus: 'available' }))
+      mockLookupGoogle.mockResolvedValue(lookupResult({ status: 'not-found', verified: [], google: { status: 'error', reason: 'auth' } }))
+      render(<ScanBarcodeFlow {...props()} />)
+      await scan()
+      expect(await screen.findByRole('alert')).toHaveTextContent('Google didn’t accept FIP’s API key.')
+      expect(screen.getByRole('button', { name: 'Ask AXE about this barcode' })).toBeInTheDocument()
+    })
+
+    it('identifies UPC 082184009017 with Google after a catalog miss', async () => {
+      const gtin = '0082184009017'
+      mockLookup.mockResolvedValue(lookupResult({ gtin13: gtin, upcA: '082184009017', status: 'no-match', verified: [], googleAvailable: true, googleStatus: 'available' }))
+      mockLookupGoogle.mockResolvedValue({ ...googleFound(), gtin13: gtin })
+      render(<ScanBarcodeFlow {...props()} />)
+      await scan('082184009017')
+      expect(await screen.findAllByText('Google suggestion · not verified')).toHaveLength(2)
+      expect(mockLookup).toHaveBeenCalledWith(gtin)
+      expect(mockLookupGoogle).toHaveBeenCalledWith(gtin)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
 
     it('offers AXE when Google can’t identify the barcode, and keeps both answers listed', async () => {
@@ -287,7 +309,7 @@ describe('ScanBarcodeFlow', () => {
       mockLookupGoogle.mockRejectedValue(new Error('network'))
       render(<ScanBarcodeFlow {...props()} />)
       await scan()
-      expect(await screen.findByText(/Google search isn’t available right now/)).toBeInTheDocument()
+      expect(await screen.findByText(/FIP couldn’t reach its server to search Google/)).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'Ask AXE about this barcode' })).toBeInTheDocument()
     })
 
