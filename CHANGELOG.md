@@ -6,8 +6,10 @@ Added
 - One barcode, several bottles: lookups return every verified release for a barcode (standard, batches, single barrels, store picks), plus the user's own saved entries. The user always picks; each option is labelled Verified by FIP, Saved by you, or AXE suggestion · not verified.
 - AXE only when asked: "Ask AXE about this barcode" (Claude + web search) and "Scan Front Label with AXE" (label photo + barcode). Batch, barrel and variable proof never come from AI, and what AXE reads on the user's own label is shown separately as "From your label — check it".
 - Increase Quantity instead of a duplicate when the release is already in My Bar, and Move to My Bar for a Wishlist copy. Uses the existing inventory hooks and the existing `upc` field; no data model change.
-- FIP's own catalog: `upcMappings` (verified candidates, read-only to clients), private `users/{uid}/barcodeEntries`, a server-only `upcPending` review queue, and `scripts/barcode-review.js` to promote submissions. Unknown barcodes reuse a recent Claude suggestion for 30 days instead of paying again; Gemini output is never stored.
+- FIP's own catalog: `upcMappings` (verified candidates, read-only to clients), private `users/{uid}/barcodeEntries`, a server-only `upcPending` review queue, and `scripts/barcode-review.js` to promote submissions. Reusing a recent Claude suggestion for an unknown barcode is built in but off for now; Gemini output is never stored.
 - Dev page `#/dev/barcode` and `functions/scripts/barcode-poc.js` for the 30-bottle Claude vs Gemini comparison (barcode, barcode-photo and front-label modes).
+- Phone field test: a label-triggered, 7-day Firebase Hosting preview channel of the PoC page (`.github/workflows/barcode-preview.yml`; never the live site, and nothing is saved from it). Each confirmed bottle is recorded on the phone and sent with Copy or Share; `scripts/barcode-poc-summary.js` summarizes them offline.
+- AXE in the PoC is limited to accounts in `barcodePocTesters`, and every AXE suggestion lists its sources. Reusing stored AI answers is off until Anthropic's terms are signed off.
 
 Release notes: none. Not for release. `lookupBarcode` and `identifyBottleLabel` are outside the automatic functions deploy target, and the rules and index take effect only if deployed by hand.
 

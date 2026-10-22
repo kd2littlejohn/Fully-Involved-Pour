@@ -131,3 +131,15 @@
   color: var(--fip-muted);
   font-size: var(--fip-text-sm);
 }
+
+.sources {
+  margin: var(--fip-space-1) 0 0;
+  padding: 0 var(--fip-space-2);
+  color: var(--fip-muted);
+  font-size: var(--fip-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.sources a {
+  color: inherit;
+}

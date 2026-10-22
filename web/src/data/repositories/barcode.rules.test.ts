@@ -87,6 +87,14 @@ describe('upcPending/{gtin13}', () => {
   })
 })
 
+describe('barcodePocTesters/{uid}', () => {
+  it('no client can read the tester list or add itself to it', async () => {
+    const db = testEnv.authenticatedContext(UID_A).firestore()
+    await assertFails(getDoc(doc(db, 'barcodePocTesters', UID_A)))
+    await assertFails(setDoc(doc(db, 'barcodePocTesters', UID_A), { addedBy: 'me' }))
+  })
+})
+
 describe('users/{uid}/barcodeEntries/{entryId}', () => {
   const path = (uid: string, id = 'e1') => ['users', uid, 'barcodeEntries', id] as const
 

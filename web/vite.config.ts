@@ -16,6 +16,14 @@ const devHttps =
 
 export default defineConfig({
   server: devHttps ? { https: devHttps, host: true } : undefined,
+  // Scan Barcode Phase 0 preview builds only (.github/workflows/
+  // barcode-preview.yml sets FIP_BARCODE_POC=true): compiles the dev-only
+  // Barcode PoC page into a build for a temporary preview channel. A plain
+  // `npm run build` defines it as the literal false, so the page is dropped
+  // from every production build exactly as before.
+  define: {
+    __FIP_BARCODE_POC__: JSON.stringify(process.env.FIP_BARCODE_POC === 'true'),
+  },
   test: {
     environment: 'jsdom',
     globals: true,

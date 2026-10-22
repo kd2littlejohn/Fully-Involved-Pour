@@ -14,6 +14,7 @@ process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "fip-functions-test";
 const require = createRequire(import.meta.url);
 const admin = require("firebase-admin");
 const { lookupBarcode, identifyBottleLabel } = require("../index.js");
+const { handleLookupBarcode } = require("./lookup.js");
 
 const db = admin.firestore();
 const UPC = "036000291452";
@@ -70,6 +71,9 @@ beforeEach(async () => {
     db.doc("rateLimits/bc-bob_lookupBarcode").delete(),
     clearUser("bc-alice"),
     clearUser("bc-bob"),
+    db.doc("barcodePocTesters/bc-alice").set({ addedBy: "test" }),
+    db.doc("barcodePocTesters/bc-bob").set({ addedBy: "test" }),
+    db.doc("barcodePocTesters/bc-carol").delete(),
   ]);
 });
 
@@ -158,17 +162,36 @@ describe("lookupBarcode", () => {
     expect(result.costUsd).toBeGreaterThan(0);
   });
 
-  it("reuses a recent Claude suggestion for the same barcode instead of paying again", async () => {
+  it("limits AI to Phase 0 testers, while the free catalog lookup stays open", async () => {
+    await expect(lookup("bc-carol", { barcode: UPC, useAxe: true })).rejects.toMatchObject({ code: "permission-denied" });
+    expect((await lookup("bc-carol", { barcode: UPC })).status).toBe("no-match");
+    expect(sent).toHaveLength(0);
+  });
+
+  it("does not reuse or store AI suggestions by default (pending terms sign-off)", async () => {
     await lookup("bc-alice", { barcode: UPC, useAxe: true });
     const second = await lookup("bc-bob", { barcode: UPC, useAxe: true });
+    expect(sent).toHaveLength(2);
+    expect(second.axe.cached).toBe(false);
+    const pending = (await db.doc(`upcPending/${GTIN}`).get()).data();
+    expect(pending.aiLookups).toBe(2);
+    expect(pending.suggestion).toBeUndefined();
+  });
+
+  it("can reuse a recent Claude suggestion when reuse is switched on", async () => {
+    const deps = { apiKey: "test-key", assertNotRateLimited: async () => {}, reuseAiSuggestions: true };
+    const call = (uid) => handleLookupBarcode(db, { auth: { uid }, data: { barcode: UPC, useAxe: true } }, deps);
+    await call("bc-alice");
+    const second = await call("bc-bob");
     expect(sent).toHaveLength(1);
     expect(second).toMatchObject({ status: "suggested", costUsd: 0, axe: { cached: true } });
     expect(second.axe.candidates).toHaveLength(3);
   });
 
-  it("asks again once the stored suggestion has expired", async () => {
+  it("asks again once a stored suggestion has expired", async () => {
     await db.doc(`upcPending/${GTIN}`).set({ suggestion: { provider: "claude", expiresAt: Date.now() - 1, result: { identified: true, candidates: [] } } });
-    await lookup("bc-alice", { barcode: UPC, useAxe: true });
+    const deps = { apiKey: "test-key", assertNotRateLimited: async () => {}, reuseAiSuggestions: true };
+    await handleLookupBarcode(db, { auth: { uid: "bc-alice" }, data: { barcode: UPC, useAxe: true } }, deps);
     expect(sent).toHaveLength(1);
   });
 
@@ -245,6 +268,11 @@ describe("identifyBottleLabel", () => {
   it("derives proof from a printed ABV", async () => {
     reply = claudeReply({ ...LABEL_REPLY, label: { name: "Example", abv: 53.5 } });
     expect((await label("bc-alice", { imageBase64: IMAGE })).axe.label.proof).toBe(107);
+  });
+
+  it("is limited to Phase 0 testers", async () => {
+    await expect(label("bc-carol", { imageBase64: IMAGE })).rejects.toMatchObject({ code: "permission-denied" });
+    expect(sent).toHaveLength(0);
   });
 
   it("has its own rate limit", async () => {

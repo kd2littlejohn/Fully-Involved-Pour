@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/layout/PageHeader'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { isMockAuthEnabled } from '../../data/devMode'
+import { SignInButton } from '../../components/domain/SignInButton'
 import type { Bottle } from '../../data/types'
 import {
   identifyBottleLabel,
@@ -28,11 +29,15 @@ import { buildNewBottleInput, findInBar, planIncreaseQuantity, type BarMatches }
 import { BarcodeMatchList } from '../../features/barcode/BarcodeMatchList'
 import { BarcodeBottleForm } from '../../features/barcode/BarcodeBottleForm'
 import { BarcodeSaveActions } from '../../features/barcode/BarcodeSaveActions'
+import { buildResultRow, resultsToCsv, type ResultRow } from '../../features/barcode/pocResults'
 import { downscaleImageToJpegBase64, resizeImageFile } from '../../features/ai/imageToBase64'
 import styles from './BarcodePocPage.module.css'
 
-// Scan Barcode — Phase 0 proof of concept. Dev builds only (see router.tsx):
-// never part of the production app, and never linked from Add Bottle.
+// Scan Barcode — Phase 0 proof of concept. Dev builds and the temporary
+// barcode preview channel only (see router.tsx): never part of the live
+// app, and never linked from Add Bottle. On the preview channel nothing is
+// ever saved — Add / Increase show what would happen (a dry run) — because
+// that build talks to the real Firebase project.
 //
 // The flow it proves out (docs/BARCODE_POC.md):
 //   scan → FIP catalog + your own saved entries (free) → pick your release
@@ -40,59 +45,29 @@ import styles from './BarcodePocPage.module.css'
 //   check the details (every value tagged with where it came from) →
 //   Increase Quantity on a bottle you already have, or add to My Bar or
 //   Wishlist through the existing inventory hooks.
-// It also records ground truth for the 30-bottle test and exports the CSV
-// that scripts/barcode-poc.js grades Claude and Gemini against.
+// It also records each confirmed bottle for the 30-bottle field test; the
+// results are copied or shared from the phone (no terminal needed) and
+// summarized by scripts/barcode-poc-summary.js.
 
-type VariantKind = 'standard' | 'barrel-proof-batch' | 'single-barrel' | 'store-pick'
-
-interface SampleRow {
-  at: string
-  gtin13: string
-  upcA: string
-  symbology: string
-  mode: 'live' | 'photo' | 'typed'
-  engine: string
-  msToCamera: number | ''
-  msToDecode: number | ''
-  rejectedReads: number | ''
-  catalogStatus: string
-  verifiedCandidates: number | ''
-  expectedName: string
-  expectedDistillery: string
-  expectedProof: string
-  expectedBatch: string
-  variantKind: VariantKind
-  device: string
-}
-
-const SAMPLES_KEY = 'fip-barcode-poc-samples'
-const VARIANT_LABELS: Record<VariantKind, string> = {
-  standard: 'Standard release',
-  'barrel-proof-batch': 'Barrel-proof batch',
-  'single-barrel': 'Single barrel',
-  'store-pick': 'Store pick',
-}
+const RESULTS_KEY = 'fip-barcode-poc-results'
+// The preview channel is a production-mode build: there, saving is a dry run.
+const DRY_RUN = !import.meta.env.DEV
 const USING_EMULATORS = import.meta.env.VITE_FIREBASE_EMULATORS === 'true'
 
-function readSamples(): SampleRow[] {
+function readResults(): ResultRow[] {
   try {
-    return JSON.parse(localStorage.getItem(SAMPLES_KEY) || '[]') as SampleRow[]
+    return JSON.parse(localStorage.getItem(RESULTS_KEY) || '[]') as ResultRow[]
   } catch {
     return []
   }
 }
 
-function writeSamples(rows: SampleRow[]) {
+function writeResults(rows: ResultRow[]) {
   try {
-    localStorage.setItem(SAMPLES_KEY, JSON.stringify(rows))
+    localStorage.setItem(RESULTS_KEY, JSON.stringify(rows))
   } catch {
-    // Private mode / storage full — the in-memory list still exports.
+    // Private mode / storage full — the in-memory list can still be copied.
   }
-}
-
-function csvCell(value: unknown): string {
-  const text = String(value ?? '')
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -127,7 +102,7 @@ export function BarcodePocPage() {
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [decoded, setDecoded] = useState<DecodedBarcode | null>(null)
-  const [mode, setMode] = useState<SampleRow['mode']>('live')
+  const [mode, setMode] = useState<'live' | 'photo' | 'typed'>('live')
   const [stats, setStats] = useState<LiveScanStats | null>(null)
   const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null)
   const [typed, setTyped] = useState('')
@@ -146,12 +121,11 @@ export function BarcodePocPage() {
   const [submitForReview, setSubmitForReview] = useState(false)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
 
-  const [expectedName, setExpectedName] = useState('')
-  const [expectedDistillery, setExpectedDistillery] = useState('')
-  const [expectedProof, setExpectedProof] = useState('')
-  const [expectedBatch, setExpectedBatch] = useState('')
-  const [variantKind, setVariantKind] = useState<VariantKind>('standard')
-  const [samples, setSamples] = useState<SampleRow[]>(readSamples)
+  const [initialDraft, setInitialDraft] = useState<BottleDraft | null>(null)
+  const [axeUsed, setAxeUsed] = useState(false)
+  const [results, setResults] = useState<ResultRow[]>(readResults)
+  const [resultsStatus, setResultsStatus] = useState<string | null>(null)
+  const [recorded, setRecorded] = useState(false)
 
   useEffect(() => {
     void hasNativeDetector().then(setNativeAvailable)
@@ -183,6 +157,9 @@ export function BarcodePocPage() {
     setLabelPhoto(null)
     setSelected(null)
     setDraft(null)
+    setInitialDraft(null)
+    setAxeUsed(false)
+    setRecorded(false)
     setError(null)
     setSaveStatus(null)
   }
@@ -205,7 +182,9 @@ export function BarcodePocPage() {
 
   function accept(result: DecodedBarcode) {
     setDecoded(result)
-    if (!result.normalized.restricted) void runCatalogLookup(result.normalized.gtin13)
+    // The catalog lookup is a Cloud Function and needs a signed-in account;
+    // scanning, timing and recording work without one.
+    if (!result.normalized.restricted && user) void runCatalogLookup(result.normalized.gtin13)
   }
 
   async function startScan() {
@@ -263,6 +242,7 @@ export function BarcodePocPage() {
 
   async function askAxe() {
     if (!gtin13) return
+    setAxeUsed(true)
     setBusy('axe')
     setError(null)
     const started = performance.now()
@@ -288,7 +268,11 @@ export function BarcodePocPage() {
       setLabelMs(Math.round(performance.now() - started))
       setLabelScan(result)
       // Re-apply what the label shows to a bottle already being edited.
-      if (selected) setDraft(draftFromOption(selected, result.axe.label))
+      if (selected) {
+        const next = draftFromOption(selected, result.axe.label)
+        setDraft(next)
+        setInitialDraft(next)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "AXE can't read this label right now.")
     } finally {
@@ -298,20 +282,27 @@ export function BarcodePocPage() {
   }
 
   function choose(option: BarcodeOption) {
+    const next = draftFromOption(option, labelScan?.axe.label ?? null)
     setSelected(option)
-    setDraft(draftFromOption(option, labelScan?.axe.label ?? null))
+    setDraft(next)
+    setInitialDraft(next)
+    setRecorded(false)
     setSaveStatus(null)
   }
 
   function enterManually() {
+    const next = draftFromLabel(labelScan?.axe.label ?? null)
     setSelected(null)
-    setDraft(draftFromLabel(labelScan?.axe.label ?? null))
+    setDraft(next)
+    setInitialDraft(next)
+    setRecorded(false)
     setSaveStatus(null)
   }
 
   // Remembers what this barcode turned out to be, privately, so the next
   // scan answers from it for free. Skipped without a real barcode or user.
   async function recordEntry(bottleId: string | undefined) {
+    if (DRY_RUN) return 'not remembered (preview)'
     if (!user || isMockAuthEnabled() || !gtin13 || !draft) return 'not recorded (no barcode or no signed-in user)'
     if (lookup?.yours.some((e) => e.bottleId && e.bottleId === bottleId)) return 'already remembered'
     await saveBarcodeEntry(user.uid, {
@@ -346,6 +337,7 @@ export function BarcodePocPage() {
     void save(async () => {
       const input = buildNewBottleInput(draftToBottle(draft), status, printed)
       if (!printed) delete input.upc
+      if (DRY_RUN) return { bottleId: undefined, message: `Preview — nothing saved. This would add "${input.name}" to ${status === 'wishlist' ? 'Wishlist' : 'My Bar'}.` }
       const bottleId = await addBottle(input)
       return { bottleId, message: `Added "${input.name}" to ${status === 'wishlist' ? 'Wishlist' : 'My Bar'}.` }
     })
@@ -354,6 +346,13 @@ export function BarcodePocPage() {
   function increase(bottle: Bottle) {
     void save(async () => {
       const plan = planIncreaseQuantity(bottle, generateId)
+      if (DRY_RUN) {
+        const would =
+          plan.kind === 'move-to-bar'
+            ? `move "${bottle.name}" from Wishlist to My Bar`
+            : `raise "${bottle.name}" to ${plan.kind === 'update' ? plan.quantity : (bottle.instances?.length ?? 1) + 1} bottles`
+        return { bottleId: undefined, message: `Preview — nothing saved. This would ${would}.` }
+      }
       if (plan.kind === 'add-instance') await addBottleInstance(bottle.id)
       else await updateBottle(bottle.id, plan.patch)
       const message =
@@ -364,57 +363,55 @@ export function BarcodePocPage() {
     })
   }
 
-  function recordSample() {
-    if (!decoded) return
-    const row: SampleRow = {
-      at: new Date().toISOString(),
-      gtin13: decoded.normalized.gtin13,
-      upcA: decoded.normalized.upcA ?? '',
-      symbology: decoded.normalized.symbology,
-      mode,
-      engine: mode === 'typed' ? 'typed' : decoded.engine,
-      msToCamera: mode === 'live' ? (stats?.msToCamera ?? '') : '',
-      msToDecode: mode === 'typed' ? '' : decoded.msToDecode,
-      rejectedReads: mode === 'live' ? (stats?.rejectedReads ?? '') : '',
-      catalogStatus: lookup?.status ?? '',
-      verifiedCandidates: lookup ? lookup.verified.length : '',
-      expectedName: expectedName.trim(),
-      expectedDistillery: expectedDistillery.trim(),
-      expectedProof: expectedProof.trim(),
-      expectedBatch: expectedBatch.trim(),
-      variantKind,
+  function recordBottle() {
+    if (!draft || !initialDraft || !draft.values.name.trim()) return
+    const row = buildResultRow({
+      decoded,
+      scanMode: decoded ? mode : 'label-only',
+      stats,
+      lookup,
+      catalogMs,
+      axeUsed,
+      axeMs,
+      labelScan,
+      labelMs,
+      options,
+      picked: selected,
+      initialDraft,
+      finalDraft: draft,
       device: navigator.userAgent,
+    })
+    const next = [...results, row]
+    setResults(next)
+    writeResults(next)
+    setRecorded(true)
+    setResultsStatus(`Recorded bottle ${next.length} of 30.`)
+  }
+
+  async function copyResults() {
+    try {
+      await navigator.clipboard.writeText(resultsToCsv(results))
+      setResultsStatus(`Copied ${results.length} results. Paste them into your chat with Claude.`)
+    } catch {
+      setResultsStatus('Copy failed on this browser — use Share or Download instead.')
     }
-    const next = [...samples, row]
-    setSamples(next)
-    writeSamples(next)
-    setExpectedName('')
-    setExpectedDistillery('')
-    setExpectedProof('')
-    setExpectedBatch('')
-    setVariantKind('standard')
   }
 
-  function exportCsv() {
-    const header = [
-      'gtin13', 'upc_a', 'symbology', 'expected_name', 'expected_distillery', 'expected_proof', 'expected_batch',
-      'variant_kind', 'mode', 'engine', 'ms_to_camera', 'ms_to_decode', 'rejected_reads', 'catalog_status',
-      'verified_candidates', 'device', 'recorded_at',
-    ]
-    const lines = samples.map((s) =>
-      [
-        s.gtin13, s.upcA, s.symbology, s.expectedName, s.expectedDistillery, s.expectedProof, s.expectedBatch,
-        s.variantKind, s.mode, s.engine, s.msToCamera, s.msToDecode, s.rejectedReads, s.catalogStatus,
-        s.verifiedCandidates, s.device, s.at,
-      ].map(csvCell).join(','),
-    )
-    downloadBlob(new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' }), 'barcode-poc-sample.csv')
+  async function shareResults() {
+    const file = new File([resultsToCsv(results)], 'fip-barcode-results.csv', { type: 'text/csv' })
+    try {
+      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: 'FIP barcode results' })
+      else await navigator.share({ title: 'FIP barcode results', text: resultsToCsv(results) })
+    } catch {
+      // Cancelled, or sharing isn't available — Copy and Download still work.
+    }
   }
 
-  function clearSamples() {
-    if (!window.confirm(`Delete all ${samples.length} recorded samples on this device?`)) return
-    setSamples([])
-    writeSamples([])
+  function clearResults() {
+    if (!window.confirm(`Delete all ${results.length} recorded bottles on this device?`)) return
+    setResults([])
+    writeResults([])
+    setResultsStatus(null)
   }
 
   const axe = lookup?.axe
@@ -437,15 +434,20 @@ export function BarcodePocPage() {
           <dd>{nativeAvailable === null ? 'Checking…' : nativeAvailable ? 'Yes (UPC-A, UPC-E, EAN-13)' : 'No — ZXing will be used'}</dd>
           <dt>Saving goes to</dt>
           <dd>
-            {isMockAuthEnabled()
-              ? 'Mock data (nothing is written)'
-              : USING_EMULATORS
-                ? 'The local emulators'
-                : 'The signed-in account’s real My Bar'}
+            {DRY_RUN
+              ? 'Nothing — this preview never changes your bar'
+              : isMockAuthEnabled()
+                ? 'Mock data (nothing is written)'
+                : USING_EMULATORS
+                  ? 'The local emulators'
+                  : 'The signed-in account’s real My Bar'}
           </dd>
+          <dt>Signed in</dt>
+          <dd>{user ? (user.email ?? 'Yes') : 'No — scanning works; sign in for FIP’s catalog and AXE'}</dd>
           <dt>Browser</dt>
           <dd className={styles.small}>{navigator.userAgent}</dd>
         </dl>
+        {!user ? <SignInButton /> : null}
         <div className={styles.row}>
           <Field label="Decoder" htmlFor="poc-engine">
             <select id="poc-engine" className={controlClassName} value={enginePref} onChange={(e) => setEnginePref(e.target.value as EnginePreference)}>
@@ -515,7 +517,7 @@ export function BarcodePocPage() {
             Save barcode photo for the AI photo test
           </Button>
         ) : null}
-        {!decoded ? (
+        {!decoded && user ? (
           <Button variant="ghost" onClick={() => labelInputRef.current?.click()} disabled={busy === 'label'}>
             {busy === 'label' ? 'Reading label…' : 'No barcode? Scan Front Label with AXE'}
           </Button>
@@ -562,9 +564,10 @@ export function BarcodePocPage() {
             selectedKey={selected?.key ?? null}
             inBarKeys={inBarKeys}
             onSelect={choose}
-            onAskAxe={gtin13 && !decoded?.normalized.restricted && !axe ? () => void askAxe() : undefined}
+            onAskAxe={user && gtin13 && !decoded?.normalized.restricted && !axe ? () => void askAxe() : undefined}
             askAxeBusy={busy === 'axe'}
-            onScanLabel={() => labelInputRef.current?.click()}
+            onScanLabel={user ? () => labelInputRef.current?.click() : undefined}
+            emptyText={user ? undefined : 'Sign in to check FIP’s catalog and use AXE. You can still enter this bottle manually.'}
             scanLabelBusy={busy === 'label'}
             onManual={enterManually}
           />
@@ -608,47 +611,42 @@ export function BarcodePocPage() {
           />
           {!user ? <p className={styles.small}>Sign in to save.</p> : null}
           {saveStatus ? <output className={styles.small}>{saveStatus}</output> : null}
+          <h3 className={styles.subheading}>Field test</h3>
+          <p className={styles.small}>
+            Once the details above match the label in your hand, record this bottle. Its corrected details are the ground truth.
+          </p>
+          <Button variant={recorded ? 'secondary' : 'primary'} onClick={recordBottle} disabled={!draft.values.name.trim() || recorded}>
+            {recorded ? 'Recorded' : `Record this bottle (${results.length + 1} of 30)`}
+          </Button>
         </section>
       ) : null}
 
       <section className={styles.card}>
-        <h2 className={styles.heading}>Test sample ({samples.length} of 30)</h2>
+        <h2 className={styles.heading}>Field test results ({results.length} of 30)</h2>
         <p className={styles.small}>
-          After each scan, write down what the bottle in your hand actually is. That ground truth is what Claude and Gemini are
-          graded against. Include standard releases, barrel-proof batches, single barrels and store picks.
+          Aim for 30 bottles, including at least 5 each of barrel-proof batches, single barrels and store picks. Results stay on this
+          phone until you copy or share them.
         </p>
-        <div className={styles.form}>
-          <Field label="Actual bottle (from the label)" htmlFor="poc-expected-name">
-            <input id="poc-expected-name" className={controlClassName} value={expectedName} onChange={(e) => setExpectedName(e.target.value)} />
-          </Field>
-          <Field label="Actual distillery" htmlFor="poc-expected-distillery">
-            <input id="poc-expected-distillery" className={controlClassName} value={expectedDistillery} onChange={(e) => setExpectedDistillery(e.target.value)} />
-          </Field>
-          <Field label="Proof on the label (if printed)" htmlFor="poc-expected-proof">
-            <input id="poc-expected-proof" className={controlClassName} inputMode="decimal" value={expectedProof} onChange={(e) => setExpectedProof(e.target.value)} />
-          </Field>
-          <Field label="Batch or barrel on the label (if printed)" htmlFor="poc-expected-batch">
-            <input id="poc-expected-batch" className={controlClassName} value={expectedBatch} onChange={(e) => setExpectedBatch(e.target.value)} />
-          </Field>
-          <Field label="Kind" htmlFor="poc-variant">
-            <select id="poc-variant" className={controlClassName} value={variantKind} onChange={(e) => setVariantKind(e.target.value as VariantKind)}>
-              {Object.entries(VARIANT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </Field>
-        </div>
         <div className={styles.actions}>
-          <Button onClick={recordSample} disabled={!decoded || !expectedName.trim()}>Record this scan</Button>
-          <Button variant="secondary" onClick={exportCsv} disabled={samples.length === 0}>Export CSV</Button>
-          <Button variant="danger" onClick={clearSamples} disabled={samples.length === 0}>Clear</Button>
+          <Button onClick={() => void copyResults()} disabled={results.length === 0}>Copy results</Button>
+          <Button variant="secondary" onClick={() => void shareResults()} disabled={results.length === 0}>Share…</Button>
+          <Button
+            variant="secondary"
+            onClick={() => downloadBlob(new Blob([resultsToCsv(results)], { type: 'text/csv' }), 'fip-barcode-results.csv')}
+            disabled={results.length === 0}
+          >
+            Download
+          </Button>
+          <Button variant="danger" onClick={clearResults} disabled={results.length === 0}>Clear</Button>
         </div>
-        {samples.length > 0 ? (
+        {resultsStatus ? <output className={styles.small}>{resultsStatus}</output> : null}
+        {results.length > 0 ? (
           <ol className={styles.samples}>
-            {samples.map((s) => (
-              <li key={`${s.at}-${s.gtin13}`}>
-                {s.expectedName} · {s.gtin13} · {VARIANT_LABELS[s.variantKind]} · {s.mode}
-                {s.msToDecode !== '' ? ` · ${s.msToDecode} ms` : ''}
+            {results.map((r) => (
+              <li key={`${r.recorded_at}-${r.gtin13}`}>
+                {r.expected_name} · {r.picked_from}
+                {r.corrected_fields ? ` · fixed ${r.corrected_fields}` : ''}
+                {r.ms_to_decode ? ` · ${r.ms_to_decode} ms` : ''}
               </li>
             ))}
           </ol>

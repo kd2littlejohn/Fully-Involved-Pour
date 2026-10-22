@@ -4,13 +4,20 @@
 // lookupBarcode({ barcode, useAxe? })
 //   1. upcMappings/{gtin13}.candidates          FIP-verified releases (shared)
 //   2. users/{uid}/barcodeEntries (this gtin13)  this user's own saved entries
-//   3. only with useAxe: Claude + web search, reusing a recent unverified
-//      Claude suggestion for the same barcode from upcPending when there is
-//      one, so a popular unknown barcode isn't paid for again and again.
+//   3. only with useAxe: Claude + web search. Reusing a recent unverified
+//      Claude suggestion for the same barcode (upcPending) is built in but
+//      OFF (REUSE_AI_SUGGESTIONS) until its storage terms are signed off —
+//      see docs/BARCODE_POC.md.
 //
 // identifyBottleLabel({ barcode?, imageBase64, mediaType })
 //   "Scan Front Label with AXE": Claude reads the label photo, combined with
 //   the barcode when there is one. Never cached (it describes one photo).
+//
+// While this is a proof of concept, the two AI paths are limited to tester
+// accounts listed in barcodePocTesters/{uid} (created by hand in the
+// Firebase console; no client can read or write it), so a public preview
+// link can't run up AI cost. The free catalog lookup is open to any
+// signed-in user.
 //
 // One barcode can return several candidates. Nothing here picks one: the
 // user chooses, and only what they confirm is saved (to their own private
@@ -27,6 +34,9 @@ const AI_LOOKUPS_PER_HOUR = 20;
 const LABEL_SCANS_PER_HOUR = 20;
 // How long an unverified Claude suggestion is reused for the same barcode.
 const AI_SUGGESTION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// Off until Anthropic's terms for storing web-search-derived output are
+// signed off, and so Phase 0 latency/cost numbers aren't skewed by reuse.
+const REUSE_AI_SUGGESTIONS = false;
 const MAX_IMAGE_BASE64 = 7000000;
 
 const BOTTLE_FIELDS = [
@@ -58,6 +68,13 @@ function costUsd(call) {
   return typeof call?.cost?.total === "number" ? call.cost.total : null;
 }
 
+async function assertTester(db, uid) {
+  const tester = await db.doc(`barcodePocTesters/${uid}`).get();
+  if (!tester.exists) {
+    throw new HttpsError("permission-denied", "AXE barcode identification is limited to Phase 0 testers for now.");
+  }
+}
+
 async function readCatalog(db, uid, gtin13) {
   const [mapping, entries] = await Promise.all([
     db.doc(`upcMappings/${gtin13}`).get(),
@@ -79,7 +96,7 @@ async function readCatalog(db, uid, gtin13) {
   };
 }
 
-async function handleLookupBarcode(db, request, { apiKey, assertNotRateLimited, now = Date.now }) {
+async function handleLookupBarcode(db, request, { apiKey, assertNotRateLimited, now = Date.now, reuseAiSuggestions = REUSE_AI_SUGGESTIONS }) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to look up barcodes.");
   const uid = request.auth.uid;
 
@@ -103,8 +120,9 @@ async function handleLookupBarcode(db, request, { apiKey, assertNotRateLimited, 
     return { ...base, status: verified.length || yours.length ? "matched" : "no-match", verified, yours };
   }
 
-  const pending = await pendingRef.get();
-  const cached = pending.exists ? pending.data().suggestion : null;
+  await assertTester(db, uid);
+  const pending = reuseAiSuggestions ? await pendingRef.get() : null;
+  const cached = pending?.exists ? pending.data().suggestion : null;
   if (cached && cached.provider === "claude" && cached.expiresAt > now() && cached.result) {
     return { ...base, status: cached.result.identified ? "suggested" : "not-found", verified, yours, axe: { ...cached.result, cached: true }, latencyMs: 0, costUsd: 0 };
   }
@@ -123,13 +141,16 @@ async function handleLookupBarcode(db, request, { apiKey, assertNotRateLimited, 
     JSON.stringify({ gtin13, model: call.model, identified: result.identified, candidates: result.candidates.length, guard, latencyMs: call.latencyMs, cost: call.cost }),
   );
   // Claude output only (never Gemini — its grounding terms restrict storing
-  // results). Unverified; server-only; reused for a limited time.
+  // results). Unverified; server-only; reused for a limited time, and only
+  // when reuse is switched on. The lookup count is kept either way.
   await pendingRef.set(
     {
       gtin13,
       aiLookups: FieldValue.increment(1),
       lastLookupAt: now(),
-      suggestion: { provider: "claude", model: call.model, at: now(), expiresAt: now() + AI_SUGGESTION_TTL_MS, result },
+      ...(reuseAiSuggestions
+        ? { suggestion: { provider: "claude", model: call.model, at: now(), expiresAt: now() + AI_SUGGESTION_TTL_MS, result } }
+        : {}),
     },
     { merge: true },
   );
@@ -162,6 +183,7 @@ async function handleIdentifyBottleLabel(db, request, { apiKey, assertNotRateLim
     if (normalized.restricted) normalized = null;
   }
 
+  await assertTester(db, uid);
   await assertNotRateLimited(uid, "identifyBottleLabel", { maxCalls: LABEL_SCANS_PER_HOUR });
   let call;
   try {
@@ -185,4 +207,4 @@ async function handleIdentifyBottleLabel(db, request, { apiKey, assertNotRateLim
   };
 }
 
-module.exports = { handleLookupBarcode, handleIdentifyBottleLabel, AI_LOOKUPS_PER_HOUR, LABEL_SCANS_PER_HOUR, AI_SUGGESTION_TTL_MS };
+module.exports = { handleLookupBarcode, handleIdentifyBottleLabel, AI_LOOKUPS_PER_HOUR, LABEL_SCANS_PER_HOUR, AI_SUGGESTION_TTL_MS, REUSE_AI_SUGGESTIONS };

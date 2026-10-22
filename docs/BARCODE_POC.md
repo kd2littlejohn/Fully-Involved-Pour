@@ -44,7 +44,8 @@ variable-proof release is never pre-filled with a proof.
 |---|---|---|
 | `upcMappings/{gtin13}` | `status: "verified"`, `candidates: [...]`: every verified release for that barcode. A candidate can be a whole product line ("proof varies") or one specific batch, barrel or store pick with its own proof. | Signed-in users read. **No client writes.** Administrators only. |
 | `users/{uid}/barcodeEntries/{id}` | What this user said a barcode is, one entry per release they saved, with the My Bar bottle it became and an opt-in `submitForReview`. | **Owner only.** Never read by anyone else's lookup. No price field. |
-| `upcPending/{gtin13}` | Server-only review queue: how often an unknown barcode was looked up, plus the last unverified **Claude** suggestion, reused for 30 days. | **No client access.** Never holds Gemini output. |
+| `upcPending/{gtin13}` | Server-only review queue: how often an unknown barcode was looked up. Can also hold the last unverified **Claude** suggestion for 30-day reuse, but that is **off** (`REUSE_AI_SUGGESTIONS = false`) until the terms review below is signed off. | **No client access.** Never holds Gemini output. |
+| `barcodePocTesters/{uid}` | The accounts allowed to run AXE during Phase 0, added by hand in the Firebase console. Stops a public preview link from running up AI cost. | **No client access.** |
 
 **How the catalog grows.** Users save what they own, privately. Some tick
 "Suggest for FIP's shared catalog". An administrator runs
@@ -57,7 +58,7 @@ another user without that check.
 **Avoiding repeat AI cost:**
 - Verified barcodes cost $0 for everyone.
 - A barcode a user saved costs that user $0.
-- An unknown barcode that someone already asked AXE about is answered from the stored Claude suggestion for 30 days, still labelled *not verified*.
+- Built in but **off for now**: reusing a stored Claude suggestion for an unknown barcode for 30 days. Turning it on is a one-line change once the terms are signed off. It also stays off during the field test so latency and cost aren't understated.
 
 **Licensing.** Only Claude output is ever stored, and only server-side and
 time-limited. Grounded Gemini results are never stored (see the Gemini
@@ -78,7 +79,9 @@ paid barcode database is used.
 | Claude / Gemini providers (barcode, barcode-photo and label modes) | `functions/barcode/providers/` |
 | Catalog review and promotion | `functions/barcode/review.js`, `functions/scripts/barcode-review.js` |
 | Claude vs Gemini comparison | `functions/scripts/barcode-poc.js`, `functions/barcode/grade.js` |
-| Dev PoC page, route `#/dev/barcode`, dev builds only | `web/src/pages/Dev/BarcodePocPage.tsx` |
+| Dev PoC page, route `#/dev/barcode`, dev builds and the preview channel only | `web/src/pages/Dev/BarcodePocPage.tsx` |
+| Field-test recording and CSV, and the offline summary | `web/src/features/barcode/pocResults.ts`, `functions/barcode/pocSummary.js`, `functions/scripts/barcode-poc-summary.js` |
+| Temporary preview channel, label-triggered | `.github/workflows/barcode-preview.yml` |
 
 ## Findings so far (measured in this environment)
 
@@ -168,12 +171,88 @@ undefined inside the Functions emulator runtime (it worked under unit tests),
 so the unknown-barcode counter threw. It now imports `FieldValue` from
 `firebase-admin/firestore`, as the Party Mode service does.
 
-## Running the 30-bottle test
+## Testing on your iPhone (no terminal)
 
-### Step 1: scan on real phones (no AI, no cost)
+The page runs on a **temporary Firebase Hosting preview channel**: a
+separate HTTPS address that expires after 7 days. The live site is never
+touched, and no functions, rules or indexes are deployed. In this build the
+page **never writes to My Bar**: Add and Increase show what *would* happen.
 
-The camera needs HTTPS, so the dev server needs a certificate. This uses
-only OpenSSL, nothing to install:
+### One-time setup (GitHub and Firebase websites, about 5 minutes)
+
+1. **Start the preview.** On PR #42 in the GitHub app or website, tap **Labels** and add `barcode-preview` (create it the first time). After about 4 minutes a bot comments a link such as `https://fully-involved-pour--barcode-poc-xxxxxxxx.web.app`. Every later push refreshes the same address. Removing the label stops new previews. If the job fails asking for credentials, tell me: the deploy key may be limited to the production environment.
+2. **Let Google sign-in work there** (needed for FIP's catalog and AXE; scanning works without it). Firebase console → Authentication → Settings → **Authorized domains** → Add domain → paste the preview address without `https://`.
+3. **AXE on the phone** also needs the two barcode functions deployed (see "Real AXE lookups" below) and your account on the tester list. Firebase console → Authentication → Users → copy your **User UID**. Then Firestore → Start collection `barcodePocTesters` → Document ID = that UID → add a field `addedBy` (string) → Save.
+
+### Scanning 30 bottles
+
+Open the link **plus `/#/dev/barcode`** in Safari on your iPhone. Optionally
+add it to your Home Screen to test that too. Sign in, allow the camera, then
+for each bottle:
+
+1. Tap **Scan Barcode** and hold the barcode inside the frame. If it won't read, try **Decode a photo**, or type the digits.
+2. **Pick your bottle** from the list. If it isn't there, try **Ask AXE about this barcode** or **Scan Front Label with AXE**, or **Enter details manually**.
+3. **Fix anything that doesn't match the label in your hand** (name, proof, batch, barrel, store pick, release). What you correct is how accuracy is measured.
+4. Tap **Record this bottle**.
+
+Aim for at least 5 each of barrel-proof batches, single barrels and store
+picks. Results stay on the phone until you send them.
+
+### Sending the results
+
+- **Copy results**, then paste into your chat with Claude. That's private, and I'll summarize them with `functions/scripts/barcode-poc-summary.js` (offline, no keys).
+- Or **Share…** to Mail, Notes, Messages or Files, or **Download**.
+- Avoid pasting them into the PR: the repository is public.
+
+### Afterwards
+
+Remove the label (the channel also expires on its own after 7 days), remove
+the authorized domain, and delete the `barcodePocTesters` document.
+
+## Real AXE lookups without exposing keys
+
+Yes, through FIP's existing infrastructure. `lookupBarcode` and
+`identifyBottleLabel` are Cloud Functions that read `ANTHROPIC_API_KEY` from
+Google Secret Manager (`defineSecret`), exactly like AXE and Scan Label with
+AI today. The phone only ever sends a Firebase sign-in token and gets
+results back. The key is never in the page, the preview build, GitHub or
+logs. Extra safeguards for Phase 0:
+- AI calls are limited to `barcodePocTesters`.
+- AI calls are rate-limited per user (20 per hour per path).
+- Answers are not stored.
+
+**What it needs:** those two functions deployed to the production Firebase
+project. Production itself is unaffected: they're new, nothing in the live
+app calls them, and they only add the `upcPending` counter. By design the
+keyless deploy pipeline only deploys from `main`, so the options are:
+- **(Recommended)** I open a small separate PR with only the barcode backend (`functions/barcode`, the two exports, and the `barcodePocTesters` rule). You approve and merge it. Then you run **Actions → Deploy Cloud Functions → Run workflow** with target `functions:lookupBarcode,functions:identifyBottleLabel` and approve the production-functions gate. No terminal needed, and #42 stays a draft.
+- Or deploy those two functions yourself from a terminal.
+
+Until one of these happens, the phone test covers scanning, the candidate
+list, manual entry and recording, and AXE buttons show an error.
+
+## Anthropic terms review (30-day reuse of AI answers)
+
+Reviewed 2026-10-22:
+- [Commercial Terms](https://www.anthropic.com/legal/commercial-terms): the customer **owns Outputs**, and there's no clause restricting storing, caching or redistributing them.
+- [Service Specific Terms](https://www.anthropic.com/legal/service-specific-terms): nothing about web search.
+- [Web search tool documentation](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool): *"When displaying API outputs directly to end users, citations must be included to the original source. If you are making modifications to API outputs, including by reprocessing or combining them with your own material before displaying them to end users, display citations as appropriate based on consultation with your legal team."*
+
+**Conclusion:** I found no Anthropic term against storing and reusing these
+suggestions, provided they're always shown with their sources. FIP reshapes
+the output into candidates, which is the "reprocessing" case where the docs
+say to consult legal. So:
+- Reuse is **disabled** until you or your counsel sign off.
+- Every AXE suggestion now carries its own source links in the candidate list (and in a stored suggestion, if reuse is turned on).
+- Only extracted facts and source URLs are kept, never page content.
+
+This is a reading of the published terms, not legal advice.
+
+## Other ways to test
+
+### Scanning on a laptop dev server
+
+The camera needs HTTPS, so the dev server needs a certificate:
 
 ```sh
 cd web
@@ -182,25 +261,11 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=fip-dev" \
 FIP_DEV_HTTPS_CERT=~/fip-dev-cert.pem FIP_DEV_HTTPS_KEY=~/fip-dev-key.pem npm run dev
 ```
 
-`web/.env.development` turns on mock auth by default, so the page saves to
-in-memory sample data. Scanning, timing and ground-truth recording work
-either way.
+On a phone on the same Wi-Fi, open `https://<laptop-ip>:5173/#/dev/barcode`
+and accept the certificate warning. `web/.env.development` turns on mock
+auth, so saves go to in-memory sample data.
 
-On each phone (same Wi-Fi), open `https://<laptop-ip>:5173/#/dev/barcode`
-and accept the certificate warning once. Test **iPhone Safari**, the
-**iPhone home-screen app**, and **Android Chrome** (once with *Auto*, once
-with *ZXing* forced).
-
-For each of the 30 bottles:
-
-1. Tap **Scan Barcode**, or use **Decode a photo** if live scanning struggles. Note which one worked.
-2. Type the **actual bottle and distillery from the label**, and pick the kind: standard release, barrel-proof batch, single barrel or store pick. Aim for at least 5 of each non-standard kind.
-3. **Record this scan.** For the photo test, also tap **Save photo for the AI photo test**. It saves `<gtin13>.jpg`, downscaled.
-
-Then **Export CSV**. The page shows decode time, camera start-up time and
-rejected (misread) frames for each scan.
-
-### Step 2: identification comparison (costs money, needs keys)
+### Claude vs Gemini comparison script (costs money, needs keys)
 
 ```sh
 cd functions
@@ -225,7 +290,7 @@ The output `summary.md` shows, for each provider and mode:
 `results.csv` has a blank `manual_grade` column for checking anything the
 automatic grader marked partial or wrong.
 
-### Step 3: end-to-end flow (optional, emulators, nothing deployed)
+### End-to-end flow on emulators (nothing deployed)
 
 ```sh
 echo "ANTHROPIC_API_KEY=…" > functions/.secret.local      # only needed for AXE
@@ -281,22 +346,64 @@ before production.
 |---|---|
 | Decode (ZXing or built-in) | $0 |
 | Every scan: verified catalog + your entries | 1 document read + 1 small query, effectively $0 |
-| Unknown barcode someone already asked AXE about (within 30 days) | $0 (stored Claude suggestion, labelled not verified) |
+| Unknown barcode someone already asked AXE about (within 30 days) | $0 once reuse is switched on; full price while it's off (today) |
 | Scan Front Label with AXE (Claude vision + up to 3 web searches) | about $0.05–0.12 per label, to be measured by the `label` mode |
 | Unknown barcode, Claude Opus 5.5 + web search | about $0.04–0.10 per lookup (tokens ~$4/$20 per 1M plus $0.01 per search, up to 3 searches) |
 | Unknown barcode, Claude Sonnet 4.6 + web search | similar order, measured by the script |
 | Unknown barcode, Gemini 3 Flash + grounding | tokens about $0.005–0.02; searches $0 within 5,000/month, then about $0.014 each |
 
 AI never runs automatically. It runs only when the user taps Ask AXE or Scan
-Front Label. A barcode costs AI money at most once per 30 days across all
-users, then $0 for everyone once an administrator verifies it.
+Front Label. Once reuse is switched on, a barcode costs AI money at most once
+per 30 days across all users, and $0 for everyone once an administrator
+verifies it.
 
 ## Decisions this needs from you
 
 1. **Approve Gemini setup for the comparison** (option A above, AI Studio key, budget alert). The 30-bottle Claude run can happen first without it.
 2. **Run the 30-bottle test** (steps 1–2). Phone testing has to be done on your devices.
 3. Before production: read the storage terms for whichever AI wins (Gemini grounding, and Claude web search for the 30-day reuse).
-4. Agree the naming convention for batch, barrel and store pick in My Bar ("… — Batch C924", "… — Barrel 77 — Store Pick"), or approve dedicated optional fields on `Bottle` in Phase 1.
+4. Approve (or adjust) the release-field proposal above for Phase 1.
+5. To test AXE on the phone: approve the small backend-only PR and functions deploy described under "Real AXE lookups".
+
+## Proposal: release fields on `Bottle` (for approval, not built)
+
+Today's PoC folds batch, barrel and store pick into the bottle name. That
+works with every screen as-is, but it isn't structured. The proposal is new
+**optional** fields on `Bottle`. Absent means exactly today's behaviour, so
+existing bottles need no migration.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `releaseKind` | `'standard' \| 'barrel-proof-batch' \| 'single-barrel' \| 'store-pick' \| 'limited-release'` | What kind of release this is |
+| `batch` | string | Batch as printed, e.g. "C924", "2024-03" |
+| `barrelNumber` | string | Barrel or cask number as printed |
+| `storePick` | string | Who picked it, e.g. "Total Wine", "Bourbon Club of Ohio" |
+| `proofSource` | `'catalog' \| 'label' \| 'user'` | Where `proof` came from |
+| `upc` | string | **Already exists**; the scanner fills it |
+
+**Release-specific proof:** keep the existing `proof` field rather than
+adding a second one. `proof` already means "this bottle's proof" in about 30
+places (palate scoring, What Should I Pour, AXE Insights, rarity, the FIP
+Guide, Party Mode, friends' views). For a barrel-proof batch or single
+barrel, that *is* the release-specific proof. A separate field would leave
+all of those reading the wrong number. `proofSource` records whether it was
+verified, read from the label, or typed.
+
+**Level:** these fields belong on the `Bottle`, not on individual physical
+bottles (instances). Two batches of the same expression are separate
+releases with separate tastings and ratings, so the scanner already creates
+a separate bottle for each.
+
+**Compatibility, area by area:**
+- **Name:** keep writing the readable suffix too ("… — Batch C924"). Every existing screen then shows the release with no change, and `splitBottleTitle` already turns that suffix into a subtitle. The fields are the structured source the scanner and new code read.
+- **Inventory and quantity:** no change. Fields sit beside `instances`.
+- **Tastings and pours:** no change. They reference `bottleId`.
+- **Rarity:** `detectPickFlags` guesses single barrel / store pick from the name. Prefer `releaseKind` when it's set, falling back to the name. The rarity cache key is unchanged for existing bottles.
+- **Search:** My Bar's `matchesQuery` also matches `batch`, `barrelNumber` and `storePick` (so "C924" or "Total Wine" finds the bottle), and the "store pick" / "single barrel" words use `releaseKind` first.
+- **FIP Guide:** keyed by name + distillery. Strip the release suffix for the key, so every batch shares one guide instead of paying for one per batch.
+- **Sharing with friends:** `sharedCollections` projects an explicit field list. The new fields stay private unless added deliberately.
+- **Firestore rules:** the `users/{uid}` document is owner-only with no per-field rules, so no rules change is needed.
+- **Add / Edit Bottle:** an optional, collapsed "Release details" section; nothing new is required.
 
 ## Phase 1 (production): planned, not started
 
@@ -311,7 +418,9 @@ users, then $0 for everyone once an administrator verifies it.
 
 ## Deploying or merging this Phase 0 branch
 
-Not needed for Phase 0: everything above runs locally. If it is ever merged:
+Not needed for Phase 0. The phone test runs on the preview channel, which
+deploys only while the `barcode-preview` label is on the PR and never touches
+the live site. If it is ever merged:
 
 - The website build is unchanged.
 - `lookupBarcode` and `identifyBottleLabel` are **not** in the automatic functions deploy target, so they aren't deployed.

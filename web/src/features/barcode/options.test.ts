@@ -88,6 +88,7 @@ describe('buildOptions', () => {
     const options = buildOptions(lookup({ verified: [{ id: 'std', ...bottle() }], axe: axe([{ name: 'Example Bourbon', releaseKind: 'standard' }, { name: 'Example Store Pick', releaseKind: 'store-pick' }]) }), labelScan)
     expect(options.map((o) => o.bottle.name)).toEqual(['Example Bourbon', 'Example Store Pick'])
     expect(options[1]).toMatchObject({ trust: 'axe', origin: 'axe-barcode', bottle: { batch: null, barrel: null, storePick: null } })
+    expect(options[0]?.sources).toEqual([])
   })
 
   it('returns nothing when there is no match and no AXE identification', () => {

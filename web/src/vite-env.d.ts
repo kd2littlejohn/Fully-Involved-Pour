@@ -9,3 +9,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// See vite.config.ts `define`: true only in Scan Barcode preview builds.
+declare const __FIP_BARCODE_POC__: boolean

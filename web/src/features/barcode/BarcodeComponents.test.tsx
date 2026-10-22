@@ -36,6 +36,7 @@ const option = (overrides: Partial<BarcodeOption> = {}): BarcodeOption => ({
   bottleId: null,
   savedByYou: false,
   notes: null,
+  sources: [],
   ...overrides,
 })
 
@@ -55,6 +56,15 @@ describe('BarcodeMatchList', () => {
     expect(screen.getByText('AXE suggestion · not verified')).toBeInTheDocument()
     expect(screen.getByText(/Barrel-proof batch · Example Distillery · 750 ml · 124.6 proof · Batch C924/)).toBeInTheDocument()
     expect(screen.getByText(/Store pick · Example Distillery · 750 ml · Proof varies/)).toBeInTheDocument()
+  })
+
+  it('shows the sources behind every AXE suggestion', () => {
+    const withSources = [
+      option({ key: 'axe-barcode:1', trust: 'axe', origin: 'axe-barcode', sources: [{ url: 'https://www.example.com/p/1', title: null }, { url: 'https://shop.example.org/x', title: 'Example Shop' }] }),
+    ]
+    render(<BarcodeMatchList options={withSources} selectedKey={null} onSelect={noop} onScanLabel={noop} onManual={noop} />)
+    expect(screen.getByRole('link', { name: 'example.com' })).toHaveAttribute('href', 'https://www.example.com/p/1')
+    expect(screen.getByRole('link', { name: 'Example Shop' })).toBeInTheDocument()
   })
 
   it('reports the picked bottle and marks it selected', async () => {
@@ -81,6 +91,16 @@ describe('BarcodeMatchList', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Scan Front Label with AXE' }))
     await userEvent.click(screen.getByRole('button', { name: 'Enter details manually' }))
     expect([onAskAxe, onScanLabel, onManual].map((f) => f.mock.calls.length)).toEqual([1, 1, 1])
+  })
+})
+
+describe('BarcodeMatchList when AI is unavailable', () => {
+  it('hides the AXE actions and explains why the list is empty', () => {
+    render(<BarcodeMatchList options={[]} selectedKey={null} onSelect={noop} onManual={noop} emptyText="Sign in to check FIP’s catalog." />)
+    expect(screen.getByText('Sign in to check FIP’s catalog.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Scan Front Label with AXE' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Ask AXE about this barcode' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enter details manually' })).toBeInTheDocument()
   })
 })
 

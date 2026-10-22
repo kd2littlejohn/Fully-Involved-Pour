@@ -1,0 +1,62 @@
+name: Barcode PoC preview
+
+# Temporary HTTPS preview of the Scan Barcode proof of concept, for testing
+# the scanner on a phone (docs/BARCODE_POC.md → "Testing on your iPhone").
+#
+# Runs ONLY while the `barcode-preview` label is on the pull request: adding
+# the label (GitHub app or website) is the go-ahead, removing it stops
+# further previews. It deploys to a Firebase Hosting *preview channel* that
+# expires after 7 days. The live site (channel "live") is never touched, and
+# no Cloud Functions, Firestore rules or indexes are deployed.
+#
+# The build sets FIP_BARCODE_POC=true so the dev-only Barcode PoC page is
+# included (web/vite.config.ts). In that build the page never writes to My
+# Bar: Add and Increase are a dry run.
+#
+# This repository is public: the preview link the deploy action comments on
+# the pull request is visible to anyone. The page holds no secrets, saves
+# nothing, and AXE only runs for accounts in barcodePocTesters.
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write # the deploy action comments the preview link
+  checks: write
+
+concurrency:
+  group: barcode-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Deploy Barcode PoC preview channel
+    # Same-repository branches only: forks never get the deploy credential.
+    if: contains(github.event.pull_request.labels.*.name, 'barcode-preview') && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci
+      - name: Build with the Barcode PoC page included
+        working-directory: web
+        env:
+          FIP_BARCODE_POC: 'true'
+        run: npm run build
+      - name: Deploy to a temporary preview channel (never the live site)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_FULLY_INVOLVED_POUR }}'
+          projectId: fully-involved-pour
+          channelId: barcode-poc
+          expires: 7d

@@ -36,6 +36,7 @@ const { identifyWithClaude, DEFAULT_CLAUDE_MODEL } = require("../barcode/provide
 const { identifyWithGemini, listGeminiModels, DEFAULT_GEMINI_MODEL } = require("../barcode/providers/gemini");
 const { gradeIdentification } = require("../barcode/grade");
 const { PRICES } = require("../barcode/pricing");
+const { parseCsv } = require("../barcode/csv");
 
 // Generous per-call ceilings used only for the up-front estimate.
 const WORST_CASE_PER_CALL = { claude: 0.25, gemini: 0.1 };
@@ -48,29 +49,6 @@ function parseArgs(argv) {
     else args[key] = argv[(i += 1)];
   }
   return args;
-}
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [];
-  let cell = "";
-  let quoted = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') (cell += '"'), (i += 1);
-      else if (ch === '"') quoted = false;
-      else cell += ch;
-    } else if (ch === '"') quoted = true;
-    else if (ch === ",") row.push(cell), (cell = "");
-    else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && text[i + 1] === "\n") i += 1;
-      row.push(cell), rows.push(row), (row = []), (cell = "");
-    } else cell += ch;
-  }
-  if (cell || row.length) row.push(cell), rows.push(row);
-  const [header, ...body] = rows.filter((r) => r.some((c) => c.trim()));
-  return body.map((r) => Object.fromEntries(header.map((h, i) => [h.trim(), (r[i] || "").trim()])));
 }
 
 function csvCell(value) {

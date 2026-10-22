@@ -59,6 +59,8 @@ export interface BarcodeOption {
   /** A verified candidate this user has also saved before. */
   savedByYou: boolean
   notes: string | null
+  /** Web sources behind an AXE suggestion — always shown with it (citations). */
+  sources: { url: string; title: string | null }[]
 }
 
 export const RELEASE_KIND_LABELS: Record<ReleaseKind, string> = {
@@ -124,6 +126,7 @@ export function buildOptions(lookup: BarcodeLookupResult | null, labelScan: Labe
       bottleId: saved?.bottleId ?? null,
       savedByYou: Boolean(saved),
       notes: null,
+      sources: [],
     })
   }
   for (const e of lookup?.yours ?? []) {
@@ -137,16 +140,17 @@ export function buildOptions(lookup: BarcodeLookupResult | null, labelScan: Labe
       bottleId: e.bottleId,
       savedByYou: true,
       notes: null,
+      sources: [],
     })
   }
 
   // AXE suggestions last; skip any that repeat a release already listed.
   const seen = new Set(options.map((o) => `${key(o.bottle.name)}|${o.bottle.releaseKind ?? ''}`))
-  const axeSources: [AxeCandidate[], EntryOrigin][] = [
-    [labelScan?.axe.identified ? labelScan.axe.candidates : [], 'axe-label'],
-    [lookup?.axe?.identified ? lookup.axe.candidates : [], 'axe-barcode'],
+  const axeSources: [AxeCandidate[], EntryOrigin, BarcodeOption['sources']][] = [
+    [labelScan?.axe.identified ? labelScan.axe.candidates : [], 'axe-label', labelScan?.axe.sources ?? []],
+    [lookup?.axe?.identified ? lookup.axe.candidates : [], 'axe-barcode', lookup?.axe?.sources ?? []],
   ]
-  for (const [candidates, origin] of axeSources) {
+  for (const [candidates, origin, sources] of axeSources) {
     for (const c of candidates) {
       const k = `${key(c.name)}|${c.releaseKind}`
       if (seen.has(k)) continue
@@ -160,6 +164,7 @@ export function buildOptions(lookup: BarcodeLookupResult | null, labelScan: Labe
         bottleId: null,
         savedByYou: false,
         notes: c.notes,
+        sources,
       })
     }
   }

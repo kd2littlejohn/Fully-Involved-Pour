@@ -718,6 +718,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // barcodePocTesters/{uid} — the accounts allowed to run AXE barcode and
+    // label identification during the Scan Barcode proof of concept
+    // (functions/barcode/lookup.js). Added by hand in the Firebase console;
+    // read only by Cloud Functions. No client access.
+    match /barcodePocTesters/{uid} {
+      allow read, write: if false;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

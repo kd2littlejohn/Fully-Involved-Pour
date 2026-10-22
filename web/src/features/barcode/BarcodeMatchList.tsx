@@ -7,6 +7,14 @@ import styles from './Barcode.module.css'
 // trusted. Built for the Phase 0 PoC page and meant to move into Add
 // Bottle unchanged in Phase 1.
 
+function hostname(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
 function detail(option: BarcodeOption): string {
   const b = option.bottle
   const parts = [
@@ -30,9 +38,12 @@ interface BarcodeMatchListProps {
   onSelect: (option: BarcodeOption) => void
   onAskAxe?: () => void
   askAxeBusy?: boolean
-  onScanLabel: () => void
+  /** Omit to hide Scan Front Label with AXE (e.g. when signed out). */
+  onScanLabel?: () => void
   scanLabelBusy?: boolean
   onManual: () => void
+  /** Shown instead of the default when the list is empty. */
+  emptyText?: string
 }
 
 export function BarcodeMatchList({
@@ -45,11 +56,12 @@ export function BarcodeMatchList({
   onScanLabel,
   scanLabelBusy,
   onManual,
+  emptyText = "No match in FIP's catalog yet.",
 }: BarcodeMatchListProps) {
   return (
     <div className={styles.stack}>
       {options.length === 0 ? (
-        <p className={styles.muted}>No match in FIP's catalog yet.</p>
+        <p className={styles.muted}>{emptyText}</p>
       ) : (
         <>
           <p className={styles.muted}>
@@ -75,6 +87,19 @@ export function BarcodeMatchList({
                   </span>
                   {option.notes ? <span className={styles.optionDetail}>{option.notes}</span> : null}
                 </button>
+                {option.trust === 'axe' && option.sources.length > 0 ? (
+                  <p className={styles.sources}>
+                    Sources:{' '}
+                    {option.sources.map((source, i) => (
+                      <span key={source.url}>
+                        {i > 0 ? ', ' : ''}
+                        <a href={source.url} target="_blank" rel="noreferrer">
+                          {source.title || hostname(source.url)}
+                        </a>
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -88,9 +113,11 @@ export function BarcodeMatchList({
               {askAxeBusy ? 'Asking AXE…' : 'Ask AXE about this barcode'}
             </Button>
           ) : null}
-          <Button variant="secondary" onClick={onScanLabel} disabled={scanLabelBusy}>
-            {scanLabelBusy ? 'Reading label…' : 'Scan Front Label with AXE'}
-          </Button>
+          {onScanLabel ? (
+            <Button variant="secondary" onClick={onScanLabel} disabled={scanLabelBusy}>
+              {scanLabelBusy ? 'Reading label…' : 'Scan Front Label with AXE'}
+            </Button>
+          ) : null}
           <Button variant="ghost" onClick={onManual}>
             Enter details manually
           </Button>

@@ -243,9 +243,10 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
   ...partyRoute('/party/:partyId/recap', <PartyRecapPage />),
   ...partyRoute('/party/:partyId/display', <PartyDisplayPage />),
   // Scan Barcode Phase 0 proof of concept (docs/BARCODE_POC.md). Dev builds
-  // only: import.meta.env.DEV folds to false in a production build, so this
-  // route, the page and its chunk are dropped entirely — never shipped.
-  ...(import.meta.env.DEV
+  // and the temporary barcode preview channel only: both flags fold to false
+  // in a production build, so this route, the page and its chunk are dropped
+  // entirely — never shipped to the live site.
+  ...(import.meta.env.DEV || __FIP_BARCODE_POC__
     ? [
         {
           path: '/dev/barcode',
