@@ -47,7 +47,7 @@ async function loadGoogleConfig(db, now = Date.now) {
   } catch (error) {
     // Fail closed: if the switch can't be read, don't spend.
     console.error("Barcode Google config unreadable", error.message);
-    config = { ...DEFAULTS, enabled: false };
+    config = { ...DEFAULTS, enabled: false, configError: true };
   }
   cached = { at: now(), config };
   return config;

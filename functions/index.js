@@ -618,7 +618,9 @@ exports.lookupBarcode = onCall({ secrets: [anthropicApiKey, geminiApiKey], cors:
   const config = await loadGoogleConfig(db);
   return handleLookupBarcode(db, request, {
     apiKey: anthropicApiKey.value(),
-    google: { ...config, apiKey: geminiApiKey.value() },
+    // Trimmed: a key pasted into Secret Manager often ends with a newline,
+    // which makes every Gemini request header invalid.
+    google: { ...config, apiKey: (geminiApiKey.value() || "").trim() },
     assertNotRateLimited,
   });
 });
