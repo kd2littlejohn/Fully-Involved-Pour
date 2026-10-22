@@ -7,6 +7,7 @@ const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require(".
 const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
 const { explainAxeInsight, loadInsightForChat } = require("./axeInsightExplain");
 const { handlePartyAction } = require("./party/service");
+const { handleLookupBarcode } = require("./barcode/lookup");
 const { buildPartyAxePrompt, loadPartyAxeContext } = require("./party/axe");
 
 admin.initializeApp();
@@ -601,6 +602,14 @@ Set "found" to false ONLY if no spirits bottle is visible in the image at all. I
       msrp: Number(parsed.msrp || 0),
     };
   },
+);
+
+// Scan Barcode proof of concept: verified mapping, then the caller's own
+// confirmation, then Claude + web search. Only the dev-only Barcode PoC
+// page calls it today — see functions/barcode/lookup.js and
+// docs/BARCODE_POC.md.
+exports.lookupBarcode = onCall({ secrets: [anthropicApiKey], cors: true }, (request) =>
+  handleLookupBarcode(admin.firestore(), request, { apiKey: anthropicApiKey.value(), assertNotRateLimited }),
 );
 
 exports.recommendBottles = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {

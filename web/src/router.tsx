@@ -242,6 +242,21 @@ export const routes: Parameters<typeof createHashRouter>[0] = [
   ...partyRoute('/party/:partyId/print', <PrintScorecardsPage />),
   ...partyRoute('/party/:partyId/recap', <PartyRecapPage />),
   ...partyRoute('/party/:partyId/display', <PartyDisplayPage />),
+  // Scan Barcode Phase 0 proof of concept (docs/BARCODE_POC.md). Dev builds
+  // only: import.meta.env.DEV folds to false in a production build, so this
+  // route, the page and its chunk are dropped entirely — never shipped.
+  ...(import.meta.env.DEV
+    ? [
+        {
+          path: '/dev/barcode',
+          element: (
+            <Suspense fallback={<RouteFallback />}>
+              {createElement(lazy(() => import('./pages/Dev/BarcodePocPage').then((m) => ({ default: m.BarcodePocPage }))))}
+            </Suspense>
+          ),
+        },
+      ]
+    : []),
 ]
 
 function partyRoute(path: string, element: ReactNode) {

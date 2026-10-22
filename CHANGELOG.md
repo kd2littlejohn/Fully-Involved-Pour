@@ -1,3 +1,14 @@
+## Unreleased - Scan Barcode proof of concept (development only)
+
+Added
+- Phase 0 of Scan Barcode, development builds only. Nothing user-facing changes, and the production website build is unchanged. See `docs/BARCODE_POC.md`.
+- On-device UPC-A / UPC-E / EAN-13 decoding: the browser's built-in detector where available, free ZXing elsewhere (iPhone Safari). Includes a fix for ZXing 0.23.0, which cannot decode UPC-E.
+- `lookupBarcode` callable: administrator-verified mapping, then the user's own confirmation, then Claude + web search. Answers must cite a source, and proof is never asserted for batch, barrel or store-pick releases.
+- Firestore: `upcMappings` (administrator-verified, read-only to clients) and `upcConfirmations/{gtin13}/confirmedBy/{uid}` (private per user).
+- Dev page `#/dev/barcode` and `functions/scripts/barcode-poc.js` for the 30-bottle Claude vs Gemini comparison.
+
+Release notes: none. Not for release. `lookupBarcode` is outside the automatic functions deploy target, and the rules take effect only if deployed by hand.
+
 ## Unreleased - Tasting experience and host participation
 
 Added
