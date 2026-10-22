@@ -3,6 +3,6 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['*.test.js', 'party/*.test.js'],
+    include: ['*.test.js', 'party/*.test.js', 'barcode/*.test.js'],
   },
 })

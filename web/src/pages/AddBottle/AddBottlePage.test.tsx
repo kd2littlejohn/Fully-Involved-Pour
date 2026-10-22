@@ -6,6 +6,7 @@ import { AddBottlePage } from './AddBottlePage'
 import type { Bottle } from '../../data/types'
 
 const mockUseAuth = vi.fn()
+const mockSaveBarcodeEntry = vi.fn()
 const mockAddBottle = vi.fn()
 const mockUpdateBottle = vi.fn()
 const mockNavigate = vi.fn()
@@ -99,6 +100,64 @@ vi.mock('./OwnershipFieldsCard', () => ({
   ),
 }))
 
+vi.mock('../../data/repositories/barcode', () => ({
+  saveBarcodeEntry: (...args: unknown[]) => mockSaveBarcodeEntry(...args),
+}))
+
+// The real scanner needs a camera; this stand-in hands back what the flow
+// would after the user picked a release.
+const SCANNED = {
+  bottle: {
+    name: 'Example Barrel Proof',
+    distillery: 'Example Distillery',
+    brand: null,
+    expression: null,
+    category: 'Bourbon',
+    sizeMl: 750,
+    proof: null,
+    proofVaries: true,
+    ageStatement: '12 Year',
+    releaseKind: 'barrel-proof-batch',
+    batch: 'C924',
+    barrel: null,
+    storePick: null,
+    releaseYear: null,
+  },
+  gtin13: '0036000291452',
+  printedBarcode: '036000291452',
+  origin: 'verified',
+  candidateId: 'c924',
+  submitForReview: false,
+}
+
+vi.mock('../../features/barcode/ScanBarcodeFlow', () => ({
+  ScanBarcodeFlow: ({
+    onUse,
+    onUpdatedExisting,
+    onCancel,
+  }: {
+    onUse: (handoff: unknown) => void
+    onUpdatedExisting: (id: string) => void
+    onCancel: () => void
+  }) => (
+    <div>
+      <p>fake-scanner</p>
+      <button type="button" onClick={() => onUse({ ...SCANNED, status: 'sealed' })}>
+        fake-add-to-bar
+      </button>
+      <button type="button" onClick={() => onUse({ ...SCANNED, status: 'wishlist' })}>
+        fake-add-to-wishlist
+      </button>
+      <button type="button" onClick={() => onUpdatedExisting('existing-1')}>
+        fake-increased
+      </button>
+      <button type="button" onClick={onCancel}>
+        fake-cancel
+      </button>
+    </div>
+  ),
+}))
+
 vi.mock('../../data/repositories/rarity', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../data/repositories/rarity')>()
   return { ...actual, requestRaritySuggestion: vi.fn().mockResolvedValue({ status: 'failed' }) }
@@ -157,6 +216,8 @@ function renderEditPage(bottleId: string) {
 }
 
 beforeEach(() => {
+  mockSaveBarcodeEntry.mockReset()
+  mockSaveBarcodeEntry.mockResolvedValue('entry-1')
   mockAddBottle.mockReset()
   mockUpdateBottle.mockReset()
   mockNavigate.mockReset()
@@ -424,6 +485,90 @@ describe('AddBottlePage', () => {
       expect(payload.storeLocation).toBeUndefined()
       expect(payload.purchaseDate).toBeUndefined()
       expect(payload.status).toBe('open')
+    })
+  })
+
+  describe('Scan Barcode', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+    })
+
+    it('is the first option when adding a bottle', async () => {
+      renderPage()
+      const options = await screen.findAllByRole('button')
+      expect(options[options.findIndex((b) => /Scan Label with AI/.test(b.textContent ?? '')) - 1]).toHaveTextContent('Scan Barcode')
+    })
+
+    it('fills the form from the scanned bottle and saves its barcode, then remembers it privately', async () => {
+      mockAddBottle.mockResolvedValue('new-1')
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: /^Scan Barcode/ }))
+      await userEvent.click(await screen.findByRole('button', { name: 'fake-add-to-bar' }))
+      expect(screen.getByLabelText('Bottle name')).toHaveValue('Example Barrel Proof — Batch C924')
+      expect(screen.getByTestId('fake-distillery')).toHaveTextContent('Example Distillery')
+      expect(screen.getByText(/From barcode 036000291452, adding to My Bar/)).toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+      expect(mockAddBottle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Example Barrel Proof — Batch C924',
+          distillery: 'Example Distillery',
+          type: 'Bourbon',
+          bottleSize: 750,
+          ageStatement: '12 Year',
+          status: 'sealed',
+          upc: '036000291452',
+        }),
+      )
+      // A barrel-proof release with no proof on the label is saved without one.
+      expect(mockAddBottle.mock.calls[0]?.[0].proof).toBeUndefined()
+      expect(mockSaveBarcodeEntry).toHaveBeenCalledWith('user-1', expect.objectContaining({ gtin13: '0036000291452', bottleId: 'new-1', candidateId: 'c924', origin: 'verified' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/collection/new-1')
+    })
+
+    it('adds to the Wishlist when that was chosen in the scanner', async () => {
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: /^Scan Barcode/ }))
+      await userEvent.click(await screen.findByRole('button', { name: 'fake-add-to-wishlist' }))
+      expect(screen.getByTestId('fake-status')).toHaveTextContent('wishlist')
+      expect(screen.getByText(/adding to your Wishlist/)).toBeInTheDocument()
+    })
+
+    it('still saves the bottle when remembering the barcode fails', async () => {
+      mockAddBottle.mockResolvedValue('new-2')
+      mockSaveBarcodeEntry.mockRejectedValue(new Error('permission-denied'))
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: /^Scan Barcode/ }))
+      await userEvent.click(await screen.findByRole('button', { name: 'fake-add-to-bar' }))
+      await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/collection/new-2')
+      warn.mockRestore()
+    })
+
+    it('goes to the existing bottle after Increase quantity in the scanner', async () => {
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: /^Scan Barcode/ }))
+      await userEvent.click(await screen.findByRole('button', { name: 'fake-increased' }))
+      expect(mockNavigate).toHaveBeenCalledWith('/collection/existing-1')
+      expect(mockAddBottle).not.toHaveBeenCalled()
+    })
+
+    it('Cancel returns to the add options', async () => {
+      renderPage()
+      await userEvent.click(await screen.findByRole('button', { name: /^Scan Barcode/ }))
+      await userEvent.click(await screen.findByRole('button', { name: 'fake-cancel' }))
+      expect(await screen.findByRole('button', { name: /^Manual Entry/ })).toBeInTheDocument()
+    })
+
+    it('a manual add without scanning never sets upc or remembers a barcode', async () => {
+      mockAddBottle.mockResolvedValue('new-3')
+      renderPage()
+      await goToManualEntry()
+      await userEvent.type(screen.getByLabelText('Bottle name'), 'Typed Bottle')
+      await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+      expect(mockAddBottle.mock.calls[0]?.[0]).not.toHaveProperty('upc')
+      expect(mockSaveBarcodeEntry).not.toHaveBeenCalled()
     })
   })
 })

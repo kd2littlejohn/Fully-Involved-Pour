@@ -1,3 +1,19 @@
+## Unreleased - Scan Barcode
+
+Added
+- **Scan Barcode on Add Bottle.** It's the first option when adding a bottle, and a button under the name field of a new bottle. The barcode (UPC-A, UPC-E or EAN-13) is read on the phone with the camera, a photo, or typed digits.
+- **One barcode, several bottles.** FIP's verified catalog and your own saved bottles are checked first, at no AI cost. Every matching release (standard, barrel-proof batches, single barrels, store picks) is listed and labelled *Verified by FIP*, *Saved by you* or *AXE suggestion · not verified*, so you pick yours.
+- **AXE only when you ask.** *Ask AXE about this barcode* and *Scan Front Label with AXE* (label photo plus barcode) suggest releases with their sources. Batch, barrel and variable proof never come from AI; what AXE reads on your own label is marked "From your label — check it".
+- **No duplicates.** If the release is already in My Bar, *Increase quantity* adds another sealed bottle through the existing instance model; a Wishlist copy offers *Move to My Bar*. Otherwise *Add to My Bar* or *Add to Wishlist* fills the regular Add Bottle form, so photo, price, quantity and rarity work as before.
+- **Your bottles are remembered privately.** The next scan of that barcode answers instantly. Opt-in suggestions to FIP's shared catalog stay private until an administrator verifies them (`functions/scripts/barcode-review.js`).
+
+Changed
+- When a scanned release's proof varies, "Ask AI to fill in the rest" no longer fills in a proof.
+
+Data: the barcode is stored in the existing `upc` field on a bottle, and batch, barrel and store pick become part of the bottle name. New collections: `upcMappings` (verified catalog, read-only to clients), `users/{uid}/barcodeEntries` (private), and `upcPending` (server-only review queue). No migration is needed.
+
+Release notes: the release workflow now always deploys `lookupBarcode` and `identifyBottleLabel` with the functions, and checks they're live. After the website, publish Firestore rules and indexes (`firebase deploy --only firestore:rules,firestore:indexes`). Until then, everything works except remembering scanned barcodes. AI-answer reuse is off and Gemini is not enabled.
+
 ## Unreleased - Tasting experience and host participation
 
 Added

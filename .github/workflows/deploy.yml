@@ -133,7 +133,7 @@ jobs:
       # AXE (askSommelier) and AXE Insights (syncAxeInsights). Set the
       # FUNCTIONS_DEPLOY_TARGET repository variable to "functions" to ship
       # every backend change automatically.
-      target: ${{ vars.FUNCTIONS_DEPLOY_TARGET || 'functions:askSommelier,functions:syncAxeInsights,functions:partyAction' }}
+      target: ${{ vars.FUNCTIONS_DEPLOY_TARGET || 'functions:askSommelier,functions:syncAxeInsights,functions:partyAction,functions:lookupBarcode,functions:identifyBottleLabel' }}
     secrets: inherit
 
   build_and_deploy:

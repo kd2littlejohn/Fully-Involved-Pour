@@ -1,11 +1,21 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import { configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+// Opt-in HTTPS for the dev server, so a phone on the same Wi-Fi can open
+// it with camera access (the Scan Barcode PoC, docs/BARCODE_POC.md).
+// Point both variables at a local certificate; unset, nothing changes.
+const devHttps =
+  process.env.FIP_DEV_HTTPS_CERT && process.env.FIP_DEV_HTTPS_KEY
+    ? { cert: readFileSync(process.env.FIP_DEV_HTTPS_CERT), key: readFileSync(process.env.FIP_DEV_HTTPS_KEY) }
+    : undefined
+
 export default defineConfig({
+  server: devHttps ? { https: devHttps, host: true } : undefined,
   test: {
     environment: 'jsdom',
     globals: true,
