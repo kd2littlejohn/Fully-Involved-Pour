@@ -2,7 +2,10 @@
 // Run by hand from a laptop; never deployed (firebase.json ignores scripts/).
 // See docs/BARCODE_POC.md for the full procedure.
 //
-// Input: the sample CSV exported from the dev Barcode PoC page — one row
+// Input: scripts/barcode-accuracy-set.json (30 real retail barcodes from
+// public price lists, across standard releases, barrel-proof batches,
+// single barrels and store picks), or the sample CSV exported from the dev
+// Barcode PoC page — one row
 // per bottle actually scanned, with the ground truth (what the label says)
 // typed in at the time. Optional: a folder of photos saved from that page:
 // <gtin13>.jpg (barcode area) for the photo test and <gtin13>-label.jpg
@@ -27,6 +30,7 @@
 //     [--claude-models claude-opus-5-5,claude-sonnet-4-6] [--gemini-model gemini-3-flash] \
 //     [--modes upc,photo,label] [--limit 5] [--out ./barcode-poc-results] [--confirm-spend]
 //
+//   GEMINI_API_KEY=... node scripts/barcode-poc.js --sample scripts/barcode-accuracy-set.json --confirm-spend
 //   GEMINI_API_KEY=... node scripts/barcode-poc.js --list-gemini-models
 
 const fs = require("fs");
@@ -67,6 +71,22 @@ function readPhoto(dir, name) {
   return null;
 }
 
+// The sample is either the CSV exported from the Barcode PoC page or the
+// reference set in scripts/barcode-accuracy-set.json (real retail UPCs from
+// public price lists), mapped onto the same columns.
+function readSample(file) {
+  const text = fs.readFileSync(file, "utf8");
+  if (!file.endsWith(".json")) return parseCsv(text);
+  return JSON.parse(text).bottles.map((b) => ({
+    gtin13: b.upc,
+    expected_name: b.expectedName,
+    expected_distillery: b.expectedDistillery || "",
+    variant_kind: b.variantKind,
+    expected_proof: b.expectedProof ?? "",
+    expected_batch: "",
+  }));
+}
+
 function percentile(values, p) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -93,7 +113,7 @@ async function main() {
   }
   if (!args.sample) throw new Error("--sample <csv exported from the Barcode PoC page> is required.");
 
-  const sample = parseCsv(fs.readFileSync(args.sample, "utf8"))
+  const sample = readSample(args.sample)
     .filter((r) => r.expected_name && !normalizeBarcode(r.gtin13).error)
     .slice(0, args.limit ? Number(args.limit) : undefined);
   const modes = args.modes.split(",").map((m) => m.trim());

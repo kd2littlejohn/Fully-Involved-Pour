@@ -58,6 +58,22 @@ async function listSubmissions(db) {
   return rows.sort((a, b) => b.submissions.length - a.submissions.length || b.lookupsWithoutMatch - a.lookupsWithoutMatch);
 }
 
+// The barcodes people scan most that FIP's catalog still doesn't know —
+// the ones worth verifying first, since each one verified is a scan that no
+// longer needs Google or AXE. Counts only; no AI content is kept here.
+async function listUnmatched(db, { limit = 25 } = {}) {
+  const snap = await db.collection("upcPending").orderBy("lookups", "desc").limit(limit * 2).get();
+  const rows = [];
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    const mapping = await db.doc(`upcMappings/${doc.id}`).get();
+    if (mapping.exists && mapping.data().status === "verified") continue;
+    rows.push({ gtin13: doc.id, lookups: d.lookups || 0, googleLookups: d.googleLookups || 0, axeLookups: d.aiLookups || 0, lastLookupAt: d.lastLookupAt || null });
+    if (rows.length >= limit) break;
+  }
+  return rows;
+}
+
 // Adds (or replaces, by id) one verified candidate on upcMappings/{gtin13}.
 async function promoteCandidate(db, gtin13, bottle, { id, verifiedBy, now = Date.now } = {}) {
   const normalized = normalizeBarcode(gtin13);
@@ -76,8 +92,11 @@ async function promoteCandidate(db, gtin13, bottle, { id, verifiedBy, now = Date
 async function promoteEntry(db, entryPath, options = {}) {
   const snap = await db.doc(entryPath).get();
   if (!snap.exists) throw new Error(`No entry at ${entryPath}`);
-  const { gtin13, bottle } = snap.data();
+  const { gtin13, bottle, origin } = snap.data();
+  // Google's terms don't allow building FIP's catalog from its results;
+  // verify such a bottle from its label instead (barcode-review.js add).
+  if (origin === "google") throw new Error("Entries identified by Google can't be promoted. Verify the bottle from its label and use add.");
   return promoteCandidate(db, gtin13, bottle, options);
 }
 
-module.exports = { listSubmissions, promoteCandidate, promoteEntry, toCandidate };
+module.exports = { listSubmissions, listUnmatched, promoteCandidate, promoteEntry, toCandidate };

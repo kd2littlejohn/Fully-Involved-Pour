@@ -89,7 +89,7 @@ function cleanSources(sources) {
   if (!Array.isArray(sources)) return [];
   const seen = new Set();
   return sources
-    .map((s) => ({ url: cleanText(s?.url, 500), title: cleanText(s?.title, 200) }))
+    .map((s) => ({ url: cleanText(s?.url, 2000), title: cleanText(s?.title, 200) }))
     .filter((s) => s.url && /^https?:\/\//.test(s.url) && !seen.has(s.url) && seen.add(s.url))
     .slice(0, 5);
 }
@@ -149,9 +149,12 @@ const NOT_IDENTIFIED = Object.freeze({
 // sources even when the model forgets to copy them into its JSON.
 // `labelPhoto` is true when the request included a front-label photo: a
 // clearly read label can identify a product without a web source.
-function guardResult(parsed, groundingSources = [], { labelPhoto = false } = {}) {
+// `groundingOnly`: count only the sources the provider's search tool actually
+// returned (Gemini's groundingMetadata), never URLs the model wrote into its
+// JSON — those are what must be shown, and a model can invent a URL.
+function guardResult(parsed, groundingSources = [], { labelPhoto = false, groundingOnly = false } = {}) {
   if (!parsed || typeof parsed !== "object") return { ...NOT_IDENTIFIED, guard: "unparseable" };
-  const sources = cleanSources(parsed.sources);
+  const sources = groundingOnly ? [] : cleanSources(parsed.sources);
   const allSources = sources.length > 0 ? sources : cleanSources(groundingSources);
   const label = labelPhoto ? cleanLabel(parsed.label) : null;
 

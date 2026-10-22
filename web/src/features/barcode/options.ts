@@ -6,12 +6,14 @@
 // Trust, highest first:
 //   verified — in FIP's catalog, checked by an administrator
 //   yours    — something this user saved for this barcode before
+//   google   — a Google (Gemini + Search) suggestion; never verified
 //   axe      — an AXE (AI) suggestion; never verified
 // Field values additionally carry 'label' (read from the photographed label
 // of this bottle — check it) or 'you' (typed by the user).
 
 import type {
   AxeCandidate,
+  AxeSuggestion,
   BarcodeBottle,
   BarcodeLookupResult,
   EntryOrigin,
@@ -20,7 +22,7 @@ import type {
   ReleaseKind,
 } from '../../data/repositories/barcode'
 
-export type OptionTrust = 'verified' | 'yours' | 'axe'
+export type OptionTrust = 'verified' | 'yours' | 'google' | 'axe'
 export type FieldSource = OptionTrust | 'label' | 'you'
 
 export const DRAFT_FIELDS = [
@@ -59,7 +61,7 @@ export interface BarcodeOption {
   /** A verified candidate this user has also saved before. */
   savedByYou: boolean
   notes: string | null
-  /** Web sources behind an AXE suggestion — always shown with it (citations). */
+  /** Web sources behind an AI suggestion — always shown with it (citations / Google attribution). */
   sources: { url: string; title: string | null }[]
 }
 
@@ -74,12 +76,14 @@ export const RELEASE_KIND_LABELS: Record<ReleaseKind, string> = {
 export const TRUST_LABELS: Record<OptionTrust, string> = {
   verified: 'Verified by FIP',
   yours: 'Saved by you',
+  google: 'Google suggestion · not verified',
   axe: 'AXE suggestion · not verified',
 }
 
 export const SOURCE_LABELS: Record<FieldSource, string> = {
   verified: 'Verified',
   yours: 'Saved by you',
+  google: 'Google suggestion',
   axe: 'AXE suggestion',
   label: 'From your label — check it',
   you: 'You',
@@ -101,7 +105,7 @@ function fromAxe(c: AxeCandidate): BarcodeBottle {
     proofVaries: c.proofVaries,
     ageStatement: c.ageStatement,
     releaseKind: c.releaseKind,
-    // AXE never supplies these.
+    // AI never supplies these.
     batch: null,
     barrel: null,
     storePick: null,
@@ -144,20 +148,23 @@ export function buildOptions(lookup: BarcodeLookupResult | null, labelScan: Labe
     })
   }
 
-  // AXE suggestions last; skip any that repeat a release already listed.
+  // AI suggestions last — Google's, then AXE's; skip any that repeat a
+  // release already listed.
   const seen = new Set(options.map((o) => `${key(o.bottle.name)}|${o.bottle.releaseKind ?? ''}`))
-  const axeSources: [AxeCandidate[], EntryOrigin, BarcodeOption['sources']][] = [
-    [labelScan?.axe.identified ? labelScan.axe.candidates : [], 'axe-label', labelScan?.axe.sources ?? []],
-    [lookup?.axe?.identified ? lookup.axe.candidates : [], 'axe-barcode', lookup?.axe?.sources ?? []],
+  const identified = (s: Pick<AxeSuggestion, 'identified' | 'candidates'> | undefined) => (s?.identified ? s.candidates : [])
+  const aiSources: [AxeCandidate[], EntryOrigin, Exclude<OptionTrust, 'verified' | 'yours'>, BarcodeOption['sources']][] = [
+    [identified(lookup?.google?.result), 'google', 'google', lookup?.google?.result?.sources ?? []],
+    [identified(labelScan?.axe), 'axe-label', 'axe', labelScan?.axe.sources ?? []],
+    [identified(lookup?.axe), 'axe-barcode', 'axe', lookup?.axe?.sources ?? []],
   ]
-  for (const [candidates, origin, sources] of axeSources) {
+  for (const [candidates, origin, trust, sources] of aiSources) {
     for (const c of candidates) {
       const k = `${key(c.name)}|${c.releaseKind}`
       if (seen.has(k)) continue
       seen.add(k)
       options.push({
         key: `${origin}:${c.id}:${options.length}`,
-        trust: 'axe',
+        trust,
         bottle: fromAxe(c),
         candidateId: null,
         origin,

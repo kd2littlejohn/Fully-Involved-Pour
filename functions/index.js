@@ -8,11 +8,16 @@ const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
 const { explainAxeInsight, loadInsightForChat } = require("./axeInsightExplain");
 const { handlePartyAction } = require("./party/service");
 const { handleLookupBarcode, handleIdentifyBottleLabel } = require("./barcode/lookup");
+const { loadGoogleConfig } = require("./barcode/googleConfig");
 const { buildPartyAxePrompt, loadPartyAxeContext } = require("./party/axe");
 
 admin.initializeApp();
 
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+// Gemini Developer API key for Scan Barcode's Google step (Grounding with
+// Google Search). Off until appConfig/barcodeGoogle.enabled is true — see
+// functions/barcode/googleConfig.js.
+const geminiApiKey = defineSecret("GEMINI_API_KEY");
 const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 
 async function callClaude(apiKey, { system, prompt, maxTokens, content, messages }) {
@@ -605,11 +610,18 @@ Set "found" to false ONLY if no spirits bottle is visible in the image at all. I
 );
 
 // Scan Barcode on Add Bottle: FIP-verified candidates and the caller's own
-// saved entries first; Claude + web search only when the user asks AXE.
-// See functions/barcode/lookup.js and docs/BARCODE_POC.md.
-exports.lookupBarcode = onCall({ secrets: [anthropicApiKey], cors: true }, (request) =>
-  handleLookupBarcode(admin.firestore(), request, { apiKey: anthropicApiKey.value(), assertNotRateLimited }),
-);
+// saved entries first, then Google (Gemini + Search grounding) when it is
+// switched on, then AXE when the user asks. See functions/barcode/lookup.js
+// and docs/BARCODE_POC.md.
+exports.lookupBarcode = onCall({ secrets: [anthropicApiKey, geminiApiKey], cors: true }, async (request) => {
+  const db = admin.firestore();
+  const config = await loadGoogleConfig(db);
+  return handleLookupBarcode(db, request, {
+    apiKey: anthropicApiKey.value(),
+    google: { ...config, apiKey: geminiApiKey.value() },
+    assertNotRateLimited,
+  });
+});
 
 // "Scan Front Label with AXE": label photo + barcode → candidate releases,
 // with what was read off the label kept apart from AI suggestions.

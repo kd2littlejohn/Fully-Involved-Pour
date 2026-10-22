@@ -71,6 +71,7 @@
   color: var(--fip-amber);
 }
 
+.tag[data-trust='google'],
 .tag[data-trust='axe'],
 .tag[data-trust='label'] {
   border-style: dashed;
@@ -142,4 +143,12 @@
 
 .sources a {
   color: inherit;
+}
+
+.searchSuggestions {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: var(--fip-radius-md);
+  background: transparent;
 }

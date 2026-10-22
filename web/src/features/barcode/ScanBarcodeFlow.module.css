@@ -52,6 +52,18 @@
   object-fit: cover;
 }
 
+.tapToStart {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: rgb(0 0 0 / 0.6);
+  border: 0;
+  color: var(--fip-cream);
+  font: inherit;
+  font-size: var(--fip-text-md);
+  cursor: pointer;
+}
+
 .guide {
   position: absolute;
   inset: 32% 8%;

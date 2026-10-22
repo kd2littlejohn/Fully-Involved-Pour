@@ -87,6 +87,20 @@ describe('upcPending/{gtin13}', () => {
   })
 })
 
+describe('appConfig and aiSpend', () => {
+  it('are server-only: no client can switch Google on or change the budget, or read spend', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'appConfig', 'barcodeGoogle'), { enabled: false })
+      await setDoc(doc(ctx.firestore(), 'aiSpend', 'gemini-2026-10'), { estimatedUsd: 1 })
+    })
+    const db = testEnv.authenticatedContext(UID_A).firestore()
+    await assertFails(getDoc(doc(db, 'appConfig', 'barcodeGoogle')))
+    await assertFails(setDoc(doc(db, 'appConfig', 'barcodeGoogle'), { enabled: true, monthlyBudgetUsd: 100000 }))
+    await assertFails(getDoc(doc(db, 'aiSpend', 'gemini-2026-10')))
+    await assertFails(setDoc(doc(db, 'aiSpend', 'gemini-2026-10'), { estimatedUsd: 0 }))
+  })
+})
+
 describe('users/{uid}/barcodeEntries/{entryId}', () => {
   const path = (uid: string, id = 'e1') => ['users', uid, 'barcodeEntries', id] as const
 
@@ -132,6 +146,8 @@ describe('users/{uid}/barcodeEntries/{entryId}', () => {
     await assertFails(setDoc(doc(db, ...path(UID_A)), entry({ gtin13: '36000291452' })))
     await assertFails(setDoc(doc(db, ...path(UID_A)), entry({ bottle: { name: '' } })))
     await assertFails(setDoc(doc(db, ...path(UID_A)), entry({ origin: 'admin' })))
+    // Google's answers are never kept as barcode entries (its terms).
+    await assertFails(setDoc(doc(db, ...path(UID_A)), entry({ origin: 'google' })))
     await assertFails(setDoc(doc(db, ...path(UID_A)), entry({ createdAt: Timestamp.fromMillis(0) })))
   })
 

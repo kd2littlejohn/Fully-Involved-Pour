@@ -1,5 +1,6 @@
 import { Button } from '../../components/ui/Button'
 import { RELEASE_KIND_LABELS, TRUST_LABELS, type BarcodeOption } from './options'
+import { GoogleSearchSuggestions } from './GoogleSearchSuggestions'
 import styles from './Barcode.module.css'
 
 // The bottles a scanned barcode could be. Several releases often share one
@@ -36,6 +37,8 @@ interface BarcodeMatchListProps {
   /** Option keys whose release is already in the user's bar or wishlist. */
   inBarKeys?: ReadonlySet<string>
   onSelect: (option: BarcodeOption) => void
+  /** Google's Search Suggestions HTML, shown under Google's suggestions. */
+  googleSearchEntryPoint?: string | null
   onAskAxe?: () => void
   askAxeBusy?: boolean
   /** Omit to hide Scan Front Label with AXE (e.g. when signed out). */
@@ -51,6 +54,7 @@ export function BarcodeMatchList({
   selectedKey,
   inBarKeys,
   onSelect,
+  googleSearchEntryPoint,
   onAskAxe,
   askAxeBusy,
   onScanLabel,
@@ -87,7 +91,7 @@ export function BarcodeMatchList({
                   </span>
                   {option.notes ? <span className={styles.optionDetail}>{option.notes}</span> : null}
                 </button>
-                {option.trust === 'axe' && option.sources.length > 0 ? (
+                {(option.trust === 'axe' || option.trust === 'google') && option.sources.length > 0 ? (
                   <p className={styles.sources}>
                     Sources:{' '}
                     {option.sources.map((source, i) => (
@@ -103,6 +107,12 @@ export function BarcodeMatchList({
               </li>
             ))}
           </ul>
+          {googleSearchEntryPoint && options.some((o) => o.trust === 'google') ? (
+            <div className={styles.stack}>
+              <p className={styles.muted}>Google suggestions come from Google Search. Check them against your label.</p>
+              <GoogleSearchSuggestions html={googleSearchEntryPoint} />
+            </div>
+          ) : null}
         </>
       )}
       <div className={styles.alternatives}>

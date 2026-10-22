@@ -718,6 +718,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // appConfig/{name} — server-side switches an administrator edits in the
+    // console (e.g. appConfig/barcodeGoogle: Google step on/off, monthly
+    // budget). aiSpend/{provider-YYYY-MM} — estimated AI spend counters
+    // behind that budget. Cloud Functions (Admin SDK) only.
+    match /appConfig/{name} {
+      allow read, write: if false;
+    }
+    match /aiSpend/{monthId} {
+      allow read, write: if false;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

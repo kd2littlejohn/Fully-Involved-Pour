@@ -169,10 +169,20 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
-      - name: Confirm the API key secret exists (metadata only)
+      - name: Confirm the API key secrets exist (metadata only)
         # secrets:get prints versions and state, never the value. Don't ever
-        # swap this for secrets:access.
-        run: firebase functions:secrets:get ANTHROPIC_API_KEY --project "$PROJECT_ID" --non-interactive > /dev/null && echo "ANTHROPIC_API_KEY secret is present."
+        # swap this for secrets:access. GEMINI_API_KEY is bound to
+        # lookupBarcode (Scan Barcode's Google step), so it must exist before
+        # any deploy — see docs/BARCODE_POC.md → "Turning on Google".
+        run: |
+          for secret in ANTHROPIC_API_KEY GEMINI_API_KEY; do
+            if firebase functions:secrets:get "$secret" --project "$PROJECT_ID" --non-interactive > /dev/null; then
+              echo "$secret secret is present."
+            else
+              echo "::error::The $secret secret is missing in Secret Manager. Create it before deploying (docs/BARCODE_POC.md)."
+              exit 1
+            fi
+          done
 
       - name: Deploy
         # --non-interactive without --force: if production has functions

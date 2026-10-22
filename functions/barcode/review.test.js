@@ -12,17 +12,23 @@ process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "fip-functions-test";
 const require = createRequire(import.meta.url);
 const admin = require("firebase-admin");
 if (admin.apps.length === 0) admin.initializeApp();
-const { listSubmissions, promoteEntry, promoteCandidate, toCandidate } = require("./review.js");
+const { listSubmissions, listUnmatched, promoteEntry, promoteCandidate, toCandidate } = require("./review.js");
 
 const db = admin.firestore();
 const GTIN = "0012345000065";
+const GTIN_B = "0012345000072";
 
 beforeEach(async () => {
   for (const uid of ["rv-alice", "rv-bob"]) {
     const snap = await db.collection(`users/${uid}/barcodeEntries`).get();
     await Promise.all(snap.docs.map((d) => d.ref.delete()));
   }
-  await Promise.all([db.doc(`upcMappings/${GTIN}`).delete(), db.doc(`upcPending/${GTIN}`).delete()]);
+  await Promise.all([
+    db.doc(`upcMappings/${GTIN}`).delete(),
+    db.doc(`upcPending/${GTIN}`).delete(),
+    db.doc(`upcMappings/${GTIN_B}`).delete(),
+    db.doc(`upcPending/${GTIN_B}`).delete(),
+  ]);
 });
 
 describe("barcode review", () => {
@@ -69,5 +75,22 @@ describe("barcode review", () => {
   it("refuses store-applied or malformed barcodes", async () => {
     await expect(promoteCandidate(db, "2001234567893", { name: "X" })).rejects.toThrow();
     await expect(promoteCandidate(db, "36000291452", { name: "X" })).rejects.toThrow();
+  });
+
+  it("lists the most-scanned unmatched barcodes first, dropping ones already verified", async () => {
+    await db.doc(`upcPending/${GTIN}`).set({ lookups: 900005, googleLookups: 3 });
+    await db.doc(`upcPending/${GTIN_B}`).set({ lookups: 900009, aiLookups: 1 });
+    let rows = (await listUnmatched(db, { limit: 50 })).filter((r) => [GTIN, GTIN_B].includes(r.gtin13));
+    expect(rows.map((r) => r.gtin13)).toEqual([GTIN_B, GTIN]);
+    expect(rows[1]).toMatchObject({ lookups: 900005, googleLookups: 3, axeLookups: 0 });
+    await promoteCandidate(db, GTIN_B, { name: "Now Verified" });
+    rows = (await listUnmatched(db, { limit: 50 })).filter((r) => [GTIN, GTIN_B].includes(r.gtin13));
+    expect(rows.map((r) => r.gtin13)).toEqual([GTIN]);
+  });
+
+  it("refuses to promote an entry identified by Google", async () => {
+    const ref = await db.collection("users/rv-alice/barcodeEntries").add({ gtin13: GTIN, origin: "google", submitForReview: true, bottle: { name: "From Google" } });
+    await expect(promoteEntry(db, ref.path)).rejects.toThrow(/Google/);
+    expect((await db.doc(`upcMappings/${GTIN}`).get()).exists).toBe(false);
   });
 });
