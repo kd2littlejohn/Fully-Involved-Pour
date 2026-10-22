@@ -1,8 +1,10 @@
-// lookupBarcode against the Firestore emulator with the Anthropic call
-// stubbed: verified mappings and the caller's own confirmation answer
-// before any AI call, other users' confirmations never do, restricted
-// labels never reach AI, and the guard drops unsourced or batch-specific
-// answers. Uses its own uids (bc-*): test files share one emulator.
+// lookupBarcode and identifyBottleLabel against the Firestore emulator with
+// the Anthropic call stubbed: verified candidates and the caller's own
+// entries answer before any AI call; AI runs only when asked; one barcode
+// can return several candidates; other users' entries are never read; a
+// recent unverified Claude suggestion is reused instead of paid for again;
+// batch/barrel/variable proof never come from AI candidates.
+// Uses its own uids (bc-*): test files share one emulator.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRequire } from "module";
 
@@ -11,11 +13,12 @@ process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || "fip-functions-test";
 
 const require = createRequire(import.meta.url);
 const admin = require("firebase-admin");
-const { lookupBarcode } = require("../index.js");
+const { lookupBarcode, identifyBottleLabel } = require("../index.js");
 
 const db = admin.firestore();
 const UPC = "036000291452";
 const GTIN = "0036000291452";
+const IMAGE = "A".repeat(400);
 
 let sent = [];
 let reply;
@@ -31,26 +34,27 @@ function claudeReply(json, { sources = [{ url: "https://example.com/p", title: "
   };
 }
 
-const IDENTIFIED = {
+const AXE = {
   identified: true,
-  name: "Example Bourbon Barrel Proof",
-  distillery: "Example Distillery",
-  brand: "Example",
-  expression: "Barrel Proof",
-  category: "Bourbon",
-  sizeMl: 750,
-  proof: 124.6,
-  proofVaries: true,
-  ageStatement: "12 Year",
+  productLine: { name: "Example Bourbon", distillery: "Example Distillery", brand: "Example", category: "Bourbon", sizeMl: 750 },
   upcSharedAcrossVariants: true,
-  confidence: "high",
+  candidates: [
+    { name: "Example Bourbon", expression: "Standard", releaseKind: "standard", proof: 90, proofVaries: false },
+    { name: "Example Bourbon Barrel Proof", expression: "Barrel Proof", releaseKind: "barrel-proof-batch", proof: 124.6, proofVaries: false, batch: "C924" },
+    { name: "Example Bourbon Single Barrel", releaseKind: "single-barrel", proof: 115, barrel: "5521" },
+  ],
+  confidence: "medium",
   sources: [{ url: "https://example.com/p", title: "Example" }],
-  notes: null,
 };
+
+async function clearUser(uid) {
+  const entries = await db.collection(`users/${uid}/barcodeEntries`).get();
+  await Promise.all(entries.docs.map((d) => d.ref.delete()));
+}
 
 beforeEach(async () => {
   sent = [];
-  reply = claudeReply(IDENTIFIED);
+  reply = claudeReply(AXE);
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url, init) => {
@@ -60,9 +64,12 @@ beforeEach(async () => {
   );
   await Promise.all([
     db.doc(`upcMappings/${GTIN}`).delete(),
-    db.doc(`upcConfirmations/${GTIN}/confirmedBy/bc-alice`).delete(),
-    db.doc(`upcConfirmations/${GTIN}/confirmedBy/bc-bob`).delete(),
+    db.doc(`upcPending/${GTIN}`).delete(),
     db.doc("rateLimits/bc-alice_lookupBarcode").delete(),
+    db.doc("rateLimits/bc-alice_identifyBottleLabel").delete(),
+    db.doc("rateLimits/bc-bob_lookupBarcode").delete(),
+    clearUser("bc-alice"),
+    clearUser("bc-bob"),
   ]);
 });
 
@@ -70,90 +77,179 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const call = (uid, data) => lookupBarcode.run({ auth: uid ? { uid } : undefined, data });
+const lookup = (uid, data) => lookupBarcode.run({ auth: uid ? { uid } : undefined, data });
+const label = (uid, data) => identifyBottleLabel.run({ auth: uid ? { uid } : undefined, data });
 
 describe("lookupBarcode", () => {
   it("requires sign-in and a valid barcode", async () => {
-    await expect(call(null, { barcode: UPC })).rejects.toMatchObject({ code: "unauthenticated" });
-    await expect(call("bc-alice", { barcode: "036000291453" })).rejects.toMatchObject({ code: "invalid-argument" });
+    await expect(lookup(null, { barcode: UPC })).rejects.toMatchObject({ code: "unauthenticated" });
+    await expect(lookup("bc-alice", { barcode: "036000291453" })).rejects.toMatchObject({ code: "invalid-argument" });
     expect(sent).toHaveLength(0);
   });
 
-  it("answers from an administrator-verified mapping without calling AI", async () => {
-    await db.doc(`upcMappings/${GTIN}`).set({ status: "verified", name: "Verified Bourbon", sizeMl: 750, proof: 90 });
-    const result = await call("bc-alice", { barcode: UPC });
-    expect(result).toMatchObject({ source: "verified", gtin13: GTIN, bottle: { name: "Verified Bourbon", proof: 90 } });
+  it("returns every verified candidate for a barcode without calling AI", async () => {
+    await db.doc(`upcMappings/${GTIN}`).set({
+      status: "verified",
+      candidates: [
+        { id: "std", name: "Verified Bourbon", proof: 90, releaseKind: "standard", sizeMl: 750 },
+        { id: "c924", name: "Verified Bourbon Barrel Proof", releaseKind: "barrel-proof-batch", batch: "C924", proof: 124.6 },
+      ],
+    });
+    const result = await lookup("bc-alice", { barcode: UPC });
+    expect(result.status).toBe("matched");
+    expect(result.verified.map((c) => c.id)).toEqual(["std", "c924"]);
+    // An administrator-verified batch keeps its batch and proof.
+    expect(result.verified[1]).toMatchObject({ batch: "C924", proof: 124.6 });
     expect(sent).toHaveLength(0);
+  });
+
+  it("reads a mapping written before candidates existed as one candidate", async () => {
+    await db.doc(`upcMappings/${GTIN}`).set({ status: "verified", name: "Flat Bourbon", proof: 100 });
+    const result = await lookup("bc-alice", { barcode: UPC });
+    expect(result.verified).toEqual([expect.objectContaining({ id: `${GTIN}-1`, name: "Flat Bourbon", proof: 100 })]);
   });
 
   it("ignores a mapping that is not marked verified", async () => {
-    await db.doc(`upcMappings/${GTIN}`).set({ status: "pending", name: "Unreviewed" });
-    const result = await call("bc-alice", { barcode: UPC, skipAi: true });
-    expect(result.source).toBe("unknown");
+    await db.doc(`upcMappings/${GTIN}`).set({ status: "pending", candidates: [{ name: "Unreviewed" }] });
+    expect((await lookup("bc-alice", { barcode: UPC })).status).toBe("no-match");
   });
 
-  it("answers from the caller's own confirmation, including which bar bottle it was saved as", async () => {
-    await db.doc(`upcConfirmations/${GTIN}/confirmedBy/bc-alice`).set({ gtin13: GTIN, name: "Alice's Bourbon", bottleId: "b7" });
-    const result = await call("bc-alice", { barcode: UPC });
-    expect(result).toMatchObject({ source: "your-confirmation", bottle: { name: "Alice's Bourbon" }, bottleId: "b7" });
+  it("returns all of the caller's own entries for the barcode, and never another user's", async () => {
+    const entry = (name, extra = {}) => ({ gtin13: GTIN, origin: "manual", bottle: { name, ...extra }, createdAt: new Date() });
+    await db.collection("users/bc-alice/barcodeEntries").add(entry("Pick from Store A", { releaseKind: "store-pick", storePick: "Store A" }));
+    await db.collection("users/bc-alice/barcodeEntries").add({ ...entry("Pick from Store B"), bottleId: "b9" });
+    await db.collection("users/bc-bob/barcodeEntries").add(entry("Bob's Mistake"));
+    const result = await lookup("bc-alice", { barcode: UPC });
+    expect(result.status).toBe("matched");
+    expect(result.yours.map((e) => e.bottle.name).sort()).toEqual(["Pick from Store A", "Pick from Store B"]);
+    expect(result.yours.find((e) => e.bottleId === "b9")).toBeTruthy();
     expect(sent).toHaveLength(0);
   });
 
-  it("never answers from another user's confirmation", async () => {
-    await db.doc(`upcConfirmations/${GTIN}/confirmedBy/bc-bob`).set({ gtin13: GTIN, name: "Bob's Mistake" });
-    const result = await call("bc-alice", { barcode: UPC, skipAi: true });
-    expect(result.source).toBe("unknown");
+  it("reports no-match without calling AI, and counts the demand for review", async () => {
+    const result = await lookup("bc-alice", { barcode: UPC });
+    expect(result).toMatchObject({ status: "no-match", verified: [], yours: [] });
+    expect(sent).toHaveLength(0);
+    await lookup("bc-bob", { barcode: UPC });
+    expect((await db.doc(`upcPending/${GTIN}`).get()).data().lookups).toBe(2);
   });
 
-  it("never sends a store-applied label to AI", async () => {
-    const result = await call("bc-alice", { barcode: "212345678909" });
-    expect(result.source).toBe("restricted");
+  it("never looks up a store-applied label", async () => {
+    const result = await lookup("bc-alice", { barcode: "212345678909", useAxe: true });
+    expect(result.status).toBe("restricted");
     expect(sent).toHaveLength(0);
   });
 
-  it("asks Claude with web search for an unknown barcode and keeps only product-line facts", async () => {
-    const result = await call("bc-alice", { barcode: UPC });
+  it("asks Claude with web search only when the user asks AXE, and returns several candidates", async () => {
+    const result = await lookup("bc-alice", { barcode: UPC, useAxe: true });
     expect(sent).toHaveLength(1);
-    expect(sent[0].url).toBe("https://api.anthropic.com/v1/messages");
     expect(sent[0].body.tools).toEqual([{ type: "web_search_20260209", name: "web_search", max_uses: 3 }]);
     expect(JSON.stringify(sent[0].body.messages)).toContain(UPC);
-    expect(result.source).toBe("ai");
-    expect(result.bottle).toMatchObject({ name: "Example Bourbon Barrel Proof", sizeMl: 750, proofVaries: true });
-    // Barrel proof varies by batch: the model's proof for one batch is dropped.
-    expect(result.bottle.proof).toBeNull();
-    // Nothing is written until the user confirms.
-    expect((await db.doc(`upcMappings/${GTIN}`).get()).exists).toBe(false);
-    expect((await db.collection(`upcConfirmations/${GTIN}/confirmedBy`).get()).size).toBe(0);
+    expect(result.status).toBe("suggested");
+    expect(result.axe.cached).toBe(false);
+    expect(result.axe.candidates.map((c) => c.releaseKind)).toEqual(["standard", "barrel-proof-batch", "single-barrel"]);
+    // Fixed-proof standard release keeps its proof; variable releases never do.
+    expect(result.axe.candidates.map((c) => c.proof)).toEqual([90, null, null]);
+    // Batch and barrel numbers never come from AI.
+    for (const c of result.axe.candidates) {
+      expect(c).not.toHaveProperty("batch");
+      expect(c).not.toHaveProperty("barrel");
+    }
+    expect(result.costUsd).toBeGreaterThan(0);
   });
 
-  it("keeps a fixed proof for a product bottled at one proof", async () => {
-    reply = claudeReply({ ...IDENTIFIED, name: "Example 100 Proof", proof: 100, proofVaries: false, upcSharedAcrossVariants: false });
-    const result = await call("bc-alice", { barcode: UPC });
-    expect(result.bottle.proof).toBe(100);
+  it("reuses a recent Claude suggestion for the same barcode instead of paying again", async () => {
+    await lookup("bc-alice", { barcode: UPC, useAxe: true });
+    const second = await lookup("bc-bob", { barcode: UPC, useAxe: true });
+    expect(sent).toHaveLength(1);
+    expect(second).toMatchObject({ status: "suggested", costUsd: 0, axe: { cached: true } });
+    expect(second.axe.candidates).toHaveLength(3);
   });
 
-  it("reports not-found when the model cites no source at all", async () => {
-    reply = claudeReply({ ...IDENTIFIED, sources: [] }, { sources: [], searches: 1 });
-    const result = await call("bc-alice", { barcode: UPC });
-    expect(result.source).toBe("not-found");
-    expect(result.bottle).toBeUndefined();
+  it("asks again once the stored suggestion has expired", async () => {
+    await db.doc(`upcPending/${GTIN}`).set({ suggestion: { provider: "claude", expiresAt: Date.now() - 1, result: { identified: true, candidates: [] } } });
+    await lookup("bc-alice", { barcode: UPC, useAxe: true });
+    expect(sent).toHaveLength(1);
+  });
+
+  it("reports not-found when the model cites no source", async () => {
+    reply = claudeReply({ ...AXE, sources: [] }, { sources: [] });
+    const result = await lookup("bc-alice", { barcode: UPC, useAxe: true });
+    expect(result.status).toBe("not-found");
+    expect(result.axe.candidates).toEqual([]);
   });
 
   it("reports not-found when the model declines or returns junk", async () => {
     reply = claudeReply({ identified: false });
-    expect((await call("bc-alice", { barcode: UPC })).source).toBe("not-found");
-    reply = { stop_reason: "end_turn", usage: {}, content: [{ type: "text", text: "I think it's probably a bourbon." }] };
-    expect((await call("bc-alice", { barcode: UPC })).source).toBe("not-found");
+    expect((await lookup("bc-alice", { barcode: UPC, useAxe: true })).status).toBe("not-found");
+    await db.doc(`upcPending/${GTIN}`).delete();
+    reply = { stop_reason: "end_turn", usage: {}, content: [{ type: "text", text: "Probably a bourbon." }] };
+    expect((await lookup("bc-alice", { barcode: UPC, useAxe: true })).status).toBe("not-found");
   });
 
   it("maps an Anthropic outage to an internal error", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 529, text: async () => "overloaded" })));
-    await expect(call("bc-alice", { barcode: UPC })).rejects.toMatchObject({ code: "internal" });
+    await expect(lookup("bc-alice", { barcode: UPC, useAxe: true })).rejects.toMatchObject({ code: "internal" });
   });
 
   it("rate-limits AI lookups per user", async () => {
     await db.doc("rateLimits/bc-alice_lookupBarcode").set({ count: 20, windowStart: Date.now() });
-    await expect(call("bc-alice", { barcode: UPC })).rejects.toMatchObject({ code: "resource-exhausted" });
+    await expect(lookup("bc-alice", { barcode: UPC, useAxe: true })).rejects.toMatchObject({ code: "resource-exhausted" });
+    expect(sent).toHaveLength(0);
+  });
+});
+
+describe("identifyBottleLabel", () => {
+  const LABEL_REPLY = {
+    ...AXE,
+    label: { name: "Example Bourbon Barrel Proof", proof: 124.6, batch: "C924", barrel: null, storePick: null, ageStatement: "12 Years", sizeMl: 750 },
+  };
+
+  it("requires sign-in and a usable photo", async () => {
+    await expect(label(null, { imageBase64: IMAGE })).rejects.toMatchObject({ code: "unauthenticated" });
+    await expect(label("bc-alice", { imageBase64: "x" })).rejects.toMatchObject({ code: "invalid-argument" });
+    await expect(label("bc-alice", { imageBase64: IMAGE, mediaType: "image/gif" })).rejects.toMatchObject({ code: "invalid-argument" });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("sends the label photo with the barcode and keeps label readings apart from candidates", async () => {
+    reply = claudeReply(LABEL_REPLY);
+    const result = await label("bc-alice", { barcode: UPC, imageBase64: IMAGE, mediaType: "image/jpeg" });
+    const content = sent[0].body.messages[0].content;
+    expect(content[0]).toMatchObject({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: IMAGE } });
+    expect(content[1].text).toContain(UPC);
+    expect(result.status).toBe("suggested");
+    // Read from this bottle's label — reported, not merged into candidates.
+    expect(result.axe.label).toMatchObject({ proof: 124.6, batch: "C924", ageStatement: "12 Years" });
+    expect(result.axe.candidates[1]).toMatchObject({ releaseKind: "barrel-proof-batch", proof: null });
+    expect(result.axe.candidates[1]).not.toHaveProperty("batch");
+    // Photo-specific: never stored.
+    expect((await db.doc(`upcPending/${GTIN}`).get()).exists).toBe(false);
+  });
+
+  it("can identify from a clearly read label alone, without a barcode or web source", async () => {
+    reply = claudeReply({ ...LABEL_REPLY, sources: [] }, { sources: [] });
+    const result = await label("bc-alice", { imageBase64: IMAGE });
+    expect(result.gtin13).toBeNull();
+    expect(result.status).toBe("suggested");
+    expect(JSON.stringify(sent[0].body.messages)).toContain("No barcode was scanned");
+  });
+
+  it("reports not-found with no source and no readable product name", async () => {
+    reply = claudeReply({ ...AXE, sources: [], label: { proof: 100 } }, { sources: [] });
+    const result = await label("bc-alice", { imageBase64: IMAGE });
+    expect(result.status).toBe("not-found");
+    expect(result.axe.label).toMatchObject({ proof: 100 });
+  });
+
+  it("derives proof from a printed ABV", async () => {
+    reply = claudeReply({ ...LABEL_REPLY, label: { name: "Example", abv: 53.5 } });
+    expect((await label("bc-alice", { imageBase64: IMAGE })).axe.label.proof).toBe(107);
+  });
+
+  it("has its own rate limit", async () => {
+    await db.doc("rateLimits/bc-alice_identifyBottleLabel").set({ count: 20, windowStart: Date.now() });
+    await expect(label("bc-alice", { imageBase64: IMAGE })).rejects.toMatchObject({ code: "resource-exhausted" });
     expect(sent).toHaveLength(0);
   });
 });

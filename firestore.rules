@@ -55,6 +55,44 @@ service cloud.firestore {
                                       && request.resource.data.description.size() <= 400));
       }
 
+      // Scan Barcode (docs/BARCODE_POC.md): what this user said a barcode
+      // is — a verified candidate they picked, an AXE suggestion they
+      // confirmed, or details they entered. Private to the owner: it answers
+      // only their own later scans and is never read by another user's
+      // lookup. One barcode can have several entries (two store picks share a
+      // UPC). `submitForReview` asks an administrator to consider it for the
+      // shared catalog; nothing becomes shared until they verify it into
+      // upcMappings. Batch, barrel and store-pick details here are the user's
+      // own reading of their own label. No price.
+      match /barcodeEntries/{entryId} {
+        function isValidBarcodeBottle(b) {
+          return b is map
+            && b.keys().hasOnly(['name', 'distillery', 'brand', 'expression', 'category', 'sizeMl', 'proof',
+                'proofVaries', 'ageStatement', 'releaseKind', 'batch', 'barrel', 'storePick', 'releaseYear'])
+            && b.name is string && b.name.size() > 0 && b.name.size() <= 200
+            && (!('proof' in b) || b.proof == null || b.proof is number)
+            && (!('sizeMl' in b) || b.sizeMl == null || b.sizeMl is number)
+            && (!('releaseKind' in b) || b.releaseKind == null
+                || b.releaseKind in ['standard', 'barrel-proof-batch', 'single-barrel', 'store-pick', 'limited-release']);
+        }
+        function isValidBarcodeEntry(d) {
+          return d.keys().hasOnly(['gtin13', 'bottle', 'origin', 'candidateId', 'bottleId', 'submitForReview', 'createdAt'])
+            && d.gtin13 is string && d.gtin13.matches('^[0-9]{13}$')
+            && isValidBarcodeBottle(d.bottle)
+            && d.origin in ['verified', 'axe-barcode', 'axe-label', 'manual']
+            && (!('submitForReview' in d) || d.submitForReview is bool)
+            && (!('bottleId' in d) || d.bottleId == null || (d.bottleId is string && d.bottleId.size() <= 100))
+            && (!('candidateId' in d) || d.candidateId == null || (d.candidateId is string && d.candidateId.size() <= 100));
+        }
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create: if request.auth != null && request.auth.uid == uid
+          && isValidBarcodeEntry(request.resource.data)
+          && request.resource.data.createdAt == request.time;
+        allow update: if request.auth != null && request.auth.uid == uid
+          && isValidBarcodeEntry(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt;
+      }
+
       match /partyTemplates/{templateId} {
         allow read, delete: if request.auth != null && request.auth.uid == uid;
         allow create, update: if request.auth != null
@@ -660,36 +698,24 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == ownerUid;
     }
 
-    // upcMappings/{gtin13} — administrator-verified barcode → product line
-    // mappings for Scan Barcode (functions/barcode/lookup.js). Any signed-in
-    // user may read; no client may write. An administrator promotes a
-    // mapping by hand (status: 'verified') after checking it, so one user's
-    // mistaken confirmation can never become every user's answer.
+    // upcMappings/{gtin13} — FIP's verified barcode catalog for Scan Barcode
+    // (functions/barcode/lookup.js). One barcode can list several verified
+    // candidates (standard release, specific batches, single barrels, store
+    // picks), because a UPC identifies a product line, not one exact bottle.
+    // Any signed-in user may read; no client may write. An administrator
+    // verifies entries into it (functions/scripts/barcode-review.js), so a
+    // user's mistaken identification can never become everyone's answer.
     match /upcMappings/{gtin13} {
       allow read: if request.auth != null;
       allow write: if false;
     }
 
-    // upcConfirmations/{gtin13}/confirmedBy/{uid} — what ONE user confirmed
-    // (or corrected) a barcode to be. Private to that user: it answers only
-    // their own later scans, and is never read by anyone else's lookup.
-    // Product-line facts only — no batch, barrel, store pick or price — plus
-    // an optional pointer to the bottle it was saved as in their own bar.
-    match /upcConfirmations/{gtin13}/confirmedBy/{uid} {
-      function isValidConfirmation(data) {
-        return data.keys().hasOnly(['gtin13', 'name', 'distillery', 'brand', 'expression', 'category', 'sizeMl',
-            'proof', 'proofVaries', 'ageStatement', 'upcSharedAcrossVariants', 'origin', 'bottleId', 'confirmedAt'])
-          && data.gtin13 == gtin13
-          && data.name is string && data.name.size() > 0 && data.name.size() <= 200
-          && (!('sizeMl' in data) || data.sizeMl == null || data.sizeMl is number)
-          && (!('proof' in data) || data.proof == null || data.proof is number)
-          && data.origin in ['verified', 'ai-claude', 'ai-gemini', 'manual']
-          && data.confirmedAt == request.time;
-      }
-      allow read, delete: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-        && gtin13.matches('^[0-9]{13}$')
-        && isValidConfirmation(request.resource.data);
+    // upcPending/{gtin13} — server-only review queue: how often an unknown
+    // barcode was looked up, plus a short-lived, unverified Claude suggestion
+    // so the same unknown barcode isn't paid for again. Written only by Cloud
+    // Functions; never readable by clients. Never holds Gemini output.
+    match /upcPending/{gtin13} {
+      allow read, write: if false;
     }
 
     // Deny everything else by default.

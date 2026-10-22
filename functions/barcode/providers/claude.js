@@ -2,7 +2,7 @@
 // index.js, but it needs the whole response (search results, usage, stop
 // reason), not just the first text block.
 
-const { SYSTEM_PROMPT, PHOTO_PROMPT, upcPrompt, extractJson, guardResult } = require("../identify");
+const { SYSTEM_PROMPT, LABEL_SYSTEM_PROMPT, PHOTO_PROMPT, upcPrompt, labelPrompt, extractJson, guardResult } = require("../identify");
 const { claudeCost } = require("../pricing");
 
 const DEFAULT_CLAUDE_MODEL = "claude-opus-5-5";
@@ -11,12 +11,14 @@ const MAX_CONTINUATIONS = 2;
 // Models that accept the server-side refusal fallback in its "default" form.
 const FALLBACK_MODELS = new Set(["claude-opus-5-5", "claude-sonnet-5-5"]);
 
-function buildContent(normalized, photo) {
-  if (!photo) return [{ type: "text", text: upcPrompt(normalized) }];
-  return [
-    { type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.base64 } },
-    { type: "text", text: normalized ? `${PHOTO_PROMPT} The decoded barcode is ${normalized.gtin13}.` : PHOTO_PROMPT },
-  ];
+// mode "upc": the decoded barcode only. "photo": a barcode photo with the
+// digits withheld (the PoC's photo-recognition test). "label": a front-label
+// photo plus the decoded barcode when there is one (Scan Front Label with AXE).
+function buildRequest(mode, normalized, photo) {
+  const image = photo && { type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.base64 } };
+  if (mode === "label") return { system: LABEL_SYSTEM_PROMPT, content: [image, { type: "text", text: labelPrompt(normalized) }] };
+  if (mode === "photo") return { system: SYSTEM_PROMPT, content: [image, { type: "text", text: PHOTO_PROMPT }] };
+  return { system: SYSTEM_PROMPT, content: [{ type: "text", text: upcPrompt(normalized) }] };
 }
 
 function addUsage(total, usage) {
@@ -32,18 +34,19 @@ function addUsage(total, usage) {
   };
 }
 
-// `normalized` is gtin.normalizeBarcode output (may be null in photo-only
-// mode); `photo` is { base64, mediaType } for the barcode-photo test.
-async function identifyWithClaude({ apiKey, model = DEFAULT_CLAUDE_MODEL, normalized, photo, effort = "low" }) {
+// `normalized` is gtin.normalizeBarcode output (null when no barcode is
+// given); `photo` is { base64, mediaType }.
+async function identifyWithClaude({ apiKey, model = DEFAULT_CLAUDE_MODEL, normalized, photo, mode = photo ? "photo" : "upc", effort = "low" }) {
   const started = Date.now();
   const headers = { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" };
+  const request = buildRequest(mode, normalized, photo);
   const body = {
     model,
     max_tokens: 4096,
-    system: SYSTEM_PROMPT,
+    system: request.system,
     output_config: { effort },
     tools: [{ type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCHES }],
-    messages: [{ role: "user", content: buildContent(normalized, photo) }],
+    messages: [{ role: "user", content: request.content }],
   };
   if (FALLBACK_MODELS.has(model)) {
     headers["anthropic-beta"] = "server-side-fallback-2026-07-01";
@@ -79,10 +82,11 @@ async function identifyWithClaude({ apiKey, model = DEFAULT_CLAUDE_MODEL, normal
     .join("");
 
   const raw = stopReason === "refusal" ? null : extractJson(text);
-  const result = guardResult(raw, groundingSources);
+  const result = guardResult(raw, groundingSources, { labelPhoto: mode === "label" });
   return {
     provider: "claude",
     model,
+    mode,
     result,
     raw,
     latencyMs: Date.now() - started,

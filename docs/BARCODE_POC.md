@@ -8,21 +8,77 @@ Gemini is not enabled anywhere.
 Goal: decide, with measurements, how FIP should identify a bottle from its
 barcode before building the production Scan Barcode button on Add Bottle.
 
-## What Phase 0 contains
+## How it works
 
-| Piece | Where | What it does |
+A barcode identifies a **product line and size, not one exact bottle**.
+Barrel-proof batches, single barrels, store picks and annual releases usually
+share one UPC. So nothing in FIP assumes one barcode means one bottle.
+
+**The flow on the PoC page**, built to move into Add Bottle unchanged in
+Phase 1:
+
+1. **Scan.** The barcode is decoded and validated on the phone.
+2. **Free lookup.** FIP's verified catalog and the user's own saved entries are checked (Firestore only, no AI).
+3. **Pick your bottle.** Every candidate for that barcode is listed, each labelled **Verified by FIP**, **Saved by you**, or **AXE suggestion · not verified**, plus **In your bar** where it applies.
+4. **Not listed?** The user can choose **Ask AXE about this barcode** (Claude + web search), **Scan Front Label with AXE** (label photo + barcode), or **Enter details manually**. AI runs only when the user taps one of the first two.
+5. **Check the details.** Every pre-filled value is tagged: *Verified*, *Saved by you*, *AXE suggestion*, *From your label — check it*, or *You*. A label reading that disagrees with a verified value is shown next to it ("Your label shows 94 · Use that"), never applied silently.
+6. **Add it.** If the same release is already in My Bar, **Increase quantity** comes first; a Wishlist copy offers **Move to My Bar**. Otherwise **Add to My Bar** or **Add to Wishlist**. Other releases with the same barcode are mentioned but never treated as duplicates. An opt-in checkbox suggests the bottle for FIP's shared catalog.
+
+**What is never assumed.** Batch numbers, barrel numbers, store picks and
+variable proofs come only from:
+- an **administrator-verified** catalog entry (for example, one specific batch), or
+- the user's **own label**, read by AXE or typed, and marked as such.
+
+AXE candidates never carry them, and the server strips them. A
+variable-proof release is never pre-filled with a proof.
+
+**Inventory data model: unchanged.** Saving goes through the existing
+`addBottle`, `addBottleInstance` and `updateBottle` hooks.
+- The scanned barcode goes in the `upc` field `Bottle` already has (left over from an earlier, removed scan flow).
+- Batch, barrel and store pick, which have no field, become part of the bottle name ("… — Batch T101", "… — Barrel 77 — Test Club Pick"). That's how collectors name these bottles, and it keeps two picks with one UPC from looking like duplicates.
+- Increase Quantity uses the same instance model as Add Bottle: a plain bottle becomes Bottle 1 plus a new sealed bottle, keeping any existing plain quantity.
+
+## Data: FIP's growing catalog
+
+| Where | What | Who can read / write |
 |---|---|---|
-| On-device decoder | `web/src/features/barcode/decoder.ts` | Camera scanning and still-photo decoding of **UPC-A, UPC-E and EAN-13 only**, entirely on the phone. Uses the browser's built-in `BarcodeDetector` where it supports those formats (Chrome on Android) and free, Apache-2.0 **ZXing** (`@zxing/browser` 0.2.1) everywhere else, including iPhone Safari. ZXing is lazy-loaded, so its code only downloads when someone scans. |
-| Barcode validation | `web/src/features/barcode/gtin.ts`, `functions/barcode/gtin.js` | Check digit, UPC-E → UPC-A expansion, one GTIN-13 key per product. Flags store-applied labels (UPC 2/4, EAN 2x), e.g. a store's own sticker on a store pick, so they are never looked up as products. Client and server share test vectors. |
-| ZXing UPC-E fix | `web/src/features/barcode/zxingUpcEFix.ts` | `@zxing/library` 0.23.0 cannot decode UPC-E at all (see Findings). Small, tested patch. A test fails when upstream fixes it, at which point the patch can be deleted. |
-| Lookup callable | `functions/barcode/lookup.js` → `lookupBarcode` | Order: **administrator-verified mapping → this user's own confirmation → Claude + web search**. AI is only ever the last step, is rate-limited (20/user/hour), and its answer is returned, not stored. |
-| Result guard | `functions/barcode/identify.js` | Enforced in code, not just in the prompt. An answer only counts as identified if it **cites a web source**. A proof is dropped whenever the model says it varies or the UPC is shared across variants. No batch, barrel, store-pick or release fields exist in the schema. |
-| Firestore rules | `firestore.rules` | `upcMappings/{gtin13}`: administrator-verified, readable by signed-in users, **no client writes**. `upcConfirmations/{gtin13}/confirmedBy/{uid}`: one user's own confirmation, **private to that user**, fixed field list (no batch/barrel/store/price). |
-| Dev PoC page | `web/src/pages/Dev/BarcodePocPage.tsx`, route `#/dev/barcode` | Dev server only. Scan, decode a photo or type digits. Shows timing, the confirmation screen (name, distillery, expression, proof, size, image; missing fields say "Not found"), corrections, and ground-truth recording with CSV export for the 30-bottle test. |
-| Comparison script | `functions/scripts/barcode-poc.js` | Runs the recorded sample through Claude and (once approved) Gemini, in two modes: **decoded UPC** and **barcode photo with the digits withheld**. Grades against the label you recorded and writes `results.csv` and `summary.md`. Makes no calls without `--confirm-spend`. |
+| `upcMappings/{gtin13}` | `status: "verified"`, `candidates: [...]`: every verified release for that barcode. A candidate can be a whole product line ("proof varies") or one specific batch, barrel or store pick with its own proof. | Signed-in users read. **No client writes.** Administrators only. |
+| `users/{uid}/barcodeEntries/{id}` | What this user said a barcode is, one entry per release they saved, with the My Bar bottle it became and an opt-in `submitForReview`. | **Owner only.** Never read by anyone else's lookup. No price field. |
+| `upcPending/{gtin13}` | Server-only review queue: how often an unknown barcode was looked up, plus the last unverified **Claude** suggestion, reused for 30 days. | **No client access.** Never holds Gemini output. |
 
-The existing Add Bottle, My Bar, Wishlist, AXE and inventory data model are
-untouched.
+**How the catalog grows.** Users save what they own, privately. Some tick
+"Suggest for FIP's shared catalog". An administrator runs
+`functions/scripts/barcode-review.js list`, which groups submissions by
+barcode with the unmatched-lookup count. They check each against the bottle,
+its label or the producer's site, then `promote` it. From then on that
+barcode answers every user for free. One user's mistake can never reach
+another user without that check.
+
+**Avoiding repeat AI cost:**
+- Verified barcodes cost $0 for everyone.
+- A barcode a user saved costs that user $0.
+- An unknown barcode that someone already asked AXE about is answered from the stored Claude suggestion for 30 days, still labelled *not verified*.
+
+**Licensing.** Only Claude output is ever stored, and only server-side and
+time-limited. Grounded Gemini results are never stored (see the Gemini
+section). Search-result URLs are shown as sources and not republished. No
+paid barcode database is used.
+
+## What's in the code
+
+| Piece | Where |
+|---|---|
+| On-device decoding (built-in detector or ZXing) and the ZXing UPC-E fix | `web/src/features/barcode/decoder.ts`, `zxingUpcEFix.ts` |
+| Barcode validation (client and server share test vectors) | `web/src/features/barcode/gtin.ts`, `functions/barcode/gtin.js` |
+| Candidate list, drafts, field provenance | `web/src/features/barcode/options.ts` |
+| My Bar matching, Increase Quantity, new-bottle mapping | `web/src/features/barcode/inventory.ts` |
+| UI: match list, details form, save actions | `web/src/features/barcode/Barcode*.tsx` |
+| `lookupBarcode` and `identifyBottleLabel` callables | `functions/barcode/lookup.js` |
+| Prompts and the guard (sources required, no AI batch/barrel, proof rules, label readings kept separate) | `functions/barcode/identify.js` |
+| Claude / Gemini providers (barcode, barcode-photo and label modes) | `functions/barcode/providers/` |
+| Catalog review and promotion | `functions/barcode/review.js`, `functions/scripts/barcode-review.js` |
+| Claude vs Gemini comparison | `functions/scripts/barcode-poc.js`, `functions/barcode/grade.js` |
+| Dev PoC page, route `#/dev/barcode`, dev builds only | `web/src/pages/Dev/BarcodePocPage.tsx` |
 
 ## Findings so far (measured in this environment)
 
@@ -89,6 +145,29 @@ The test pressed the real Scan Barcode button with a video feed:
 Camera start-up was about 0.2–0.25 s here. Real phones will differ, which is
 what the device test below measures.
 
+### 4. Full flow against local emulators (Auth, Firestore, Functions)
+
+This was a real browser on the dev PoC page, with a fictional barcode seeded
+through `barcode-review.js` with three verified releases: a standard
+release, batch T101, and a generic barrel proof.
+
+| Step | Result |
+|---|---|
+| Scan the seeded barcode | 3 releases listed, all *Verified by FIP*; catalog lookup about 40 ms warm (about 1.3 s on a cold Functions emulator) |
+| Pick batch T101 → Add to My Bar | Proof 124.6 and batch T101 prefilled and tagged *Verified*; bottle saved as "… — Batch T101" with `upc`; one private entry saved |
+| Scan again → same release | Marked *You saved this before · In your bar*; **Increase quantity** → 2 instances; no new bottle, no duplicate entry |
+| Pick the generic barrel proof | Proof left empty with "Varies by batch or barrel — enter it from your label"; added to Wishlist |
+| Scan again → Wishlist copy | **Move to My Bar** moved it |
+| Unknown barcode | No AI call; "No match in FIP's catalog yet" with Ask AXE / Scan Front Label / Enter manually (about 100 ms) |
+| Manual store pick + suggest for review | Saved as "… — Barrel 77 — Test Club Pick"; appears in `barcode-review.js list` with its unmatched-lookup count |
+| Scan that barcode again | Answered from *Saved by you*, still no AI |
+| Ask AXE with an invalid key | Clean error; manual entry still offered |
+
+The run caught one bug, now fixed: `admin.firestore.FieldValue` is
+undefined inside the Functions emulator runtime (it worked under unit tests),
+so the unknown-barcode counter threw. It now imports `FieldValue` from
+`firebase-admin/firestore`, as the Party Mode service does.
+
 ## Running the 30-bottle test
 
 ### Step 1: scan on real phones (no AI, no cost)
@@ -102,6 +181,10 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=fip-dev" \
   -keyout ~/fip-dev-key.pem -out ~/fip-dev-cert.pem
 FIP_DEV_HTTPS_CERT=~/fip-dev-cert.pem FIP_DEV_HTTPS_KEY=~/fip-dev-key.pem npm run dev
 ```
+
+`web/.env.development` turns on mock auth by default, so the page saves to
+in-memory sample data. Scanning, timing and ground-truth recording work
+either way.
 
 On each phone (same Wi-Fi), open `https://<laptop-ip>:5173/#/dev/barcode`
 and accept the certificate warning once. Test **iPhone Safari**, the
@@ -128,26 +211,29 @@ ANTHROPIC_API_KEY=… node scripts/barcode-poc.js --sample ~/barcode-poc-sample.
 ANTHROPIC_API_KEY=… node scripts/barcode-poc.js … --confirm-spend
 ```
 
+- Modes: `upc` (decoded barcode), `photo` (barcode photo, digits withheld) and `label` (front-label photo saved from the page as `<gtin13>-label.jpg`, plus the barcode). Record the proof and batch/barrel printed on the label while scanning, so the label test also measures how accurately AXE reads them.
 - `claude-sonnet-4-6` is the model FIP's other AI features use today. `claude-opus-5-5` is the current model. Running both shows whether the cheaper one is accurate enough.
 - After approval, add `GEMINI_API_KEY=…` (and `--gemini-model`, checked with `--list-gemini-models`) and the same command runs Gemini side by side.
 - 30 bottles × 2 modes × 2 Claude models is 120 calls, worst case about $30, expected well under $10. Adding Gemini is 60 more calls; its search queries fall inside its free monthly allowance.
 
-The output `summary.md` shows correct / partial / wrong / not-found,
-over-claims (asserting a single proof or missing a shared UPC on
-batch/barrel/store-pick bottles), median and p90 latency, and measured
-cost per lookup and per 1,000 lookups, for each provider and mode.
+The output `summary.md` shows, for each provider and mode:
+- **correct** (the right release is the first candidate) and **in list** (offered, so the user can still pick it)
+- partial, wrong and not-found rates, and the average number of candidates
+- over-claims: an AI-asserted batch or barrel, a single proof on a batch/barrel/pick, or a missed shared UPC
+- label proof and batch reading accuracy
+- median and p90 latency, and measured cost per lookup and per 1,000 lookups
 `results.csv` has a blank `manual_grade` column for checking anything the
 automatic grader marked partial or wrong.
 
-### Step 3: end-to-end flow (optional, emulators)
-
-To try lookup → confirm → "your confirmation" on a second scan without
-deploying anything:
+### Step 3: end-to-end flow (optional, emulators, nothing deployed)
 
 ```sh
-echo "ANTHROPIC_API_KEY=…" > functions/.secret.local
+echo "ANTHROPIC_API_KEY=…" > functions/.secret.local      # only needed for AXE
 firebase emulators:start --only auth,firestore,functions
-VITE_FIREBASE_EMULATORS=true npm run dev   # in web/
+# seed a test barcode (fictional data):
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 GCLOUD_PROJECT=fully-involved-pour \
+  node functions/scripts/barcode-review.js add 0036000291452 '{"name":"Test Bourbon","releaseKind":"standard","proof":90,"sizeMl":750}'
+VITE_MOCK_AUTH=false VITE_FIREBASE_EMULATORS=true npm run dev   # in web/
 ```
 
 ## Gemini with Google Search grounding: what enabling it involves
@@ -186,41 +272,47 @@ documentation and secondary summaries; the terms text itself should be read
 before production.
 
 - Wherever a grounded answer is shown, the **Google Search Suggestions** element returned with it must be shown too, unmodified and linking straight to Google. That's a visible UI requirement on FIP's confirmation screen.
-- Summaries of the terms say grounded results may be shown only to the user who asked, and may **not be cached or stored**. That conflicts with "cache verified UPC mappings" if the stored facts came from Gemini. The current design stores only what the user confirms or corrects, and administrator-verified mappings, never the raw AI answer. Whether a user-confirmed mapping derived from a grounded answer can be kept and shared needs a read of the Gemini API Additional Terms before production.
-- Claude's web search has a per-search price ($10 per 1,000 searches, plus result tokens) and no such display requirement. No comparable storage restriction was found, but its terms should also be checked before production.
+- Summaries of the terms say grounded results may be shown only to the user who asked, and may **not be cached or stored**. That conflicts with "cache verified UPC mappings" if the stored facts came from Gemini. The design stores only what each user saves (privately), administrator-verified candidates, and time-limited **Claude** suggestions. It never stores Gemini output. Whether a user-saved entry that started from a grounded Gemini answer can be promoted to the shared catalog needs a read of the Gemini API Additional Terms before production.
+- Claude's web search has a per-search price ($10 per 1,000 searches, plus result tokens) and no such display requirement. No comparable storage restriction was found, but its terms should be checked before production, because the 30-day reuse of Claude suggestions depends on it.
 
 ## Cost picture (to be replaced by measured numbers)
 
 | Event | Expected cost |
 |---|---|
 | Decode (ZXing or built-in) | $0 |
-| Barcode already verified, or already confirmed by this user | 1–2 Firestore reads, effectively $0 |
+| Every scan: verified catalog + your entries | 1 document read + 1 small query, effectively $0 |
+| Unknown barcode someone already asked AXE about (within 30 days) | $0 (stored Claude suggestion, labelled not verified) |
+| Scan Front Label with AXE (Claude vision + up to 3 web searches) | about $0.05–0.12 per label, to be measured by the `label` mode |
 | Unknown barcode, Claude Opus 5.5 + web search | about $0.04–0.10 per lookup (tokens ~$4/$20 per 1M plus $0.01 per search, up to 3 searches) |
 | Unknown barcode, Claude Sonnet 4.6 + web search | similar order, measured by the script |
 | Unknown barcode, Gemini 3 Flash + grounding | tokens about $0.005–0.02; searches $0 within 5,000/month, then about $0.014 each |
 
-Every barcode costs AI money at most once per user, because the next scan
-hits their confirmation. Once an administrator verifies a mapping, it costs
-$0 for every user.
+AI never runs automatically. It runs only when the user taps Ask AXE or Scan
+Front Label. A barcode costs AI money at most once per 30 days across all
+users, then $0 for everyone once an administrator verifies it.
 
 ## Decisions this needs from you
 
 1. **Approve Gemini setup for the comparison** (option A above, AI Studio key, budget alert). The 30-bottle Claude run can happen first without it.
 2. **Run the 30-bottle test** (steps 1–2). Phone testing has to be done on your devices.
-3. Before production: read the grounding storage terms if Gemini wins.
+3. Before production: read the storage terms for whichever AI wins (Gemini grounding, and Claude web search for the 30-day reuse).
+4. Agree the naming convention for batch, barrel and store pick in My Bar ("… — Batch C924", "… — Barrel 77 — Store Pick"), or approve dedicated optional fields on `Bottle` in Phase 1.
 
 ## Phase 1 (production): planned, not started
 
-- A prominent **Scan Barcode** card on Add Bottle's entry screen (beside Scan Label with AI and Manual Entry), and a Scan Barcode button under the bottle name field in the form. Same card and button styles.
-- Confirmation screen as in the PoC, with the Search Suggestions element if Gemini is used. **Use these details** prefills the existing Add Bottle form, then the existing save path. Wishlist uses the existing status field. No inventory model change.
-- **Already in My Bar → Increase Quantity:** a confirmation can store the `bottleId` it was saved as (the field is already allowed by the rules and returned by `lookupBarcode`). The next scan of that barcode offers *Increase Quantity* on that bottle, adding a new sealed instance through the existing multi-bottle logic, instead of creating a duplicate.
-- An administrator review list for promoting confirmations to `upcMappings`. Today that's done by hand in the Firestore console.
-- Deployment: `lookupBarcode` added to the functions deploy target, `firebase deploy --only firestore:rules`, then the website, following DEPLOYMENT_SETUP.md, only with your approval.
+- A **Scan Barcode** card on Add Bottle's entry screen (next to Scan Label with AI and Manual Entry), and a Scan Barcode button under the bottle name field. It opens the same flow, using `BarcodeMatchList`, `BarcodeBottleForm` and `BarcodeSaveActions` from the PoC.
+- Picking a bottle fills the existing Add Bottle form, and the existing save path is used. Increase Quantity and Move to My Bar work as in the PoC.
+- If Gemini is chosen: show Google's Search Suggestions element with grounded answers, and never store them.
+- Administrator review stays a script until volume justifies an admin screen.
+- Deployment, only with approval:
+  1. add `lookupBarcode` and `identifyBottleLabel` to the functions deploy target
+  2. `firebase deploy --only firestore:rules,firestore:indexes` (the review queue needs the new collection-group index)
+  3. the website, following DEPLOYMENT_SETUP.md
 
 ## Deploying or merging this Phase 0 branch
 
 Not needed for Phase 0: everything above runs locally. If it is ever merged:
 
 - The website build is unchanged.
-- `lookupBarcode` is **not** in the automatic functions deploy target, so it isn't deployed.
-- The new Firestore rules only take effect when deployed by hand.
+- `lookupBarcode` and `identifyBottleLabel` are **not** in the automatic functions deploy target, so they aren't deployed.
+- The new Firestore rules and index only take effect when deployed by hand.

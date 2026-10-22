@@ -4,8 +4,13 @@
 //
 // Input: the sample CSV exported from the dev Barcode PoC page — one row
 // per bottle actually scanned, with the ground truth (what the label says)
-// typed in at the time. Optional: a folder of barcode photos named
-// <gtin13>.jpg (also saved from that page) for the photo-recognition test.
+// typed in at the time. Optional: a folder of photos saved from that page:
+// <gtin13>.jpg (barcode area) for the photo test and <gtin13>-label.jpg
+// (front label) for the label test.
+//
+// Modes: upc   = decoded barcode only
+//        photo = barcode photo with the digits withheld
+//        label = front-label photo + decoded barcode (Scan Front Label with AXE)
 //
 // For every row, provider and mode it records the identification, whether
 // the guard accepted it, latency, the provider's reported usage, and an
@@ -20,7 +25,7 @@
 //   ANTHROPIC_API_KEY=... [GEMINI_API_KEY=...] node scripts/barcode-poc.js \
 //     --sample ~/barcode-poc-sample.csv [--photos ~/barcode-photos] \
 //     [--claude-models claude-opus-5-5,claude-sonnet-4-6] [--gemini-model gemini-3-flash] \
-//     [--modes upc,photo] [--limit 5] [--out ./barcode-poc-results] [--confirm-spend]
+//     [--modes upc,photo,label] [--limit 5] [--out ./barcode-poc-results] [--confirm-spend]
 //
 //   GEMINI_API_KEY=... node scripts/barcode-poc.js --list-gemini-models
 
@@ -73,9 +78,9 @@ function csvCell(value) {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-function readPhoto(dir, gtin13) {
+function readPhoto(dir, name) {
   for (const ext of ["jpg", "jpeg", "png", "webp"]) {
-    const file = path.join(dir, `${gtin13}.${ext}`);
+    const file = path.join(dir, `${name}.${ext}`);
     if (fs.existsSync(file)) {
       const mediaType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
       return { base64: fs.readFileSync(file).toString("base64"), mediaType, file };
@@ -125,8 +130,9 @@ async function main() {
   for (const row of sample) {
     const normalized = normalizeBarcode(row.gtin13);
     for (const mode of modes) {
-      const photo = mode === "photo" && args.photos ? readPhoto(args.photos, normalized.gtin13) : null;
-      if (mode === "photo" && !photo) continue;
+      const photoName = mode === "label" ? `${normalized.gtin13}-label` : normalized.gtin13;
+      const photo = mode !== "upc" && args.photos ? readPhoto(args.photos, photoName) : null;
+      if (mode !== "upc" && !photo) continue;
       if (normalized.restricted && mode === "upc") continue;
       for (const provider of providers) jobs.push({ row, normalized, mode, photo, provider });
     }
@@ -148,41 +154,52 @@ async function main() {
     let call;
     try {
       // The photo test withholds the decoded digits: can the model read the
-      // barcode/label from the picture alone?
-      const input = mode === "photo" ? { normalized: null, photo } : { normalized };
+      // barcode from the picture alone? The label test sends both.
+      const input = mode === "photo" ? { normalized: null, photo, mode } : mode === "label" ? { normalized, photo, mode } : { normalized, mode };
       call =
         provider.name === "claude"
           ? await identifyWithClaude({ apiKey: anthropicKey, model: provider.model, ...input })
           : await identifyWithGemini({ apiKey: geminiKey, model: provider.model, ...input });
     } catch (error) {
-      call = { error: error.message, result: { identified: false }, raw: null, latencyMs: null, cost: null, usage: null };
+      call = { error: error.message, result: { identified: false, candidates: [] }, raw: null, latencyMs: null, cost: null, usage: null };
     }
     const grade = gradeIdentification(
-      { expectedName: row.expected_name, expectedDistillery: row.expected_distillery, variantKind: row.variant_kind },
+      {
+        expectedName: row.expected_name,
+        expectedDistillery: row.expected_distillery,
+        variantKind: row.variant_kind,
+        expectedProof: row.expected_proof,
+        expectedBatch: row.expected_batch,
+      },
       call.result,
       call.raw,
     );
-    console.log(`${label} → ${call.error ? `ERROR ${call.error}` : `${grade.verdict} ${call.result.name || ""}`} (${call.latencyMs ?? "–"} ms, ${money(call.cost?.total)})`);
+    const top = call.result.candidates?.[0];
+    console.log(`${label} → ${call.error ? `ERROR ${call.error}` : `${grade.verdict} ${top?.name || ""} (${grade.candidateCount} candidates)`} (${call.latencyMs ?? "–"} ms, ${money(call.cost?.total)})`);
     records.push({ row, normalized, mode, provider, call, grade });
   }
 
   const header = [
-    "gtin13", "variant_kind", "expected_name", "expected_distillery", "provider", "model", "mode",
-    "verdict", "manual_grade", "name_score", "distillery_score", "overclaims", "guard",
-    "identified_name", "identified_distillery", "identified_expression", "proof", "proof_varies", "size_ml",
-    "upc_shared_across_variants", "confidence", "sources", "latency_ms", "searches", "cost_tokens", "cost_search", "cost_total",
-    "usage_json", "error",
+    "gtin13", "variant_kind", "expected_name", "expected_distillery", "expected_proof", "expected_batch",
+    "provider", "model", "mode", "verdict", "rank", "manual_grade", "name_score", "distillery_score", "overclaims", "guard",
+    "candidate_count", "candidates", "top_name", "top_release_kind", "top_proof", "upc_shared_across_variants",
+    "label_name", "label_proof", "label_batch", "label_barrel", "label_store_pick", "label_proof_correct", "label_batch_correct",
+    "confidence", "sources", "latency_ms", "searches", "cost_tokens", "cost_search", "cost_total", "usage_json", "error",
   ];
-  const lines = records.map(({ row, normalized, mode, provider, call, grade }) =>
-    [
-      normalized.gtin13, row.variant_kind, row.expected_name, row.expected_distillery, provider.name, provider.model, mode,
-      grade.verdict, "", grade.nameScore?.toFixed(2), grade.distilleryScore?.toFixed(2), grade.overclaims.join(" "), call.result.guard,
-      call.result.name, call.result.distillery, call.result.expression, call.result.proof, call.result.proofVaries, call.result.sizeMl,
-      call.result.upcSharedAcrossVariants, call.result.confidence, (call.result.sources || []).map((s) => s.url).join(" "),
-      call.latencyMs, call.cost?.searches, call.cost?.tokens, call.cost?.search, call.cost?.total,
-      JSON.stringify(call.usage), call.error,
-    ].map(csvCell).join(","),
-  );
+  const lines = records.map(({ row, normalized, mode, provider, call, grade }) => {
+    const r = call.result;
+    const top = r.candidates?.[0] || {};
+    const l = r.label || {};
+    return [
+      normalized.gtin13, row.variant_kind, row.expected_name, row.expected_distillery, row.expected_proof, row.expected_batch,
+      provider.name, provider.model, mode, grade.verdict, grade.rank, "", grade.nameScore?.toFixed(2), grade.distilleryScore?.toFixed(2),
+      grade.overclaims.join(" "), r.guard, grade.candidateCount, (r.candidates || []).map((c) => `${c.name} [${c.releaseKind}]`).join(" | "),
+      top.name, top.releaseKind, top.proof, r.upcSharedAcrossVariants,
+      l.name, l.proof, l.batch, l.barrel, l.storePick, grade.labelProofCorrect, grade.labelBatchCorrect,
+      r.confidence, (r.sources || []).map((src) => src.url).join(" "), call.latencyMs, call.cost?.searches, call.cost?.tokens,
+      call.cost?.search, call.cost?.total, JSON.stringify(call.usage), call.error,
+    ].map(csvCell).join(",");
+  });
   fs.writeFileSync(path.join(args.out, "results.csv"), [header.join(","), ...lines].join("\n"));
 
   const groups = new Map();
@@ -198,8 +215,10 @@ async function main() {
     "",
     "Verdicts are automatic first-pass grades against the label you recorded; check `partial` and `wrong` rows in results.csv and fill in manual_grade.",
     "",
-    "| Provider · mode | Calls | Correct | Partial | Wrong | Not found | Over-claims | Errors | Median latency | p90 latency | Avg cost / lookup | Cost / 1,000 lookups |",
-    "|---|---|---|---|---|---|---|---|---|---|---|---|",
+    "Correct = the right release is the first candidate. In list = offered, but not first (the user can still pick it).",
+    "",
+    "| Provider · mode | Calls | Correct | In list | Partial | Wrong | Not found | Avg candidates | Over-claims | Errors | Median latency | p90 latency | Avg cost / lookup | Cost / 1,000 lookups |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
   ];
   for (const [key, rs] of groups) {
     const n = rs.length;
@@ -207,18 +226,31 @@ async function main() {
     const latencies = rs.map((r) => r.call.latencyMs).filter((v) => typeof v === "number");
     const costs = rs.map((r) => r.call.cost?.total).filter((v) => typeof v === "number");
     const avg = costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : null;
+    const found = rs.filter((r) => r.grade.candidateCount > 0);
+    const avgCandidates = found.length ? (found.reduce((a, r) => a + r.grade.candidateCount, 0) / found.length).toFixed(1) : "–";
     summary.push(
-      `| ${key} | ${n} | ${pct(count("correct"), n)} | ${pct(count("partial"), n)} | ${pct(count("wrong"), n)} | ${pct(count("not-found"), n)} | ${rs.filter((r) => r.grade.overclaims.length).length} | ${rs.filter((r) => r.call.error).length} | ${percentile(latencies, 0.5) ?? "–"} ms | ${percentile(latencies, 0.9) ?? "–"} ms | ${money(avg)} | ${avg === null ? "–" : money(avg * 1000)} |`,
+      `| ${key} | ${n} | ${pct(count("correct"), n)} | ${pct(count("in-list"), n)} | ${pct(count("partial"), n)} | ${pct(count("wrong"), n)} | ${pct(count("not-found"), n)} | ${avgCandidates} | ${rs.filter((r) => r.grade.overclaims.length).length} | ${rs.filter((r) => r.call.error).length} | ${percentile(latencies, 0.5) ?? "–"} ms | ${percentile(latencies, 0.9) ?? "–"} ms | ${money(avg)} | ${avg === null ? "–" : money(avg * 1000)} |`,
     );
   }
   const byKind = ["standard", "barrel-proof-batch", "single-barrel", "store-pick"];
-  summary.push("", "## Correct by bottle kind", "", `| Provider · mode | ${byKind.join(" | ")} |`, `|---|${byKind.map(() => "---").join("|")}|`);
+  const labelRows = records.filter((r) => r.mode === "label");
+  if (labelRows.length) {
+    const checked = (key) => labelRows.filter((r) => r.grade[key] !== null);
+    const right = (key) => checked(key).filter((r) => r.grade[key] === true).length;
+    summary.push(
+      "",
+      "## Read from the front label",
+      "",
+      `Proof read correctly: ${right("labelProofCorrect")}/${checked("labelProofCorrect").length} · batch or barrel read correctly: ${right("labelBatchCorrect")}/${checked("labelBatchCorrect").length} (bottles where you recorded them).`,
+    );
+  }
+  summary.push("", "## Right release offered (correct or in list) by bottle kind", "", `| Provider · mode | ${byKind.join(" | ")} |`, `|---|${byKind.map(() => "---").join("|")}|`);
   for (const [key, rs] of groups) {
     summary.push(
       `| ${key} | ${byKind
         .map((k) => {
           const subset = rs.filter((r) => r.row.variant_kind === k);
-          return subset.length ? `${subset.filter((r) => r.grade.verdict === "correct").length}/${subset.length}` : "–";
+          return subset.length ? `${subset.filter((r) => ["correct", "in-list"].includes(r.grade.verdict)).length}/${subset.length}` : "–";
         })
         .join(" | ")} |`,
     );

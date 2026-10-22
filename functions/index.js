@@ -7,7 +7,7 @@ const { sanitizeAxeContext, buildAxeContext, buildAxeSystemPrompt } = require(".
 const { syncAxeInsights, readAxeInsights } = require("./axeInsights");
 const { explainAxeInsight, loadInsightForChat } = require("./axeInsightExplain");
 const { handlePartyAction } = require("./party/service");
-const { handleLookupBarcode } = require("./barcode/lookup");
+const { handleLookupBarcode, handleIdentifyBottleLabel } = require("./barcode/lookup");
 const { buildPartyAxePrompt, loadPartyAxeContext } = require("./party/axe");
 
 admin.initializeApp();
@@ -604,12 +604,18 @@ Set "found" to false ONLY if no spirits bottle is visible in the image at all. I
   },
 );
 
-// Scan Barcode proof of concept: verified mapping, then the caller's own
-// confirmation, then Claude + web search. Only the dev-only Barcode PoC
-// page calls it today — see functions/barcode/lookup.js and
-// docs/BARCODE_POC.md.
+// Scan Barcode proof of concept: FIP-verified candidates and the caller's
+// own saved entries first; Claude + web search only when the user asks
+// AXE. Only the dev-only Barcode PoC page calls these today — see
+// functions/barcode/lookup.js and docs/BARCODE_POC.md.
 exports.lookupBarcode = onCall({ secrets: [anthropicApiKey], cors: true }, (request) =>
   handleLookupBarcode(admin.firestore(), request, { apiKey: anthropicApiKey.value(), assertNotRateLimited }),
+);
+
+// "Scan Front Label with AXE": label photo + barcode → candidate releases,
+// with what was read off the label kept apart from AI suggestions.
+exports.identifyBottleLabel = onCall({ secrets: [anthropicApiKey], cors: true, memory: "512MiB" }, (request) =>
+  handleIdentifyBottleLabel(admin.firestore(), request, { apiKey: anthropicApiKey.value(), assertNotRateLimited }),
 );
 
 exports.recommendBottles = onCall({ secrets: [anthropicApiKey], cors: true }, async (request) => {

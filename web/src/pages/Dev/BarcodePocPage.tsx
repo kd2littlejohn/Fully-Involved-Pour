@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Field, controlClassName } from '../../components/ui/Field'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { useAuth } from '../../hooks/useAuth'
+import { useUserData } from '../../hooks/useUserData'
+import { isMockAuthEnabled } from '../../data/devMode'
+import type { Bottle } from '../../data/types'
 import {
+  identifyBottleLabel,
   lookupBarcode,
-  saveBarcodeConfirmation,
-  type BarcodeBottle,
+  saveBarcodeEntry,
   type BarcodeLookupResult,
-  type ConfirmationOrigin,
+  type LabelScanResult,
 } from '../../data/repositories/barcode'
 import {
   decodeImageFile,
@@ -20,19 +23,25 @@ import {
   type LiveScanStats,
 } from '../../features/barcode/decoder'
 import { normalizeBarcode } from '../../features/barcode/gtin'
-import { resizeImageFile } from '../../features/ai/imageToBase64'
+import { buildOptions, draftFromLabel, draftFromOption, draftToBottle, type BarcodeOption, type BottleDraft } from '../../features/barcode/options'
+import { buildNewBottleInput, findInBar, planIncreaseQuantity, type BarMatches } from '../../features/barcode/inventory'
+import { BarcodeMatchList } from '../../features/barcode/BarcodeMatchList'
+import { BarcodeBottleForm } from '../../features/barcode/BarcodeBottleForm'
+import { BarcodeSaveActions } from '../../features/barcode/BarcodeSaveActions'
+import { downscaleImageToJpegBase64, resizeImageFile } from '../../features/ai/imageToBase64'
 import styles from './BarcodePocPage.module.css'
 
 // Scan Barcode — Phase 0 proof of concept. Dev builds only (see router.tsx):
 // never part of the production app, and never linked from Add Bottle.
 //
-// What it's for (docs/BARCODE_POC.md):
-//  1. Camera/decoder test on real phones: decode rate, time to decode,
-//     misreads, iPhone Safari vs Android Chrome, native vs ZXing.
-//  2. Recording ground truth — what each scanned bottle actually is — and
-//     exporting the sample CSV that scripts/barcodePoc.mjs runs through
-//     Claude and Gemini.
-//  3. Trying the confirm/correct flow end to end against the emulators.
+// The flow it proves out (docs/BARCODE_POC.md):
+//   scan → FIP catalog + your own saved entries (free) → pick your release
+//   from the candidates, or ask AXE / scan the front label / type it →
+//   check the details (every value tagged with where it came from) →
+//   Increase Quantity on a bottle you already have, or add to My Bar or
+//   Wishlist through the existing inventory hooks.
+// It also records ground truth for the 30-bottle test and exports the CSV
+// that scripts/barcode-poc.js grades Claude and Gemini against.
 
 type VariantKind = 'standard' | 'barrel-proof-batch' | 'single-barrel' | 'store-pick'
 
@@ -46,8 +55,12 @@ interface SampleRow {
   msToCamera: number | ''
   msToDecode: number | ''
   rejectedReads: number | ''
+  catalogStatus: string
+  verifiedCandidates: number | ''
   expectedName: string
   expectedDistillery: string
+  expectedProof: string
+  expectedBatch: string
   variantKind: VariantKind
   device: string
 }
@@ -59,6 +72,7 @@ const VARIANT_LABELS: Record<VariantKind, string> = {
   'single-barrel': 'Single barrel',
   'store-pick': 'Store pick',
 }
+const USING_EMULATORS = import.meta.env.VITE_FIREBASE_EMULATORS === 'true'
 
 function readSamples(): SampleRow[] {
   try {
@@ -90,16 +104,22 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-const EMPTY_FORM = { name: '', distillery: '', expression: '', proof: '', sizeMl: '' }
-
-function show(value: string | number | null | undefined, suffix = ''): string {
-  return value === null || value === undefined || value === '' ? 'Not found' : `${value}${suffix}`
+function generateId(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
+
+function money(value: number | null | undefined): string {
+  return typeof value === 'number' ? `$${value.toFixed(value < 0.1 ? 4 : 2)}` : '–'
+}
+
+const NO_MATCHES: BarMatches = { sameRelease: [], sameBarcode: [] }
 
 export function BarcodePocPage() {
   const { user } = useAuth()
+  const { userDoc, addBottle, updateBottle, addBottleInstance } = useUserData()
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<LiveScanner | null>(null)
+  const labelInputRef = useRef<HTMLInputElement>(null)
 
   const [nativeAvailable, setNativeAvailable] = useState<boolean | null>(null)
   const [enginePref, setEnginePref] = useState<EnginePreference>('auto')
@@ -113,14 +133,23 @@ export function BarcodePocPage() {
   const [typed, setTyped] = useState('')
 
   const [lookup, setLookup] = useState<BarcodeLookupResult | null>(null)
-  const [lookupMs, setLookupMs] = useState<number | null>(null)
-  const [lookupBusy, setLookupBusy] = useState(false)
-  const [lookupError, setLookupError] = useState<string | null>(null)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const [catalogMs, setCatalogMs] = useState<number | null>(null)
+  const [axeMs, setAxeMs] = useState<number | null>(null)
+  const [busy, setBusy] = useState<'catalog' | 'axe' | 'label' | 'save' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [labelScan, setLabelScan] = useState<LabelScanResult | null>(null)
+  const [labelMs, setLabelMs] = useState<number | null>(null)
+  const [labelPhoto, setLabelPhoto] = useState<File | null>(null)
+
+  const [selected, setSelected] = useState<BarcodeOption | null>(null)
+  const [draft, setDraft] = useState<BottleDraft | null>(null)
+  const [submitForReview, setSubmitForReview] = useState(false)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
 
   const [expectedName, setExpectedName] = useState('')
   const [expectedDistillery, setExpectedDistillery] = useState('')
+  const [expectedProof, setExpectedProof] = useState('')
+  const [expectedBatch, setExpectedBatch] = useState('')
   const [variantKind, setVariantKind] = useState<VariantKind>('standard')
   const [samples, setSamples] = useState<SampleRow[]>(readSamples)
 
@@ -131,14 +160,52 @@ export function BarcodePocPage() {
 
   useEffect(() => () => (photo ? URL.revokeObjectURL(photo.url) : undefined), [photo])
 
+  const gtin13 = decoded?.normalized.gtin13 ?? null
+  const options = useMemo(() => buildOptions(lookup, labelScan), [lookup, labelScan])
+  const bottles = userDoc.bottles
+  const inBarKeys = useMemo(
+    () => new Set(options.filter((o) => findInBar(bottles, gtin13 ?? '', o.bottle, o.bottleId).sameRelease.length > 0).map((o) => o.key)),
+    [options, bottles, gtin13],
+  )
+  const matches = useMemo(
+    () => (draft && draft.values.name.trim() ? findInBar(bottles, gtin13 ?? '', draftToBottle(draft), selected?.bottleId) : NO_MATCHES),
+    [draft, bottles, gtin13, selected],
+  )
+
   function resetResult() {
     setDecoded(null)
     setStats(null)
     setLookup(null)
-    setLookupMs(null)
-    setLookupError(null)
+    setCatalogMs(null)
+    setAxeMs(null)
+    setLabelScan(null)
+    setLabelMs(null)
+    setLabelPhoto(null)
+    setSelected(null)
+    setDraft(null)
+    setError(null)
     setSaveStatus(null)
-    setForm(EMPTY_FORM)
+  }
+
+  // Every decoded barcode is checked against FIP's catalog and the user's
+  // own entries straight away: Firestore only, no AI cost.
+  async function runCatalogLookup(code: string) {
+    setBusy('catalog')
+    setError(null)
+    const started = performance.now()
+    try {
+      setLookup(await lookupBarcode(code))
+      setCatalogMs(Math.round(performance.now() - started))
+    } catch (err) {
+      setError(err instanceof Error ? `Catalog lookup failed: ${err.message}` : 'Catalog lookup failed.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function accept(result: DecodedBarcode) {
+    setDecoded(result)
+    if (!result.normalized.restricted) void runCatalogLookup(result.normalized.gtin13)
   }
 
   async function startScan() {
@@ -151,9 +218,9 @@ export function BarcodePocPage() {
       const scanner = await startLiveScan(
         videoRef.current,
         (result) => {
-          setDecoded(result)
           setStats({ ...scanner.stats })
           setScanning(false)
+          accept(result)
         },
         { engine: enginePref, confirmations },
       )
@@ -178,8 +245,8 @@ export function BarcodePocPage() {
     setMode('photo')
     setPhoto({ file, url: URL.createObjectURL(file) })
     const result = await decodeImageFile(file, enginePref)
-    if (result) setDecoded(result)
-    else setScanError('No valid UPC-A, UPC-E or EAN-13 found in that photo.')
+    if (result) accept(result)
+    else setScanError('No valid UPC-A, UPC-E or EAN-13 found in that photo. Try again, scan the front label, or type the digits.')
   }
 
   function useTyped() {
@@ -191,71 +258,110 @@ export function BarcodePocPage() {
     }
     setScanError(null)
     setMode('typed')
-    setDecoded({ raw: typed, format: normalized.symbology, engine: 'zxing', normalized, msToDecode: 0 })
+    accept({ raw: typed, format: normalized.symbology, engine: 'zxing', normalized, msToDecode: 0 })
   }
 
-  async function runLookup(skipAi: boolean) {
-    if (!decoded) return
-    setLookupBusy(true)
-    setLookupError(null)
-    setSaveStatus(null)
+  async function askAxe() {
+    if (!gtin13) return
+    setBusy('axe')
+    setError(null)
     const started = performance.now()
     try {
-      const result = await lookupBarcode(decoded.normalized.gtin13, { skipAi })
-      setLookupMs(Math.round(performance.now() - started))
-      setLookup(result)
-      const b: Partial<BarcodeBottle> = result.bottle ?? {}
-      setForm({
-        name: b.name ?? '',
-        distillery: b.distillery ?? '',
-        expression: b.expression ?? '',
-        proof: b.proof != null ? String(b.proof) : '',
-        sizeMl: b.sizeMl != null ? String(b.sizeMl) : '',
-      })
+      setLookup(await lookupBarcode(gtin13, { useAxe: true }))
+      setAxeMs(Math.round(performance.now() - started))
     } catch (err) {
-      setLookupError(err instanceof Error ? err.message : 'Lookup failed.')
+      setError(err instanceof Error ? err.message : "AXE can't look this barcode up right now.")
     } finally {
-      setLookupBusy(false)
+      setBusy(null)
     }
   }
 
-  async function confirm() {
-    if (!user || !decoded || !form.name.trim()) return
-    const b = lookup?.bottle
-    const edited =
-      !b ||
-      form.name.trim() !== (b.name ?? '') ||
-      form.distillery.trim() !== (b.distillery ?? '') ||
-      form.expression.trim() !== (b.expression ?? '') ||
-      form.proof !== (b.proof != null ? String(b.proof) : '') ||
-      form.sizeMl !== (b.sizeMl != null ? String(b.sizeMl) : '')
-    const origin: ConfirmationOrigin = edited
-      ? 'manual'
-      : lookup?.source === 'verified'
-        ? 'verified'
-        : 'ai-claude'
+  async function scanLabel(file: File | undefined) {
+    if (!file) return
+    setBusy('label')
+    setError(null)
+    setLabelPhoto(file)
+    const started = performance.now()
     try {
-      await saveBarcodeConfirmation(
-        user.uid,
-        decoded.normalized.gtin13,
-        {
-          name: form.name.trim(),
-          distillery: form.distillery.trim() || null,
-          brand: b?.brand ?? null,
-          expression: form.expression.trim() || null,
-          category: b?.category ?? null,
-          sizeMl: form.sizeMl ? Number(form.sizeMl) : null,
-          proof: form.proof ? Number(form.proof) : null,
-          proofVaries: b?.proofVaries ?? false,
-          ageStatement: b?.ageStatement ?? null,
-          upcSharedAcrossVariants: b?.upcSharedAcrossVariants ?? false,
-        },
-        origin,
-      )
-      setSaveStatus(`Saved as your confirmation (${origin}). Only your own scans will use it.`)
+      const imageBase64 = await downscaleImageToJpegBase64(file, 1280)
+      const result = await identifyBottleLabel({ barcode: gtin13, imageBase64, mediaType: 'image/jpeg' })
+      setLabelMs(Math.round(performance.now() - started))
+      setLabelScan(result)
+      // Re-apply what the label shows to a bottle already being edited.
+      if (selected) setDraft(draftFromOption(selected, result.axe.label))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AXE can't read this label right now.")
+    } finally {
+      setBusy(null)
+      if (labelInputRef.current) labelInputRef.current.value = ''
+    }
+  }
+
+  function choose(option: BarcodeOption) {
+    setSelected(option)
+    setDraft(draftFromOption(option, labelScan?.axe.label ?? null))
+    setSaveStatus(null)
+  }
+
+  function enterManually() {
+    setSelected(null)
+    setDraft(draftFromLabel(labelScan?.axe.label ?? null))
+    setSaveStatus(null)
+  }
+
+  // Remembers what this barcode turned out to be, privately, so the next
+  // scan answers from it for free. Skipped without a real barcode or user.
+  async function recordEntry(bottleId: string | undefined) {
+    if (!user || isMockAuthEnabled() || !gtin13 || !draft) return 'not recorded (no barcode or no signed-in user)'
+    if (lookup?.yours.some((e) => e.bottleId && e.bottleId === bottleId)) return 'already remembered'
+    await saveBarcodeEntry(user.uid, {
+      gtin13,
+      bottle: draftToBottle(draft),
+      origin: selected?.origin ?? 'manual',
+      candidateId: selected?.candidateId ?? null,
+      bottleId: bottleId ?? null,
+      submitForReview,
+    })
+    return submitForReview ? 'remembered for your scans, and suggested for FIP review' : 'remembered for your scans'
+  }
+
+  async function save(action: () => Promise<{ bottleId: string | undefined; message: string }>) {
+    setBusy('save')
+    setSaveStatus(null)
+    try {
+      const { bottleId, message } = await action()
+      const entry = await recordEntry(bottleId)
+      setSaveStatus(`${message} Barcode ${entry}.`)
+      if (gtin13) void runCatalogLookup(gtin13)
     } catch (err) {
       setSaveStatus(err instanceof Error ? `Not saved: ${err.message}` : 'Not saved.')
+    } finally {
+      setBusy(null)
     }
+  }
+
+  function addNew(status: 'sealed' | 'wishlist') {
+    if (!draft) return
+    const printed = decoded ? decoded.raw.replace(/\D/g, '') : ''
+    void save(async () => {
+      const input = buildNewBottleInput(draftToBottle(draft), status, printed)
+      if (!printed) delete input.upc
+      const bottleId = await addBottle(input)
+      return { bottleId, message: `Added "${input.name}" to ${status === 'wishlist' ? 'Wishlist' : 'My Bar'}.` }
+    })
+  }
+
+  function increase(bottle: Bottle) {
+    void save(async () => {
+      const plan = planIncreaseQuantity(bottle, generateId)
+      if (plan.kind === 'add-instance') await addBottleInstance(bottle.id)
+      else await updateBottle(bottle.id, plan.patch)
+      const message =
+        plan.kind === 'move-to-bar'
+          ? `Moved "${bottle.name}" from Wishlist to My Bar.`
+          : `"${bottle.name}" now has ${plan.kind === 'update' ? plan.quantity : (bottle.instances?.length ?? 1) + 1} bottles.`
+      return { bottleId: bottle.id, message }
+    })
   }
 
   function recordSample() {
@@ -270,8 +376,12 @@ export function BarcodePocPage() {
       msToCamera: mode === 'live' ? (stats?.msToCamera ?? '') : '',
       msToDecode: mode === 'typed' ? '' : decoded.msToDecode,
       rejectedReads: mode === 'live' ? (stats?.rejectedReads ?? '') : '',
+      catalogStatus: lookup?.status ?? '',
+      verifiedCandidates: lookup ? lookup.verified.length : '',
       expectedName: expectedName.trim(),
       expectedDistillery: expectedDistillery.trim(),
+      expectedProof: expectedProof.trim(),
+      expectedBatch: expectedBatch.trim(),
       variantKind,
       device: navigator.userAgent,
     }
@@ -280,18 +390,22 @@ export function BarcodePocPage() {
     writeSamples(next)
     setExpectedName('')
     setExpectedDistillery('')
+    setExpectedProof('')
+    setExpectedBatch('')
     setVariantKind('standard')
   }
 
   function exportCsv() {
     const header = [
-      'gtin13', 'upc_a', 'symbology', 'expected_name', 'expected_distillery', 'variant_kind', 'photo_file',
-      'mode', 'engine', 'ms_to_camera', 'ms_to_decode', 'rejected_reads', 'device', 'recorded_at',
+      'gtin13', 'upc_a', 'symbology', 'expected_name', 'expected_distillery', 'expected_proof', 'expected_batch',
+      'variant_kind', 'mode', 'engine', 'ms_to_camera', 'ms_to_decode', 'rejected_reads', 'catalog_status',
+      'verified_candidates', 'device', 'recorded_at',
     ]
     const lines = samples.map((s) =>
       [
-        s.gtin13, s.upcA, s.symbology, s.expectedName, s.expectedDistillery, s.variantKind, `${s.gtin13}.jpg`,
-        s.mode, s.engine, s.msToCamera, s.msToDecode, s.rejectedReads, s.device, s.at,
+        s.gtin13, s.upcA, s.symbology, s.expectedName, s.expectedDistillery, s.expectedProof, s.expectedBatch,
+        s.variantKind, s.mode, s.engine, s.msToCamera, s.msToDecode, s.rejectedReads, s.catalogStatus,
+        s.verifiedCandidates, s.device, s.at,
       ].map(csvCell).join(','),
     )
     downloadBlob(new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv' }), 'barcode-poc-sample.csv')
@@ -303,14 +417,15 @@ export function BarcodePocPage() {
     writeSamples([])
   }
 
-  const bottle = lookup?.bottle
+  const axe = lookup?.axe
+  const labelReading = labelScan?.axe.label
 
   return (
     <div className={styles.page}>
       <PageHeader
         eyebrow="Development only"
         title="Barcode PoC"
-        subtitle="Decode locally, look up, confirm, and record ground truth for the Phase 0 test."
+        subtitle="Scan, pick your release, and add it — and record ground truth for the Phase 0 test."
       />
 
       <section className={styles.card}>
@@ -320,6 +435,14 @@ export function BarcodePocPage() {
           <dd>{window.isSecureContext ? 'Yes' : 'No — camera needs HTTPS'}</dd>
           <dt>Built-in barcode detector</dt>
           <dd>{nativeAvailable === null ? 'Checking…' : nativeAvailable ? 'Yes (UPC-A, UPC-E, EAN-13)' : 'No — ZXing will be used'}</dd>
+          <dt>Saving goes to</dt>
+          <dd>
+            {isMockAuthEnabled()
+              ? 'Mock data (nothing is written)'
+              : USING_EMULATORS
+                ? 'The local emulators'
+                : 'The signed-in account’s real My Bar'}
+          </dd>
           <dt>Browser</dt>
           <dd className={styles.small}>{navigator.userAgent}</dd>
         </dl>
@@ -342,7 +465,7 @@ export function BarcodePocPage() {
       </section>
 
       <section className={styles.card}>
-        <h2 className={styles.heading}>Scan</h2>
+        <h2 className={styles.heading}>1. Scan</h2>
         <div className={styles.viewfinder} hidden={!scanning}>
           <video ref={videoRef} className={styles.video} playsInline muted />
           <div className={styles.guide} aria-hidden="true" />
@@ -381,88 +504,110 @@ export function BarcodePocPage() {
             ) : null}
           </dl>
         ) : null}
+        {decoded?.normalized.restricted ? (
+          <p className={styles.small}>This is a store-applied label, not the product barcode. Look for the printed UPC, or scan the front label.</p>
+        ) : null}
         {photo && decoded ? (
           <Button
             variant="ghost"
             onClick={() => void resizeImageFile(photo.file, 1600).then((jpeg) => downloadBlob(jpeg, `${decoded.normalized.gtin13}.jpg`))}
           >
-            Save photo for the AI photo test
+            Save barcode photo for the AI photo test
           </Button>
         ) : null}
+        {!decoded ? (
+          <Button variant="ghost" onClick={() => labelInputRef.current?.click()} disabled={busy === 'label'}>
+            {busy === 'label' ? 'Reading label…' : 'No barcode? Scan Front Label with AXE'}
+          </Button>
+        ) : null}
+        <input
+          ref={labelInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={(e) => void scanLabel(e.target.files?.[0])}
+        />
       </section>
 
-      {decoded ? (
+      {decoded || labelScan ? (
         <section className={styles.card}>
-          <h2 className={styles.heading}>Look up</h2>
-          <p className={styles.small}>
-            Checks verified mappings, then your own confirmations. &ldquo;With AI&rdquo; then asks Claude + web search (needs the
-            functions emulator with an Anthropic key, or a deployed function).
+          <h2 className={styles.heading}>2. Which bottle is it?</h2>
+          {busy === 'catalog' ? <p className={styles.small}>Checking FIP’s catalog…</p> : null}
+          <p className={styles.badge}>
+            {catalogMs != null ? `Catalog ${catalogMs} ms (no AI cost)` : ''}
+            {axe ? ` · AXE ${axeMs ?? '–'} ms, ${axe.cached ? 'reused a recent suggestion, $0' : money(lookup?.costUsd)}` : ''}
+            {labelScan ? ` · Label ${labelMs ?? '–'} ms, ${money(labelScan.costUsd)}` : ''}
           </p>
-          <div className={styles.actions}>
-            <Button variant="secondary" onClick={() => void runLookup(true)} disabled={lookupBusy}>Catalog only</Button>
-            <Button onClick={() => void runLookup(false)} disabled={lookupBusy}>{lookupBusy ? 'Looking up…' : 'Look up with AI'}</Button>
-          </div>
-          {lookupError ? <p className={styles.error} role="alert">{lookupError}</p> : null}
-          {lookup ? (
-            <>
-              <p className={styles.badge}>
-                Source: {lookup.source}
-                {lookupMs != null ? ` · ${lookupMs} ms round trip` : ''}
-                {lookup.model ? ` · ${lookup.model}` : ''}
-              </p>
-              <div className={styles.confirm}>
-                <div className={styles.image}>
-                  {photo ? <img src={photo.url} alt="The bottle you scanned" /> : <span>No image</span>}
-                </div>
-                <dl className={styles.facts}>
-                  <dt>Bottle name</dt>
-                  <dd>{show(bottle?.name)}</dd>
-                  <dt>Distillery</dt>
-                  <dd>{show(bottle?.distillery)}</dd>
-                  <dt>Expression</dt>
-                  <dd>{show(bottle?.expression)}</dd>
-                  <dt>Proof</dt>
-                  <dd>{bottle?.proofVaries || bottle?.upcSharedAcrossVariants ? 'Varies by batch or barrel — check your label' : show(bottle?.proof)}</dd>
-                  <dt>Size</dt>
-                  <dd>{show(bottle?.sizeMl, ' ml')}</dd>
-                </dl>
-              </div>
-              {bottle?.upcSharedAcrossVariants ? (
-                <p className={styles.small}>This barcode is shared by several releases (batches, single barrels or store picks).</p>
-              ) : null}
-              {bottle?.sources?.length ? (
-                <ul className={styles.sources}>
-                  {bottle.sources.map((s) => (
-                    <li key={s.url}>
-                      <a href={s.url} target="_blank" rel="noreferrer">{s.title || s.url}</a>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <h3 className={styles.subheading}>Confirm or correct</h3>
-              <div className={styles.form}>
-                <Field label="Bottle name" htmlFor="poc-name" required>
-                  <input id="poc-name" className={controlClassName} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                </Field>
-                <Field label="Distillery" htmlFor="poc-distillery">
-                  <input id="poc-distillery" className={controlClassName} value={form.distillery} onChange={(e) => setForm({ ...form, distillery: e.target.value })} />
-                </Field>
-                <Field label="Expression" htmlFor="poc-expression">
-                  <input id="poc-expression" className={controlClassName} value={form.expression} onChange={(e) => setForm({ ...form, expression: e.target.value })} />
-                </Field>
-                <Field label="Proof (fixed-proof products only)" htmlFor="poc-proof">
-                  <input id="poc-proof" className={controlClassName} inputMode="decimal" value={form.proof} onChange={(e) => setForm({ ...form, proof: e.target.value })} />
-                </Field>
-                <Field label="Size (ml)" htmlFor="poc-size">
-                  <input id="poc-size" className={controlClassName} inputMode="numeric" value={form.sizeMl} onChange={(e) => setForm({ ...form, sizeMl: e.target.value })} />
-                </Field>
-              </div>
-              <Button onClick={() => void confirm()} disabled={!user || !form.name.trim()}>
-                {user ? 'Confirm for my scans' : 'Sign in to confirm'}
-              </Button>
-              {saveStatus ? <output className={styles.small}>{saveStatus}</output> : null}
-            </>
+          {axe && !axe.identified ? <p className={styles.small}>AXE couldn’t tie this barcode to a product.</p> : null}
+          {labelScan && !labelScan.axe.identified ? <p className={styles.small}>AXE couldn’t identify the bottle from that label.</p> : null}
+          {labelReading ? (
+            <p className={styles.small}>
+              Read from your label:{' '}
+              {[
+                labelReading.name,
+                labelReading.proof != null ? `${labelReading.proof} proof` : null,
+                labelReading.batch ? `batch ${labelReading.batch}` : null,
+                labelReading.barrel ? `barrel ${labelReading.barrel}` : null,
+                labelReading.storePick ? `${labelReading.storePick} pick` : null,
+                labelReading.ageStatement,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
           ) : null}
+          {error ? <p className={styles.error} role="alert">{error}</p> : null}
+          <BarcodeMatchList
+            options={options}
+            selectedKey={selected?.key ?? null}
+            inBarKeys={inBarKeys}
+            onSelect={choose}
+            onAskAxe={gtin13 && !decoded?.normalized.restricted && !axe ? () => void askAxe() : undefined}
+            askAxeBusy={busy === 'axe'}
+            onScanLabel={() => labelInputRef.current?.click()}
+            scanLabelBusy={busy === 'label'}
+            onManual={enterManually}
+          />
+          {labelPhoto && gtin13 ? (
+            <Button
+              variant="ghost"
+              onClick={() => void resizeImageFile(labelPhoto, 1600).then((jpeg) => downloadBlob(jpeg, `${gtin13}-label.jpg`))}
+            >
+              Save label photo for the AI label test
+            </Button>
+          ) : null}
+          {axe?.sources.length || labelScan?.axe.sources.length ? (
+            <ul className={styles.sources} aria-label="AXE sources">
+              {[...(axe?.sources ?? []), ...(labelScan?.axe.sources ?? [])].map((s) => (
+                <li key={s.url}>
+                  <a href={s.url} target="_blank" rel="noreferrer">{s.title || s.url}</a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
+
+      {draft ? (
+        <section className={styles.card}>
+          <h2 className={styles.heading}>3. Check the details</h2>
+          <p className={styles.small}>
+            {selected ? `From: ${selected.trust === 'verified' ? 'FIP’s verified catalog' : selected.trust === 'yours' ? 'what you saved before' : 'an AXE suggestion — not verified'}.` : 'Entered by you.'}{' '}
+            Batch, barrel and proof come only from FIP’s verified catalog or your own label.
+          </p>
+          <BarcodeBottleForm draft={draft} onChange={setDraft} />
+          <h3 className={styles.subheading}>4. Add it</h3>
+          <BarcodeSaveActions
+            matches={matches}
+            canSave={Boolean(user) && Boolean(draft.values.name.trim())}
+            busy={busy === 'save'}
+            submitForReview={submitForReview}
+            onSubmitForReviewChange={setSubmitForReview}
+            onAdd={addNew}
+            onIncrease={increase}
+          />
+          {!user ? <p className={styles.small}>Sign in to save.</p> : null}
+          {saveStatus ? <output className={styles.small}>{saveStatus}</output> : null}
         </section>
       ) : null}
 
@@ -478,6 +623,12 @@ export function BarcodePocPage() {
           </Field>
           <Field label="Actual distillery" htmlFor="poc-expected-distillery">
             <input id="poc-expected-distillery" className={controlClassName} value={expectedDistillery} onChange={(e) => setExpectedDistillery(e.target.value)} />
+          </Field>
+          <Field label="Proof on the label (if printed)" htmlFor="poc-expected-proof">
+            <input id="poc-expected-proof" className={controlClassName} inputMode="decimal" value={expectedProof} onChange={(e) => setExpectedProof(e.target.value)} />
+          </Field>
+          <Field label="Batch or barrel on the label (if printed)" htmlFor="poc-expected-batch">
+            <input id="poc-expected-batch" className={controlClassName} value={expectedBatch} onChange={(e) => setExpectedBatch(e.target.value)} />
           </Field>
           <Field label="Kind" htmlFor="poc-variant">
             <select id="poc-variant" className={controlClassName} value={variantKind} onChange={(e) => setVariantKind(e.target.value as VariantKind)}>
