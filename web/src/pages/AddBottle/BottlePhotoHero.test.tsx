@@ -58,18 +58,40 @@ describe('BottlePhotoHero', () => {
     expect(mockScan).not.toHaveBeenCalled()
   })
 
-  it('scans the label and uploads in parallel when Scan Label with AI is used', async () => {
+  it('scans the label and uploads in parallel when Scan Label with AXE is used', async () => {
     mockStandardizeAndUpload.mockResolvedValue(uploadResult)
     mockScan.mockResolvedValue({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' })
     const onScanResult = vi.fn()
     render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={onScanResult} />)
 
     const file = new File(['data'], 'label.jpg', { type: 'image/jpeg' })
-    await userEvent.upload(screen.getByLabelText('Scan Label with AI', { exact: false }), file)
+    await userEvent.upload(screen.getByLabelText('Scan Label with AXE', { exact: false }), file)
 
     await vi.waitFor(() =>
       expect(onScanResult).toHaveBeenCalledWith({ found: true, name: 'Eagle Rare 10 Year', distillery: 'Buffalo Trace' }),
     )
+  })
+
+  it('still fills in the label details when the photo upload fails', async () => {
+    mockStandardizeAndUpload.mockRejectedValue(new Error('Upload failed'))
+    mockScan.mockResolvedValue({ found: true, name: 'Eagle Rare 10 Year' })
+    const onScanResult = vi.fn()
+    render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={onScanResult} />)
+    await userEvent.upload(screen.getByLabelText('Scan Label with AXE', { exact: false }), new File(['data'], 'label.jpg', { type: 'image/jpeg' }))
+    await vi.waitFor(() => expect(onScanResult).toHaveBeenCalledWith({ found: true, name: 'Eagle Rare 10 Year' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Upload failed')
+  })
+
+  it('scans a label photo picked on the choice screen straight away, once', async () => {
+    mockStandardizeAndUpload.mockResolvedValue(uploadResult)
+    mockScan.mockResolvedValue({ found: true, name: 'Elijah Craig Barrel Proof', batch: 'C924', proof: 124.6 })
+    const onScanResult = vi.fn()
+    const file = new File(['data'], 'label.jpg', { type: 'image/jpeg' })
+    const { rerender } = render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={onScanResult} autoScanFile={file} />)
+    await vi.waitFor(() => expect(onScanResult).toHaveBeenCalledWith({ found: true, name: 'Elijah Craig Barrel Proof', batch: 'C924', proof: 124.6 }))
+    rerender(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={onScanResult} autoScanFile={file} />)
+    expect(mockScan).toHaveBeenCalledTimes(1)
+    expect(mockStandardizeAndUpload).toHaveBeenCalledWith('u1', file, expect.any(Function))
   })
 
   it('shows an inline error when the label cannot be read', async () => {
@@ -78,7 +100,7 @@ describe('BottlePhotoHero', () => {
     render(<BottlePhotoHero onImageChange={vi.fn()} onScanResult={vi.fn()} />)
 
     const file = new File(['data'], 'label.jpg', { type: 'image/jpeg' })
-    await userEvent.upload(screen.getByLabelText('Scan Label with AI', { exact: false }), file)
+    await userEvent.upload(screen.getByLabelText('Scan Label with AXE', { exact: false }), file)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Couldn't read a bottle label in that photo — fill in the details manually below.",
@@ -129,7 +151,7 @@ describe('BottlePhotoHero', () => {
 
     const scanButton = await screen.findByRole('button', { name: /Scan This Photo for Details/ })
     expect(mockScan).not.toHaveBeenCalled()
-    expect(screen.queryByLabelText('Scan Label with AI', { exact: false })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Scan Label with AXE', { exact: false })).not.toBeInTheDocument()
 
     await userEvent.click(scanButton)
 

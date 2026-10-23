@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AddBottlePage } from './AddBottlePage'
+import { addBottleFeatures } from './addBottleFeatures'
 import type { Bottle } from '../../data/types'
 
 const mockUseAuth = vi.fn()
@@ -34,11 +35,20 @@ vi.mock('./BottlePhotoHero', () => ({
   BottlePhotoHero: ({
     onImageChange,
     onScanResult,
+    autoScanFile,
   }: {
     onImageChange: (change: { imageUrl: string | undefined; originalImageUrl?: string; imageProcessingStatus?: string }) => void
-    onScanResult: (info: { name?: string; distillery?: string }) => void
+    onScanResult: (info: { name?: string; distillery?: string; proof?: number; batch?: string; barrel?: string; storePick?: string }) => void
+    autoScanFile?: File | null
   }) => (
     <div>
+      <p data-testid="fake-auto-scan">{autoScanFile ? autoScanFile.name : 'none'}</p>
+      <button
+        type="button"
+        onClick={() => onScanResult({ name: 'Elijah Craig Barrel Proof', distillery: 'Heaven Hill', proof: 124.6, batch: 'C924', barrel: '', storePick: '' })}
+      >
+        fake-scan-batch
+      </button>
       <button
         type="button"
         onClick={() =>
@@ -491,15 +501,62 @@ describe('AddBottlePage', () => {
     })
   })
 
-  describe('Scan Barcode', () => {
+  describe('Scan Label with AXE', () => {
     beforeEach(() => {
       mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
     })
 
-    it('is the first option when adding a bottle', async () => {
+    it('is the first, primary option, with manual entry after it and no Scan Barcode', async () => {
       renderPage()
-      const options = await screen.findAllByRole('button')
-      expect(options[options.findIndex((b) => /Scan Label with AI/.test(b.textContent ?? '')) - 1]).toHaveTextContent('Scan Barcode')
+      const scanLabel = await screen.findByLabelText(/Scan Label with AXE/)
+      expect(scanLabel).toHaveAttribute('type', 'file')
+      expect(scanLabel).toHaveAttribute('accept', 'image/*')
+      // No `capture`, so iPhone offers both Take Photo and Photo Library.
+      expect(scanLabel).not.toHaveAttribute('capture')
+      expect(screen.getByRole('button', { name: /^Manual Entry/ })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /Scan Barcode/ })).not.toBeInTheDocument()
+    })
+
+    it('opens the form and hands the picked label photo to AXE straight away', async () => {
+      renderPage()
+      const photo = new File(['label'], 'label.jpg', { type: 'image/jpeg' })
+      await userEvent.upload(await screen.findByLabelText(/Scan Label with AXE/), photo)
+      expect(screen.getByTestId('fake-auto-scan')).toHaveTextContent('label.jpg')
+      expect(screen.getByLabelText('Bottle name')).toBeInTheDocument()
+    })
+
+    it('fills the form from the label, keeping the batch in the name and the printed proof, and saves to My Bar', async () => {
+      mockAddBottle.mockResolvedValue('new-label')
+      renderPage()
+      await userEvent.upload(await screen.findByLabelText(/Scan Label with AXE/), new File(['label'], 'label.jpg', { type: 'image/jpeg' }))
+      await userEvent.click(screen.getByRole('button', { name: 'fake-scan-batch' }))
+      expect(screen.getByLabelText('Bottle name')).toHaveValue('Elijah Craig Barrel Proof — Batch C924')
+      expect(screen.getByTestId('fake-distillery')).toHaveTextContent('Heaven Hill')
+      // Still editable before saving.
+      await userEvent.clear(screen.getByLabelText('Bottle name'))
+      await userEvent.type(screen.getByLabelText('Bottle name'), 'Elijah Craig Barrel Proof — Batch C924 (gift)')
+      await userEvent.click(screen.getByRole('button', { name: 'Add Bottle' }))
+      expect(mockAddBottle).toHaveBeenCalledWith(expect.objectContaining({ name: 'Elijah Craig Barrel Proof — Batch C924 (gift)', distillery: 'Heaven Hill', proof: 124.6, status: 'sealed' }))
+      expect(mockAddBottle.mock.calls[0]?.[0].upc).toBeUndefined()
+      expect(mockSaveBarcodeEntry).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('Scan Barcode (switched off by default)', () => {
+    beforeEach(() => {
+      mockUseAuth.mockReturnValue({ user: { uid: 'user-1' }, loading: false })
+      addBottleFeatures.scanBarcode = true
+    })
+
+    afterEach(() => {
+      addBottleFeatures.scanBarcode = false
+    })
+
+    it('is offered after Scan Label and Manual Entry when switched on', async () => {
+      renderPage()
+      const buttons = await screen.findAllByRole('button')
+      const labels = buttons.map((b) => b.textContent ?? '')
+      expect(labels.findIndex((t) => /^.?Scan Barcode/.test(t.trim()) || t.includes('Scan Barcode'))).toBeGreaterThan(labels.findIndex((t) => t.includes('Manual Entry')))
     })
 
     it('fills the form from the scanned bottle and saves its barcode, then remembers it privately', async () => {

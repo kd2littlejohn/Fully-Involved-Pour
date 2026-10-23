@@ -6,6 +6,7 @@
 }
 
 .card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--fip-space-4);
@@ -48,4 +49,17 @@
 .description {
   color: var(--fip-muted);
   font-size: var(--fip-text-sm);
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.card:focus-within {
+  border-color: var(--fip-amber);
 }

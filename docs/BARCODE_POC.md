@@ -1,14 +1,13 @@
 # Scan Barcode
 
-Status: **released on Add Bottle** (Phase 1). Add Bottle opens with a
-**Scan Barcode** option, and new bottles have a Scan Barcode button under
-the name field.
-
-**Google first (built, switched off).** For a barcode FIP's catalog doesn't
-know, Scan Barcode asks Google (Gemini + Grounding with Google Search)
-automatically, then offers AXE (Claude) if Google can't identify it. The
-code ships with Google **off** until the owner approves the Gemini setup
-and turns it on — see "Turning on Google" below. AI-answer reuse is off.
+Status: **paused (2026-10-23)**. Scan Label with AXE is the primary way to
+add a bottle again, because the label shows what a UPC can't (expression,
+batch, barrel, proof, store pick). Scan Barcode is hidden from Add Bottle
+(`addBottleFeatures.scanBarcode = false` in
+`web/src/pages/AddBottle/addBottleFeatures.ts`), so nothing runs a barcode
+or Google lookup. All the code, the Cloud Functions, the UPC catalog and
+`appConfig/barcodeGoogle` (set `enabled: false`) are kept for later. To bring
+it back, set the flag to `true` and `enabled` to `true`.
 
 The Phase 0 investigation (decoder benchmarks, emulator runs, the terms
 review) is kept below. The field test on phones was skipped by decision on

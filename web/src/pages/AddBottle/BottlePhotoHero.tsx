@@ -20,11 +20,13 @@ interface BottlePhotoHeroProps {
   name?: string
   onImageChange: (change: BottlePhotoChange) => void
   onScanResult: (info: LabelScanResult) => void
+  /** A label photo picked before the form opened (Scan Label with AXE on the choice screen): scanned straight away. */
+  autoScanFile?: File | null
 }
 
 type Mode = 'scan' | 'camera' | 'library'
 
-export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }: BottlePhotoHeroProps) {
+export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult, autoScanFile }: BottlePhotoHeroProps) {
   const { user } = useAuth()
   const [uploading, setUploading] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -36,6 +38,7 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
   const scanInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
+  const autoScannedRef = useRef<File | null>(null)
 
   useEffect(
     () => () => {
@@ -68,13 +71,17 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
       })
 
       if (mode === 'scan') {
+        // The label details don't depend on the photo upload: fill them in
+        // even if the upload fails (then say the photo didn't save).
         const base64 = await downscaleImageToJpegBase64(file)
-        const [info] = await Promise.all([scanBottleLabel(base64, 'image/jpeg'), uploadPromise])
-        if (!info.found) {
+        const [scan, upload] = await Promise.allSettled([scanBottleLabel(base64, 'image/jpeg'), uploadPromise])
+        if (scan.status === 'rejected') throw scan.reason
+        if (!scan.value.found) {
           setError("Couldn't read a bottle label in that photo — fill in the details manually below.")
         } else {
-          onScanResult(info)
+          onScanResult(scan.value)
         }
+        if (upload.status === 'rejected') throw upload.reason
       } else {
         await uploadPromise
       }
@@ -105,6 +112,14 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
       setScanning(false)
     }
   }
+
+  // Each picked photo is scanned once, even if the effect runs twice.
+  useEffect(() => {
+    if (!autoScanFile || autoScannedRef.current === autoScanFile) return
+    autoScannedRef.current = autoScanFile
+    void handleFile(autoScanFile, 'scan')
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per picked photo
+  }, [autoScanFile])
 
   function handleRetry() {
     const file = lastFileRef.current
@@ -137,7 +152,7 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
         {imageUrl ? <img className={styles.image} src={imageUrl} alt="" /> : <BottlePlaceholder name={name} />}
         {busy ? (
           <div className={styles.overlay}>
-            <span className={styles.overlayText}>{scanning ? 'Reading label…' : `Uploading… ${Math.round(progress * 100)}%`}</span>
+            <span className={styles.overlayText}>{scanning ? 'AXE is reading the label…' : `Uploading… ${Math.round(progress * 100)}%`}</span>
           </div>
         ) : null}
       </div>
@@ -162,7 +177,7 @@ export function BottlePhotoHero({ imageUrl, name, onImageChange, onScanResult }:
           </button>
         ) : (
           <label className={styles.primaryAction}>
-            ✨ Scan Label with AI
+            ✨ Scan Label with AXE
             <input
               ref={scanInputRef}
               type="file"

@@ -14,7 +14,7 @@ function key(text: string | null | undefined): string {
   return String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '')
 }
 
-export function composeBarName(bottle: BarcodeBottle): string {
+export function composeBarName(bottle: Pick<BarcodeBottle, 'name' | 'batch' | 'barrel' | 'storePick'>): string {
   const parts = [bottle.name.trim()]
   const has = (part: string) => key(parts.join(' ')).includes(key(part))
   if (bottle.batch && !has(bottle.batch)) parts.push(`Batch ${bottle.batch}`)

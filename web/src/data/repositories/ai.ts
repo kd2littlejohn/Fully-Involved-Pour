@@ -132,6 +132,10 @@ export interface LabelScanResult {
   proof?: number
   ageStatement?: string
   msrp?: number
+  /** Read from this label only, never inferred: batch code, barrel number, store/club pick. */
+  batch?: string
+  barrel?: string
+  storePick?: string
 }
 
 export async function scanBottleLabel(imageBase64: string, mediaType: string): Promise<LabelScanResult> {
