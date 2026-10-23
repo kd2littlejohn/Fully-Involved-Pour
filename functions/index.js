@@ -568,13 +568,17 @@ exports.scanBottleLabel = onCall(
       throw new HttpsError("invalid-argument", "Photo is too large. Try a smaller photo.");
     }
 
-    const system = `You identify whiskey and spirits bottles from photos. The photo may show a full bottle, a partial label, a bottle on a shelf, or a close-up -- work with whatever is visible. Combine what you can read on the label with your knowledge of well-known bottles to fill in the details. Do not invent details for bottles you cannot identify. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
-{"found": true or false, "name": "full bottle/expression name", "distillery": "producer or distillery", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "state or country if determinable", "proof": number or 0, "ageStatement": "e.g. 10 Year or empty string", "msrp": typical retail price in USD as a number or 0}
+    const system = `You identify whiskey and spirits bottles from photos for a collector's app. The photo may show a full bottle, a partial label, a bottle on a shelf, or a close-up -- work with whatever is visible. Combine what you can read on the label with your knowledge of well-known bottles to identify the exact expression. Do not invent details for bottles you cannot identify. Respond with ONLY valid JSON, no markdown fences, no commentary, in exactly this shape:
+{"found": true or false, "name": "brand and full expression name, without batch or barrel numbers", "distillery": "producer or distillery", "type": "Bourbon|Rye|Scotch|Irish|Tequila|Rum|Other Spirit", "region": "state or country if determinable", "proof": number or 0, "ageStatement": "e.g. 10 Year or empty string", "batch": "batch code as printed, e.g. C924 or 2025-01, or empty string", "barrel": "barrel number as printed, or empty string", "storePick": "store, club or group named as the selector of a private/single barrel pick, or empty string", "msrp": typical retail price in USD as a number or 0}
+Rules:
+- Name the specific expression (e.g. "Elijah Craig Barrel Proof", not "Elijah Craig"; "Knob Creek Single Barrel Select", not "Knob Creek").
+- "proof": the proof printed on THIS label. If only ABV is printed, proof = ABV x 2. Barrel-proof, cask-strength, single-barrel and store-pick bottles vary from bottle to bottle, so for those use only a proof you can read on this label, never a typical value; if it isn't readable, use 0. For a standard release always bottled at one proof you may use that known proof.
+- "batch", "barrel" and "storePick" only when printed on this label (batch codes are often small text on the front or neck label). Never guess them.
 Set "found" to false ONLY if no spirits bottle is visible in the image at all. If a bottle is visible but some details are unreadable or unknown, still set "found" to true, fill in what you can, and leave unknown text fields as empty strings and unknown numbers as 0. For msrp, only include it if this is a well-known bottle whose typical retail price you know; otherwise 0.`;
 
     const raw = await callClaude(anthropicApiKey.value(), {
       system,
-      maxTokens: 300,
+      maxTokens: 500,
       content: [
         {
           type: "image",
@@ -605,6 +609,9 @@ Set "found" to false ONLY if no spirits bottle is visible in the image at all. I
       proof: Number(parsed.proof || 0),
       ageStatement: String(parsed.ageStatement || ""),
       msrp: Number(parsed.msrp || 0),
+      batch: String(parsed.batch || "").slice(0, 40),
+      barrel: String(parsed.barrel || "").slice(0, 40),
+      storePick: String(parsed.storePick || "").slice(0, 80),
     };
   },
 );

@@ -18,6 +18,7 @@ import { RarityFieldsCard, blankRarityFieldsValues, type RarityFieldsValues } fr
 import { RouteFallback } from '../../components/layout/RouteFallback'
 import { saveBarcodeEntry } from '../../data/repositories/barcode'
 import { composeBarName } from '../../features/barcode/inventory'
+import { addBottleFeatures } from './addBottleFeatures'
 import type { BarcodeHandoff } from '../../features/barcode/ScanBarcodeFlow'
 import styles from './AddBottlePage.module.css'
 
@@ -130,6 +131,8 @@ export function AddBottlePage() {
   const [mode, setMode] = useState<Mode>(() => (isEditing || state?.prefill?.name ? 'form' : 'choice'))
   // Where Cancel in Scan Barcode returns to.
   const [scanReturnMode, setScanReturnMode] = useState<Mode>('choice')
+  // Label photo picked on the choice screen; the form's photo hero scans it.
+  const [labelPhoto, setLabelPhoto] = useState<File | null>(null)
   // Set once a scanned bottle has been handed to the form.
   const [barcode, setBarcode] = useState<BarcodeHandoff | null>(null)
 
@@ -200,10 +203,16 @@ export function AddBottlePage() {
     })
   }, [isEditing, existingBottle])
 
+  // Batch, barrel and store pick read off the label become part of the name
+  // (the existing convention, see features/barcode/inventory.ts), so two
+  // batches of one bottle never look like duplicates.
   function handleScanResult(info: LabelScanResult) {
+    const scannedName = info.name
+      ? composeBarName({ name: info.name, batch: info.batch || null, barrel: info.barrel || null, storePick: info.storePick || null })
+      : ''
     setEssential((prev) => ({
       ...prev,
-      name: prev.name.trim() || info.name || prev.name,
+      name: prev.name.trim() || scannedName || prev.name,
       distillery: prev.distillery.trim() || info.distillery || prev.distillery,
       type: info.type || prev.type,
       region: prev.region.trim() || info.region || prev.region,
@@ -420,7 +429,14 @@ export function AddBottlePage() {
 
       {mode === 'choice' ? (
         <div className={styles.content}>
-          <AddBottleEntryChoice onScanBarcode={openScanner} onScanLabel={() => setMode('form')} onManualEntry={() => setMode('form')} />
+          <AddBottleEntryChoice
+            onScanLabel={(photo) => {
+              setLabelPhoto(photo)
+              setMode('form')
+            }}
+            onManualEntry={() => setMode('form')}
+            onScanBarcode={addBottleFeatures.scanBarcode ? openScanner : undefined}
+          />
         </div>
       ) : null}
 
@@ -444,7 +460,7 @@ export function AddBottlePage() {
                 then tap Add Bottle.
               </p>
             ) : null}
-            <BottlePhotoHero imageUrl={photo.imageUrl} name={essential.name} onImageChange={setPhoto} onScanResult={handleScanResult} />
+            <BottlePhotoHero imageUrl={photo.imageUrl} name={essential.name} onImageChange={setPhoto} onScanResult={handleScanResult} autoScanFile={labelPhoto} />
 
             <div className={styles.cards}>
               <EssentialFieldsCard
@@ -454,7 +470,7 @@ export function AddBottlePage() {
                   if (patch.name?.trim()) setNameError(null)
                 }}
                 nameError={nameError ?? undefined}
-                onScanBarcode={isEditing ? undefined : openScanner}
+                onScanBarcode={isEditing || !addBottleFeatures.scanBarcode ? undefined : openScanner}
                 proofVaries={barcode?.bottle.proofVaries ?? false}
               />
               <OwnershipFieldsCard

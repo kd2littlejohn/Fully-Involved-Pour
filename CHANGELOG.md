@@ -1,3 +1,13 @@
+## Unreleased - Scan Label with AXE is back as the main way to add a bottle
+
+Changed
+- **Add Bottle opens with Scan Label with AXE.** One tap opens the iPhone camera or photo library; AXE reads the label and fills in the form, which you can review and correct before saving. Manual Entry is still there.
+- **Better label reading.** AXE now names the exact expression (e.g. Elijah Craig Barrel Proof) and reads the batch, barrel, store pick and the proof printed on that bottle. Batch, barrel and pick go into the bottle name (e.g. "Elijah Craig Barrel Proof — Batch C924"); a barrel-proof bottle's proof is never guessed.
+- The label details now fill in even if the photo upload fails.
+
+Removed (hidden, not deleted)
+- **Scan Barcode** is no longer on Add Bottle. Its code, Cloud Functions and UPC catalog stay for later (see docs/BARCODE_POC.md).
+
 ## Unreleased - Scan Barcode: Google step fixes
 
 Fixed
