@@ -12,6 +12,8 @@
 //   joinedAt
 //   progress  { [categoryId]: "tasting" | "submitted" } from their own
 //             saved ballots. The state, never a score.
+//   group     Dual Experience only: "guided" | "blind". Which experience
+//             they're in, never what that experience shows them.
 // The private guests/{uid} records stay admin- and self-only.
 const v = require("./validation");
 
@@ -31,16 +33,19 @@ function guestRosterId(guest) {
   return guest.isHost ? HOST_ROSTER_ID : guest.participantKey;
 }
 
-function rosterEntry({ id, name, role, tasting, joinedAt, progress }) {
-  return { id, name: name || (role === "host" ? "Your host" : "Guest"), role, tasting, joinedAt, progress: progress || {} };
+function rosterEntry({ id, name, role, tasting, joinedAt, progress, group }) {
+  const entry = { id, name: name || (role === "host" ? "Your host" : "Guest"), role, tasting, joinedAt, progress: progress || {} };
+  if (group) entry.group = group;
+  return entry;
 }
 
-function hostEntry(party, tasting, joinedAt, progress) {
-  return rosterEntry({ id: HOST_ROSTER_ID, name: party.hostName, role: "host", tasting, joinedAt, progress });
+// `group` is the host's Dual Experience group, when they have one.
+function hostEntry(party, tasting, joinedAt, progress, group) {
+  return rosterEntry({ id: HOST_ROSTER_ID, name: party.hostName, role: "host", tasting, joinedAt, progress, group });
 }
 
 function guestEntry(guest, progress) {
-  return rosterEntry({ id: guest.participantKey, name: guest.nickname, role: "guest", tasting: true, joinedAt: guest.joinedAt, progress });
+  return rosterEntry({ id: guest.participantKey, name: guest.nickname, role: "guest", tasting: true, joinedAt: guest.joinedAt, progress, group: guest.group });
 }
 
 function coHostEntry(partyId, uid, coHost) {
@@ -83,7 +88,10 @@ async function rebuildRoster(db, party) {
     entries.set(guest.participantKey, guestEntry(guest, progressByKey.get(guest.participantKey)));
   }
   const hostTasting = Boolean(hostGuest && !hostGuest.revoked);
-  entries.set(HOST_ROSTER_ID, hostEntry(party, hostTasting, hostGuest?.joinedAt || party.createdAt || 0, hostGuest ? progressByKey.get(hostGuest.participantKey) : {}));
+  entries.set(
+    HOST_ROSTER_ID,
+    hostEntry(party, hostTasting, hostGuest?.joinedAt || party.createdAt || 0, hostGuest ? progressByKey.get(hostGuest.participantKey) : {}, hostGuest?.group),
+  );
   for (const uid of party.coHostUids || []) {
     const entry = coHostEntry(party.id, uid, party.coHosts?.[uid]);
     entries.set(entry.id, entry);

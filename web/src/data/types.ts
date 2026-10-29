@@ -453,6 +453,9 @@ export interface SavedTasting {
   revealedAt?: number
   // The taster was the host and knew this round's bottles before finishing.
   notFullyBlind?: boolean
+  // Dual Experience events: which group the taster was in. `format` is
+  // still what they experienced ('regular' for guided, 'blind' for blind).
+  experience?: 'guided' | 'blind'
   savedAt: number
 }
 

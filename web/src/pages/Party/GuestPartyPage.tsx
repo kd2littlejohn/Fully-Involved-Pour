@@ -4,7 +4,8 @@ import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/Part
 import { MyTastingView } from '../../features/party/MyTastingView'
 import { KeepYourResults } from '../../features/party/KeepYourResults'
 import { useGuestIdentity } from '../../features/party/useGuestIdentity'
-import { useMyBallots, useMyGuest, useParty, usePartyResults, usePartyRoster } from '../../features/party/usePartyData'
+import { useGuidedBottles, useMyBallots, useMyGuest, useParty, usePartyResults, usePartyRoster } from '../../features/party/usePartyData'
+import { guestGroup } from '../../features/party/dualGroups'
 import { TastingIndicator, WhoIsTasting } from '../../features/party/WhoIsTasting'
 import { recallRecoveryCode } from '../../features/party/guestSession'
 import styles from '../../features/party/party.module.css'
@@ -21,6 +22,10 @@ export function GuestPartyPage() {
   const ballots = useMyBallots(partyId, user?.uid, isGuest)
   const results = usePartyResults(partyId, isGuest)
   const roster = usePartyRoster(partyId, isGuest)
+  // Dual Experience: only a guided guest subscribes to the guided bottles
+  // (the rules refuse anyone else anyway).
+  const group = party.data ? guestGroup(party.data, guest.data) : null
+  const guided = useGuidedBottles(partyId, isGuest && group === 'guided')
 
   if (identityLoading || (user && guest.loading)) return <PartyLoading />
   if (!user || !guest.data) {
@@ -69,7 +74,7 @@ export function GuestPartyPage() {
         ) : null}
       </section>
 
-      <MyTastingView party={p} guest={guest.data} ballots={ballots.data} results={results.data} />
+      <MyTastingView party={p} guest={guest.data} ballots={ballots.data} results={results.data} group={group} guidedBottles={guided.data} />
 
       <WhoIsTasting party={p} entries={roster.data} myRosterId={guest.data.participantKey} loading={roster.loading} />
 

@@ -98,3 +98,30 @@ describe('ScoringPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Voting isn’t open for this round.')
   })
 })
+
+describe('ScoringPanel for Dual Experience', () => {
+  it('shows a guided taster each bottle and an optional Learn About This Pour, collapsed', async () => {
+    const category = makeCategory({ name: 'Wheated', sampleLabels: ['A', 'B'] })
+    render(
+      <ScoringPanel
+        party={makeParty({ format: 'dual' })}
+        category={category}
+        ballot={undefined}
+        guidedBottles={{ A: { name: 'Weller Antique 107', distillery: 'Buffalo Trace', proof: 107, imageUrl: 'https://x/w.png' }, B: { name: 'Castle & Key Wheated' } }}
+      />,
+    )
+    expect(screen.getByRole('heading', { name: 'Weller Antique 107' })).toBeInTheDocument()
+    expect(screen.getByText(/Buffalo Trace · 107 proof/)).toBeInTheDocument()
+    const learn = screen.getAllByText('Learn About This Pour')[0]!.closest('details')!
+    expect(learn).not.toHaveAttribute('open')
+    expect(learn).toHaveTextContent('Wheated bourbon')
+    // Suggested notes stay folded away inside it until asked for.
+    expect(learn.querySelector('details')).not.toHaveAttribute('open')
+  })
+
+  it('shows a blind taster only letters, with no education, in the very same party', () => {
+    render(<ScoringPanel party={makeParty({ format: 'dual' })} category={makeCategory({ name: 'Wheated', sampleLabels: ['A', 'B'] })} ballot={undefined} />)
+    expect(screen.getByRole('heading', { name: 'Sample A' })).toBeInTheDocument()
+    expect(screen.queryByText('Learn About This Pour')).not.toBeInTheDocument()
+  })
+})

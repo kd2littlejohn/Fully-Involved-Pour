@@ -23,7 +23,11 @@ import type {
   PartyBallotSummary,
   PartyCategory,
   PartyCategoryResults,
+  PartyDualSettings,
+  PartyExtras,
   PartyFormat,
+  PartyGroup,
+  PartyGuidedView,
   PartyGuest,
   PartyPreview,
   PartyRecap,
@@ -89,13 +93,23 @@ export function createParty(input: {
   hostName: string
   hostTasting: boolean
   format: PartyFormat
+  // Dual Experience only.
+  dual?: PartyDualSettings
+  hostGroup?: PartyGroup
 }): Promise<{ partyId: string; joinCode: string; categories: { id: string; name: string }[] }> {
   return callParty('createParty', { ...input })
 }
 
 export function updateParty(
   partyId: string,
-  patch: { details?: PartyDetailsInput; settings?: Partial<PartySettings>; recapNotes?: string; format?: PartyFormat },
+  patch: {
+    details?: PartyDetailsInput
+    settings?: Partial<PartySettings>
+    recapNotes?: string
+    format?: PartyFormat
+    dual?: Partial<PartyDualSettings>
+    extras?: PartyExtras
+  },
 ): Promise<{ ok: true }> {
   return callParty('updateParty', { partyId, ...patch })
 }
@@ -111,6 +125,18 @@ export function setPartySamples(
   assignment: 'random' | 'manual',
 ): Promise<{ samples: PartySample[] }> {
   return callParty('setSamples', { partyId, categoryId, samples, assignment })
+}
+
+// Dual Experience: move a taster ("host" for the host's own record) between
+// the guided and blind groups. Once they've scored an unrevealed round the
+// server answers needsConfirm instead, until the call repeats with confirm.
+export function assignPartyGroup(
+  partyId: string,
+  participantKey: string,
+  group: PartyGroup,
+  confirm = false,
+): Promise<{ ok: boolean; group?: PartyGroup; needsConfirm?: boolean; scoredRounds?: number; movedBallots?: number }> {
+  return callParty('assignGroup', { partyId, participantKey, group, confirm })
 }
 
 // "I'm tasting too" after creation. Off stops the host's ballots counting in
@@ -214,6 +240,8 @@ export interface PaperBallotInput {
   scores: Record<string, PartySampleScore>
   favoriteLabel: string | null
   predictionLabel?: string | null
+  // Dual Experience: the group whose card this is.
+  group?: PartyGroup
 }
 
 export function savePaperBallot(
@@ -361,6 +389,21 @@ export function watchRoster(
   )
 }
 
+// Dual Experience: every round's bottles as the guided group sees them,
+// keyed by round. Only guided tasters (and admins not tasting blind) may
+// read these (firestore.rules); anyone else gets a permission error.
+export function watchGuided(
+  partyId: string,
+  onValue: (views: Record<string, PartyGuidedView['bottles']>) => void,
+  onError?: (err: unknown) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'parties', partyId, 'guided'),
+    (snap) => onValue(Object.fromEntries(snap.docs.map((d) => [d.id, (d.data() as PartyGuidedView).bottles ?? {}]))),
+    (err) => onError?.(err),
+  )
+}
+
 // Admins only: builds the roster for a party created before it existed.
 export function syncRoster(partyId: string): Promise<{ count: number }> {
   return callParty('syncRoster', { partyId })
@@ -480,7 +523,7 @@ export async function deletePartyTemplate(uid: string, id: string): Promise<void
 
 // --- AXE (optional, post-reveal) -------------------------------------------
 
-export type PartyAxeQuestion = 'room-preference' | 'my-palate' | 'style-differences' | 'try-next'
+export type PartyAxeQuestion = 'room-preference' | 'my-palate' | 'style-differences' | 'try-next' | 'group-comparison'
 
 const askSommelierCallable = httpsCallable<Record<string, unknown>, { reply: string }>(functions, 'askSommelier')
 

@@ -148,7 +148,7 @@ function TastingOptions() {
       </div>
       <Link to="/party/new" className={styles.option}>
         <span className={styles.optionTitle}>Host a Party</span>
-        <span className={styles.cardMeta}>Create a hosted Regular or Blind Tasting event. Guests don’t need an account.</span>
+        <span className={styles.cardMeta}>Create a hosted Regular, Blind or Dual Experience event. Guests don’t need an account.</span>
       </Link>
       <Link to="/p" className={styles.option}>
         <span className={styles.optionTitle}>Join a Party</span>

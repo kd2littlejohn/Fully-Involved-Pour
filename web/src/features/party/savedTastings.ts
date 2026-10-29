@@ -1,5 +1,5 @@
 import type { Bottle, SavedTasting } from '../../data/types'
-import { partyFormat, type Party, type PartyBallot, type PartyCategory, type PartyCategoryResults } from './types'
+import { partyFormat, type Party, type PartyBallot, type PartyCategory, type PartyCategoryResults, type PartyGroup, type PartyPublicBottle } from './types'
 
 export function savedTastingId(partyId: string, categoryId: string, label: string): string {
   return `party:${partyId}:${categoryId}:${label}`
@@ -36,14 +36,19 @@ export function tastedOn(party: Party, category: PartyCategory): string {
 }
 
 // One SavedTasting per sample this taster scored in a round whose bottles
-// are known to them: a revealed blind round, or any round of a regular
-// tasting once results are out. Unscored samples are skipped.
+// are known to them: a revealed blind round, any round of a regular
+// tasting once results are out, or (Dual Experience) a guided taster's
+// round once voting closes. Unscored samples are skipped. Ids depend only
+// on the party, round and letter, so saving again (say, a guided round
+// first at close, then after the reveal) updates instead of duplicating.
 export function buildSavedTastings({
   party,
   category,
   results,
   ballot,
   myBar,
+  group = null,
+  guidedBottles,
   now = Date.now(),
 }: {
   party: Party
@@ -51,13 +56,22 @@ export function buildSavedTastings({
   results: PartyCategoryResults | undefined
   ballot: PartyBallot | undefined
   myBar: Bottle[]
+  group?: PartyGroup | null
+  guidedBottles?: Record<string, PartyPublicBottle>
   now?: number
 }): SavedTasting[] {
-  if (!results || !ballot || category.state !== 'revealed') return []
-  const format = partyFormat(party)
+  if (!ballot) return []
+  let samples: { label: string; bottle: PartyPublicBottle }[]
+  if (results && category.state === 'revealed') samples = results.samples
+  else if (group === 'guided' && guidedBottles && category.state === 'voting_closed') {
+    samples = category.sampleLabels.filter((l) => guidedBottles[l]).map((label) => ({ label, bottle: guidedBottles[label]! }))
+  } else return []
+  const partyKind = partyFormat(party)
+  // What this taster experienced: a dual guided taster tasted openly.
+  const format: SavedTasting['format'] = partyKind === 'regular' || (partyKind === 'dual' && group === 'guided') ? 'regular' : 'blind'
   const date = tastedOn(party, category)
   const out: SavedTasting[] = []
-  for (const sample of results.samples) {
+  for (const sample of samples) {
     const score = ballot.scores?.[sample.label]
     if (!score || typeof score.overall !== 'number') continue
     const { price: _price, ...bottle } = sample.bottle as SavedTasting['bottle'] & { price?: number }
@@ -84,7 +98,8 @@ export function buildSavedTastings({
       descriptors: score.descriptors ?? [],
       favorite: ballot.favoriteLabel === sample.label,
       ...(format === 'blind' && category.revealedAt ? { revealedAt: category.revealedAt } : {}),
-      ...(ballot.unblinded ? { notFullyBlind: true } : {}),
+      ...(ballot.unblinded && format === 'blind' ? { notFullyBlind: true } : {}),
+      ...(partyKind === 'dual' && group ? { experience: group } : {}),
       savedAt: now,
     })
   }

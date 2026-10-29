@@ -576,3 +576,52 @@
   cursor: not-allowed;
   opacity: 0.7;
 }
+
+/* Dual Experience: a taster's Guided / Blind switch on the host dashboard. */
+.groupSwitch {
+  display: inline-flex;
+  flex: none;
+  border: 1px solid var(--fip-border-subtle);
+  border-radius: var(--fip-radius-round);
+  overflow: hidden;
+}
+
+.groupOption {
+  min-height: 44px;
+  min-width: 64px;
+  padding: 0 var(--fip-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--fip-muted);
+  font: inherit;
+  font-size: var(--fip-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.groupOption[aria-checked='true'] {
+  background: var(--fip-amber-soft);
+  color: var(--fip-amber-hover);
+}
+
+.groupOption:focus-visible {
+  outline: none;
+  box-shadow: var(--fip-focus);
+}
+
+.groupOption:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Dual Experience participant rows: name, group switch and actions wrap
+   onto two lines on narrow phones instead of truncating the name. */
+.participantRow {
+  flex-wrap: wrap;
+}
+
+.participantName {
+  flex: 1 1 9rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

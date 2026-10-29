@@ -194,3 +194,18 @@
     transition: none;
   }
 }
+
+/* Dual Experience guided pours: the bottle beside its sample letter. */
+.guidedImage {
+  width: 48px;
+  height: 64px;
+  object-fit: contain;
+  border-radius: var(--fip-radius-sm);
+  background: var(--fip-card-soft);
+  flex: none;
+}
+
+.learnTerm {
+  color: var(--fip-cream-soft);
+  font-weight: 600;
+}

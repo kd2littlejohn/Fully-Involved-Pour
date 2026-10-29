@@ -16,7 +16,13 @@ const mockUsePartyRoster = vi.fn()
 vi.mock('../../features/party/useGuestIdentity', () => ({
   useGuestIdentity: () => ({ user, loading: false, ensureIdentity: vi.fn() }),
 }))
+const mockUseGuidedBottles = vi.fn()
+let guidedData: Record<string, Record<string, { name: string }>> = {}
 vi.mock('../../features/party/usePartyData', () => ({
+  useGuidedBottles: (...a: unknown[]) => {
+    mockUseGuidedBottles(...a)
+    return { data: a[1] ? guidedData : {}, loading: false, error: null }
+  },
   useMyGuest: () => ({ data: guest, loading: false, error: null }),
   useParty: () => ({ data: party, loading: false, error: null }),
   useMyBallots: () => ({ data: [], loading: false, error: null }),
@@ -124,5 +130,63 @@ describe('GuestPartyPage', () => {
     guest = { ...guest!, revoked: true }
     renderPage()
     expect(mockUsePartyRoster).not.toHaveBeenCalledWith('p1', true)
+  })
+})
+
+describe('GuestPartyPage in a Dual Experience party', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    user = { uid: 'anon-1', isAnonymous: true }
+    party = makeParty({ format: 'dual', dual: { joinGroup: 'blind', plannedGuided: 7, plannedBlind: 3 } })
+    results = {}
+    guidedData = { c1: { A: { name: 'Castle & Key Wheated' }, B: { name: 'Weller Antique 107' }, C: { name: 'Redwood Empire Wheated' } } }
+    roster = [
+      { id: 'host', name: 'Kevin', role: 'host', tasting: true, joinedAt: 0, progress: {}, group: 'guided' },
+      { id: 'g_me', name: 'Kev', role: 'guest', tasting: true, joinedAt: 1, progress: {}, group: 'guided' },
+      { id: 'g_2', name: 'Richy', role: 'guest', tasting: true, joinedAt: 2, progress: {}, group: 'blind' },
+    ]
+    mockUseGuidedBottles.mockReset()
+  })
+
+  it('shows a guided guest their group and the bottles, from the guided view only', () => {
+    guest = { uid: 'anon-1', participantKey: 'g_me', nickname: 'Kev', joinedAt: 1, revoked: false, group: 'guided' }
+    renderPage()
+    expect(mockUseGuidedBottles).toHaveBeenLastCalledWith('p1', true)
+    expect(screen.getByText('Guided tasting')).toBeInTheDocument()
+    expect(screen.getByText(/A\. Castle & Key Wheated · B\. Weller Antique 107/)).toBeInTheDocument()
+  })
+
+  it('never subscribes a blind guest to the guided bottles or shows a bottle name', () => {
+    guest = { uid: 'anon-2', participantKey: 'g_2', nickname: 'Richy', joinedAt: 2, revoked: false, group: 'blind' }
+    renderPage()
+    expect(mockUseGuidedBottles).toHaveBeenLastCalledWith('p1', false)
+    expect(mockUseGuidedBottles).not.toHaveBeenCalledWith('p1', true)
+    expect(screen.getByText('Blind tasting')).toBeInTheDocument()
+    expect(screen.getByText(/3 samples: A, B, C/)).toBeInTheDocument()
+    expect(screen.queryByText(/Weller/)).not.toBeInTheDocument()
+  })
+
+  it('treats a guest without a group as blind', () => {
+    guest = { uid: 'anon-3', participantKey: 'g_3', nickname: 'Fay', joinedAt: 3, revoked: false }
+    renderPage()
+    expect(mockUseGuidedBottles).not.toHaveBeenCalledWith('p1', true)
+    expect(screen.getByText('Blind tasting')).toBeInTheDocument()
+  })
+
+  it('lists Who’s Tasting by group for everyone', () => {
+    guest = { uid: 'anon-2', participantKey: 'g_2', nickname: 'Richy', joinedAt: 2, revoked: false, group: 'blind' }
+    renderPage()
+    const card = screen.getByRole('heading', { name: 'Who’s Tasting' }).closest('section')!
+    expect(within(card).getByText('Guided — 2')).toBeInTheDocument()
+    expect(within(card).getByText('Blind — 1')).toBeInTheDocument()
+    expect(within(card).getByRole('list', { name: 'Blind — 1' })).toHaveTextContent('Richy')
+  })
+
+  it('shows a round’s pairing only after the taster has scored every sample', () => {
+    guest = { uid: 'anon-2', participantKey: 'g_2', nickname: 'Richy', joinedAt: 2, revoked: false, group: 'blind' }
+    party = makeParty({ format: 'dual', extras: { stations: [{ name: 'Oak', description: 'Toasted staves', guidance: '' }], pairings: { c1: { name: 'Milk chocolate caramel candy', note: '' } } } })
+    renderPage()
+    expect(screen.queryByText('Milk chocolate caramel candy')).not.toBeInTheDocument()
+    expect(screen.getByText('Aroma stations')).toBeInTheDocument()
   })
 })

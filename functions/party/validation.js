@@ -144,13 +144,76 @@ function validateSettings(input, current) {
 }
 
 // "blind" (the default, and every party created before formats existed)
-// hides bottles until reveal; "regular" shows them from the start.
-const PARTY_FORMATS = ["blind", "regular"];
+// hides bottles until reveal; "regular" shows them from the start; "dual"
+// runs both at once: a guided group sees the bottles, a blind group sees
+// only sample letters until the reveal.
+const PARTY_FORMATS = ["blind", "regular", "dual"];
 
 function validateFormat(input) {
   if (input === undefined || input === null) return "blind";
-  if (!PARTY_FORMATS.includes(input)) throw invalid("Choose a blind or regular tasting.");
+  if (!PARTY_FORMATS.includes(input)) throw invalid("Choose a regular, blind or dual tasting.");
   return input;
+}
+
+// Dual Experience participant groups.
+const GROUPS = ["guided", "blind"];
+
+function validateGroup(input, what = "Group") {
+  if (!GROUPS.includes(input)) throw invalid(`${what} must be guided or blind.`);
+  return input;
+}
+
+// Dual Experience event options. `joinGroup` is where a newly joined guest
+// starts (blind by default: nobody sees a bottle until the host moves
+// them); the planned counts are only the host's targets for the dashboard.
+const DEFAULT_DUAL = { joinGroup: "blind", plannedGuided: null, plannedBlind: null };
+
+function validateDual(input, current) {
+  const base = { ...DEFAULT_DUAL, ...(current || {}) };
+  if (input === undefined || input === null) return base;
+  if (typeof input !== "object" || Array.isArray(input)) throw invalid("Invalid dual experience options.");
+  const out = { ...base };
+  if (input.joinGroup !== undefined) out.joinGroup = validateGroup(input.joinGroup, "New guests' group");
+  for (const key of ["plannedGuided", "plannedBlind"]) {
+    if (input[key] === undefined) continue;
+    const value = optionalNumber(input[key], 0, LIMITS.MAX_GUESTS, key === "plannedGuided" ? "Guided count" : "Blind count");
+    out[key] = value === undefined ? null : Math.floor(value);
+  }
+  return out;
+}
+
+// Optional education for any party: aroma stations and per-round pairings.
+// Shown to everyone in the party, blind tasters included, so they're
+// category-level only (never tied to a sample letter).
+const MAX_STATIONS = 8;
+
+function validateExtras(input, categoryIds) {
+  if (input === undefined || input === null) return { stations: [], pairings: {} };
+  if (typeof input !== "object" || Array.isArray(input)) throw invalid("Invalid stations and pairings.");
+  const stationsInput = input.stations === undefined ? [] : input.stations;
+  if (!Array.isArray(stationsInput)) throw invalid("Stations must be a list.");
+  if (stationsInput.length > MAX_STATIONS) throw invalid(`Up to ${MAX_STATIONS} stations.`);
+  const stations = stationsInput.map((station) => {
+    if (!station || typeof station !== "object") throw invalid("Invalid station.");
+    return {
+      id: station.id ? requireId(station.id, "station") : randomId("st_"),
+      name: requiredText(station.name, 60, "Station name"),
+      description: cleanText(station.description, 300),
+      guidance: cleanText(station.guidance, 300),
+    };
+  });
+  const pairingsInput = input.pairings === undefined ? {} : input.pairings;
+  if (!pairingsInput || typeof pairingsInput !== "object" || Array.isArray(pairingsInput)) throw invalid("Pairings must be keyed by round.");
+  const pairings = {};
+  for (const [categoryId, pairing] of Object.entries(pairingsInput)) {
+    requireId(categoryId, "round");
+    if (!categoryIds.includes(categoryId)) throw invalid("A pairing points at a round that isn't part of this party.");
+    if (!pairing || typeof pairing !== "object") throw invalid("Invalid pairing.");
+    const name = cleanText(pairing.name, 80);
+    if (!name) continue;
+    pairings[categoryId] = { name, note: cleanText(pairing.note, 200) };
+  }
+  return { stations, pairings };
 }
 
 function validateDetails(input) {
@@ -293,4 +356,9 @@ module.exports = {
   validateSettings,
   PARTY_FORMATS,
   validateFormat,
+  GROUPS,
+  DEFAULT_DUAL,
+  validateDual,
+  validateExtras,
+  validateGroup,
 };

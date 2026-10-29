@@ -94,6 +94,18 @@ export function PartyRecapPage() {
             <span className={styles.statValue}>{r.participantCount}</span>
             <span className={styles.statLabel}>Tasters</span>
           </div>
+          {r.groupParticipants ? (
+            <>
+              <div className={styles.stat}>
+                <span className={styles.statValue}>{r.groupParticipants.guided}</span>
+                <span className={styles.statLabel}>Guided</span>
+              </div>
+              <div className={styles.stat}>
+                <span className={styles.statValue}>{r.groupParticipants.blind}</span>
+                <span className={styles.statLabel}>Blind</span>
+              </div>
+            </>
+          ) : null}
           <div className={styles.stat}>
             <span className={styles.statValue}>{r.totalBallots}</span>
             <span className={styles.statLabel}>Valid ballots</span>

@@ -176,3 +176,75 @@
 .presentation .table {
   font-size: var(--fip-text-lg);
 }
+
+/* Dual Experience: guided vs. blind, per bottle. */
+.compareList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--fip-space-3);
+}
+
+.compareItem {
+  display: grid;
+  gap: var(--fip-space-2);
+  padding: var(--fip-space-3);
+  border-radius: var(--fip-radius-md);
+  background: var(--fip-card-soft);
+  border: 1px solid var(--fip-border-subtle);
+}
+
+.compareRow {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr auto;
+  align-items: center;
+  gap: var(--fip-space-2);
+}
+
+.compareLabel {
+  color: var(--fip-cream-soft);
+  font-size: var(--fip-text-sm);
+  font-weight: 600;
+}
+
+.compareTrack {
+  height: 10px;
+  border-radius: var(--fip-radius-round);
+  background: var(--fip-card);
+  overflow: hidden;
+}
+
+.compareFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--fip-amber);
+}
+
+.compareFillBlind {
+  background: var(--fip-cream-soft);
+}
+
+.compareValue {
+  font-size: var(--fip-text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+  .compareRow {
+    grid-template-columns: 4rem 1fr;
+  }
+
+  .compareValue {
+    grid-column: 2;
+  }
+}
+
+/* Guided vs. Blind table: bottle names wrap so both columns fit a phone. */
+.groupTable td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  width: 37%;
+}

@@ -102,6 +102,18 @@ function mockGuideFor(key: string, bottle: Bottle): FipGuide {
   }
 }
 
+// Cache only: the guide some FIP member already generated for this bottle,
+// or undefined. Never calls the AI, so it's safe for anyone signed in
+// (Party Mode's guided tasters included) and costs nothing.
+export async function getCachedFipGuide(name: string, distillery?: string): Promise<FipGuide | undefined> {
+  const trimmed = name.trim()
+  if (trimmed.length < 3) return undefined
+  const key = fipGuideKey(trimmed, distillery)
+  if (isMockAuthEnabled()) return mockGuides.get(key)
+  const snap = await getDoc(doc(db, 'fipGuides', key))
+  return snap.exists() ? (snap.data() as FipGuide) : undefined
+}
+
 // Reads the cached guide if one already exists; otherwise asks the AI once
 // and caches the result for every future reader. Returns undefined when the
 // bottle isn't confidently recognized or the name is too short to search on

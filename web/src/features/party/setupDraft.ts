@@ -2,8 +2,9 @@
 // operations on it. Nothing here touches Firestore: the wizard builds a
 // draft, then hands it to partyAction (createParty / setCategories /
 // setSamples) in one go when the host saves.
-import type { Party, PartyBottle, PartyFormat, PartySecrets, PartySettings } from './types'
-import { DEFAULT_PARTY_SETTINGS, partyFormat } from './types'
+import type { Party, PartyBottle, PartyDualSettings, PartyFormat, PartyGroup, PartySecrets, PartySettings, PartyStation } from './types'
+import { DEFAULT_DUAL_SETTINGS, DEFAULT_PARTY_SETTINGS, partyFormat } from './types'
+import { DEFAULT_CATEGORY_LIBRARY } from './categoryLibrary'
 
 export const MAX_CATEGORIES = 24
 export const MIN_SAMPLES = 2
@@ -48,6 +49,13 @@ export interface PartyDraft {
   hostTasting: boolean
   format: PartyFormat
   categories: DraftCategory[]
+  // Dual Experience options, and the host's own group when tasting.
+  dual: PartyDualSettings
+  hostGroup: PartyGroup
+  // Optional for any format. Pairings are keyed by draft category key
+  // until the rounds exist on the server (see extrasForServer).
+  stations: PartyStation[]
+  pairings: Record<string, { name: string; note: string }>
 }
 
 let keyCounter = 0
@@ -68,6 +76,10 @@ export function emptyDraft(): PartyDraft {
     hostTasting: true,
     format: 'blind',
     categories: [],
+    dual: { ...DEFAULT_DUAL_SETTINGS },
+    hostGroup: 'guided',
+    stations: [],
+    pairings: {},
   }
 }
 
@@ -97,7 +109,57 @@ export function draftFromParty(party: Party, secrets?: Pick<PartySecrets, 'categ
       hiddenCount: secrets ? 0 : c.sampleLabels.length,
       samplesDirty: false,
     })),
+    dual: { ...DEFAULT_DUAL_SETTINGS, ...party.dual },
+    hostGroup: 'guided',
+    stations: (party.extras?.stations ?? []).map((s) => ({ ...s })),
+    // Saved rounds use their server id as the draft key, so these line up.
+    pairings: { ...(party.extras?.pairings ?? {}) },
   }
+}
+
+// Dual Experience starts from three rounds (the host can change them).
+export const DUAL_DEFAULT_LIBRARY_IDS = ['rye-whiskey', 'wheated-bourbon', 'double-oaked']
+export const DUAL_BOTTLES_PER_ROUND = 3
+
+// Switching a new party to Dual Experience: three starter rounds if none
+// were picked yet, and reveal-everything-at-the-end as the default.
+export function withDualDefaults(draft: PartyDraft): PartyDraft {
+  const categories = draft.categories.length
+    ? draft.categories
+    : DUAL_DEFAULT_LIBRARY_IDS.map((id) => DEFAULT_CATEGORY_LIBRARY.find((c) => c.id === id))
+        .filter((c): c is (typeof DEFAULT_CATEGORY_LIBRARY)[number] => Boolean(c))
+        .map((c) => newDraftCategory({ libraryId: c.id, name: c.name, description: c.description }))
+  return { ...draft, format: 'dual', categories, settings: { ...draft.settings, revealByCategory: false } }
+}
+
+// Suggested aroma stations, editable before saving.
+export const SUGGESTED_STATIONS: PartyStation[] = [
+  { name: 'Oak', description: 'A piece of toasted or charred oak.', guidance: 'Smell it, then find that same woody, toasty note in your glass.' },
+  { name: 'Vanilla bean', description: 'A split vanilla bean.', guidance: 'Vanilla comes from the barrel. Notice how strong it is in each pour.' },
+  { name: 'Cinnamon', description: 'Cinnamon sticks.', guidance: 'Baking spice often points to rye in the mash bill.' },
+  { name: 'White Dog Mash', description: 'Unaged new-make spirit.', guidance: 'What whiskey tastes like before the barrel: grain, no oak.' },
+]
+
+// Suggested pairings by library category.
+export const SUGGESTED_PAIRINGS: Record<string, string> = {
+  'rye-whiskey': 'York Peppermint Patties',
+  'wheated-bourbon': 'Milk chocolate caramel candy',
+  'double-oaked': 'Dark chocolate',
+}
+
+// Pairings keyed by server round id, dropping empty ones and rounds that
+// no longer exist. `serverIds[i]` is the id of `categories[i]`.
+export function extrasForServer(draft: PartyDraft, categories: DraftCategory[], serverIds: string[]) {
+  const pairings: Record<string, { name: string; note: string }> = {}
+  categories.forEach((c, i) => {
+    const pairing = draft.pairings[c.key]
+    const id = serverIds[i]
+    if (id && pairing?.name.trim()) pairings[id] = { name: pairing.name.trim(), note: pairing.note.trim() }
+  })
+  const stations = draft.stations
+    .filter((s) => s.name.trim())
+    .map((s) => ({ ...(s.id ? { id: s.id } : {}), name: s.name.trim(), description: s.description.trim(), guidance: s.guidance.trim() }))
+  return { stations, pairings }
 }
 
 export function newDraftCategory(input: { libraryId: string | null; name: string; description: string }): DraftCategory {
@@ -244,6 +306,9 @@ export function draftProblems(draft: PartyDraft): DraftProblems {
     details.push('Guest capacity must be between 1 and 150.')
   }
   if (draft.eventTime && !draft.eventDate) details.push('Add a date for the start time.')
+  for (const value of [draft.dual.plannedGuided, draft.dual.plannedBlind]) {
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 150)) details.push('Planned group sizes must be between 0 and 150.')
+  }
   if (draft.categories.length === 0) categories.push('Pick at least one category.')
   if (draft.categories.length > MAX_CATEGORIES) categories.push(`Up to ${MAX_CATEGORIES} rounds per party.`)
   for (const c of draft.categories) {

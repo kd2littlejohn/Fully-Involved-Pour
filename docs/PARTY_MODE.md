@@ -39,7 +39,8 @@ Rankings come from a pure engine (`functions/party/scoring.js`). It runs at reve
 | `parties/{id}/admins/{uid}` | who runs the party: `{ uid, role: host \| cohost, name, addedAt }`. Rules and the server recognise admins by their own record here | that admin and the party's other admins (never guests or displays) |
 | `parties/{id}/guests/{uid}` | nickname, participant key, revoked flag; the host's own record has `isHost: true` | host, that guest |
 | `parties/{id}/roster/{rosterId}` | public "Who's Tasting" list: display name, role (host / co-host / guest), tasting flag, per-round status (`tasting` / `submitted`). Ids are participant keys, `host`, or a one-way hash for co-hosts. Never uids, emails, scores or notes | host, co-hosts, joined guests (not displays) |
-| `parties/{id}/ballots/{categoryId}__{participantKey}` | one ballot per participant per round | its owner only (guest, or host for paper) |
+| `parties/{id}/ballots/{categoryId}__{participantKey}` | one ballot per participant per round (dual parties: stamped with its `group`) | its owner only (guest, or host for paper) |
+| `parties/{id}/guided/{categoryId}` | Dual Experience only: the round's bottles as the guided group sees them (`bottles: { [label]: public bottle }`, never price or My Bar id) | guided tasters, and admins who aren't tasting in the blind group. Never blind tasters, displays or outsiders |
 | `parties/{id}/results/{categoryId}` | published results, written at reveal | host, guests, displays |
 | `parties/{id}/results/recap` | Party Recap, written at completion | host, guests, displays |
 | `parties/{id}/audit/*` | privileged change log | host |
@@ -55,11 +56,37 @@ Not even the host can read a guest's digital ballot (scores or private notes). T
 
 ### Formats
 
-`parties/{id}.format` is `"blind"` (the default, and every party created before formats existed) or `"regular"`.
+`parties/{id}.format` is `"blind"` (the default, and every party created before formats existed), `"regular"` or `"dual"`.
 
 - **Blind:** samples are letters, and bottles stay in `partySecrets` until the host reveals a round.
 - **Regular:** everyone sees the bottles while they score. Each round on the party doc carries `bottles: { [label]: { name, distillery?, type?, age?, proof?, imageUrl? } }`, never the host's price or My Bar id. There's no reveal step: the host closes voting with `voting_open → revealed`, which publishes results in one transaction. Blind parties can't skip `voting_closed`.
-- The format can change only until a round first opens for voting. Switching rewrites or strips each round's `bottles` to match.
+- **Dual Experience:** one event, two groups tasting the same rounds at the same time. See below.
+- The format can change only until a round first opens for voting. Switching rewrites or strips each round's `bottles` (and, for dual, each round's guided view) to match.
+
+### Dual Experience (guided + blind)
+
+One party, one join code, one set of rounds and one round state machine, with two participant groups:
+
+- **Guided** tasters see each bottle while they score: name, image, distillery, type, age and proof, plus an optional, collapsed **Learn About This Pour** (style, grain, barrel, aroma, and suggested tasting notes, from `features/party/pourEducation.ts`, which describes styles and never claims anything about a specific bottle; a cached FIP Guide is shown too when one already exists, never generated).
+- **Blind** tasters see only Sample A, B, C… until the reveal, with the normal blind scoring components.
+
+**Where bottles live.** The party doc never carries a bottle in a dual party. When a round's samples are set, the server writes `parties/{id}/guided/{categoryId}`. firestore.rules let a guest read it only if their own guest record says `group: "guided"` (a missing group means blind), and let admins read it unless the host is tasting in the blind group; a blind host uses the logged bottle key like any blind party. Displays never read it. Results are still written only at reveal, so a blind taster can't learn a bottle from anything they can read before then. The client only subscribes to the guided view for a guided taster, but the rules are what enforce it.
+
+**Groups.** `party.dual = { joinGroup, plannedGuided, plannedBlind }`. New guests start in `joinGroup` (blind by default, so nobody sees a bottle by accident); the planned counts are only targets shown on the dashboard. The host's own record defaults to guided (they set up the bottles) or blind if they choose; a blind host should have a co-host prepare and pour. The roster carries each taster's `group`, so Who's Tasting lists **Guided — N** and **Blind — N** for everyone, with no uids.
+
+**Moving people** (`assignGroup`): admins move guests; only the host moves themselves. Free until the taster has scored a round that isn't revealed yet; then the server answers `needsConfirm` and the dashboard asks before calling again with `confirm: true`. Their unrevealed ballots move with them. Anyone leaving Guided has seen every unrevealed round's bottles, so their blind ballots in those rounds are marked `unblinded` (counted, flagged), and `guest.knewBottles` keeps later ballots flagged too. Every move is audited.
+
+**Scoring.** Every digital and paper ballot carries its `group` (paper ballots require one). At reveal, results gain `groups.guided` / `groups.blind` (each group's own averages, rating counts, favorite votes, ranks, champions and People's Choice, over its own ballots only) and `comparison` (per bottle: both averages with counts and the gap; the largest difference; bottles both groups averaged ≥ 7; whether the winners matched). The top-level standings are still every ballot equally, shown as the overall favorite. Groups are compared by average, never raw totals, and the UI presents differences as observations, not causes. AXE has a **How did guided and blind compare?** question with the same framing.
+
+**Reveal timing.** The `revealByCategory` setting, defaulting to off for dual parties so the blind group stays blind until one reveal at the end.
+
+**Host participation.** Manage Party / My Tasting works as before; My Tasting follows the host's group. A guided host's key views don't flag their ballots; a blind host's do, as in a blind party.
+
+**Saving.** Guided tasters can save to My Tastings once a round's voting closes; blind tasters after the reveal. Records keep `experience: "guided" | "blind"`, and ids depend only on party, round and letter, so saving again never duplicates.
+
+### Aroma stations and pairings
+
+Optional for any format: `party.extras = { stations: [{ id, name, description, guidance }], pairings: { [categoryId]: { name, note } } }`, edited in the setup wizard (with suggested stations and pairings) and saved through `updateParty`. Everyone in the party sees them, blind tasters included, so they describe a round, never a sample. A round's pairing shows only after the taster has scored every sample (or voting closed). Removing a round drops its pairing.
 
 ### The host tasting too
 

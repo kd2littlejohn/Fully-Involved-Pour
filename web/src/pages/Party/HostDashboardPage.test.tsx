@@ -13,6 +13,7 @@ const mockGetBottleKey = vi.fn()
 const mockGetKeyAccessLog = vi.fn()
 const mockCreateCoHostInvite = vi.fn()
 const mockRemoveCoHost = vi.fn()
+const mockAssignGroup = vi.fn()
 let party: Party | undefined
 const SAM: PartyGuest = { uid: 'g1', participantKey: 'k', nickname: 'Sam', joinedAt: 1, revoked: false }
 const HOST: PartyGuest = { uid: 'host-1', participantKey: 'h_1', nickname: 'Kevin', joinedAt: 0, revoked: false, isHost: true }
@@ -28,7 +29,12 @@ let admins: PartyAdmin[] = [HOST_ADMIN]
 const mockSyncRoster = vi.fn()
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => mockUseAuth() }))
+const mockUseGuidedBottles = vi.fn()
 vi.mock('../../features/party/usePartyData', () => ({
+  useGuidedBottles: (...a: unknown[]) => {
+    mockUseGuidedBottles(...a)
+    return { data: {}, loading: false, error: null }
+  },
   useParty: () => ({ data: party, loading: false, error: party ? null : 'missing' }),
   usePartyGuests: () => ({ data: guests, loading: false, error: null }),
   usePartyResults: () => ({ data: {}, loading: false, error: null }),
@@ -47,6 +53,7 @@ vi.mock('../../data/repositories/party', async (importOriginal) => {
     getKeyAccessLog: (...a: unknown[]) => mockGetKeyAccessLog(...a),
     createCoHostInvite: (...a: unknown[]) => mockCreateCoHostInvite(...a),
     removeCoHost: (...a: unknown[]) => mockRemoveCoHost(...a),
+    assignPartyGroup: (...a: unknown[]) => mockAssignGroup(...a),
     syncRoster: (...a: unknown[]) => mockSyncRoster(...a),
   }
 })
@@ -298,5 +305,69 @@ describe('HostDashboardPage', () => {
     renderPage()
     await waitFor(() => expect(mockSyncRoster).toHaveBeenCalledTimes(1))
     expect(mockSyncRoster).toHaveBeenCalledWith('p1')
+  })
+})
+
+describe('HostDashboardPage in a Dual Experience party', () => {
+  const MATT: PartyGuest = { uid: 'g-matt', participantKey: 'g_m', nickname: 'Matt', joinedAt: 1, revoked: false, group: 'guided' }
+  const RICHY: PartyGuest = { uid: 'g-richy', participantKey: 'g_r', nickname: 'Richy', joinedAt: 2, revoked: false, group: 'blind' }
+
+  beforeEach(() => {
+    localStorage.clear()
+    admins = [HOST_ADMIN]
+    mockUseAuth.mockReturnValue({ user: { uid: 'host-1' }, loading: false })
+    mockSyncRoster.mockReset().mockResolvedValue({ count: 3 })
+    mockGetKeyAccessLog.mockReset().mockResolvedValue([])
+    mockUseGuidedBottles.mockReset()
+    mockAssignGroup.mockReset().mockResolvedValue({ ok: true, group: 'guided' })
+    party = makeParty({ format: 'dual', dual: { joinGroup: 'blind', plannedGuided: 7, plannedBlind: 3 }, categories: [makeCategory({ state: 'voting_open' })] })
+    guests = [{ ...HOST, group: 'guided' }, MATT, RICHY]
+    myBallots = []
+    roster = [
+      { ...ROSTER_HOST, group: 'guided', progress: { c1: 'submitted' } },
+      { id: 'g_m', name: 'Matt', role: 'guest', tasting: true, joinedAt: 1, progress: { c1: 'tasting' }, group: 'guided' },
+      { id: 'g_r', name: 'Richy', role: 'guest', tasting: true, joinedAt: 2, progress: { c1: 'submitted' }, group: 'blind' },
+    ]
+  })
+
+  it('shows group counts against the plan and each round’s submissions per group', () => {
+    renderPage()
+    expect(screen.getByText('Host dashboard · Dual Experience')).toBeInTheDocument()
+    expect(screen.getByText('Guided: 1 of 2 submitted')).toBeInTheDocument()
+    expect(screen.getByText('Blind: 1 of 1 submitted')).toBeInTheDocument()
+    expect(screen.getByText('/ 7', { exact: false })).toBeInTheDocument()
+  })
+
+  it('gives a guided host the guided bottles in My Tasting, and a blind host nothing', () => {
+    renderPage()
+    expect(mockUseGuidedBottles).toHaveBeenLastCalledWith('p1', true)
+    guests = [{ ...HOST, group: 'blind' }, MATT, RICHY]
+    mockUseGuidedBottles.mockReset()
+    renderPage()
+    expect(mockUseGuidedBottles).not.toHaveBeenCalledWith('p1', true)
+  })
+
+  it('moves a guest between groups, and asks first when they have already scored', async () => {
+    renderPage()
+    const participants = screen.getByRole('region', { name: 'Participants' })
+    await userEvent.click(within(within(participants).getByRole('radiogroup', { name: 'Richy’s group' })).getByRole('radio', { name: 'Guided' }))
+    expect(mockAssignGroup).toHaveBeenCalledWith('p1', 'g_r', 'guided', false)
+
+    mockAssignGroup.mockReset().mockResolvedValueOnce({ ok: false, needsConfirm: true, scoredRounds: 1 }).mockResolvedValueOnce({ ok: true, group: 'blind', movedBallots: 1 })
+    await userEvent.click(within(within(participants).getByRole('radiogroup', { name: 'Matt’s group' })).getByRole('radio', { name: 'Blind' }))
+    const dialog = await screen.findByRole('dialog', { hidden: true })
+    expect(within(dialog).getByText(/marked not fully blind/)).toBeInTheDocument()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Move to Blind', hidden: true }))
+    expect(mockAssignGroup).toHaveBeenLastCalledWith('p1', 'g_m', 'blind', true)
+  })
+
+  it('lets a co-host move guests but not the host', () => {
+    admins = [HOST_ADMIN, PAT_ADMIN]
+    mockUseAuth.mockReturnValue({ user: { uid: 'co-1' }, loading: false })
+    renderPage()
+    const participants = screen.getByRole('region', { name: 'Participants' })
+    const hostSwitch = within(participants).getByRole('radiogroup', { name: 'Kevin’s group' })
+    for (const radio of within(hostSwitch).getAllByRole('radio')) expect(radio).toBeDisabled()
+    expect(within(within(participants).getByRole('radiogroup', { name: 'Richy’s group' })).getByRole('radio', { name: 'Guided' })).toBeEnabled()
   })
 })

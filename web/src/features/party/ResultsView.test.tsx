@@ -38,3 +38,68 @@ describe('ResultsView', () => {
     expect(screen.queryByRole('note')).not.toBeInTheDocument()
   })
 })
+
+describe('ResultsView for Dual Experience', () => {
+  const dual = makeResults({
+    groups: {
+      guided: {
+        samples: [
+          { label: 'A', average: 8.6, count: 7, favoriteVotes: 4, rank: 1 },
+          { label: 'B', average: 7.2, count: 7, favoriteVotes: 3, rank: 2 },
+          { label: 'C', average: null, count: 0, favoriteVotes: 0, rank: null },
+        ],
+        champions: ['A'],
+        peoplesChoice: ['A'],
+        ballotsCounted: 7,
+        ratingsCounted: 14,
+        unblindedBallots: 0,
+      },
+      blind: {
+        samples: [
+          { label: 'A', average: 7.9, count: 3, favoriteVotes: 1, rank: 2 },
+          { label: 'B', average: 8.1, count: 3, favoriteVotes: 1, rank: 1 },
+          { label: 'C', average: 8.1, count: 2, favoriteVotes: 1, rank: 1 },
+        ],
+        champions: ['B', 'C'],
+        peoplesChoice: ['A', 'B', 'C'],
+        ballotsCounted: 3,
+        ratingsCounted: 8,
+        unblindedBallots: 1,
+      },
+    },
+    comparison: {
+      samples: [
+        { label: 'A', guided: { average: 8.6, count: 7 }, blind: { average: 7.9, count: 3 }, difference: 0.7 },
+        { label: 'B', guided: { average: 7.2, count: 7 }, blind: { average: 8.1, count: 3 }, difference: 0.9 },
+        { label: 'C', guided: { average: null, count: 0 }, blind: { average: 8.1, count: 2 }, difference: null },
+      ],
+      largestDifference: ['B'],
+      largestDifferenceValue: 0.9,
+      bothEnjoyed: ['A', 'B'],
+      bothEnjoyedMin: 7,
+      sameWinner: false,
+    },
+  })
+
+  it('compares the groups by average with sample sizes, identifies ties, and claims no cause', () => {
+    render(<ResultsView results={dual} />)
+    const table = screen.getByRole('table', { name: /guided and blind groups compared/ })
+    expect(within(table).getByRole('row', { name: /Tasters 7 3/ })).toBeInTheDocument()
+    expect(within(table).getByRole('row', { name: "Favorite bottle Larceny Weller 12 & Maker's Mark (tie)" })).toBeInTheDocument()
+    expect(within(table).getByRole('row', { name: /People’s Choice Larceny .*\(tie\)/ })).toBeInTheDocument()
+    const bottles = screen.getByRole('list', { name: 'Each bottle, guided and blind' })
+    expect(within(bottles).getByText('8.6 / 10')).toBeInTheDocument()
+    expect(within(bottles).getAllByText(/· 7 ratings/).length).toBeGreaterThan(0)
+    expect(within(bottles).getByText('No ratings')).toBeInTheDocument()
+    const highlights = screen.getByRole('list', { name: 'Guided and blind highlights' })
+    expect(within(highlights).getByText('Largest difference').parentElement).toHaveTextContent('Weller 12')
+    expect(within(highlights).getByText('Both groups enjoyed').parentElement).toHaveTextContent('Larceny & Weller 12')
+    expect(screen.getByText(/compare averages, not totals/)).toHaveTextContent('not why')
+    expect(screen.getByText(/1 blind ballot was not fully blind/)).toBeInTheDocument()
+  })
+
+  it('leaves single-format results without a comparison', () => {
+    render(<ResultsView results={makeResults()} />)
+    expect(screen.queryByText('Guided vs. Blind')).not.toBeInTheDocument()
+  })
+})

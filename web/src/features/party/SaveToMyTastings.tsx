@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserData } from '../../hooks/useUserData'
 import { buildSavedTastings } from './savedTastings'
-import type { Party, PartyBallot, PartyCategory, PartyCategoryResults } from './types'
+import type { Party, PartyBallot, PartyCategory, PartyCategoryResults, PartyGroup, PartyPublicBottle } from './types'
 import styles from './party.module.css'
 
 // After a round's bottles are known (revealed blind round, or a regular
@@ -17,11 +17,16 @@ export function SaveToMyTastings({
   category,
   results,
   ballot,
+  group = null,
+  guidedBottles,
 }: {
   party: Party
   category: PartyCategory
-  results: PartyCategoryResults
+  results?: PartyCategoryResults
   ballot: PartyBallot | undefined
+  // Dual Experience: the taster's group, and a guided taster's bottles.
+  group?: PartyGroup | null
+  guidedBottles?: Record<string, PartyPublicBottle>
 }) {
   const { user } = useAuth()
   const { userDoc, saveSavedTastings } = useUserData()
@@ -29,7 +34,7 @@ export function SaveToMyTastings({
   const [error, setError] = useState<string | null>(null)
 
   if (!user) return null
-  const entries = buildSavedTastings({ party, category, results, ballot, myBar: userDoc.bottles })
+  const entries = buildSavedTastings({ party, category, results, ballot, myBar: userDoc.bottles, group, guidedBottles })
   if (entries.length === 0) return null
   const savedIds = new Set((userDoc.tastings ?? []).map((t) => t.id))
   const alreadySaved = entries.every((e) => savedIds.has(e.id))

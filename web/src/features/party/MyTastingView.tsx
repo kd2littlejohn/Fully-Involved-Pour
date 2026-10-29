@@ -3,9 +3,11 @@ import { ScoringPanel } from './ScoringPanel'
 import { MyTake, ResultsView } from './ResultsView'
 import { PartyAxeCard } from './PartyAxeCard'
 import { SaveToMyTastings } from './SaveToMyTastings'
+import { AromaStations, PairingNote } from './EventExtras'
+import { GROUP_HINT, GROUP_LABEL } from './dualGroups'
 import { recallMyRound, rememberMyRound } from './guestSession'
 import { activeCategory, categoryStateLabel, formatScore } from './partyLabels'
-import type { Party, PartyBallot, PartyCategory, PartyCategoryResults, PartyGuest } from './types'
+import type { Party, PartyBallot, PartyCategory, PartyCategoryResults, PartyGroup, PartyGuest, PartyPublicBottle } from './types'
 import styles from './party.module.css'
 
 function statePillClass(category: PartyCategory): string {
@@ -17,20 +19,27 @@ function statePillClass(category: PartyCategory): string {
 // One taster's view of the party: which round is up, scoring while voting
 // is open, their own scores, and results once the host reveals. Guests see
 // it as their whole party page; a host who's tasting too sees it as My
-// Tasting on their dashboard. Bottles appear only through revealed results,
-// so it stays blind for everyone, host included, until the reveal.
+// Tasting on their dashboard. In a blind party bottles appear only through
+// revealed results, host included. In a Dual Experience party the taster's
+// group decides: guided tasters get each round's bottles from the guided
+// view (which only they can read); blind tasters get nothing until reveal.
 export function MyTastingView({
   party,
   guest,
   ballots,
   results,
   resumeAtLastSample = false,
+  group = null,
+  guidedBottles = {},
 }: {
   party: Party
   guest: PartyGuest
   ballots: PartyBallot[]
   results: Record<string, PartyCategoryResults>
   resumeAtLastSample?: boolean
+  // Dual Experience only.
+  group?: PartyGroup | null
+  guidedBottles?: Record<string, Record<string, PartyPublicBottle>>
 }) {
   const [selectedId, setSelectedIdState] = useState<string | null>(() => {
     const remembered = recallMyRound(party.id)
@@ -58,9 +67,23 @@ export function MyTastingView({
   const myBallot = category ? ballots.find((b) => b.categoryId === category.id) : undefined
   const categoryResults = category ? results[category.id] : undefined
   const myScores = myBallot ? Object.fromEntries(Object.entries(myBallot.scores).map(([label, score]) => [label, score.overall])) : {}
+  // Only a guided taster ever has bottles here; the prop is empty otherwise.
+  const myBottles = group === 'guided' && category ? guidedBottles[category.id] : undefined
+  const visibleBottles = category?.bottles ?? myBottles
+  const finishedRound = Boolean(category && category.sampleLabels.length && category.sampleLabels.every((l) => myBallot?.scores?.[l]))
 
   return (
     <>
+      {group ? (
+        <div className={`${styles.card} ${styles.cardWarm}`} style={{ padding: 'var(--fip-space-3) var(--fip-space-4)' }}>
+          <div className={styles.spread}>
+            <span className={`${styles.pill} ${group === 'guided' ? styles.pillLive : ''}`}>{GROUP_LABEL[group]} tasting</span>
+            <span className={styles.muted} style={{ fontSize: 'var(--fip-text-xs)' }}>
+              {GROUP_HINT[group]}
+            </span>
+          </div>
+        </div>
+      ) : null}
       <nav aria-label="Rounds" className={styles.row}>
         {party.categories.map((c, index) => (
           <button
@@ -90,8 +113,8 @@ export function MyTastingView({
             {category.description ? <p className={styles.muted}>{category.description}</p> : null}
             <p className={styles.muted}>
               {category.sampleLabels.length} samples:{' '}
-              {category.bottles
-                ? category.sampleLabels.map((l) => `${l}. ${category.bottles?.[l]?.name ?? '—'}`).join(' · ')
+              {visibleBottles
+                ? category.sampleLabels.map((l) => `${l}. ${visibleBottles[l]?.name ?? '—'}`).join(' · ')
                 : category.sampleLabels.join(', ')}
             </p>
           </div>
@@ -107,15 +130,24 @@ export function MyTastingView({
             </div>
           ) : null}
 
-          {guest.isHost && party.format !== 'regular' && party.hostKeyViews?.[category.id] && category.state !== 'revealed' ? (
+          {guest.isHost && party.format !== 'regular' && group !== 'guided' && party.hostKeyViews?.[category.id] && category.state !== 'revealed' ? (
             <p className={styles.notice} role="note">
               You’ve seen this round’s bottles, so your scores here are marked not fully blind. They still count like everyone else’s.
             </p>
           ) : null}
 
           {category.state === 'voting_open' && party.status !== 'completed' ? (
-            <ScoringPanel key={category.id} party={party} category={category} ballot={myBallot} resumeAtLastSample={resumeAtLastSample} />
+            <ScoringPanel
+              key={category.id}
+              party={party}
+              category={category}
+              ballot={myBallot}
+              resumeAtLastSample={resumeAtLastSample}
+              guidedBottles={myBottles}
+            />
           ) : null}
+
+          <PairingNote party={party} category={category} ready={finishedRound || category.state === 'voting_closed' || category.state === 'revealed'} />
 
           {category.state === 'voting_closed' || (category.state === 'voting_open' && party.status === 'completed') ? (
             <div className={`${styles.card} ${styles.cardWarm}`} role="status">
@@ -128,16 +160,22 @@ export function MyTastingView({
             </div>
           ) : null}
 
+          {category.state === 'voting_closed' && myBottles ? (
+            <SaveToMyTastings party={party} category={category} ballot={myBallot} group={group} guidedBottles={myBottles} />
+          ) : null}
+
           {category.state === 'revealed' && categoryResults ? (
             <>
               <MyTake results={categoryResults} myScores={myScores} />
-              <SaveToMyTastings party={party} category={category} results={categoryResults} ballot={myBallot} />
+              <SaveToMyTastings party={party} category={category} results={categoryResults} ballot={myBallot} group={group} />
               <ResultsView results={categoryResults} myParticipantKey={guest.participantKey} />
-              <PartyAxeCard partyId={party.id} categoryId={category.id} />
+              <PartyAxeCard partyId={party.id} categoryId={category.id} dual={Boolean(categoryResults.groups)} />
             </>
           ) : null}
         </section>
       )}
+
+      <AromaStations party={party} />
     </>
   )
 }

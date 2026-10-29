@@ -9,9 +9,20 @@ import {
   watchRoster,
   watchMyAdmin,
   watchAdmins,
+  watchGuided,
   migrateParty,
 } from '../../data/repositories/party'
-import type { PartyAdmin, PartyAdminRole, PartyRosterEntry, Party, PartyBallot, PartyCategoryResults, PartyGuest, PartyRecap } from './types'
+import type {
+  PartyAdmin,
+  PartyAdminRole,
+  PartyRosterEntry,
+  Party,
+  PartyBallot,
+  PartyCategoryResults,
+  PartyGuest,
+  PartyGuidedView,
+  PartyRecap,
+} from './types'
 
 // Live subscriptions for Party Mode screens. A party is genuinely real-time
 // (rounds open and close, ballots arrive, results are revealed while
@@ -170,6 +181,26 @@ export function usePartyAdmins(partyId: string | undefined, enabled = true): Liv
       partyId,
       (data) => setState({ data, loading: false, error: null }),
       (err) => setState({ data: [], loading: false, error: accessError(err) }),
+    )
+  }, [partyId, enabled])
+  return state
+}
+
+// Dual Experience: the guided group's bottles for every round. Only
+// subscribe for someone the rules let read them (a guided taster, or an
+// admin who isn't tasting blind); for anyone else this stays empty.
+export function useGuidedBottles(partyId: string | undefined, enabled: boolean): Live<Record<string, PartyGuidedView['bottles']>> {
+  const [state, setState] = useState<Live<Record<string, PartyGuidedView['bottles']>>>({ data: {}, loading: true, error: null })
+  useEffect(() => {
+    if (!partyId || !enabled) {
+      setState({ data: {}, loading: false, error: null })
+      return
+    }
+    setState((s) => ({ ...s, loading: true }))
+    return watchGuided(
+      partyId,
+      (data) => setState({ data, loading: false, error: null }),
+      (err) => setState({ data: {}, loading: false, error: accessError(err) }),
     )
   }, [partyId, enabled])
   return state

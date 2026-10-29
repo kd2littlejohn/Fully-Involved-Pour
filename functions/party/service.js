@@ -26,6 +26,11 @@
 //                                      party doc itself holds no admin uids
 //   parties/{partyId}/roster/{id}      public "Who's Tasting" list (roster.js):
 //                                      names, roles, status. Members read it
+//   parties/{partyId}/guided/{catId}   Dual Experience only: the bottles a
+//                                      round's GUIDED group sees, written when
+//                                      its samples are set. Readable by guided
+//                                      tasters and admins who aren't tasting
+//                                      blind; never by blind tasters or displays
 //   parties/{partyId}/displays/{uid}   read-only presentation sessions
 //   partySecrets/{partyId}             bottle mapping + display token hash. No
 //                                      client reads it, host included: admins
@@ -252,6 +257,26 @@ function isRegular(party) {
   return party.format === "regular";
 }
 
+// Dual Experience: one event, two groups. Guided tasters see the bottles
+// (from the guided projection below); blind tasters see only sample
+// letters until the reveal. Rounds, states and the bottle key are shared.
+function isDual(party) {
+  return party.format === "dual";
+}
+
+// A taster's Dual Experience group. Missing means blind for a guest (the
+// safe default: the guided rule in firestore.rules also requires an
+// explicit "guided") and guided for the host, who set the bottles up.
+function groupOf(party, guest) {
+  if (!isDual(party) || !guest) return null;
+  if (guest.group === "guided" || guest.group === "blind") return guest.group;
+  return guest.isHost ? "guided" : "blind";
+}
+
+function guidedRef(db, partyId, categoryId) {
+  return db.doc(`parties/${partyId}/guided/${categoryId}`);
+}
+
 // What a regular (non-blind) tasting shows everyone about a bottle. Never
 // the host's price or My Bar id.
 function publicBottle(bottle) {
@@ -266,8 +291,8 @@ function publicBottles(samples) {
   return out;
 }
 
-// Regular tastings carry each round's bottles on the party doc; blind ones
-// never do (the mapping stays in partySecrets until reveal).
+// Regular tastings carry each round's bottles on the party doc; blind and
+// dual ones never do (the mapping stays in partySecrets until reveal).
 function withPublicBottles(party, category, samples) {
   if (!isRegular(party)) {
     const { bottles: _omit, ...rest } = category;
@@ -276,7 +301,19 @@ function withPublicBottles(party, category, samples) {
   return { ...category, bottles: publicBottles(samples) };
 }
 
-function hostGuestRecord(uid, hostName, now) {
+// The guided group's view of a round, kept in its own documents so the
+// guest-readable party doc never carries a bottle in a dual party. Removed
+// when the party stops being dual or the round goes away.
+function writeGuided(tx, db, party, categoryId, samples, now) {
+  const ref = guidedRef(db, party.id, categoryId);
+  if (!isDual(party)) {
+    tx.delete(ref);
+    return;
+  }
+  tx.set(ref, { categoryId, bottles: publicBottles(samples), updatedAt: now });
+}
+
+function hostGuestRecord(uid, hostName, now, group) {
   return {
     uid,
     participantKey: v.randomId("h_"),
@@ -286,6 +323,7 @@ function hostGuestRecord(uid, hostName, now) {
     revoked: false,
     isAccount: true,
     isHost: true,
+    ...(group ? { group } : {}),
   };
 }
 
@@ -301,6 +339,10 @@ async function createParty(ctx) {
   // "I'm tasting too" — on unless the host turns it off.
   const hostTasting = ctx.data.hostTasting !== false;
   const format = v.validateFormat(ctx.data.format);
+  const dual = format === "dual" ? v.validateDual(ctx.data.dual) : null;
+  // The host's own group when tasting a dual event: guided unless they ask
+  // to taste blind (a co-host then sets up the bottles).
+  const hostGroup = format === "dual" ? v.validateGroup(ctx.data.hostGroup === undefined ? "guided" : ctx.data.hostGroup, "Your group") : null;
 
   const ref = ctx.db.collection("parties").doc();
   const code = await claimNewCode(ctx.db, ref.id, ctx.now);
@@ -318,6 +360,7 @@ async function createParty(ctx) {
     inviteActive: true,
     inviteExpiresAt: null,
     counts: { guests: 0, digital: {}, paper: {} },
+    ...(dual ? { dual } : {}),
     createdAt: ctx.now,
     updatedAt: ctx.now,
     completedAt: null,
@@ -330,8 +373,8 @@ async function createParty(ctx) {
   batch.set(ref, party);
   batch.set(admins.adminRef(ctx.db, ref.id, ctx.uid), admins.hostRecord(ctx.uid, hostName, ctx.now));
   batch.set(secretsRef(ctx.db, ref.id), { partyId: ref.id, hostUid: ctx.uid, categories: secretCategories, display: null });
-  if (hostTasting) batch.set(ctx.db.doc(`parties/${ref.id}/guests/${ctx.uid}`), hostGuestRecord(ctx.uid, hostName, ctx.now));
-  batch.set(roster.rosterRef(ctx.db, ref.id, roster.HOST_ROSTER_ID), roster.hostEntry(party, Boolean(hostTasting), ctx.now));
+  if (hostTasting) batch.set(ctx.db.doc(`parties/${ref.id}/guests/${ctx.uid}`), hostGuestRecord(ctx.uid, hostName, ctx.now, hostGroup));
+  batch.set(roster.rosterRef(ctx.db, ref.id, roster.HOST_ROSTER_ID), roster.hostEntry(party, Boolean(hostTasting), ctx.now, {}, hostTasting ? hostGroup : null));
   batch.set(ctx.db.collection(`parties/${ref.id}/audit`).doc(), { type: "party-created", actorUid: ctx.uid, at: ctx.now });
   await batch.commit();
   return { partyId: ref.id, joinCode: code, categories: categories.map((c) => ({ id: c.id, name: c.name })) };
@@ -347,6 +390,7 @@ async function updateParty(ctx) {
     if (ctx.data.details !== undefined || ctx.data.settings !== undefined) assertNotCompleted(party);
     if (ctx.data.details !== undefined) Object.assign(patch, v.validateDetails(ctx.data.details));
     if (ctx.data.settings !== undefined) patch.settings = v.validateSettings(ctx.data.settings, party.settings);
+    let switching = null;
     if (ctx.data.format !== undefined) {
       const format = v.validateFormat(ctx.data.format);
       if (format !== (party.format || "blind")) {
@@ -355,6 +399,31 @@ async function updateParty(ctx) {
         const next = { ...party, format };
         patch.format = format;
         patch.categories = party.categories.map((c) => withPublicBottles(next, c, secrets[c.id]?.samples));
+        if (format === "dual") patch.dual = v.validateDual(ctx.data.dual, party.dual);
+        switching = { next: { ...next, dual: patch.dual || party.dual }, secrets };
+      }
+    }
+    if (ctx.data.dual !== undefined && !patch.dual) {
+      assertNotCompleted(party);
+      if (!isDual(party)) throw precondition("Guided and blind groups are only for Dual Experience events.");
+      patch.dual = v.validateDual(ctx.data.dual, party.dual);
+    }
+    if (ctx.data.extras !== undefined) {
+      assertNotCompleted(party);
+      patch.extras = v.validateExtras(ctx.data.extras, party.categories.map((c) => c.id));
+    }
+    // Becoming (or leaving) a dual event: write or remove each round's
+    // guided view, and give every taster an explicit group so the read
+    // rules never have to guess.
+    if (switching) {
+      const guestsSnap = isDual(switching.next) ? await tx.get(ctx.db.collection(`parties/${partyId}/guests`)) : null;
+      for (const c of party.categories) writeGuided(tx, ctx.db, switching.next, c.id, switching.secrets[c.id]?.samples, ctx.now);
+      for (const doc of guestsSnap ? guestsSnap.docs : []) {
+        const guest = doc.data();
+        if (guest.group === "guided" || guest.group === "blind") continue;
+        const group = guest.isHost ? "guided" : switching.next.dual?.joinGroup || "blind";
+        tx.update(doc.ref, { group });
+        if (!guest.revoked) tx.set(roster.rosterRef(ctx.db, partyId, roster.guestRosterId(guest)), { group }, { merge: true });
       }
     }
     if (ctx.data.recapNotes !== undefined) {
@@ -414,6 +483,7 @@ async function setCategories(ctx) {
         }
         secretCategories[category.id] = { samples };
         next.push(withPublicBottles(party, category, samples));
+        if (samples.length) writeGuided(tx, ctx.db, party, category.id, samples, ctx.now);
       }
     }
 
@@ -421,10 +491,16 @@ async function setCategories(ctx) {
       if (seen.has(id)) continue;
       if (category.lockedAt) throw precondition(`"${category.name}" has already opened for voting and can't be removed.`);
       delete secretCategories[id];
+      tx.delete(guidedRef(ctx.db, partyId, id));
     }
 
     const currentCategoryId = next.some((c) => c.id === party.currentCategoryId) ? party.currentCategoryId : next[0]?.id || null;
-    tx.update(partyRef(ctx.db, partyId), { categories: next, currentCategoryId, updatedAt: ctx.now });
+    const extrasPatch = {};
+    if (party.extras?.pairings) {
+      const kept = Object.fromEntries(Object.entries(party.extras.pairings).filter(([id]) => next.some((c) => c.id === id)));
+      if (Object.keys(kept).length !== Object.keys(party.extras.pairings).length) extrasPatch["extras.pairings"] = kept;
+    }
+    tx.update(partyRef(ctx.db, partyId), { categories: next, currentCategoryId, ...extrasPatch, updatedAt: ctx.now });
     // update() (not a merge) so a removed round's bottles are really gone.
     tx.update(secretsRef(ctx.db, partyId), { categories: secretCategories });
     auditEvent(tx, ctx.db, partyId, ctx, "categories-updated", { count: next.length });
@@ -456,6 +532,7 @@ async function setSamples(ctx) {
       updatedAt: ctx.now,
     });
     tx.set(secretsRef(ctx.db, partyId), { categories: { [categoryId]: { samples } } }, { merge: true });
+    writeGuided(tx, ctx.db, party, categoryId, samples, ctx.now);
     auditEvent(tx, ctx.db, partyId, ctx, "samples-updated", { categoryId, count: samples.length });
     return { samples };
   });
@@ -477,7 +554,7 @@ async function revealCategory(tx, ctx, party, category) {
   const samples = secretsSnap.data()?.categories?.[category.id]?.samples || [];
   const ballotsSnap = await tx.get(ctx.db.collection(`parties/${party.id}/ballots`).where("categoryId", "==", category.id));
   const ballots = ballotsSnap.docs.map((d) => d.data());
-  const results = computeCategoryResults({ category, samples, ballots, showNicknames: party.settings?.showNicknames !== false });
+  const results = computeCategoryResults({ category, samples, ballots, showNicknames: party.settings?.showNicknames !== false, dual: isDual(party) });
   return { ...results, revealedAt: ctx.now, partyId: party.id };
 }
 
@@ -656,6 +733,65 @@ async function removeGuest(ctx) {
   });
 }
 
+// Dual Experience: move a taster between the guided and blind groups.
+// Admins move guests; only the host moves themselves. Free until the
+// taster has scored a round that isn't revealed yet; after that the caller
+// must confirm, and those ballots move with them (their scores are never
+// dropped). Anyone leaving the guided group has seen the bottles of every
+// unrevealed round that has them, so their blind ballots there are marked
+// not fully blind (still counted), exactly like a host who saw the key.
+async function assignGroup(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  const target = ctx.data.participantKey === "host" ? "host" : v.requireId(ctx.data.participantKey, "participant");
+  const group = v.validateGroup(ctx.data.group);
+  await limit(ctx, "host");
+  return ctx.db.runTransaction(async (tx) => {
+    const party = await readParty(tx, ctx.db, partyId);
+    const role = assertAdmin(ctx, party);
+    assertNotCompleted(party);
+    if (!isDual(party)) throw precondition("Groups are only for Dual Experience events.");
+    let guestDoc;
+    if (target === "host") {
+      if (role !== "host") throw denied("Only the host can change their own group.");
+      guestDoc = await tx.get(hostGuestRef(ctx.db, party));
+      if (!guestDoc.exists || guestDoc.data().revoked) throw precondition("Turn on “I'm tasting too” first.");
+    } else {
+      const found = await tx.get(ctx.db.collection(`parties/${partyId}/guests`).where("participantKey", "==", target).limit(1));
+      guestDoc = found.docs[0];
+      if (!guestDoc || guestDoc.data().revoked) throw notFound("That guest isn't in this party.");
+      if (guestDoc.data().isHost && role !== "host") throw denied("Only the host can change their own group.");
+    }
+    const guest = guestDoc.data();
+    const from = groupOf(party, guest);
+    if (from === group) return { ok: true, group };
+
+    const revealed = new Set(party.categories.filter((c) => c.state === "revealed").map((c) => c.id));
+    const ballotsSnap = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", guest.participantKey));
+    const open = ballotsSnap.docs.filter((d) => !revealed.has(d.data().categoryId) && Object.keys(d.data().scores || {}).length > 0);
+    if (open.length && ctx.data.confirm !== true) {
+      return { ok: false, needsConfirm: true, scoredRounds: open.length };
+    }
+
+    const patch = { group };
+    if (from === "guided" && group === "blind") {
+      const knew = { ...(guest.knewBottles || {}) };
+      for (const c of party.categories) if (!revealed.has(c.id) && c.sampleLabels.length && !knew[c.id]) knew[c.id] = ctx.now;
+      patch.knewBottles = knew;
+    }
+    for (const doc of open) {
+      const ballot = doc.data();
+      const update = { group, updatedAt: ctx.now };
+      if (group === "blind" && (from === "guided" || patch.knewBottles?.[ballot.categoryId])) update.unblinded = true;
+      if (group === "guided" && ballot.unblinded) update.unblinded = FieldValue.delete();
+      tx.update(doc.ref, update);
+    }
+    tx.update(guestDoc.ref, patch);
+    tx.set(roster.rosterRef(ctx.db, partyId, roster.guestRosterId(guest)), { group }, { merge: true });
+    auditEvent(tx, ctx.db, partyId, ctx, "group-changed", { participantKey: guest.participantKey, from, to: group, movedBallots: open.length });
+    return { ok: true, group, movedBallots: open.length };
+  });
+}
+
 // "I'm tasting too": the host scores through the same guest record and
 // saveBallot path as everyone else (one ballot per round, same scale and
 // deadlines, equal weight), never a second account or a QR join. Turning
@@ -691,12 +827,13 @@ async function setHostTasting(ctx) {
       }
       tx.update(guestRef, enabled ? { revoked: false, revokedAt: null } : { revoked: true, revokedAt: ctx.now });
     } else if (enabled) {
-      tx.set(guestRef, hostGuestRecord(ctx.uid, party.hostName || "Your host", ctx.now));
+      tx.set(guestRef, hostGuestRecord(ctx.uid, party.hostName || "Your host", ctx.now, isDual(party) ? "guided" : null));
     }
     tx.update(partyRef(ctx.db, partyId), { ...counts, hostTasting: enabled, updatedAt: ctx.now });
     // Merged without `progress`, so the host's per-round status survives
     // switching tasting off and back on.
-    const { progress: _keep, ...hostEntry } = roster.hostEntry(party, enabled, guest?.joinedAt || ctx.now);
+    const hostGroup = isDual(party) ? groupOf(party, guest || { isHost: true }) : null;
+    const { progress: _keep, ...hostEntry } = roster.hostEntry(party, enabled, guest?.joinedAt || ctx.now, undefined, hostGroup);
     tx.set(roster.rosterRef(ctx.db, partyId, roster.HOST_ROSTER_ID), hostEntry, { merge: true });
     auditEvent(tx, ctx.db, partyId, ctx, enabled ? "host-tasting-on" : "host-tasting-off", {});
     return { ok: true, hostTasting: enabled };
@@ -719,8 +856,11 @@ async function getBottleKey(ctx) {
     const blind = party.format !== "regular";
     const unrevealed = party.categories.filter((c) => c.state !== "revealed");
     const flagged = [];
-    if (role === "host" && blind && unrevealed.length) {
-      const hostGuest = await tx.get(hostGuestRef(ctx.db, party));
+    const hostGuest = role === "host" && blind && unrevealed.length ? await tx.get(hostGuestRef(ctx.db, party)) : null;
+    // In a dual event a guided host already sees the bottles, so only a
+    // host tasting in the blind group can be unblinded by the key.
+    const hostTastesBlind = hostGuest && (!isDual(party) || !hostGuest.exists || groupOf(party, hostGuest.data()) === "blind");
+    if (hostTastesBlind) {
       const byCategory = new Map();
       if (hostGuest.exists) {
         const ballots = await tx.get(ctx.db.collection(`parties/${partyId}/ballots`).where("participantKey", "==", hostGuest.data().participantKey));
@@ -880,6 +1020,8 @@ async function savePaperBallot(ctx) {
     if (Object.keys(scores).length === 0) throw v.invalid("Enter at least one sample's score.");
     const favoriteLabel = v.validateOptionalLabel(ctx.data.favoriteLabel, category.sampleLabels, "Favorite");
     const predictionLabel = v.validateOptionalLabel(ctx.data.predictionLabel, category.sampleLabels, "Prediction");
+    // A dual event's paper ballot belongs to the group whose card it is.
+    const group = isDual(party) ? v.validateGroup(ctx.data.group, "The ballot's group") : null;
     const identityKey = paperKey(ballotNumber || nickname);
     if (nickname && party.hostTasting) {
       const hostGuest = await tx.get(ctx.db.doc(`parties/${partyId}/guests/${party.hostUid}`));
@@ -922,6 +1064,7 @@ async function savePaperBallot(ctx) {
       scores,
       favoriteLabel,
       predictionLabel,
+      ...(group ? { group } : {}),
       excluded: before ? before.excluded === true : false,
       createdAt: before ? before.createdAt : ctx.now,
       updatedAt: ctx.now,
@@ -933,7 +1076,7 @@ async function savePaperBallot(ctx) {
       categoryId,
       ballotId: ref.id,
       before: before ? { scores: before.scores, favoriteLabel: before.favoriteLabel || null, nickname: before.nickname, ballotNumber: before.ballotNumber } : null,
-      after: { scores, favoriteLabel, nickname, ballotNumber },
+      after: { scores, favoriteLabel, nickname, ballotNumber, ...(group ? { group } : {}) },
     });
     return { ballotId: ref.id, possibleDuplicateOf: digitalMatch ? { ballotId: digitalMatch.id, nickname: digitalMatch.nickname } : null };
   });
@@ -1011,6 +1154,7 @@ async function listBallots(ctx) {
       excludedReason: b.excludedReason || null,
       updatedAt: b.updatedAt,
       revision: b.revision || 1,
+      ...(b.group ? { group: b.group } : {}),
     };
     if (b.source === "paper") return { ...base, scores: b.scores, favoriteLabel: b.favoriteLabel || null, predictionLabel: b.predictionLabel || null, mode: b.mode };
     return base;
@@ -1064,6 +1208,9 @@ async function joinParty(ctx) {
       throw new HttpsError("already-exists", "Someone already joined with that nickname. Pick another, or use your recovery code to rejoin.");
     }
     const participantKey = v.randomId("g_");
+    // Dual events: a new guest starts in the host's chosen join group
+    // (blind unless the host picked guided) until the host moves them.
+    const group = isDual(party) ? party.dual?.joinGroup || "blind" : null;
     tx.set(guestRef, {
       uid: ctx.uid,
       participantKey,
@@ -1072,9 +1219,10 @@ async function joinParty(ctx) {
       joinedAt: ctx.now,
       revoked: false,
       isAccount: !ctx.isAnonymous,
+      ...(group ? { group } : {}),
     });
     tx.set(ctx.db.doc(`partyGuestKeys/${recoveryKeyId(partyId, recoveryCode)}`), { partyId, participantKey, uid: ctx.uid, createdAt: ctx.now });
-    tx.set(roster.rosterRef(ctx.db, partyId, participantKey), roster.guestEntry({ participantKey, nickname, joinedAt: ctx.now }));
+    tx.set(roster.rosterRef(ctx.db, partyId, participantKey), roster.guestEntry({ participantKey, nickname, joinedAt: ctx.now, group }));
     tx.update(partyRef(ctx.db, partyId), { "counts.guests": FieldValue.increment(1) });
     return { partyId, nickname, recoveryCode: formatRecovery(recoveryCode), alreadyJoined: false };
   });
@@ -1162,7 +1310,13 @@ async function saveBallot(ctx) {
     if (before && before.ownerUid !== ctx.uid) throw denied("That ballot belongs to someone else.");
     const rosterDoc = roster.rosterRef(ctx.db, partyId, roster.guestRosterId(guest));
     const rosterSnap = await tx.get(rosterDoc);
-    const unblinded = before?.unblinded === true || Boolean(guest.isHost && party.format !== "regular" && party.hostKeyViews?.[categoryId]);
+    const group = groupOf(party, guest);
+    // Not fully blind: a host who knew this round's bottles (blind or dual
+    // events; in a dual event only while tasting blind), or a dual taster
+    // who saw them in the guided group before moving to blind.
+    const hostKnew = Boolean(guest.isHost && !isRegular(party) && party.hostKeyViews?.[categoryId] && (!isDual(party) || group === "blind"));
+    const sawGuided = Boolean(group === "blind" && guest.knewBottles?.[categoryId]);
+    const unblinded = (before?.unblinded === true && group !== "guided") || hostKnew || sawGuided;
 
     let mergedScores = scores;
     let favorite = favoriteLabel;
@@ -1190,6 +1344,7 @@ async function saveBallot(ctx) {
       scores: mergedScores,
       favoriteLabel: favorite,
       predictionLabel: prediction,
+      ...(group ? { group } : {}),
       excluded: before ? before.excluded === true : false,
       ...(unblinded ? { unblinded: true } : {}),
       createdAt: before ? before.createdAt : ctx.now,
@@ -1304,6 +1459,7 @@ const ACTIONS = {
   setInvite,
   rotateJoinCode,
   removeGuest,
+  assignGroup,
   setHostTasting,
   getBottleKey,
   createCoHostInvite,

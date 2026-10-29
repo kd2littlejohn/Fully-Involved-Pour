@@ -8,7 +8,17 @@ import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/Part
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import { InvitePanel } from '../../features/party/InvitePanel'
 import { ResultsView } from '../../features/party/ResultsView'
-import { useMyAdminRole, useMyBallots, useParty, usePartyAdmins, usePartyGuests, usePartyResults, usePartyRoster } from '../../features/party/usePartyData'
+import {
+  useGuidedBottles,
+  useMyAdminRole,
+  useMyBallots,
+  useParty,
+  usePartyAdmins,
+  usePartyGuests,
+  usePartyResults,
+  usePartyRoster,
+} from '../../features/party/usePartyData'
+import { GROUP_LABEL, GROUPS, groupCounts, groupProgress, guestGroup, type GroupProgress } from '../../features/party/dualGroups'
 import { TastingIndicator, WhoIsTasting } from '../../features/party/WhoIsTasting'
 import { coHostRosterId } from '../../features/party/rosterView'
 import { MyTastingView } from '../../features/party/MyTastingView'
@@ -32,11 +42,12 @@ import {
   getKeyAccessLog,
   createCoHostInvite,
   removeCoHost,
+  assignPartyGroup,
   type BottleKey,
   type KeyAccessEntry,
   syncRoster,
 } from '../../data/repositories/party'
-import { partyFormat, type Party, type PartyCategory, type PartyCategoryState } from '../../features/party/types'
+import { partyFormat, type Party, type PartyCategory, type PartyCategoryState, type PartyGroup } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
 
 type Pending =
@@ -48,6 +59,7 @@ type Pending =
   | { kind: 'stopTasting' }
   | { kind: 'viewKey'; categoryId?: string }
   | { kind: 'removeCoHost'; uid: string; name: string }
+  | { kind: 'moveGroup'; participantKey: string; name: string; group: PartyGroup; scoredRounds: number }
 
 const ACTIONS: Record<PartyCategoryState, { to: PartyCategoryState; label: string; primary?: boolean }[]> = {
   draft: [
@@ -133,7 +145,8 @@ export function HostDashboardPage() {
   const [bottleKey, setBottleKey] = useState<BottleKey | null>(null)
   const [keyLog, setKeyLog] = useState<KeyAccessEntry[]>([])
   const [coHostLink, setCoHostLink] = useState<string | null>(null)
-  const isBlind = Boolean(party.data && partyFormat(party.data) === 'blind')
+  // Blind and Dual Experience parties both have a secret bottle key.
+  const isBlind = Boolean(party.data && partyFormat(party.data) !== 'regular')
   const refreshKeyLog = useCallback(() => {
     if (!partyId || !isAdmin || !isBlind) return
     getKeyAccessLog(partyId)
@@ -151,6 +164,10 @@ export function HostDashboardPage() {
   const hostGuest = user ? guests.data.find((g) => g.uid === user.uid && g.isHost) : undefined
   const tasting = Boolean(isHost && hostGuest && !hostGuest.revoked)
   const myBallots = useMyBallots(partyId, user?.uid, tasting)
+  // Dual Experience: the host's own group decides what My Tasting shows. A
+  // guided host reads the guided bottles; a blind host never subscribes.
+  const hostGroup = party.data && hostGuest ? guestGroup(party.data, hostGuest) : null
+  const guided = useGuidedBottles(partyId, tasting && hostGroup === 'guided')
   const [viewChoice, setViewChoice] = useState<HostView>(() => (partyId ? recallHostView(partyId) : null) ?? 'manage')
   const view: HostView = tasting ? viewChoice : 'manage'
   // Each view keeps its own scroll position, so switching back lands on
@@ -191,8 +208,26 @@ export function HostDashboardPage() {
     if (!admin) return 'A former co-host'
     return admin.role === 'host' ? `${p.hostName} (host)` : `${admin.name} (co-host)`
   }
-  // Rounds where the tasting host's own scores won't count as fully blind.
-  const notBlindRounds = tasting && !regular ? p.categories.filter((c) => p.hostKeyViews?.[c.id]) : []
+  const dual = partyFormat(p) === 'dual'
+  const counts = dual ? groupCounts(roster.data) : null
+  // Rounds where the tasting host's own scores won't count as fully blind
+  // (a guided host in a dual event isn't tasting blind at all).
+  const notBlindRounds = tasting && !regular && hostGroup !== 'guided' ? p.categories.filter((c) => p.hostKeyViews?.[c.id]) : []
+  const rosterKeyGroup = (key: string): PartyGroup => {
+    const g = guests.data.find((x) => (key === 'host' ? x.isHost : x.participantKey === key))
+    return guestGroup(p, g ?? { isHost: key === 'host' }) ?? 'blind'
+  }
+
+  // Moving someone who has already scored needs a second, confirmed call;
+  // the server answers needsConfirm instead of moving them.
+  async function moveGroup(participantKey: string, name: string, group: PartyGroup, confirm = false) {
+    const ask: { next: Pending | null } = { next: null }
+    await run(async () => {
+      const result = await assignPartyGroup(p.id, participantKey, group, confirm)
+      if (result.needsConfirm) ask.next = { kind: 'moveGroup', participantKey, name, group, scoredRounds: result.scoredRounds ?? 1 }
+    })
+    if (ask.next) setPending(ask.next)
+  }
 
   function samplesFor(category: PartyCategory): { label: string; name: string; summary: string }[] | null {
     if (regular) {
@@ -276,7 +311,7 @@ export function HostDashboardPage() {
     <PartyPage back={{ to: '/blind/party', label: 'Party Mode' }} wide>
       <section className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
         <div className={styles.row}>
-          <span className={styles.eyebrow}>Host dashboard · {regular ? 'Regular tasting' : 'Blind tasting'}</span>
+          <span className={styles.eyebrow}>Host dashboard · {dual ? 'Dual Experience' : regular ? 'Regular tasting' : 'Blind tasting'}</span>
           <span className={`${styles.pill} ${p.status === 'live' ? styles.pillLive : completed ? styles.pillDone : ''}`}>{partyStatusLabel(p)}</span>
         </div>
         <h1 className={styles.title}>{p.name}</h1>
@@ -319,7 +354,15 @@ export function HostDashboardPage() {
       {tasting ? (
         <div id="host-panel-tasting" role="tabpanel" aria-labelledby="host-tab-tasting" hidden={view !== 'tasting'} className={`${styles.stack} ${styles.viewPanel}`} style={{ gap: 'var(--fip-space-5)' }}>
           <TastingIndicator party={p} entries={roster.data} myRosterId={myRosterId} />
-          <MyTastingView party={p} guest={hostGuest!} ballots={myBallots.data} results={results.data} resumeAtLastSample />
+          <MyTastingView
+            party={p}
+            guest={hostGuest!}
+            ballots={myBallots.data}
+            results={results.data}
+            resumeAtLastSample
+            group={hostGroup}
+            guidedBottles={guided.data}
+          />
         </div>
       ) : null}
 
@@ -367,10 +410,31 @@ export function HostDashboardPage() {
         ) : null}
 
         <div className={styles.statRow}>
-          <div className={styles.stat}>
-            <span className={styles.statValue}>{activeGuests.length}</span>
-            <span className={styles.statLabel}>Guests</span>
-          </div>
+          {dual && counts ? (
+            <>
+              <div className={styles.stat}>
+                <span className={styles.statValue}>{counts.guided + counts.blind}</span>
+                <span className={styles.statLabel}>Tasting</span>
+              </div>
+              {GROUPS.map((group) => {
+                const planned = group === 'guided' ? p.dual?.plannedGuided : p.dual?.plannedBlind
+                return (
+                  <div key={group} className={styles.stat}>
+                    <span className={styles.statValue}>
+                      {counts[group]}
+                      {planned ? <span className={styles.statLabel}> / {planned}</span> : null}
+                    </span>
+                    <span className={styles.statLabel}>{GROUP_LABEL[group]}</span>
+                  </div>
+                )
+              })}
+            </>
+          ) : (
+            <div className={styles.stat}>
+              <span className={styles.statValue}>{activeGuests.length}</span>
+              <span className={styles.statLabel}>Guests</span>
+            </div>
+          )}
           <div className={styles.stat}>
             <span className={styles.statValue}>{totals.digital}</span>
             <span className={styles.statLabel}>Digital ballots</span>
@@ -405,6 +469,7 @@ export function HostDashboardPage() {
                 party={p}
                 category={category}
                 samples={samplesFor(category)}
+                progress={dual ? groupProgress(roster.data, category.id) : null}
                 showBottles={Boolean(showBottles[category.id])}
                 onToggleBottles={() => toggleBottles(category)}
                 onAction={(to) => requestState(category, to)}
@@ -518,10 +583,18 @@ export function HostDashboardPage() {
                   {p.capacity ? ` / ${p.capacity}` : ''}
                 </span>
               </div>
-              <div className={styles.listItem}>
-                <span className={`${styles.grow} ${styles.truncate}`}>
+              <div className={`${styles.listItem} ${dual ? styles.participantRow : ''}`}>
+                <span className={`${styles.grow} ${dual ? styles.participantName : styles.truncate}`}>
                   {p.hostName} {isHost ? '(you)' : '(host)'} · {hostIsTasting ? 'tasting too' : 'hosting only'}
                 </span>
+                {dual && hostIsTasting ? (
+                  <GroupSwitch
+                    name={p.hostName}
+                    group={rosterKeyGroup('host')}
+                    disabled={busy || completed || !isHost}
+                    onChange={(group) => void moveGroup('host', isHost ? 'you' : p.hostName, group)}
+                  />
+                ) : null}
                 {!completed && isHost ? (
                   tasting ? (
                     <Button variant="ghost" disabled={busy} onClick={() => setPending({ kind: 'stopTasting' })}>
@@ -541,11 +614,19 @@ export function HostDashboardPage() {
                   {activeGuests
                     .sort((a, b) => a.joinedAt - b.joinedAt)
                     .map((g) => (
-                      <li key={g.uid} className={styles.listItem}>
-                        <span className={`${styles.grow} ${styles.truncate}`}>
+                      <li key={g.uid} className={`${styles.listItem} ${dual ? styles.participantRow : ''}`}>
+                        <span className={`${styles.grow} ${dual ? styles.participantName : styles.truncate}`}>
                           {g.nickname}
                           {g.uid === user.uid ? ' (you)' : ''}
                         </span>
+                        {dual ? (
+                          <GroupSwitch
+                            name={g.nickname}
+                            group={guestGroup(p, g) ?? 'blind'}
+                            disabled={busy || completed}
+                            onChange={(group) => void moveGroup(g.participantKey, g.nickname, group)}
+                          />
+                        ) : null}
                         {!completed && g.uid !== user.uid ? (
                           <Button variant="ghost" aria-label={`Remove ${g.nickname}`} onClick={() => setPending({ kind: 'removeGuest', uid: g.uid, nickname: g.nickname })}>
                             Remove
@@ -555,6 +636,13 @@ export function HostDashboardPage() {
                     ))}
                 </ul>
               )}
+              {dual ? (
+                <p className={styles.muted}>
+                  New guests start in {GROUP_LABEL[p.dual?.joinGroup ?? 'blind']}. Move people before they start scoring; moving someone who has scored asks
+                  you to confirm and keeps their scores. Anyone moved from Guided to Blind has seen the bottles, so their blind scores are marked not fully
+                  blind.
+                </p>
+              ) : null}
               <p className={styles.muted}>
                 Everyone in the party sees names in Who’s Tasting; only you and your co-hosts can remove someone.{' '}
                 {tasting ? 'Score your own pours in My Tasting; your ballot counts the same as every guest’s.' : 'Tasting along? Turn on “I’m tasting too” to score from this dashboard.'}
@@ -600,7 +688,11 @@ export function HostDashboardPage() {
       {pending?.kind === 'revealAll' ? (
         <ConfirmDialog
           title="Reveal every closed round?"
-          message="All closed rounds reveal at once, with their rankings."
+          message={
+            dual
+              ? 'All closed rounds reveal at once. Blind tasters see the bottles, and everyone sees the rankings and the Guided vs. Blind comparison.'
+              : 'All closed rounds reveal at once, with their rankings.'
+          }
           confirmLabel="Reveal all"
           busy={busy}
           onCancel={() => setPending(null)}
@@ -632,7 +724,9 @@ export function HostDashboardPage() {
         <ConfirmDialog
           title="Show the bottle key?"
           message={
-            tasting && p.categories.some((c) => c.state !== 'revealed')
+            tasting && hostGroup === 'guided'
+              ? 'You’re tasting in the guided group, so this doesn’t change your scores. Views before the reveal are logged for the host and co-hosts to see.'
+              : tasting && p.categories.some((c) => c.state !== 'revealed')
               ? 'You’re tasting too. Seeing the key marks your scores as not fully blind in every unrevealed round you haven’t finished scoring. They still count equally. This view is logged.'
               : 'This shows which bottle is behind each letter in every round. Views before the reveal are logged for the host and co-hosts to see.'
           }
@@ -651,6 +745,16 @@ export function HostDashboardPage() {
           busy={busy}
           onCancel={() => setPending(null)}
           onConfirm={() => run(() => removeCoHost(p.id, pending.uid))}
+        />
+      ) : null}
+      {pending?.kind === 'moveGroup' ? (
+        <ConfirmDialog
+          title={`Move ${pending.name} to ${GROUP_LABEL[pending.group]}?`}
+          message={`${pending.name === 'you' ? 'You’ve' : `${pending.name} has`} already scored ${pending.scoredRounds === 1 ? 'a round' : `${pending.scoredRounds} rounds`} that ${pending.scoredRounds === 1 ? 'isn’t' : 'aren’t'} revealed yet. Those scores move with ${pending.name === 'you' ? 'you' : 'them'} and count in the ${GROUP_LABEL[pending.group]} group.${pending.group === 'blind' ? ' Because the bottles were visible in Guided, those blind scores are marked not fully blind. They still count.' : ''}`}
+          confirmLabel={`Move to ${GROUP_LABEL[pending.group]}`}
+          busy={busy}
+          onCancel={() => setPending(null)}
+          onConfirm={() => void moveGroup(pending.participantKey, pending.name, pending.group, true)}
         />
       ) : null}
       {pending?.kind === 'stopTasting' ? (
@@ -691,6 +795,7 @@ function RoundCard({
   resultsOpen,
   busy,
   disabled,
+  progress = null,
   children,
 }: {
   index: number
@@ -705,6 +810,8 @@ function RoundCard({
   resultsOpen: boolean
   busy: boolean
   disabled: boolean
+  // Dual Experience: this round's submissions, per group.
+  progress?: Record<PartyGroup, GroupProgress> | null
   children?: ReactNode
 }) {
   const counts = ballotCount(party, category.id)
@@ -733,6 +840,15 @@ function RoundCard({
         {category.sampleLabels.length} samples · {counts.digital} digital · {counts.paper} paper ballots
         {category.lockedAt ? ' · Bottles locked' : ''}
       </p>
+      {progress && category.state !== 'draft' && category.state !== 'ready' ? (
+        <div className={styles.row} aria-label="Submissions by group">
+          {GROUPS.map((group) => (
+            <span key={group} className={`${styles.pill} ${progress[group].total && progress[group].submitted === progress[group].total ? styles.pillDone : ''}`}>
+              {GROUP_LABEL[group]}: {progress[group].submitted} of {progress[group].total} submitted
+            </span>
+          ))}
+        </div>
+      ) : null}
       {!disabled ? (
         <div className={styles.row}>
           {actions.map((a) => (
@@ -784,5 +900,26 @@ function RoundCard({
       ) : null}
       {children}
     </section>
+  )
+}
+
+// Guided / Blind for one taster on the host dashboard.
+function GroupSwitch({ name, group, disabled, onChange }: { name: string; group: PartyGroup; disabled: boolean; onChange: (group: PartyGroup) => void }) {
+  return (
+    <div className={styles.groupSwitch} role="radiogroup" aria-label={`${name}’s group`}>
+      {GROUPS.map((g) => (
+        <button
+          key={g}
+          type="button"
+          role="radio"
+          aria-checked={group === g}
+          className={styles.groupOption}
+          disabled={disabled}
+          onClick={() => group !== g && onChange(g)}
+        >
+          {GROUP_LABEL[g]}
+        </button>
+      ))}
+    </div>
   )
 }
