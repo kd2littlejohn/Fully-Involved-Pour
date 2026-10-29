@@ -93,7 +93,14 @@ describe("party AXE", () => {
   it("builds a prompt for every preset question", () => {
     const context = {
       party: { name: "P" },
-      results: { name: "R", ballotsCounted: 1, samples: [{ label: "A", bottle: { name: "X <b>" }, average: 7, count: 1, favoriteVotes: 0 }] },
+      results: {
+        name: "R",
+        ballotsCounted: 1,
+        samples: [{ label: "A", bottle: { name: "X <b>" }, average: 7, count: 1, favoriteVotes: 0 }],
+        // Groups too, so the dual-only comparison question builds as well.
+        groups: { guided: { ballotsCounted: 1, champions: ["A"] }, blind: { ballotsCounted: 0, champions: [] } },
+        comparison: { samples: [{ label: "A", guided: { average: 7, count: 1 }, blind: { average: null, count: 0 }, difference: null }] },
+      },
       myBallot: null,
     };
     for (const id of Object.keys(QUESTIONS)) {

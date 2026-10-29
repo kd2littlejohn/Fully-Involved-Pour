@@ -50,7 +50,7 @@ export function DualComparison({ results, presentation = false }: { results: Par
         Guided vs. Blind
       </h3>
       <div className={r.tableWrap}>
-        <table className={r.table}>
+        <table className={`${r.table} ${r.groupTable}`}>
           <caption className={styles.srOnly}>{results.name}: guided and blind groups compared</caption>
           <thead>
             <tr>

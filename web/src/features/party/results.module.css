@@ -241,3 +241,10 @@
     grid-column: 2;
   }
 }
+
+/* Guided vs. Blind table: bottle names wrap so both columns fit a phone. */
+.groupTable td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  width: 37%;
+}

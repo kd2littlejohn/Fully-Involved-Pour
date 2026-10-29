@@ -583,8 +583,8 @@ export function HostDashboardPage() {
                   {p.capacity ? ` / ${p.capacity}` : ''}
                 </span>
               </div>
-              <div className={styles.listItem}>
-                <span className={`${styles.grow} ${styles.truncate}`}>
+              <div className={`${styles.listItem} ${dual ? styles.participantRow : ''}`}>
+                <span className={`${styles.grow} ${dual ? styles.participantName : styles.truncate}`}>
                   {p.hostName} {isHost ? '(you)' : '(host)'} · {hostIsTasting ? 'tasting too' : 'hosting only'}
                 </span>
                 {dual && hostIsTasting ? (
@@ -614,8 +614,8 @@ export function HostDashboardPage() {
                   {activeGuests
                     .sort((a, b) => a.joinedAt - b.joinedAt)
                     .map((g) => (
-                      <li key={g.uid} className={styles.listItem}>
-                        <span className={`${styles.grow} ${styles.truncate}`}>
+                      <li key={g.uid} className={`${styles.listItem} ${dual ? styles.participantRow : ''}`}>
+                        <span className={`${styles.grow} ${dual ? styles.participantName : styles.truncate}`}>
                           {g.nickname}
                           {g.uid === user.uid ? ' (you)' : ''}
                         </span>
