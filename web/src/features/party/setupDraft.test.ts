@@ -15,6 +15,8 @@ import {
   shuffleLabels,
   mergeBottleKey,
   bottleKeyHidden,
+  withDualDefaults,
+  extrasForServer,
   type DraftSample,
 } from './setupDraft'
 import type { Party } from './types'
@@ -165,5 +167,34 @@ describe('setup draft', () => {
     expect(opened.categories[0]!.name).toBe('Rye!')
     expect(opened.categories[0]!.samples.map((s) => s.bottle.name)).toEqual(['Pikesville', 'Rittenhouse', 'Sazerac'])
     expect(opened.categories[0]!.samplesDirty).toBe(false)
+  })
+})
+
+describe('Dual Experience setup defaults', () => {
+  it('starts a new dual party with three rounds and reveals everything at the end', () => {
+    const draft = withDualDefaults(emptyDraft())
+    expect(draft.format).toBe('dual')
+    expect(draft.categories.map((c) => c.name)).toEqual(['Rye Whiskey', 'Wheated Bourbon', 'Double Oaked'])
+    expect(draft.settings.revealByCategory).toBe(false)
+    expect(draft.dual.joinGroup).toBe('blind')
+  })
+
+  it('keeps rounds the host already picked', () => {
+    const picked = { ...emptyDraft(), categories: [newDraftCategory({ libraryId: null, name: 'Mystery', description: '' })] }
+    expect(withDualDefaults(picked).categories.map((c) => c.name)).toEqual(['Mystery'])
+  })
+
+  it('maps pairings from draft rounds to server ids and drops empty stations', () => {
+    const draft = withDualDefaults(emptyDraft())
+    draft.pairings = { [draft.categories[0]!.key]: { name: ' York Peppermint Patties ', note: '' }, [draft.categories[1]!.key]: { name: '  ', note: '' } }
+    draft.stations = [{ name: 'Oak', description: ' Staves ', guidance: '' }, { name: ' ', description: '', guidance: '' }]
+    const extras = extrasForServer(draft, draft.categories, ['c_rye', 'c_wheat', 'c_oak'])
+    expect(extras.pairings).toEqual({ c_rye: { name: 'York Peppermint Patties', note: '' } })
+    expect(extras.stations).toEqual([{ name: 'Oak', description: 'Staves', guidance: '' }])
+  })
+
+  it('rejects impossible planned group sizes', () => {
+    const draft = { ...withDualDefaults(emptyDraft()), name: 'Dual', dual: { joinGroup: 'blind' as const, plannedGuided: 200, plannedBlind: 3 } }
+    expect(draftProblems(draft).details).toContain('Planned group sizes must be between 0 and 150.')
   })
 })

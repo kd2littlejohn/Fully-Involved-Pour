@@ -10,15 +10,19 @@ const QUESTIONS: { id: PartyAxeQuestion; label: string }[] = [
   { id: 'try-next', label: 'What should I try next?' },
 ]
 
+// Dual Experience rounds: how the guided and blind groups compared.
+const DUAL_QUESTION = { id: 'group-comparison' as PartyAxeQuestion, label: 'How did guided and blind compare?' }
+
 // AXE after a reveal — optional, tucked below the results, one tap per
 // question. Uses only the round's published results and the guest's own
 // ballot (see functions/party/axe.js). The party never depends on it.
-export function PartyAxeCard({ partyId, categoryId }: { partyId: string; categoryId: string }) {
+export function PartyAxeCard({ partyId, categoryId, dual = false }: { partyId: string; categoryId: string; dual?: boolean }) {
+  const questions = dual ? [DUAL_QUESTION, ...QUESTIONS] : QUESTIONS
   const [asking, setAsking] = useState<PartyAxeQuestion | null>(null)
   const [answer, setAnswer] = useState<{ question: string; reply: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function ask(question: (typeof QUESTIONS)[number]) {
+  async function ask(question: { id: PartyAxeQuestion; label: string }) {
     setAsking(question.id)
     setError(null)
     try {
@@ -38,7 +42,7 @@ export function PartyAxeCard({ partyId, categoryId }: { partyId: string; categor
         <span className={styles.label}>Ask AXE, your personal sommelier</span>
       </summary>
       <div className={styles.row}>
-        {QUESTIONS.map((q) => (
+        {questions.map((q) => (
           <button key={q.id} type="button" className={styles.choice} style={{ width: 'auto' }} disabled={asking !== null} onClick={() => ask(q)}>
             {asking === q.id ? 'AXE is thinking…' : q.label}
           </button>

@@ -55,12 +55,53 @@ export interface PartyPublicBottle {
   imageUrl?: string
 }
 
-// 'blind' hides bottles until reveal; 'regular' shows them from the start.
+// 'blind' hides bottles until reveal; 'regular' shows them from the start;
+// 'dual' runs both at once (Dual Experience): a guided group sees the
+// bottles, a blind group sees only sample letters until the reveal.
 // Absent on parties created before formats existed, which are blind.
-export type PartyFormat = 'blind' | 'regular'
+export type PartyFormat = 'blind' | 'regular' | 'dual'
 
 export function partyFormat(party: Pick<Party, 'format'>): PartyFormat {
-  return party.format === 'regular' ? 'regular' : 'blind'
+  return party.format === 'regular' || party.format === 'dual' ? party.format : 'blind'
+}
+
+// Dual Experience participant groups.
+export type PartyGroup = 'guided' | 'blind'
+
+export interface PartyDualSettings {
+  // Where a newly joined guest starts until the host moves them.
+  joinGroup: PartyGroup
+  // The host's planned group sizes (for the dashboard only).
+  plannedGuided: number | null
+  plannedBlind: number | null
+}
+
+export const DEFAULT_DUAL_SETTINGS: PartyDualSettings = { joinGroup: 'blind', plannedGuided: null, plannedBlind: null }
+
+// Optional education, any format: aroma stations and per-round pairings.
+// Everyone in the party sees these, blind tasters included.
+export interface PartyStation {
+  id?: string
+  name: string
+  description: string
+  guidance: string
+}
+
+export interface PartyPairing {
+  name: string
+  note: string
+}
+
+export interface PartyExtras {
+  stations: PartyStation[]
+  pairings: Record<string, PartyPairing>
+}
+
+// parties/{partyId}/guided/{categoryId} — a dual round's bottles as its
+// guided group sees them. Never readable by blind tasters.
+export interface PartyGuidedView {
+  categoryId: string
+  bottles: Record<string, PartyPublicBottle>
 }
 
 export interface Party {
@@ -69,6 +110,8 @@ export interface Party {
   // "I'm tasting too". Absent on parties created before host participation.
   hostTasting?: boolean
   format?: PartyFormat
+  dual?: PartyDualSettings
+  extras?: PartyExtras
   // Co-hosts / pour assistants: other FIP accounts who run the event and
   // hold the bottle key, so the host can taste blind. They never taste.
   // When the host first knew each round's bottles (set them up or opened
@@ -140,6 +183,8 @@ export interface PartyGuest {
   isAccount?: boolean
   // The host's own record when they're tasting too. Not a counted guest.
   isHost?: boolean
+  // Dual Experience group. Missing on a guest means blind.
+  group?: PartyGroup
 }
 
 // parties/{partyId}/roster/{id}: the public "Who's Tasting" list, written
@@ -157,6 +202,8 @@ export interface PartyRosterEntry {
   tasting: boolean
   joinedAt: number
   progress: Record<string, PartyRosterProgress>
+  // Dual Experience only: which experience they're in.
+  group?: PartyGroup
 }
 
 export interface PartySampleScore {
@@ -184,8 +231,10 @@ export interface PartyBallot {
   predictionLabel: string | null
   excluded: boolean
   excludedReason?: string | null
-  // A host ballot made after they knew this round's bottles. Counted.
+  // A host ballot made after they knew this round's bottles, or a dual
+  // taster's blind ballot after they'd seen them in the guided group. Counted.
   unblinded?: boolean
+  group?: PartyGroup
   createdAt: number
   updatedAt: number
   revision: number
@@ -207,6 +256,7 @@ export interface PartyBallotSummary {
   favoriteLabel?: string | null
   predictionLabel?: string | null
   mode?: PartyScoringMode
+  group?: PartyGroup
 }
 
 export interface PartyPublicBottle {
@@ -244,6 +294,31 @@ export interface PartyGuestScores {
   scores: Record<string, number>
   favoriteLabel: string | null
   unblinded?: boolean
+  group?: PartyGroup
+}
+
+// One Dual Experience group's own standings in a round.
+export interface PartyGroupResults {
+  samples: { label: string; average: number | null; count: number; favoriteVotes: number; rank: number | null }[]
+  champions: string[]
+  peoplesChoice: string[]
+  ballotsCounted: number
+  ratingsCounted: number
+  unblindedBallots: number
+}
+
+export interface PartyGroupComparison {
+  samples: {
+    label: string
+    guided: { average: number | null; count: number }
+    blind: { average: number | null; count: number }
+    difference: number | null
+  }[]
+  largestDifference: string[]
+  largestDifferenceValue: number | null
+  bothEnjoyed: string[]
+  bothEnjoyedMin: number
+  sameWinner: boolean
 }
 
 // parties/{partyId}/results/{categoryId} — exists only once revealed.
@@ -263,6 +338,9 @@ export interface PartyCategoryResults {
   ratingsCounted: number
   guestScores: PartyGuestScores[]
   revealedAt: number
+  // Dual Experience rounds only.
+  groups?: Record<PartyGroup, PartyGroupResults>
+  comparison?: PartyGroupComparison
 }
 
 export interface PartyRecapWinner {
@@ -285,6 +363,7 @@ export interface PartyRecap {
   highestRated: { categoryId: string; categoryName: string; label: string; bottle: PartyPublicBottle; average: number; count: number }[]
   participantCount: number
   totalBallots: number
+  groupParticipants?: Record<PartyGroup, number>
   notes: string
   completedAt: number
 }

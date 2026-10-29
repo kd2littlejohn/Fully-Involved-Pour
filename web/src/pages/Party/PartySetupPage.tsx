@@ -10,6 +10,9 @@ import { PartyLoading, PartyMessage, PartyPage, ToggleRow } from '../../features
 import { CategoriesStep } from '../../features/party/setup/CategoriesStep'
 import { BottlesStep } from '../../features/party/setup/BottlesStep'
 import { LabelsStep } from '../../features/party/setup/LabelsStep'
+import { DualOptions } from '../../features/party/setup/DualOptions'
+import { ExtrasEditor } from '../../features/party/setup/ExtrasEditor'
+import { GROUP_LABEL } from '../../features/party/dualGroups'
 import {
   draftEventDate,
   draftFromParty,
@@ -18,6 +21,9 @@ import {
   finalizeLabels,
   mergeBottleKey,
   bottleKeyHidden,
+  withDualDefaults,
+  extrasForServer,
+  DUAL_BOTTLES_PER_ROUND,
   type DraftCategory,
   type PartyDraft,
 } from '../../features/party/setupDraft'
@@ -38,12 +44,22 @@ import {
   setPartySamples,
   updateParty,
 } from '../../data/repositories/party'
-import type { PartySettings, PartyTemplate, SavedTastingCategory } from '../../features/party/types'
+import type { PartyFormat, PartySettings, PartyTemplate, SavedTastingCategory } from '../../features/party/types'
 import { partyFormat } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
 import local from '../../features/party/setup/setup.module.css'
 
 const STEPS = ['Details', 'Categories', 'Bottles', 'Sample letters', 'Scoring']
+
+const FORMAT_CARDS: { format: PartyFormat; title: string; hint: string }[] = [
+  { format: 'regular', title: 'Regular Tasting', hint: 'Everyone knows the bottles. Results show when voting closes.' },
+  { format: 'blind', title: 'Blind Tasting', hint: 'Everyone tastes without seeing bottle identities. Samples are A, B, C… until you reveal them.' },
+  { format: 'dual', title: 'Dual Experience', hint: 'Guided and blind participants taste together, with separate experiences.' },
+]
+
+function formatFromParam(value: string | null): PartyFormat {
+  return value === 'regular' || value === 'dual' ? value : 'blind'
+}
 
 // Create a Party (/party/new) and Edit Setup (/party/:partyId/setup) — one
 // guided flow. Everything is a local draft until the host saves; then the
@@ -59,7 +75,10 @@ export function PartySetupPage() {
   const adminRole = useMyAdminRole(isEdit ? partyId : undefined, user?.uid)
 
   const [searchParams] = useSearchParams()
-  const [draft, setDraft] = useState<PartyDraft>(() => ({ ...emptyDraft(), format: searchParams.get('format') === 'regular' ? 'regular' : 'blind' }))
+  const [draft, setDraft] = useState<PartyDraft>(() => {
+    const format = formatFromParam(searchParams.get('format'))
+    return format === 'dual' ? withDualDefaults(emptyDraft()) : { ...emptyDraft(), format }
+  })
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null)
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
@@ -134,7 +153,8 @@ export function PartySetupPage() {
   const formatLocked = draft.categories.some((c) => c.locked)
   const keyHidden = bottleKeyHidden(draft)
   // A tasting host choosing bottles themselves knows them (blind only).
-  const hostWillKnow = isHost && draft.hostTasting && draft.format === 'blind' && draft.categories.some((c) => !c.locked)
+  const hostWillKnow =
+    isHost && draft.hostTasting && (draft.format === 'blind' || (draft.format === 'dual' && !isEdit && draft.hostGroup === 'blind')) && draft.categories.some((c) => !c.locked)
   const problems = draftProblems(draft)
   const stepProblems = [problems.details, problems.categories, problems.bottles, [], []]
 
@@ -179,6 +199,7 @@ export function PartySetupPage() {
           hostName: profile?.displayName || user!.displayName || 'Your host',
           hostTasting: draft.hostTasting,
           format: draft.format,
+          ...(draft.format === 'dual' ? { dual: draft.dual, hostGroup: draft.hostGroup } : {}),
         })
         id = created.partyId
         serverIds = created.categories.map((c) => c.id)
@@ -187,6 +208,7 @@ export function PartySetupPage() {
           details,
           settings: draft.settings,
           ...(draft.format !== (party.data ? partyFormat(party.data) : 'blind') ? { format: draft.format } : {}),
+          ...(draft.format === 'dual' ? { dual: draft.dual } : {}),
         })
         if (isHost && draft.hostTasting !== (party.data?.hostTasting === true)) await setHostTasting(id, draft.hostTasting)
         const result = await setPartyCategories(
@@ -207,6 +229,11 @@ export function PartySetupPage() {
           'manual',
         )
       }
+      // Stations and pairings point at rounds, so they go up once every
+      // round has its server id.
+      const extras = extrasForServer(draft, categories, serverIds)
+      const hadExtras = Boolean(party.data?.extras?.stations?.length || Object.keys(party.data?.extras?.pairings ?? {}).length)
+      if (extras.stations.length || Object.keys(extras.pairings).length || hadExtras) await updateParty(id, { extras })
       navigate(`/party/${id}/host`, { replace: true })
     } catch (err) {
       console.error('[party] save failed', err)
@@ -233,9 +260,9 @@ export function PartySetupPage() {
             Event details
           </h2>
           <fieldset className={styles.fieldset}>
-            <legend className={styles.label}>Kind of tasting</legend>
+            <legend className={styles.label}>Tasting format</legend>
             <div className={styles.row}>
-              {(['blind', 'regular'] as const).map((format) => (
+              {FORMAT_CARDS.map(({ format, title, hint }) => (
                 <label key={format} className={styles.choice} style={{ flex: '1 1 200px', width: 'auto' }}>
                   <input
                     type="radio"
@@ -243,21 +270,20 @@ export function PartySetupPage() {
                     value={format}
                     checked={draft.format === format}
                     disabled={formatLocked}
-                    onChange={() => setDraft((d) => ({ ...d, format }))}
+                    onChange={() => setDraft((d) => (format === 'dual' && !isEdit ? withDualDefaults(d) : { ...d, format }))}
                   />
                   <span style={{ fontWeight: 700 }}>
-                    {format === 'blind' ? 'Blind tasting' : 'Regular tasting'}
+                    {title}
                     <span className={styles.muted} style={{ display: 'block', fontWeight: 400 }}>
-                      {format === 'blind'
-                        ? 'Samples are A, B, C… Bottles stay hidden until you reveal them.'
-                        : 'Everyone sees each bottle while they score. Results show when voting closes.'}
+                      {hint}
                     </span>
                   </span>
                 </label>
               ))}
             </div>
           </fieldset>
-          {formatLocked ? <p className={styles.muted}>A round has opened for voting, so the kind of tasting is set.</p> : null}
+          {formatLocked ? <p className={styles.muted}>A round has opened for voting, so the tasting format is set.</p> : null}
+          {draft.format === 'dual' ? <DualOptions dual={draft.dual} onChange={(dual) => setDraft((d) => ({ ...d, dual }))} /> : null}
           <label className={styles.label} htmlFor="party-name">
             Event name *
           </label>
@@ -375,6 +401,12 @@ export function PartySetupPage() {
               blind, leave the bottles empty and invite a co-host from your dashboard to add them.
             </p>
           ) : null}
+          {draft.format === 'dual' ? (
+            <p className={styles.muted}>
+              Dual Experience rounds usually have {DUAL_BOTTLES_PER_ROUND} bottles each, but any number from 2 to 12 works. Guided tasters will see these
+              bottles while they score; blind tasters see only the letters.
+            </p>
+          ) : null}
           <BottlesStep categories={draft.categories} onChange={setCategories} myBar={myBar} />
         </>
       ) : null}
@@ -408,7 +440,30 @@ export function PartySetupPage() {
               onChange={(v) => setDraft((d) => ({ ...d, hostTasting: v }))}
             />
           ) : null}
-          {isHost && draft.hostTasting && draft.format === 'blind' ? (
+          {isHost && draft.hostTasting && draft.format === 'dual' && !isEdit ? (
+            <fieldset className={styles.fieldset}>
+              <legend className={styles.label}>Your group</legend>
+              <div className={styles.row}>
+                {(['guided', 'blind'] as const).map((group) => (
+                  <label key={group} className={styles.choice} style={{ flex: '1 1 200px', width: 'auto' }}>
+                    <input type="radio" name="host-group" value={group} checked={draft.hostGroup === group} onChange={() => setDraft((d) => ({ ...d, hostGroup: group }))} />
+                    <span style={{ fontWeight: 700 }}>
+                      {GROUP_LABEL[group]}
+                      <span className={styles.muted} style={{ display: 'block', fontWeight: 400 }}>
+                        {group === 'guided'
+                          ? 'Score with the bottles in view, like your guided guests.'
+                          : 'Taste blind with your blind guests. Have a co-host set up and pour the bottles.'}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+          {isHost && draft.hostTasting && draft.format === 'dual' && isEdit ? (
+            <p className={styles.muted}>Change your own group from the participants list on your dashboard.</p>
+          ) : null}
+          {isHost && draft.hostTasting && (draft.format === 'blind' || (draft.format === 'dual' && draft.hostGroup === 'blind' && !isEdit)) ? (
             <p className={styles.muted}>
               If you pick, label or pour the bottles yourself, your own scores are marked not fully blind (they still count). A co-host can set up the bottles so
               you taste blind.
@@ -450,7 +505,11 @@ export function PartySetupPage() {
           <ToggleRow
             id="reveal-by-category"
             label="Reveal round by round"
-            hint="Off: reveal every round together at the end."
+            hint={
+              draft.format === 'dual'
+                ? 'Off (recommended for Dual Experience): reveal every round together at the end, so blind tasters stay blind for the whole event.'
+                : 'Off: reveal every round together at the end.'
+            }
             checked={draft.settings.revealByCategory}
             onChange={(v) => setSettings({ revealByCategory: v })}
           />
@@ -470,6 +529,15 @@ export function PartySetupPage() {
           />
           <p className={styles.muted}>You open, close and reveal each round yourself from the host dashboard. Nothing reveals automatically.</p>
         </section>
+      ) : null}
+      {step === 4 ? (
+        <ExtrasEditor
+          categories={draft.categories}
+          stations={draft.stations}
+          pairings={draft.pairings}
+          onStations={(stations) => setDraft((d) => ({ ...d, stations }))}
+          onPairings={(pairings) => setDraft((d) => ({ ...d, pairings }))}
+        />
       ) : null}
 
       {stepProblems[step]!.length ? (

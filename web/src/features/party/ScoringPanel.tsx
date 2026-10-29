@@ -24,8 +24,9 @@ import {
   type RoundDraft,
   type SampleDraft,
 } from './scoringModel'
-import type { Party, PartyBallot, PartyCategory, PartySampleScore, PartyScoringMode } from './types'
+import type { Party, PartyBallot, PartyCategory, PartyPublicBottle, PartySampleScore, PartyScoringMode } from './types'
 import { publicBottleSummary } from './partyBottle'
+import { LearnAboutThisPour } from './LearnAboutThisPour'
 import styles from './party.module.css'
 import s from './scoring.module.css'
 
@@ -36,13 +37,20 @@ interface ScoringPanelProps {
   // Scroll back to the sample last worked on (the host's My Tasting, after
   // switching away to manage the party and coming back).
   resumeAtLastSample?: boolean
+  // Dual Experience guided tasters: this round's bottles, from the guided
+  // view only they can read, plus "Learn About This Pour". Blind tasters
+  // never get either, so nothing about a bottle reaches their screen.
+  guidedBottles?: Record<string, PartyPublicBottle>
 }
 
 // A guest's digital ballot for the open round. Quick and Detailed share one
 // draft, so switching never drops anything; unsent edits are also kept on
 // this device so a refresh mid-pour loses nothing.
-export function ScoringPanel({ party, category, ballot, resumeAtLastSample = false }: ScoringPanelProps) {
+export function ScoringPanel({ party, category, ballot, resumeAtLastSample = false, guidedBottles }: ScoringPanelProps) {
   const labels = category.sampleLabels
+  // Regular tastings carry bottles on the round itself; dual guided tasters
+  // get them from the guided view. Blind rounds have neither.
+  const bottles = guidedBottles ?? category.bottles
   const locked = party.settings?.allowEdits === false
   const [mode, setMode] = useState<PartyScoringMode>(() => recallScoringMode() ?? party.settings?.defaultScoring ?? 'quick')
   const [draft, setDraft] = useState<RoundDraft>(() =>
@@ -172,6 +180,7 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
         const sample = draft.samples[label]!
         const isSaved = Boolean(saved[label])
         const frozen = locked && isSaved
+        const bottle = bottles?.[label]
         return (
           <section key={label} id={`sample-${label}`} className={isSaved ? `${s.sampleCard} ${s.sampleCardSaved}` : s.sampleCard} aria-labelledby={`sample-title-${label}`}>
             <div className={s.sampleHead}>
@@ -180,12 +189,14 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
               </span>
               <div className={styles.grow}>
                 <h3 id={`sample-title-${label}`} className={styles.sectionTitle}>
-                  {category.bottles?.[label] ? category.bottles[label]!.name : `Sample ${label}`}
+                  {bottle ? bottle.name : `Sample ${label}`}
                 </h3>
-                {category.bottles?.[label] ? <div className={styles.muted}>{publicBottleSummary(category.bottles[label]!)}</div> : null}
+                {bottle ? <div className={styles.muted}>{publicBottleSummary(bottle)}</div> : null}
                 <span className={styles.muted}>{frozen ? 'Submitted — locked by your host' : isSaved ? 'Saved ✓' : 'Not scored yet'}</span>
               </div>
+              {guidedBottles && bottle?.imageUrl ? <img className={s.guidedImage} src={bottle.imageUrl} alt="" /> : null}
             </div>
+            {guidedBottles && bottle ? <LearnAboutThisPour bottle={bottle} categoryName={category.name} /> : null}
 
             {mode === 'detailed'
               ? DETAILED_FIELDS.map((field) => (

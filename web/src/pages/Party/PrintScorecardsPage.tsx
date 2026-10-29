@@ -32,6 +32,11 @@ function Scorecard({ party, category, index }: { party: Party; category: PartyCa
         <div className={print.field}>
           Ballot # <span className={print.lineShort} />
         </div>
+        {party.format === 'dual' ? (
+          <div className={print.field}>
+            Group: <span className={print.circle}>Guided</span> <span className={print.circle}>Blind</span>
+          </div>
+        ) : null}
       </div>
       <table className={print.table}>
         <thead>

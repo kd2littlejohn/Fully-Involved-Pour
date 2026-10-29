@@ -101,3 +101,26 @@ describe('matchMyBarBottle', () => {
     expect(matchMyBarBottle('Weller', bar)).toBeUndefined()
   })
 })
+
+describe('buildSavedTastings for Dual Experience', () => {
+  const dualParty = makeParty({ format: 'dual' })
+  const guided = { A: { name: 'Weller Antique 107', proof: 107 }, B: { name: 'Castle & Key Wheated' }, C: { name: 'Redwood Empire' } }
+
+  it('lets a guided taster save once voting closes, as an open (regular) tasting with the guided origin', () => {
+    const closed = makeCategory({ state: 'voting_closed', votingOpenedAt: Date.UTC(2026, 9, 10, 23) })
+    const out = buildSavedTastings({ party: dualParty, category: closed, results: undefined, ballot: ballot(), myBar: [], group: 'guided', guidedBottles: guided })
+    expect(out.map((t) => [t.label, t.bottle.name, t.format, t.experience])).toEqual([
+      ['A', 'Weller Antique 107', 'regular', 'guided'],
+      ['B', 'Castle & Key Wheated', 'regular', 'guided'],
+    ])
+    // Same ids as after the reveal, so saving again updates instead of duplicating.
+    expect(out[0]!.id).toBe(savedTastingId('p1', 'c1', 'A'))
+  })
+
+  it('gives a blind taster nothing before the reveal, then blind records with the blind origin', () => {
+    const closed = makeCategory({ state: 'voting_closed' })
+    expect(buildSavedTastings({ party: dualParty, category: closed, results: undefined, ballot: ballot(), myBar: [], group: 'blind', guidedBottles: guided })).toEqual([])
+    const out = buildSavedTastings({ party: dualParty, category: revealed, results: makeResults(), ballot: ballot({ unblinded: true }), myBar: [], group: 'blind' })
+    expect(out[0]).toMatchObject({ format: 'blind', experience: 'blind', notFullyBlind: true })
+  })
+})

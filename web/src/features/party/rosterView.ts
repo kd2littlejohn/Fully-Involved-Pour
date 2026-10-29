@@ -1,7 +1,8 @@
 // Shapes the public roster for the "Who's Tasting" list: who's counted,
 // in what order, with what status. Pure, so the counting rules are tested
 // directly (rosterView.test.ts).
-import type { Party, PartyRosterEntry, PartyRosterRole } from './types'
+import { isDual, rosterGroup } from './dualGroups'
+import type { Party, PartyGroup, PartyRosterEntry, PartyRosterRole } from './types'
 
 export type RosterStatus = 'Joined' | 'Tasting' | 'Submitted'
 
@@ -14,6 +15,8 @@ export interface RosterRow {
   status: RosterStatus | null
   isMe: boolean
   initial: string
+  // Dual Experience: the taster's group (tasters only).
+  group?: PartyGroup
 }
 
 export interface RosterView {
@@ -22,6 +25,8 @@ export interface RosterView {
   // Running the party without scoring: co-hosts, a non-tasting host.
   hosting: RosterRow[]
   count: number
+  // Dual Experience: the tasters split by group, in the same order.
+  groups?: Record<PartyGroup, RosterRow[]>
 }
 
 const ROLE_LABEL: Record<PartyRosterRole, string> = { host: 'Host', cohost: 'Co-host', guest: 'Guest' }
@@ -46,6 +51,7 @@ export function rosterStatus(entry: PartyRosterEntry, openId: string | null): Ro
 
 export function buildRosterView(party: Party, entries: PartyRosterEntry[], myRosterId: string | null): RosterView {
   const openId = openCategoryId(party)
+  const dual = isDual(party)
   const rows = [...entries]
     .sort((a, b) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || a.joinedAt - b.joinedAt || a.name.localeCompare(b.name))
     .map((entry) => ({
@@ -57,10 +63,13 @@ export function buildRosterView(party: Party, entries: PartyRosterEntry[], myRos
       isMe: entry.id === myRosterId,
       initial: (entry.name.trim()[0] ?? '?').toUpperCase(),
       tasting: entry.tasting && entry.role !== 'cohost',
+      ...(dual && entry.tasting && entry.role !== 'cohost' ? { group: rosterGroup(entry) } : {}),
     }))
   const tasting = rows.filter((r) => r.tasting).map(({ tasting: _t, ...row }) => row)
   const hosting = rows.filter((r) => !r.tasting).map(({ tasting: _t, ...row }) => row)
-  return { tasting, hosting, count: tasting.length }
+  const view: RosterView = { tasting, hosting, count: tasting.length }
+  if (dual) view.groups = { guided: tasting.filter((r) => r.group === 'guided'), blind: tasting.filter((r) => r.group === 'blind') }
+  return view
 }
 
 export function tastingCountLabel(count: number): string {

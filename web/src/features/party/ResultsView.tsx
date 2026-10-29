@@ -1,4 +1,5 @@
 import { formatScore, ordinal } from './partyLabels'
+import { DualComparison } from './DualComparison'
 import type { PartyCategoryResults, PartyResultSample } from './types'
 import styles from './party.module.css'
 import r from './results.module.css'
@@ -62,8 +63,8 @@ export function ResultsView({ results, myParticipantKey, presentation = false, s
 
       {results.unblindedBallots ? (
         <p className={styles.muted} role="note">
-          Includes {results.unblindedBallots === 1 ? '1 ballot' : `${results.unblindedBallots} ballots`} that may not have been fully blind (the host saw
-          these bottles before finishing). {results.unblindedBallots === 1 ? 'It counts' : 'They count'} like every other ballot.
+          Includes {results.unblindedBallots === 1 ? '1 ballot' : `${results.unblindedBallots} ballots`} that may not have been fully blind (
+          {results.groups ? 'the taster saw these bottles before finishing' : 'the host saw these bottles before finishing'}). {results.unblindedBallots === 1 ? 'It counts' : 'They count'} like every other ballot.
         </p>
       ) : null}
 
@@ -119,6 +120,8 @@ export function ResultsView({ results, myParticipantKey, presentation = false, s
         {results.ballotsCounted === 1 ? 'ballot' : 'ballots'}, {results.ratingsCounted} ratings.
       </p>
 
+      {results.groups ? <DualComparison results={results} presentation={presentation} /> : null}
+
       {showComparisons && results.guestScores.length > 0 ? (
         <section className={styles.stack} aria-labelledby={`compare-${results.categoryId}`}>
           <h3 id={`compare-${results.categoryId}`} className={styles.sectionTitle}>
@@ -145,6 +148,7 @@ export function ResultsView({ results, myParticipantKey, presentation = false, s
                     <tr key={guest.participantKey} className={mine ? r.mineRow : undefined}>
                       <th scope="row">
                         {mine ? 'You' : guest.name}
+                        {guest.group ? <span className={`${styles.pill} ${r.inlinePill}`}>{guest.group === 'guided' ? 'Guided' : 'Blind'}</span> : null}
                         {guest.source === 'paper' ? <span className={styles.srOnly}> (paper ballot)</span> : null}
                       </th>
                       {labels.map((label) => (

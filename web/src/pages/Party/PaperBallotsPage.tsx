@@ -9,7 +9,8 @@ import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import { useMyAdminRole, useParty } from '../../features/party/usePartyData'
 import { ballotCount, categoryStateLabel, formatScore } from '../../features/party/partyLabels'
 import { deletePaperBallot, listBallots, partyErrorMessage, savePaperBallot, setBallotExcluded } from '../../data/repositories/party'
-import type { PartyBallotSummary, PartyCategory } from '../../features/party/types'
+import type { PartyBallotSummary, PartyCategory, PartyGroup } from '../../features/party/types'
+import { GROUP_LABEL, GROUPS, isDual } from '../../features/party/dualGroups'
 import styles from '../../features/party/party.module.css'
 
 interface FormState {
@@ -19,9 +20,11 @@ interface FormState {
   scores: Record<string, string>
   favoriteLabel: string
   predictionLabel: string
+  // Dual Experience: whose card this is. Required before saving.
+  group: PartyGroup | ''
 }
 
-const emptyForm = (): FormState => ({ ballotNumber: '', nickname: '', scores: {}, favoriteLabel: '', predictionLabel: '' })
+const emptyForm = (): FormState => ({ ballotNumber: '', nickname: '', scores: {}, favoriteLabel: '', predictionLabel: '', group: '' })
 
 function parseScore(raw: string): number | null | 'invalid' {
   if (!raw.trim()) return null
@@ -91,6 +94,10 @@ export function PaperBallotsPage() {
       setError('Enter at least one sample’s score.')
       return
     }
+    if (isDual(p!) && !form.group) {
+      setError('Choose whether this is a guided or blind card.')
+      return
+    }
     setBusy(true)
     setError(null)
     setMessage(null)
@@ -102,6 +109,7 @@ export function PaperBallotsPage() {
         scores,
         favoriteLabel: form.favoriteLabel || null,
         predictionLabel: p!.settings.predictions ? form.predictionLabel || null : null,
+        ...(isDual(p!) && form.group ? { group: form.group } : {}),
       })
       setMessage(form.ballotId ? 'Ballot updated.' : `Ballot ${form.ballotNumber || form.nickname} saved.`)
       if (result.possibleDuplicateOf) {
@@ -134,6 +142,7 @@ export function PaperBallotsPage() {
       scores: Object.fromEntries(Object.entries(ballot.scores ?? {}).map(([l, s]) => [l, String(s.overall)])),
       favoriteLabel: ballot.favoriteLabel ?? '',
       predictionLabel: ballot.predictionLabel ?? '',
+      group: ballot.group ?? '',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -211,6 +220,19 @@ export function PaperBallotsPage() {
                   <input id="ballot-nickname" className={styles.input} maxLength={24} value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} />
                 </div>
               </div>
+              {isDual(p) ? (
+                <fieldset className={styles.fieldset}>
+                  <legend className={styles.label}>Group on the card *</legend>
+                  <div className={styles.row}>
+                    {GROUPS.map((group) => (
+                      <label key={group} className={styles.choice} style={{ flex: '1 1 120px', width: 'auto' }}>
+                        <input type="radio" name="paper-group" value={group} checked={form.group === group} onChange={() => setForm({ ...form, group })} />
+                        <span style={{ fontWeight: 700 }}>{GROUP_LABEL[group]}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
               <span className={styles.label}>Overall enjoyment (0–10). Leave blank if a sample wasn’t scored.</span>
               <div className={styles.grid} style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))' }}>
                 {category.sampleLabels.map((label) => (
@@ -261,7 +283,7 @@ export function PaperBallotsPage() {
                 ) : null}
               </div>
               <div className={styles.row}>
-                <Button type="submit" disabled={busy || (!form.ballotNumber.trim() && !form.nickname.trim())}>
+                <Button type="submit" disabled={busy || (!form.ballotNumber.trim() && !form.nickname.trim()) || (isDual(p) && !form.group)}>
                   {busy ? 'Saving…' : form.ballotId ? 'Save changes' : 'Save ballot'}
                 </Button>
                 {form.ballotId ? (
@@ -312,6 +334,7 @@ export function PaperBallotsPage() {
                   <div className={styles.grow}>
                     <div>
                       {b.ballotNumber ? `#${b.ballotNumber}` : ''} {b.nickname}
+                      {b.group ? <span className={styles.pill}> {GROUP_LABEL[b.group]}</span> : null}
                       {b.excluded ? <span className={styles.pill}> Not counted</span> : null}
                       {b.revision > 1 ? <span className={styles.muted}> · edited</span> : null}
                     </div>
@@ -347,7 +370,7 @@ export function PaperBallotsPage() {
               {digital.map((b) => (
                 <li key={b.id} className={styles.listItem} style={{ opacity: b.excluded ? 0.55 : 1 }}>
                   <div className={styles.grow}>
-                    {b.nickname} <span className={styles.muted}>· {b.scoredCount} scored{b.hasFavorite ? ' · favorite picked' : ''}</span>
+                    {b.nickname} <span className={styles.muted}>· {b.group ? `${GROUP_LABEL[b.group]} · ` : ''}{b.scoredCount} scored{b.hasFavorite ? ' · favorite picked' : ''}</span>
                     {b.excluded ? <span className={styles.pill}> Not counted</span> : null}
                   </div>
                   {canEnter ? (

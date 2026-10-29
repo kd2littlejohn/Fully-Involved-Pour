@@ -59,7 +59,9 @@ export function SavedTastingsSection({ tastings }: { tastings: SavedTasting[] })
                 {t.eventName} · {t.categoryName} · {formatDay(t.date)}
               </div>
               <div className={styles.tags}>
-                <Badge tone={t.format === 'blind' ? 'amber' : 'default'}>{t.format === 'blind' ? `Blind · Sample ${t.label}` : 'Regular'}</Badge>
+                <Badge tone={t.format === 'blind' ? 'amber' : 'default'}>
+                  {t.format === 'blind' ? `Blind · Sample ${t.label}` : t.experience === 'guided' ? 'Guided' : 'Regular'}
+                </Badge>
                 {t.favorite ? <Badge>Your favorite</Badge> : null}
                 {t.notFullyBlind ? <Badge>Not fully blind</Badge> : null}
               </div>

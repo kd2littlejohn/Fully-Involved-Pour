@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { buildRosterView, tastingCountLabel, type RosterRow, type RosterView } from './rosterView'
+import { GROUP_LABEL, GROUPS } from './dualGroups'
 import type { Party, PartyRosterEntry } from './types'
 import styles from './party.module.css'
 import w from './whoIsTasting.module.css'
@@ -32,7 +33,24 @@ function Row({ row }: { row: RosterRow }) {
 function RosterList({ view, headingId }: { view: RosterView; headingId: string }) {
   return (
     <>
-      {view.tasting.length ? (
+      {view.groups && view.tasting.length ? (
+        GROUPS.map((group) => (
+          <div key={group} className={styles.stack} style={{ gap: 'var(--fip-space-1)' }}>
+            <span className={w.subhead} id={`${headingId}-${group}`}>
+              {GROUP_LABEL[group]} — {view.groups![group].length}
+            </span>
+            {view.groups![group].length ? (
+              <ul className={w.list} aria-labelledby={`${headingId}-${group}`}>
+                {view.groups![group].map((row) => (
+                  <Row key={row.id} row={row} />
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.muted}>No one yet.</p>
+            )}
+          </div>
+        ))
+      ) : view.tasting.length ? (
         <ul className={w.list} aria-labelledby={headingId}>
           {view.tasting.map((row) => (
             <Row key={row.id} row={row} />
