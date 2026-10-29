@@ -325,3 +325,75 @@ describe('admin identities', () => {
     await assertFails(getDocs(collection(as(GUEST), 'parties', LEGACY_PARTY, 'guests')))
   })
 })
+
+describe('dual experience guided views', () => {
+  const DUAL = 'party-dual'
+  const G_GUIDED = 'dual-guided'
+  const G_BLIND = 'dual-blind'
+  const G_NOGROUP = 'dual-nogroup'
+  const G_REVOKED_GUIDED = 'dual-revoked'
+  const DUAL_HOST = 'dual-host'
+  const DUAL_COHOST = 'dual-cohost'
+
+  async function seed(hostGroup: 'guided' | 'blind' | null) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'parties', DUAL), { id: DUAL, format: 'dual', name: 'Dual Night', status: 'live', categories: [{ id: 'c1', sampleLabels: ['A', 'B', 'C'] }] })
+      await setDoc(doc(db, 'parties', DUAL, 'admins', DUAL_HOST), { uid: DUAL_HOST, role: 'host', name: 'Kevin', addedAt: 1 })
+      await setDoc(doc(db, 'parties', DUAL, 'admins', DUAL_COHOST), { uid: DUAL_COHOST, role: 'cohost', name: 'Pat', addedAt: 2 })
+      if (hostGroup) await setDoc(doc(db, 'parties', DUAL, 'guests', DUAL_HOST), { uid: DUAL_HOST, isHost: true, revoked: false, participantKey: 'h_1', group: hostGroup })
+      await setDoc(doc(db, 'parties', DUAL, 'guests', G_GUIDED), { uid: G_GUIDED, revoked: false, participantKey: 'g_1', group: 'guided' })
+      await setDoc(doc(db, 'parties', DUAL, 'guests', G_BLIND), { uid: G_BLIND, revoked: false, participantKey: 'g_2', group: 'blind' })
+      await setDoc(doc(db, 'parties', DUAL, 'guests', G_NOGROUP), { uid: G_NOGROUP, revoked: false, participantKey: 'g_3' })
+      await setDoc(doc(db, 'parties', DUAL, 'guests', G_REVOKED_GUIDED), { uid: G_REVOKED_GUIDED, revoked: true, participantKey: 'g_4', group: 'guided' })
+      await setDoc(doc(db, 'parties', DUAL, 'displays', TV), { uid: TV, expiresAt: Date.now() + 3600_000 })
+      await setDoc(doc(db, 'parties', DUAL, 'guided', 'c1'), { categoryId: 'c1', bottles: { A: { name: 'Weller Antique 107' } } })
+      await setDoc(doc(db, 'parties', DUAL, 'roster', 'g_2'), { id: 'g_2', name: 'Richy', role: 'guest', tasting: true, joinedAt: 2, progress: {}, group: 'blind' })
+    })
+  }
+
+  it('are readable by guided guests and by admins who are not tasting blind', async () => {
+    await seed('guided')
+    await assertSucceeds(getDoc(doc(as(G_GUIDED), 'parties', DUAL, 'guided', 'c1')))
+    await assertSucceeds(getDocs(collection(as(G_GUIDED), 'parties', DUAL, 'guided')))
+    await assertSucceeds(getDoc(doc(as(DUAL_HOST), 'parties', DUAL, 'guided', 'c1')))
+    await assertSucceeds(getDoc(doc(as(DUAL_COHOST), 'parties', DUAL, 'guided', 'c1')))
+  })
+
+  it('are never readable by blind tasters, tasters without an explicit group, revoked guests, displays or outsiders', async () => {
+    await seed('guided')
+    await assertFails(getDoc(doc(as(G_BLIND), 'parties', DUAL, 'guided', 'c1')))
+    await assertFails(getDocs(collection(as(G_BLIND), 'parties', DUAL, 'guided')))
+    await assertFails(getDoc(doc(as(G_NOGROUP), 'parties', DUAL, 'guided', 'c1')))
+    await assertFails(getDoc(doc(as(G_REVOKED_GUIDED), 'parties', DUAL, 'guided', 'c1')))
+    await assertFails(getDoc(doc(as(TV), 'parties', DUAL, 'guided', 'c1')))
+    await assertFails(getDoc(doc(as(OUTSIDER), 'parties', DUAL, 'guided', 'c1')))
+    await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'parties', DUAL, 'guided', 'c1')))
+  })
+
+  it('keep a host who tastes blind on the logged bottle key instead', async () => {
+    await seed('blind')
+    await assertFails(getDoc(doc(as(DUAL_HOST), 'parties', DUAL, 'guided', 'c1')))
+    // The co-host pouring for them still can.
+    await assertSucceeds(getDoc(doc(as(DUAL_COHOST), 'parties', DUAL, 'guided', 'c1')))
+    // A host who isn't tasting at all keeps admin access.
+    await seed(null)
+    await testEnv.withSecurityRulesDisabled((context) => deleteDoc(doc(context.firestore(), 'parties', DUAL, 'guests', DUAL_HOST)))
+    await assertSucceeds(getDoc(doc(as(DUAL_HOST), 'parties', DUAL, 'guided', 'c1')))
+  })
+
+  it('cannot be written by any client', async () => {
+    await seed('guided')
+    await assertFails(setDoc(doc(as(DUAL_HOST), 'parties', DUAL, 'guided', 'c1'), { bottles: {} }))
+    await assertFails(setDoc(doc(as(G_GUIDED), 'parties', DUAL, 'guided', 'c2'), { bottles: {} }))
+    // Nor can anyone move themselves into the guided group.
+    await assertFails(updateDoc(doc(as(G_BLIND), 'parties', DUAL, 'guests', G_BLIND), { group: 'guided' }))
+  })
+
+  it('leave the shared roster readable by both groups, showing only the group name', async () => {
+    await seed('guided')
+    const blindView = await getDoc(doc(as(G_GUIDED), 'parties', DUAL, 'roster', 'g_2'))
+    expect(blindView.data()).toMatchObject({ name: 'Richy', group: 'blind' })
+    await assertSucceeds(getDocs(collection(as(G_BLIND), 'parties', DUAL, 'roster')))
+  })
+})

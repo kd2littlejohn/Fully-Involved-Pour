@@ -15,8 +15,15 @@
 //   - People's Choice comes only from explicit favorite votes.
 //   - Awards are only produced from data that actually exists (prices for
 //     Best Value, recorded predictions for Biggest Surprise).
+//   - Dual Experience: the guided and blind groups are also scored
+//     independently, on the same scale, each over its own ballots only.
+//     Groups are compared by AVERAGE (always with its rating count), never
+//     by raw totals, since the groups are different sizes.
 
 const MIN_PREDICTIONS_FOR_SURPRISE = 3;
+const GROUPS = ["guided", "blind"];
+// "Both groups enjoyed it": both group averages at or above this.
+const BOTH_ENJOYED_MIN = 7;
 
 function round2(value) {
   return Math.round(value * 100) / 100;
@@ -70,10 +77,75 @@ function publicBottle(bottle) {
   return out;
 }
 
+// A dual ballot's group. Every dual ballot is stamped with one; a missing
+// value can only be a blind taster's, so it never inflates the guided side.
+function ballotGroup(ballot) {
+  return ballot && ballot.group === "guided" ? "guided" : "blind";
+}
+
+// One group's independent standings over its own counted ballots.
+function groupStats(samples, ballots) {
+  const stats = (samples || []).map((sample) => {
+    const values = [];
+    for (const ballot of ballots) {
+      const score = ballot.scores ? ballot.scores[sample.label] : undefined;
+      if (score && isValidOverall(score.overall)) values.push(score.overall);
+    }
+    return {
+      label: sample.label,
+      average: values.length ? round2(values.reduce((sum, v) => sum + v, 0) / values.length) : null,
+      count: values.length,
+      favoriteVotes: ballots.filter((b) => b.favoriteLabel === sample.label).length,
+    };
+  });
+  const ranks = competitionRanks(stats.map((s) => ({ key: s.label, value: s.average })));
+  const champions = stats.filter((s) => ranks.get(s.label) === 1).map((s) => s.label);
+  const peoplesChoice = topKeys(stats.map((s) => ({ key: s.label, value: s.favoriteVotes })));
+  return {
+    samples: stats.map((s) => ({ ...s, rank: ranks.has(s.label) ? ranks.get(s.label) : null })),
+    champions,
+    peoplesChoice,
+    ballotsCounted: ballots.length,
+    ratingsCounted: stats.reduce((sum, s) => sum + s.count, 0),
+    unblindedBallots: ballots.filter((b) => b.unblinded === true).length,
+  };
+}
+
+// Guided vs. blind, per bottle: both averages with their rating counts and
+// the gap between them. An observation about two groups' scores, not a
+// claim about why they differ.
+function groupComparison(samples, groups) {
+  const bySample = (samples || []).map((sample) => {
+    const guided = groups.guided.samples.find((s) => s.label === sample.label);
+    const blind = groups.blind.samples.find((s) => s.label === sample.label);
+    const difference =
+      guided && blind && guided.average !== null && blind.average !== null ? round2(Math.abs(guided.average - blind.average)) : null;
+    return {
+      label: sample.label,
+      guided: { average: guided ? guided.average : null, count: guided ? guided.count : 0 },
+      blind: { average: blind ? blind.average : null, count: blind ? blind.count : 0 },
+      difference,
+    };
+  });
+  const gaps = bySample.filter((s) => s.difference !== null && s.difference > 0);
+  const biggest = gaps.length ? Math.max(...gaps.map((s) => s.difference)) : null;
+  return {
+    samples: bySample,
+    largestDifference: biggest === null ? [] : gaps.filter((s) => s.difference === biggest).map((s) => s.label),
+    largestDifferenceValue: biggest,
+    bothEnjoyed: bySample
+      .filter((s) => s.guided.average !== null && s.blind.average !== null && s.guided.average >= BOTH_ENJOYED_MIN && s.blind.average >= BOTH_ENJOYED_MIN)
+      .map((s) => s.label),
+    bothEnjoyedMin: BOTH_ENJOYED_MIN,
+    sameWinner:
+      groups.guided.champions.length > 0 && groups.guided.champions.some((label) => groups.blind.champions.includes(label)),
+  };
+}
+
 // samples: [{ label, bottle }] from the host-only secret mapping.
 // ballots: every ballot for this category.
-// options: { showNicknames }
-function computeCategoryResults({ category, samples, ballots, showNicknames }) {
+// options: { showNicknames, dual }
+function computeCategoryResults({ category, samples, ballots, showNicknames, dual = false }) {
   const labels = (samples || []).map((s) => s.label);
   const counted = countedBallots(ballots).filter(ballotHasScores);
 
@@ -184,8 +256,16 @@ function computeCategoryResults({ category, samples, ballots, showNicknames }) {
       favoriteLabel: labels.includes(ballot.favoriteLabel) ? ballot.favoriteLabel : null,
       // Counted exactly like every other ballot; only flagged.
       ...(ballot.unblinded === true ? { unblinded: true } : {}),
+      ...(dual ? { group: ballotGroup(ballot) } : {}),
     };
   });
+
+  let dualResults = {};
+  if (dual) {
+    const groups = {};
+    for (const group of GROUPS) groups[group] = groupStats(samples, counted.filter((b) => ballotGroup(b) === group));
+    dualResults = { groups, comparison: groupComparison(samples, groups) };
+  }
 
   return {
     categoryId: category.id,
@@ -201,6 +281,7 @@ function computeCategoryResults({ category, samples, ballots, showNicknames }) {
     unblindedBallots: counted.filter((b) => b.unblinded === true).length,
     ratingsCounted: sampleStats.reduce((sum, s) => sum + s.count, 0),
     guestScores,
+    ...dualResults,
   };
 }
 
@@ -214,9 +295,15 @@ function computeRecap({ party, results, notes }) {
   let totalBallots = 0;
   const highest = [];
 
+  const groupParticipants = { guided: new Set(), blind: new Set() };
+  let dualRounds = 0;
   for (const result of revealed) {
     totalBallots += result.ballotsCounted;
-    for (const guest of result.guestScores) participants.add(guest.participantKey);
+    if (result.groups) dualRounds += 1;
+    for (const guest of result.guestScores) {
+      participants.add(guest.participantKey);
+      if (guest.group && groupParticipants[guest.group]) groupParticipants[guest.group].add(guest.participantKey);
+    }
     for (const sample of result.samples) {
       const key = sample.bottle.name.toLowerCase();
       if (!bottles.has(key)) bottles.set(key, sample.bottle);
@@ -251,11 +338,13 @@ function computeRecap({ party, results, notes }) {
     highestRated,
     participantCount: participants.size,
     totalBallots,
+    ...(dualRounds ? { groupParticipants: { guided: groupParticipants.guided.size, blind: groupParticipants.blind.size } } : {}),
     notes: notes || "",
   };
 }
 
 module.exports = {
+  BOTH_ENJOYED_MIN,
   MIN_PREDICTIONS_FOR_SURPRISE,
   computeCategoryResults,
   computeRecap,

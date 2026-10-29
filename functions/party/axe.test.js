@@ -104,3 +104,39 @@ describe("party AXE", () => {
     }
   });
 });
+
+describe("AXE dual experience comparison", () => {
+  const dualResults = {
+    name: "Wheated",
+    ballotsCounted: 10,
+    samples: [
+      { label: "A", bottle: { name: "Weller Antique 107", proof: 107 }, average: 8.4, count: 10, favoriteVotes: 5 },
+      { label: "B", bottle: { name: "Castle & Key Wheated" }, average: 7.1, count: 10, favoriteVotes: 3 },
+    ],
+    groups: {
+      guided: { ballotsCounted: 7, champions: ["A"] },
+      blind: { ballotsCounted: 3, champions: ["B"] },
+    },
+    comparison: {
+      samples: [
+        { label: "A", guided: { average: 8.6, count: 7 }, blind: { average: 7.9, count: 3 }, difference: 0.7 },
+        { label: "B", guided: { average: 6.9, count: 7 }, blind: { average: 8.1, count: 3 }, difference: 1.2 },
+      ],
+    },
+  };
+
+  it("gives AXE both groups' averages with their rating counts, framed as observations", () => {
+    const { system, prompt } = buildPartyAxePrompt({ party: { name: "Dual Night" }, results: dualResults, myBallot: null }, "group-comparison");
+    expect(prompt).toContain("GUIDED group knew the bottles while scoring (7 ballots)");
+    expect(prompt).toContain("BLIND group saw only sample letters (3 ballots)");
+    expect(prompt).toContain("Weller Antique 107: guided 8.6 from 7 ratings; blind 7.9 from 3 ratings; gap 0.7");
+    expect(prompt).toContain("Guided top average: Weller Antique 107. Blind top average: Castle & Key Wheated.");
+    expect(system).toContain("never as proof that knowing the bottle changed");
+    expect(QUESTIONS["group-comparison"]).toContain("never say knowing the bottle caused them");
+  });
+
+  it("refuses the comparison for a round without groups", () => {
+    const { groups: _g, comparison: _c, ...plain } = dualResults;
+    expect(() => buildPartyAxePrompt({ party: { name: "Night" }, results: plain, myBallot: null }, "group-comparison")).toThrow(/guided \+ blind/);
+  });
+});

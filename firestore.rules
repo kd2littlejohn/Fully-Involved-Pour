@@ -343,6 +343,19 @@ service cloud.firestore {
       return exists(path) && get(path).data.revoked != true;
     }
 
+    // Dual Experience: who may read a round's guided view (the bottles the
+    // guided group tastes openly). A guest must be in the guided group,
+    // explicitly; a missing group means blind. Admins may read it unless the
+    // host is tasting in the blind group: then the host gets bottles only
+    // through getBottleKey, which is confirmed and logged.
+    function isGuidedReader(partyId) {
+      let guestPath = /databases/$(database)/documents/parties/$(partyId)/guests/$(request.auth.uid);
+      let isGuest = exists(guestPath) && get(guestPath).data.get('revoked', false) != true;
+      let group = isGuest ? get(guestPath).data.get('group', 'blind') : '';
+      return (isGuest && group == 'guided')
+             || (exists(/databases/$(database)/documents/parties/$(partyId)/admins/$(request.auth.uid)) && !(isGuest && group == 'blind'));
+    }
+
     function isPartyDisplay(partyId) {
       let path = /databases/$(database)/documents/parties/$(partyId)/displays/$(request.auth.uid);
       return exists(path) && get(path).data.expiresAt > request.time.toMillis();
@@ -400,6 +413,15 @@ service cloud.firestore {
       // admin- and self-only.
       match /roster/{rosterId} {
         allow read: if request.auth != null && (isPartyAdmin(partyId) || isPartyGuest(partyId));
+        allow write: if false;
+      }
+
+      // Dual Experience: each round's bottles as the GUIDED group sees them.
+      // Never readable by blind tasters, outsiders or TV displays, so a
+      // blind taster can't learn a bottle from any document they can read
+      // before the reveal (results are written only at reveal).
+      match /guided/{categoryId} {
+        allow read: if request.auth != null && isGuidedReader(partyId);
         allow write: if false;
       }
 
