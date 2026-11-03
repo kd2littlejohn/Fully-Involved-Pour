@@ -44,6 +44,10 @@ export interface PartyDraft {
   eventTime: string
   coverImageUrl: string
   capacity: string
+  // The name guests see for the host. Empty: the host's profile name.
+  hostName: string
+  // Named guides shown on the lobby (e.g. "Professors").
+  presenters: string[]
   settings: PartySettings
   // "I'm tasting too": the host scores alongside guests. On by default.
   hostTasting: boolean
@@ -72,6 +76,8 @@ export function emptyDraft(): PartyDraft {
     eventTime: '',
     coverImageUrl: '',
     capacity: '',
+    hostName: '',
+    presenters: [],
     settings: { ...DEFAULT_PARTY_SETTINGS },
     hostTasting: true,
     format: 'blind',
@@ -94,6 +100,8 @@ export function draftFromParty(party: Party, secrets?: Pick<PartySecrets, 'categ
     eventTime: time ?? '',
     coverImageUrl: party.coverImageUrl ?? '',
     capacity: party.capacity ? String(party.capacity) : '',
+    hostName: party.hostName ?? '',
+    presenters: [...(party.presenters ?? [])],
     settings: { ...DEFAULT_PARTY_SETTINGS, ...party.settings },
     hostTasting: party.hostTasting === true,
     format: partyFormat(party),
@@ -306,6 +314,7 @@ export function draftProblems(draft: PartyDraft): DraftProblems {
     details.push('Guest capacity must be between 1 and 150.')
   }
   if (draft.eventTime && !draft.eventDate) details.push('Add a date for the start time.')
+  if (draft.presenters.filter((p) => p.trim()).length > 4) details.push('Up to 4 presenters.')
   for (const value of [draft.dual.plannedGuided, draft.dual.plannedBlind]) {
     if (value !== null && (!Number.isInteger(value) || value < 0 || value > 150)) details.push('Planned group sizes must be between 0 and 150.')
   }

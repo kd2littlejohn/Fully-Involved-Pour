@@ -19,6 +19,7 @@ vi.mock('../../features/party/useGuestIdentity', () => ({
 const mockUseGuidedBottles = vi.fn()
 let guidedData: Record<string, Record<string, { name: string }>> = {}
 vi.mock('../../features/party/usePartyData', () => ({
+  useEventStandings: () => ({ data: undefined, loading: false, error: null }),
   useGuidedBottles: (...a: unknown[]) => {
     mockUseGuidedBottles(...a)
     return { data: a[1] ? guidedData : {}, loading: false, error: null }
@@ -188,5 +189,55 @@ describe('GuestPartyPage in a Dual Experience party', () => {
     renderPage()
     expect(screen.queryByText('Milk chocolate caramel candy')).not.toBeInTheDocument()
     expect(screen.getByText('Aroma stations')).toBeInTheDocument()
+  })
+})
+
+describe('GuestPartyPage in a synchronized Dual Experience event', () => {
+  const flights = [
+    makeCategory({ id: 'f1', name: 'Flight 1 — Wheated Bourbon', state: 'draft', lockedAt: null }),
+    makeCategory({ id: 'f2', name: 'Flight 2 — Rye Whiskey', state: 'draft', lockedAt: null }),
+    makeCategory({ id: 'f3', name: 'Flight 3 — Double Oaked', state: 'draft', lockedAt: null }),
+  ]
+  beforeEach(() => {
+    localStorage.clear()
+    user = { uid: 'anon-1', isAnonymous: true }
+    guest = { uid: 'anon-1', participantKey: 'g_me', nickname: 'Grad', joinedAt: 1, revoked: false, group: 'blind' }
+    results = {}
+    roster = Array.from({ length: 10 }, (_, i) => ({ id: `g${i}`, name: `Grad ${i}`, role: 'guest' as const, tasting: true, joinedAt: i, progress: {}, group: i < 7 ? ('guided' as const) : ('blind' as const) }))
+    mockUseGuidedBottles.mockReset()
+  })
+
+  it('shows the lobby with the event facts before the hosts start', () => {
+    party = makeParty({
+      name: 'Proof of Graduation', format: 'dual', hostName: 'The Bourbon Daddy', presenters: ['Kevin D. Littlejohn', 'Nathaniel D. Rhodes'], eventDate: '2026-11-07', capacity: 10,
+      dual: { joinGroup: 'blind', plannedGuided: 7, plannedBlind: 3 }, categories: flights,
+    })
+    renderPage()
+    const lobby = screen.getByRole('region', { name: /The tasting starts soon/ })
+    expect(within(lobby).getByText('The Bourbon Daddy')).toBeInTheDocument()
+    expect(within(lobby).getByText('Kevin D. Littlejohn · Nathaniel D. Rhodes')).toBeInTheDocument()
+    expect(within(lobby).getByText('Participants').previousSibling).toHaveTextContent('10 / 10')
+    expect(within(lobby).getByText('Pours').previousSibling).toHaveTextContent('9')
+    expect(within(lobby).getByText('Guided / Blind').previousSibling).toHaveTextContent('7 / 3')
+  })
+
+  it('follows the hosts to the glass being poured and gives a blind taster a neutral AXE, never the guided bottles', () => {
+    party = makeParty({
+      format: 'dual', categories: [flights[0]!, { ...flights[1]!, state: 'voting_open', lockedAt: 2 }, flights[2]!],
+      progress: { state: 'live', categoryId: 'f2', label: 'B', seq: 5, updatedAt: 1, updatedBy: 'Kevin' },
+    })
+    renderPage()
+    expect(screen.getByTestId('now-pouring')).toHaveTextContent('glass 5 of 9')
+    expect(screen.getByRole('heading', { name: 'Flight 2 — Rye Whiskey' })).toBeInTheDocument()
+    expect(screen.getByText('scoring-panel')).toBeInTheDocument()
+    expect(screen.getByTestId('tasting-axe')).toHaveTextContent('Ask AXE about glass B')
+    expect(screen.getByTestId('tasting-axe')).toHaveTextContent('doesn’t know what’s in the glass')
+    expect(mockUseGuidedBottles.mock.calls.every((c) => c[1] === false)).toBe(true)
+  })
+
+  it('tells everyone when the hosts pause', () => {
+    party = makeParty({ format: 'dual', categories: [{ ...flights[0]!, state: 'voting_open', lockedAt: 2 }], progress: { state: 'paused', categoryId: 'f1', label: 'A', seq: 3, updatedAt: 1, updatedBy: 'Kevin' } })
+    renderPage()
+    expect(screen.getByTestId('now-pouring')).toHaveTextContent('The hosts paused the tasting')
   })
 })

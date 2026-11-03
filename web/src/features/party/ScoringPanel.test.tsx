@@ -125,3 +125,78 @@ describe('ScoringPanel for Dual Experience', () => {
     expect(screen.queryByText('Learn About This Pour')).not.toBeInTheDocument()
   })
 })
+
+describe('ScoringPanel in a synchronized tasting', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    mockSaveBallot.mockReset()
+    mockSaveBallot.mockImplementation(async (input: { scores: Record<string, unknown>; favoriteLabel: string | null }) => ({
+      ballotId: 'c1__g1', scores: { A: { overall: 7 }, B: { overall: 8 }, C: { overall: 6 }, ...input.scores }, favoriteLabel: input.favoriteLabel, predictionLabel: null, locked: false, finalizedAt: 5,
+    }))
+  })
+  const all = { A: { overall: 7 }, B: { overall: 8 }, C: { overall: 6 } }
+
+  it('marks the glass being poured', () => {
+    render(<ScoringPanel party={makeParty()} category={makeCategory()} ballot={undefined} currentLabel="B" />)
+    const card = document.getElementById('sample-B')!
+    expect(card).toHaveAttribute('aria-current', 'step')
+    expect(card).toHaveTextContent('Now pouring')
+    expect(document.getElementById('sample-A')).not.toHaveAttribute('aria-current')
+  })
+
+  it('submits a fully rated flight once, with a request id', async () => {
+    render(<ScoringPanel party={makeParty()} category={makeCategory()} ballot={ballot({ scores: all })} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Submit this flight' }))
+    await waitFor(() => expect(mockSaveBallot).toHaveBeenCalledTimes(1))
+    expect(mockSaveBallot.mock.calls[0]![0]).toMatchObject({ finalize: true, scores: {} })
+    expect(mockSaveBallot.mock.calls[0]![0].requestId).toMatch(/^[0-9a-f]{24}$/)
+  })
+
+  it('locks a submitted flight until the taster chooses Edit, then sends an intentional edit', async () => {
+    render(<ScoringPanel party={makeParty()} category={makeCategory()} ballot={ballot({ scores: all, finalizedAt: 5 })} />)
+    expect(screen.getByText('Flight submitted ✓')).toBeInTheDocument()
+    expect(screen.getByLabelText('Overall enjoyment', { selector: '#overall-A' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Edit my scores' }))
+    fireEvent.change(screen.getByLabelText('Overall enjoyment', { selector: '#overall-A' }), { target: { value: '9' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Save my edits' }))
+    await waitFor(() => expect(mockSaveBallot).toHaveBeenCalled())
+    expect(mockSaveBallot.mock.calls[0]![0]).toMatchObject({ edit: true, scores: { A: { overall: 9 } } })
+  })
+
+  it('offers no edit when the host has turned edits off', () => {
+    render(<ScoringPanel party={makeParty({ settings: { ...makeParty().settings, allowEdits: false } })} category={makeCategory()} ballot={ballot({ scores: all, finalizedAt: 5 })} />)
+    expect(screen.queryByRole('button', { name: 'Edit my scores' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the draft but doesn’t send while the hosts have paused', async () => {
+    render(<ScoringPanel party={makeParty()} category={makeCategory()} ballot={undefined} paused />)
+    fireEvent.change(screen.getByLabelText('Overall enjoyment', { selector: '#overall-A' }), { target: { value: '8' } })
+    expect(screen.getByText(/Paused by your hosts/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save my scores' })).toBeDisabled()
+    await userEvent.click(screen.getByRole('button', { name: 'Save sample A' }))
+    expect(mockSaveBallot).not.toHaveBeenCalled()
+    const stored = JSON.parse(localStorage.getItem('fip.party.draft.p1.c1')!)
+    expect(stored.samples.A.overall).toBe(8)
+  })
+
+  it('reuses the request id when retrying a failed save', async () => {
+    mockSaveBallot.mockRejectedValueOnce(Object.assign(new Error('x'), { code: 'functions/unavailable' }))
+    render(<ScoringPanel party={makeParty()} category={makeCategory()} ballot={undefined} />)
+    fireEvent.change(screen.getByLabelText('Overall enjoyment', { selector: '#overall-A' }), { target: { value: '8' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Save sample A' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Save sample A' }))
+    await waitFor(() => expect(mockSaveBallot).toHaveBeenCalledTimes(2))
+    expect(mockSaveBallot.mock.calls[1]![0].requestId).toBe(mockSaveBallot.mock.calls[0]![0].requestId)
+  })
+
+  it('offers the optional FIP Value score in Detailed mode', async () => {
+    render(<ScoringPanel party={makeParty()} category={makeCategory()} ballot={undefined} />)
+    await userEvent.click(screen.getByRole('radio', { name: 'Detailed' }))
+    fireEvent.change(screen.getByLabelText(/Value/, { selector: '#value-A' }), { target: { value: '6' } })
+    fireEvent.change(screen.getByLabelText('Overall enjoyment', { selector: '#overall-A' }), { target: { value: '7' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Save sample A' }))
+    await waitFor(() => expect(mockSaveBallot).toHaveBeenCalled())
+    expect(mockSaveBallot.mock.calls[0]![0].scores.A).toMatchObject({ overall: 7, value: 6 })
+  })
+})

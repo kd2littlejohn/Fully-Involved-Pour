@@ -6,7 +6,8 @@ import fipIcon from '../../assets/brand/fip-icon.svg'
 import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/PartyChrome'
 import { KeepYourResults } from '../../features/party/KeepYourResults'
 import { useGuestIdentity } from '../../features/party/useGuestIdentity'
-import { useMyAdminRole, useMyBallots, useParty, usePartyRecap } from '../../features/party/usePartyData'
+import { useEventStandings, useMyAdminRole, useMyBallots, useParty, usePartyRecap } from '../../features/party/usePartyData'
+import { EventStandingsView } from '../../features/party/EventStandingsView'
 import { formatEventDate, formatScore } from '../../features/party/partyLabels'
 import { recapImageLines, renderRecapImage } from '../../features/party/recapImage'
 import type { PartyRecap } from '../../features/party/types'
@@ -29,6 +30,7 @@ export function PartyRecapPage() {
   const adminRole = useMyAdminRole(partyId, user?.uid)
   const recap = usePartyRecap(partyId, Boolean(user) && !party.error)
   const ballots = useMyBallots(partyId, user?.uid, Boolean(user) && !party.error)
+  const standings = useEventStandings(partyId, Boolean(user) && !party.error)
   const [status, setStatus] = useState<string | null>(null)
 
   if (loading || (user && (party.loading || recap.loading))) return <PartyLoading />
@@ -136,6 +138,8 @@ export function PartyRecapPage() {
             ))}
           </section>
         ) : null}
+
+        {standings.data && party.data ? <EventStandingsView standings={standings.data} totalFlights={party.data.categories.length} /> : null}
 
         <section className={styles.stack} aria-labelledby="champions-heading">
           <h2 id="champions-heading" className={styles.sectionTitle}>

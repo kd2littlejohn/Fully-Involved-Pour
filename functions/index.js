@@ -10,6 +10,7 @@ const { handlePartyAction } = require("./party/service");
 const { handleLookupBarcode, handleIdentifyBottleLabel } = require("./barcode/lookup");
 const { loadGoogleConfig } = require("./barcode/googleConfig");
 const { buildPartyAxePrompt, loadPartyAxeContext } = require("./party/axe");
+const { answerTastingQuestion } = require("./party/tastingAxe");
 
 admin.initializeApp();
 
@@ -79,6 +80,17 @@ exports.askSommelier = onCall({ secrets: [anthropicApiKey], cors: true }, async 
     const { system, prompt } = buildPartyAxePrompt(partyContext, request.data.question);
     const reply = await callClaude(anthropicApiKey.value(), { system, prompt, maxTokens: 400 });
     return { reply: reply || "I couldn't come up with a response just now — try again in a moment." };
+  }
+
+  // Party tasting (party/tastingAxe.js): AXE beside the glass during a live
+  // event. Guided or blind is decided from the caller's own guest record,
+  // and a blind taster's context never contains a bottle.
+  if (request.data?.mode === "party-tasting") {
+    const anonymous = request.auth.token?.firebase?.sign_in_provider === "anonymous";
+    await assertNotRateLimited(request.auth.uid, "askSommelierTasting", { maxCalls: anonymous ? 30 : AXE_MAX_CALLS_PER_HOUR });
+    return answerTastingQuestion(admin.firestore(), request.auth.uid, request.data, {
+      callModel: (args) => callClaude(anthropicApiKey.value(), args),
+    });
   }
 
   const prompt = String(request.data?.prompt || "").trim().slice(0, 2000);

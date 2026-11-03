@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { TapChip } from '../../components/ui/TapChip'
 import { ScoreInput } from './ScoreInput'
-import { saveBallot, partyErrorMessage } from '../../data/repositories/party'
+import { isAlreadySubmittedError, saveBallot, partyErrorMessage } from '../../data/repositories/party'
 import {
   clearScoreDraft,
   loadScoreDraft,
@@ -41,17 +41,32 @@ interface ScoringPanelProps {
   // view only they can read, plus "Learn About This Pour". Blind tasters
   // never get either, so nothing about a bottle reaches their screen.
   guidedBottles?: Record<string, PartyPublicBottle>
+  // Synchronized tasting: the glass the hosts are pouring now, and whether
+  // they paused (saves wait; the draft stays on this device).
+  currentLabel?: string | null
+  paused?: boolean
+}
+
+function newRequestId(): string {
+  const bytes = new Uint8Array(12)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 // A guest's digital ballot for the open round. Quick and Detailed share one
 // draft, so switching never drops anything; unsent edits are also kept on
 // this device so a refresh mid-pour loses nothing.
-export function ScoringPanel({ party, category, ballot, resumeAtLastSample = false, guidedBottles }: ScoringPanelProps) {
+export function ScoringPanel({ party, category, ballot, resumeAtLastSample = false, guidedBottles, currentLabel = null, paused = false }: ScoringPanelProps) {
   const labels = category.sampleLabels
+  const finalized = Boolean(ballot?.finalizedAt)
+  // An intentional change to a submitted flight, only if the host allows it.
+  const [editing, setEditing] = useState(false)
+  const [requestId, setRequestId] = useState<string | null>(null)
   // Regular tastings carry bottles on the round itself; dual guided tasters
   // get them from the guided view. Blind rounds have neither.
   const bottles = guidedBottles ?? category.bottles
-  const locked = party.settings?.allowEdits === false
+  const editsAllowed = party.settings?.allowEdits !== false
+  const locked = !editsAllowed
   const [mode, setMode] = useState<PartyScoringMode>(() => recallScoringMode() ?? party.settings?.defaultScoring ?? 'quick')
   const [draft, setDraft] = useState<RoundDraft>(() =>
     mergeDrafts(draftFromBallot(labels, ballot), loadScoreDraft<RoundDraft>(party.id, category.id)),
@@ -73,6 +88,15 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
   useEffect(() => {
     saveScoreDraft(party.id, category.id, draft)
   }, [draft, party.id, category.id])
+
+  // When the hosts pour the next glass, bring it into view (not on first
+  // load, so the taster sees the Now pouring banner above it first).
+  const [shownLabel, setShownLabel] = useState(currentLabel)
+  useEffect(() => {
+    if (currentLabel === shownLabel) return
+    setShownLabel(currentLabel)
+    if (currentLabel) document.getElementById(`sample-${currentLabel}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [currentLabel, shownLabel])
 
   useEffect(() => {
     if (!resumeAtLastSample) return
@@ -98,16 +122,23 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
     rememberScoringMode(next)
   }
 
-  async function submit(onlyLabel?: string) {
+  async function submit(onlyLabel?: string, finalize = false) {
     const targets = onlyLabel ? [onlyLabel] : pending
     const scores: Record<string, PartySampleScore> = {}
     for (const label of targets) {
       const score = toServerScore(draft.samples[label]!, mode)
       if (score) scores[label] = score
     }
-    if (!Object.keys(scores).length && !favoriteDirty && !predictionDirty) return
-    setSaving(onlyLabel ?? 'all')
+    if (!finalize && !Object.keys(scores).length && !favoriteDirty && !predictionDirty) return
+    if (paused) {
+      setError('The hosts paused the tasting. Your notes are kept on this phone — save when it resumes.')
+      return
+    }
+    setSaving(finalize ? 'final' : (onlyLabel ?? 'all'))
     setError(null)
+    // A retry after a failed attempt reuses its id, so it can't save twice.
+    const id = requestId ?? newRequestId()
+    setRequestId(id)
     try {
       const result = await saveBallot({
         partyId: party.id,
@@ -116,7 +147,12 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
         scores,
         favoriteLabel: draft.favoriteLabel,
         predictionLabel: party.settings?.predictions ? draft.predictionLabel : null,
+        requestId: id,
+        ...(finalize ? { finalize: true } : {}),
+        ...(finalized && editing ? { edit: true } : {}),
       })
+      setRequestId(null)
+      if (finalize) setEditing(false)
       if (locked) {
         // With edits off the server keeps the first submitted values;
         // mirror what it actually stored.
@@ -130,10 +166,16 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
           predictionLabel: result.predictionLabel ?? d.predictionLabel,
         }))
       }
-      setAnnouncement(onlyLabel ? `Sample ${onlyLabel} saved.` : 'Scores saved.')
+      setAnnouncement(finalize ? 'Flight submitted.' : onlyLabel ? `Sample ${onlyLabel} saved.` : 'Scores saved.')
       if (labels.every((l) => result.scores[l])) clearScoreDraft(party.id, category.id)
     } catch (err) {
-      setError(partyErrorMessage(err))
+      if (isAlreadySubmittedError(err)) {
+        setRequestId(null)
+        setError('You’ve already submitted this flight. Choose Edit my scores to change it.')
+      } else {
+        // Keep the id: the next try may be a resend of a save that landed.
+        setError(partyErrorMessage(err))
+      }
     } finally {
       setSaving(null)
     }
@@ -179,10 +221,20 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
       {labels.map((label) => {
         const sample = draft.samples[label]!
         const isSaved = Boolean(saved[label])
-        const frozen = locked && isSaved
+        // Frozen: the host turned edits off, or the flight is submitted and
+        // the taster hasn't chosen to edit it.
+        const frozen = (locked && isSaved) || (finalized && !editing)
+        const pouring = currentLabel === label
         const bottle = bottles?.[label]
         return (
-          <section key={label} id={`sample-${label}`} className={isSaved ? `${s.sampleCard} ${s.sampleCardSaved}` : s.sampleCard} aria-labelledby={`sample-title-${label}`}>
+          <section
+            key={label}
+            id={`sample-${label}`}
+            className={isSaved ? `${s.sampleCard} ${s.sampleCardSaved}` : s.sampleCard}
+            style={pouring ? { outline: '2px solid var(--fip-color-accent, #e49a3a)', outlineOffset: 2 } : undefined}
+            aria-labelledby={`sample-title-${label}`}
+            aria-current={pouring ? 'step' : undefined}
+          >
             <div className={s.sampleHead}>
               <span className={styles.sampleBadge} aria-hidden="true">
                 {label}
@@ -192,7 +244,14 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
                   {bottle ? bottle.name : `Sample ${label}`}
                 </h3>
                 {bottle ? <div className={styles.muted}>{publicBottleSummary(bottle)}</div> : null}
-                <span className={styles.muted}>{frozen ? 'Submitted — locked by your host' : isSaved ? 'Saved ✓' : 'Not scored yet'}</span>
+                {pouring ? (
+                  <span className={`${styles.pill} ${styles.pillLive}`} style={{ marginRight: 'var(--fip-space-2)' }}>
+                    Now pouring
+                  </span>
+                ) : null}
+                <span className={styles.muted}>
+                  {finalized && !editing ? 'Submitted ✓' : frozen ? 'Submitted — locked by your host' : isSaved ? 'Saved ✓' : 'Not scored yet'}
+                </span>
               </div>
               {guidedBottles && bottle?.imageUrl ? <img className={s.guidedImage} src={bottle.imageUrl} alt="" /> : null}
             </div>
@@ -312,7 +371,7 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
               aria-checked={draft.favoriteLabel === label}
               className={styles.choice}
               style={{ width: 'auto', flex: '1 1 64px', justifyContent: 'center' }}
-              disabled={locked && Boolean(ballot?.favoriteLabel)}
+              disabled={(locked && Boolean(ballot?.favoriteLabel)) || (finalized && !editing)}
               onClick={() => setDraft((d) => ({ ...d, favoriteLabel: d.favoriteLabel === label ? null : label }))}
             >
               {label}
@@ -355,11 +414,44 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
         {announcement}
       </p>
 
+      {paused ? (
+        <p className={styles.notice} role="status">
+          Paused by your hosts. Keep tasting and writing notes — everything stays on this phone and you can save when they resume.
+        </p>
+      ) : null}
+
       <div className={styles.stickyActions}>
         <div className={styles.stickyInner}>
-          <Button disabled={saving !== null || (!pending.length && !favoriteDirty && !predictionDirty)} onClick={() => submit()}>
-            {saving === 'all' ? 'Saving…' : pending.length || favoriteDirty || predictionDirty ? 'Save my scores' : 'All saved ✓'}
-          </Button>
+          {finalized && !editing ? (
+            <>
+              <span className={styles.muted} role="status">
+                Flight submitted ✓
+              </span>
+              {editsAllowed ? (
+                <Button variant="secondary" onClick={() => setEditing(true)}>
+                  Edit my scores
+                </Button>
+              ) : null}
+            </>
+          ) : pending.length || favoriteDirty || predictionDirty || scoredCount < labels.length ? (
+            <Button disabled={paused || saving !== null || (!pending.length && !favoriteDirty && !predictionDirty)} onClick={() => submit()}>
+              {saving === 'all'
+                ? 'Saving…'
+                : pending.length || favoriteDirty || predictionDirty
+                  ? finalized
+                    ? 'Save my edits'
+                    : 'Save my scores'
+                  : `Rate all ${labels.length} glasses to submit`}
+            </Button>
+          ) : finalized ? (
+            <Button variant="secondary" onClick={() => setEditing(false)}>
+              Done editing
+            </Button>
+          ) : (
+            <Button disabled={paused || saving !== null} onClick={() => submit(undefined, true)}>
+              {saving === 'final' ? 'Submitting…' : 'Submit this flight'}
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -30,6 +30,9 @@ import type {
   PartyGuidedView,
   PartyGuest,
   PartyPreview,
+  PartyEventStandings,
+  PartyProgress,
+  PartyProgressCommand,
   PartyRecap,
   PartyRosterEntry,
   PartySample,
@@ -71,6 +74,7 @@ export interface PartyDetailsInput {
   eventDate?: string | null
   coverImageUrl?: string
   capacity?: number | null
+  presenters?: string[]
 }
 
 export interface PartyCategoryInput {
@@ -203,6 +207,26 @@ export function revealAllCategories(partyId: string): Promise<{ revealed: string
   return callParty('revealAll', { partyId })
 }
 
+// Live controls (host and co-hosts). `expectedSeq` is the progress seq the
+// dashboard is showing; if another host moved the event first, the server
+// refuses with code "aborted" and the dashboard shows the new state.
+export function setPartyProgress(
+  partyId: string,
+  command: PartyProgressCommand,
+  expectedSeq: number,
+  target?: { categoryId: string; label?: string },
+): Promise<{ progress: PartyProgress }> {
+  return callParty('setProgress', { partyId, command, expectedSeq, ...(target ?? {}) })
+}
+
+export function isConflictError(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && 'code' in err && String((err as { code?: unknown }).code).includes('aborted'))
+}
+
+export function isAlreadySubmittedError(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && 'code' in err && String((err as { code?: unknown }).code).includes('already-exists'))
+}
+
 export function setCurrentCategory(partyId: string, categoryId: string): Promise<{ ok: true }> {
   return callParty('setCurrentCategory', { partyId, categoryId })
 }
@@ -291,12 +315,20 @@ export function saveBallot(input: {
   scores: Record<string, PartySampleScore>
   favoriteLabel: string | null
   predictionLabel?: string | null
+  // Submit the whole flight as final (every glass rated).
+  finalize?: boolean
+  // An intentional change to a flight already submitted.
+  edit?: boolean
+  // Same id on a retry, so a resend never saves twice.
+  requestId?: string
 }): Promise<{
   ballotId: string
   scores: Record<string, PartySampleScore>
   favoriteLabel: string | null
   predictionLabel: string | null
   locked: boolean
+  finalizedAt?: number | null
+  duplicate?: boolean
 }> {
   return callParty('saveBallot', { ...input })
 }
@@ -339,6 +371,14 @@ export function watchRecap(partyId: string, onValue: (recap: PartyRecap | undefi
   return watchDoc<PartyRecap>(['parties', partyId, 'results', 'recap'], onValue, onError)
 }
 
+export function watchEventStandings(
+  partyId: string,
+  onValue: (standings: PartyEventStandings | undefined) => void,
+  onError?: (err: unknown) => void,
+): Unsubscribe {
+  return watchDoc<PartyEventStandings>(['parties', partyId, 'results', 'event'], onValue, onError)
+}
+
 export function watchResults(
   partyId: string,
   onValue: (results: Record<string, PartyCategoryResults>) => void,
@@ -348,7 +388,8 @@ export function watchResults(
     collection(db, 'parties', partyId, 'results'),
     (snap) => {
       const out: Record<string, PartyCategoryResults> = {}
-      for (const d of snap.docs) if (d.id !== 'recap') out[d.id] = d.data() as PartyCategoryResults
+      // 'recap' and 'event' are party-wide documents, not round results.
+      for (const d of snap.docs) if (d.id !== 'recap' && d.id !== 'event') out[d.id] = d.data() as PartyCategoryResults
       onValue(out)
     },
     (err) => onError?.(err),
@@ -530,4 +571,23 @@ const askSommelierCallable = httpsCallable<Record<string, unknown>, { reply: str
 export async function askPartyAxe(partyId: string, categoryId: string, question: PartyAxeQuestion): Promise<string> {
   const result = await askSommelierCallable({ mode: 'party-insight', partyId, categoryId, question })
   return result.data.reply
+}
+
+// AXE beside the glass during a live tasting (functions/party/tastingAxe.js).
+// The client sends only where the taster is and what they asked. Guided or
+// blind is decided by the server from the caller's own guest record.
+export interface TastingAxeTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export async function askTastingAxe(input: {
+  partyId: string
+  categoryId: string
+  label: string | null
+  prompt: string
+  history: TastingAxeTurn[]
+}): Promise<{ reply: string; mode: 'guided' | 'blind'; redacted?: boolean }> {
+  const result = await askSommelierCallable({ mode: 'party-tasting', ...input })
+  return result.data as unknown as { reply: string; mode: 'guided' | 'blind'; redacted?: boolean }
 }

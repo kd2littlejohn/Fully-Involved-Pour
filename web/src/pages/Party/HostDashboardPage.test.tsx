@@ -31,6 +31,7 @@ const mockSyncRoster = vi.fn()
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => mockUseAuth() }))
 const mockUseGuidedBottles = vi.fn()
 vi.mock('../../features/party/usePartyData', () => ({
+  useEventStandings: () => ({ data: undefined, loading: false, error: null }),
   useGuidedBottles: (...a: unknown[]) => {
     mockUseGuidedBottles(...a)
     return { data: {}, loading: false, error: null }

@@ -10,6 +10,7 @@ import { getAttendedParties, getHostedParties } from '../../data/repositories/pa
 import { formatEventDate, partyStatusLabel } from '../../features/party/partyLabels'
 import type { Party } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
+import { EVENT_TEMPLATES } from '../../features/party/eventTemplates'
 import hub from './PartyHubPage.module.css'
 
 function PartyCard({ party, role }: { party: Party; role: 'host' | 'guest' }) {
@@ -129,6 +130,18 @@ export function PartyHubPage() {
           </Link>
           {joinCard}
         </div>
+
+        <Section title="Tasting Events">
+          <div className={styles.grid}>
+            {EVENT_TEMPLATES.map((t) => (
+              <Link key={t.id} to={`/party/new?template=${t.id}`} className={`${styles.card} ${styles.cardWarm}`}>
+                <span className={styles.eyebrow}>Ready-made event</span>
+                <span className={styles.sectionTitle}>{t.name}</span>
+                <span className={styles.muted}>{t.summary}</span>
+              </Link>
+            ))}
+          </div>
+        </Section>
 
         {loadError ? <p className={styles.error}>We couldn’t load your parties. Check your connection and try again.</p> : null}
 

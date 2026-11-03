@@ -1,3 +1,18 @@
+## Unreleased - Tasting events: synchronized glasses and graduation (Proof of Graduation)
+
+Added
+- **Proof of Graduation** event template (Party Mode → Tasting Events): Dual Experience, 7 guided + 3 blind, 3 flights, 9 glasses, presenters and host name filled in. Reusable for future events.
+- **Event lobby**: host, professors, date, participants, flights, pours and the guided/blind split on the invite page and the guests' lobby. Never any bottle.
+- **Live controls** for the host and co-host: Start, Next glass, Next flight, Pause, Resume, open or reopen any glass (scores kept), Lock submissions, Reveal results, End event, with per-group submission counts. Conflicting commands from two hosts are refused, not applied twice.
+- **Synchronized tasting**: everyone follows the glass being poured; drafts stay on the phone through pauses, reloads and host moves.
+- **Final submissions**: Submit this flight once; changes only through Edit my scores while the host allows edits. Retries never save twice.
+- **FIP Value** score (optional) in Detailed scoring. Rankings are unchanged.
+- **Ask AXE about this glass**: bottle-specific teaching for guided tasters; neutral tasting help for blind tasters, enforced on the server (no bottle data in the prompt, and replies naming a hidden bottle, distillery or proof are replaced).
+- **Event results**: overall, guided and blind favorites, top three with ties, flight favorites and guided-vs-blind gaps, published only from revealed flights.
+- **Graduation**: a personal summary (pours rated, favorite bottle and flight, flavors, tasting profile), Save to my FIP profile, and a shareable graduation card.
+
+Release notes: deploy functions (`partyAction`, `askSommelier`) first, then the website. No Firestore rules, index or data migration changes. See docs/PARTY_MODE.md → "Tasting events".
+
 ## Unreleased - Scan Label with AXE is back as the main way to add a bottle
 
 Changed

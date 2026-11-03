@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const { computeCategoryResults, computeRecap, competitionRanks } = require("./scoring.js");
+const { computeCategoryResults, computeEventStandings, computeRecap, competitionRanks } = require("./scoring.js");
 
 const category = { id: "c1", name: "Wheated Bourbon", description: "" };
 const samples = [
@@ -183,5 +183,48 @@ describe("computeRecap", () => {
     expect(recap.participantCount).toBe(3);
     expect(recap.totalBallots).toBe(4);
     expect(recap.notes).toBe("Great night");
+  });
+});
+
+describe("computeEventStandings", () => {
+  const round = (categoryId, name, rows, groups) => ({
+    categoryId,
+    name,
+    samples: rows.map(([label, bottle, average, count]) => ({ label, bottle: { name: bottle }, average, count })),
+    champions: rows.filter((r) => r[2] === Math.max(...rows.map((x) => x[2] ?? -1))).map((r) => r[0]),
+    ...(groups ? { groups, comparison: { samples: rows.map(([label]) => ({ label, guided: groups.guided.samples.find((s) => s.label === label), blind: groups.blind.samples.find((s) => s.label === label), difference: groups.guided.samples.find((s) => s.label === label).average - groups.blind.samples.find((s) => s.label === label).average })) } } : {}),
+  });
+
+  it("ranks across flights with shared ranks for ties at two decimals, nulls last", () => {
+    const out = computeEventStandings({
+      results: [round("r2", "Rye", [["A", "Rye A", 8.004, 4], ["B", "Rye B", null, 0]]), round("r1", "Wheat", [["A", "Wheat A", 8, 10], ["B", "Wheat B", 7, 10], ["C", "Wheat C", 6.5, 10]])],
+      categoryOrder: ["r1", "r2"],
+    });
+    expect(out.overall.map((e) => [e.bottle.name, e.rank])).toEqual([
+      ["Wheat A", 1], // tied with Rye A at 8.00; more ratings listed first
+      ["Rye A", 1],
+      ["Wheat B", 3],
+      ["Wheat C", 4],
+      ["Rye B", null],
+    ]);
+    expect(out.overallFavorite.map((e) => e.bottle.name)).toEqual(["Wheat A", "Rye A"]);
+    expect(out.topThree.map((e) => e.bottle.name)).toEqual(["Wheat A", "Rye A", "Wheat B"]);
+    expect(out.flightFavorites.map((f) => f.categoryId)).toEqual(["r1", "r2"]);
+    expect(out.guided).toBeUndefined();
+  });
+
+  it("adds guided and blind favorites and sorts differences by size", () => {
+    const groups = {
+      guided: { samples: [{ label: "A", average: 9, count: 7 }, { label: "B", average: 6, count: 7 }] },
+      blind: { samples: [{ label: "A", average: 6.5, count: 3 }, { label: "B", average: 7, count: 3 }] },
+    };
+    const out = computeEventStandings({ results: [round("r1", "Wheat", [["A", "Wheat A", 8.25, 10], ["B", "Wheat B", 6.3, 10]], groups)] });
+    expect(out.guidedFavorite.map((e) => e.bottle.name)).toEqual(["Wheat A"]);
+    expect(out.blindFavorite.map((e) => e.bottle.name)).toEqual(["Wheat B"]);
+    expect(out.differences.map((d) => [d.bottle.name, d.difference])).toEqual([["Wheat A", 2.5], ["Wheat B", -1]]);
+  });
+
+  it("is empty before anything is revealed", () => {
+    expect(computeEventStandings({ results: [] })).toMatchObject({ roundsRevealed: 0, overall: [], overallFavorite: [], topThree: [] });
   });
 });

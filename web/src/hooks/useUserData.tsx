@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { updateProfile as updateAuthProfile } from 'firebase/auth'
 import { useAuth } from './useAuth'
 import { auth } from '../data/firebase'
+import type { EventGraduation } from '../features/party/graduation'
 import { EMPTY_USER_DOC, fetchUserDoc, saveUserDoc } from '../data/repositories/userDoc'
 import { claimUsername as claimUsernameRepo } from '../data/repositories/username'
 import { ensureSearchableProfile, fetchProfile, saveProfile as saveProfileRepo } from '../data/repositories/profile'
@@ -68,6 +69,8 @@ interface UserDataState {
   updateBottle: (bottleId: string, patch: BottlePatch) => Promise<void>
   changeLegacyBottle: (fromBottleId: string, toBottleId: string, patch?: BottlePatch) => Promise<void>
   saveSavedTastings: (entries: SavedTasting[]) => Promise<void>
+  // An event graduation summary, upserted by id (one per party).
+  saveGraduation: (graduation: EventGraduation) => Promise<void>
   deleteSavedTasting: (tastingId: string) => Promise<void>
   setBottleRarity: (bottleId: string, rarity: BottleRarity) => Promise<void>
   acceptRaritySuggestions: (bottleIds: string[]) => Promise<void>
@@ -116,6 +119,7 @@ const UserDataContext = createContext<UserDataState>({
   updateBottle: async () => {},
   changeLegacyBottle: async () => {},
   saveSavedTastings: async () => {},
+  saveGraduation: async () => {},
   deleteSavedTasting: async () => {},
   setBottleRarity: async () => {},
   acceptRaritySuggestions: async () => {},
@@ -432,6 +436,23 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       })
     },
     [applyTastingUpdates],
+  )
+
+  // Event graduations live beside saved tastings on the owner's private
+  // users/{uid} doc, upserted by id, read fresh like applyTastingUpdates.
+  const saveGraduation = useCallback(
+    async (graduation: EventGraduation) => {
+      if (!user) return
+      const current = userDocRef.current
+      const graduations = [...(current.graduations ?? []).filter((g) => g.id !== graduation.id), graduation]
+      const nextDoc: UserDoc = { ...current, graduations }
+      userDocRef.current = nextDoc
+      setUserDoc(nextDoc)
+      if (mockMode) return
+      writeCachedUserDoc(user.uid, nextDoc)
+      await saveUserDoc(user.uid, { graduations })
+    },
+    [user, mockMode],
   )
 
   const deleteSavedTasting = useCallback(
@@ -1215,6 +1236,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateBottle,
       changeLegacyBottle,
       saveSavedTastings,
+      saveGraduation,
       deleteSavedTasting,
       setBottleRarity,
       acceptRaritySuggestions,
@@ -1263,6 +1285,7 @@ export function UserDataProvider({ children }: { children: ReactNode }) {
       updateBottle,
       changeLegacyBottle,
       saveSavedTastings,
+      saveGraduation,
       deleteSavedTasting,
       setBottleRarity,
       acceptRaritySuggestions,

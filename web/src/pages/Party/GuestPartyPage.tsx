@@ -74,7 +74,7 @@ export function GuestPartyPage() {
         ) : null}
       </section>
 
-      <MyTastingView party={p} guest={guest.data} ballots={ballots.data} results={results.data} group={group} guidedBottles={guided.data} />
+      <MyTastingView party={p} guest={guest.data} ballots={ballots.data} results={results.data} group={group} guidedBottles={guided.data} roster={roster.data} />
 
       <WhoIsTasting party={p} entries={roster.data} myRosterId={guest.data.participantKey} loading={roster.loading} />
 

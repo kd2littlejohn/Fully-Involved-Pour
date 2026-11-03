@@ -43,6 +43,7 @@ Rankings come from a pure engine (`functions/party/scoring.js`). It runs at reve
 | `parties/{id}/guided/{categoryId}` | Dual Experience only: the round's bottles as the guided group sees them (`bottles: { [label]: public bottle }`, never price or My Bar id) | guided tasters, and admins who aren't tasting in the blind group. Never blind tasters, displays or outsiders |
 | `parties/{id}/results/{categoryId}` | published results, written at reveal | host, guests, displays |
 | `parties/{id}/results/recap` | Party Recap, written at completion | host, guests, displays |
+| `parties/{id}/results/event` | event-wide standings over revealed rounds, rebuilt at each reveal | host, guests, displays |
 | `parties/{id}/audit/*` | privileged change log | host |
 | `parties/{id}/displays/{uid}` | read-only TV sessions with an expiry | host, that display |
 | `partySecrets/{id}` | **the bottle ↔ letter mapping**, display token hash | no client, host included: admins use the `getBottleKey` callable |
@@ -83,6 +84,32 @@ One party, one join code, one set of rounds and one round state machine, with tw
 **Host participation.** Manage Party / My Tasting works as before; My Tasting follows the host's group. A guided host's key views don't flag their ballots; a blind host's do, as in a blind party.
 
 **Saving.** Guided tasters can save to My Tastings once a round's voting closes; blind tasters after the reveal. Records keep `experience: "guided" | "blind"`, and ids depend only on party, round and letter, so saving again never duplicates.
+
+### Tasting events: synchronized glasses, graduation (Proof of Graduation)
+
+Built on the Dual Experience engine, so any party format gets these; the **Proof of Graduation** template (`web/src/features/party/eventTemplates.ts`) sets up the first event: Dual Experience, 10 tasters planned as 7 guided / 3 blind, 3 flights of 3 bottles (glass letters follow the pour order), host name "The Bourbon Daddy", presenters Kevin D. Littlejohn and Nathaniel D. Rhodes, 7 Nov 2026, reveal at the end. Batch-variable proofs are left blank for the host to enter. Open it from **Party Mode → Tasting Events** or `/party/new?template=proof-of-graduation`; everything stays editable.
+
+**Lobby and invitations.** The join page (QR / invite link `/p/:code`) and the guests' lobby show host, presenters ("Professors"), date, participants against capacity, flights, pours and the planned guided/blind split. `previewParty` returns counts and names only, never a bottle. Hosts move people between groups from the dashboard as before.
+
+**Synchronized progression** (`setProgress`). `parties/{id}.progress = { state: lobby | live | paused | ended, categoryId, label, seq, updatedAt, updatedBy }` is the glass the hosts are pouring for everyone. Commands: `start`, `openGlass` (also reopens a locked flight; every saved score is kept), `pause`, `resume`, `advanceGlass`, `advanceFlight` (locks the flight being left). Lock submissions is `setCategoryState → voting_closed`, Reveal results is `revealAll`, End event is `completeParty` (sets `ended`).
+- Every command must carry `expectedSeq`, checked in the same transaction. If the other host moved the event first, the call fails with `aborted` and the dashboard shows the new position, so two hosts can't double-advance.
+- While paused, `saveBallot` refuses saves (`failed-precondition`); drafts stay in the phone's local storage, as they do when the host advances or the taster navigates away.
+- Every command is audited (`progress`). Guests' screens follow `progress` live: lobby, a Now pouring banner, the poured glass marked and scrolled into view, a pause notice.
+
+**Final submissions.** `saveBallot { finalize: true }` (every glass rated) stamps `finalizedAt`. Afterwards a save is refused with `already-exists` unless it says `edit: true`, which also requires the host's *Allow edits* setting; edits keep `finalizedAt` and add `editedAt`. `requestId` makes retries idempotent: a resend with the same id returns the stored ballot without writing. One ballot per taster per round is unchanged (deterministic ids).
+
+**Scoring.** Detailed scoring adds the optional FIP **Value / Buy Again** component (0–10). Rankings still use overall enjoyment only; the rating algorithm is unchanged. Saved tastings map Value onto the FIP rubric's Value maximum.
+
+**Event results** (`parties/{id}/results/event`). Rebuilt by the server, in the same transaction, at every reveal and at completion, from published round results only: overall ranking, overall favorite, top three (ties included), flight favorites, and for dual events guided and blind rankings/favorites and per-bottle guided-minus-blind gaps (largest first). Ties use the round rule (two-decimal averages share a rank); within a shared rank, more ratings then pour order. Nothing exists before a reveal, so no aggregate can leak a blind identity early. The host dashboard shows submission counts per group from the roster, never scores.
+
+**AXE beside the glass** (`askSommelier { mode: "party-tasting", partyId, categoryId, label, prompt, history }`, `functions/party/tastingAxe.js`).
+- The experience comes from the caller's own guest/admin records, never from the request.
+- Guided (guided taster, regular tasting, admin not tasting blind, or a revealed round): the flight's bottles from the guided view / regular round / results, for bottle-specific education, mash bills, distillation and comparison.
+- Blind: event name, the round's public name, glass letter, glass count and the caller's own scores and notes. No bottle data is read into the prompt, the system prompt forbids identification, and the reply is checked against the concealed bottles (brand words, distillery, phrases, proof and age figures, any explicit proof/ABV); a match is replaced with a neutral answer. Rate limit: 30/hour for guests, 60 for accounts.
+
+**Graduation** (`web/src/features/party/graduation.ts`). Built on the taster's device from their own ballots and published results: completion, pours rated, favorite bottle(s) (ties shown), favorite flight (ties go to the earlier flight), most-noticed flavors, a tasting profile from flavor families, and their average versus the room. **Save to my FIP profile** writes `users/{uid}.graduations` (upserted by party) and every pour to My Tastings; **Share graduation card** renders a 1080×1350 PNG on the device. Anonymous guests use Keep my results first.
+
+Data: new fields only (`progress`, `presenters`, ballot `finalizedAt` / `editedAt` / `lastRequestId`, score `value`, `results/event`, `users/{uid}.graduations`). Existing parties read as the lobby and keep working. No rules, index or data migration is needed: `results/event` falls under the existing results rule.
 
 ### Aroma stations and pairings
 

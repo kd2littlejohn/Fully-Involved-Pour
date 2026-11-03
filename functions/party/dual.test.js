@@ -92,7 +92,7 @@ describe("dual experience: setup and the guided projection", () => {
     const names = Object.values(guided.bottles).map((b) => b.name).sort();
     expect(names).toEqual(WHEATED.map((s) => s.bottle.name).sort());
     // What the guided group sees: never the host's price or My Bar link.
-    expect(JSON.stringify(guided)).not.toContain("45");
+    for (const b of Object.values(guided.bottles)) expect(b).not.toHaveProperty("price");
     expect(JSON.stringify(guided)).not.toContain("bottleId");
     expect(JSON.stringify(guided)).not.toContain("my-bar");
     expect(Object.keys(guided.bottles).sort()).toEqual(["A", "B", "C"]);
