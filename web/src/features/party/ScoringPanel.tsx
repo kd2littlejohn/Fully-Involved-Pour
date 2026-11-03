@@ -89,11 +89,14 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
     saveScoreDraft(party.id, category.id, draft)
   }, [draft, party.id, category.id])
 
-  // When the hosts pour the next glass, bring it into view.
+  // When the hosts pour the next glass, bring it into view (not on first
+  // load, so the taster sees the Now pouring banner above it first).
+  const [shownLabel, setShownLabel] = useState(currentLabel)
   useEffect(() => {
-    if (!currentLabel) return
-    document.getElementById(`sample-${currentLabel}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-  }, [currentLabel])
+    if (currentLabel === shownLabel) return
+    setShownLabel(currentLabel)
+    if (currentLabel) document.getElementById(`sample-${currentLabel}`)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [currentLabel, shownLabel])
 
   useEffect(() => {
     if (!resumeAtLastSample) return
@@ -241,7 +244,11 @@ export function ScoringPanel({ party, category, ballot, resumeAtLastSample = fal
                   {bottle ? bottle.name : `Sample ${label}`}
                 </h3>
                 {bottle ? <div className={styles.muted}>{publicBottleSummary(bottle)}</div> : null}
-                {pouring ? <span className={`${styles.pill} ${styles.pillLive}`}>Now pouring</span> : null}
+                {pouring ? (
+                  <span className={`${styles.pill} ${styles.pillLive}`} style={{ marginRight: 'var(--fip-space-2)' }}>
+                    Now pouring
+                  </span>
+                ) : null}
                 <span className={styles.muted}>
                   {finalized && !editing ? 'Submitted ✓' : frozen ? 'Submitted — locked by your host' : isSaved ? 'Saved ✓' : 'Not scored yet'}
                 </span>
