@@ -45,7 +45,7 @@ const { HttpsError } = require("firebase-functions/v2/https");
 // unlike the admin.firestore namespace inside the Functions runtime.
 const { FieldValue } = require("firebase-admin/firestore");
 const { assertNotRateLimited } = require("../rateLimit");
-const { computeCategoryResults, computeRecap } = require("./scoring");
+const { computeCategoryResults, computeEventStandings, computeRecap } = require("./scoring");
 const v = require("./validation");
 const roster = require("./roster");
 const admins = require("./admins");
@@ -177,6 +177,27 @@ function newCategory(input, now) {
   };
 }
 
+// Synchronized tasting: where the whole room is. One pointer for every
+// participant (guided and blind alike): the flight (round) and the glass
+// (sample letter) the hosts are pouring. `seq` increases with every
+// progression command, and each command must name the seq it was issued
+// against, so two hosts pressing different buttons at once can't both win:
+// the second gets "aborted" and sees where the event is now.
+// Absent on parties created before this existed: they read as the lobby.
+const PROGRESS_STATES = ["lobby", "live", "paused", "ended"];
+
+function progressOf(party) {
+  const p = party.progress || {};
+  return {
+    state: PROGRESS_STATES.includes(p.state) ? p.state : party.status === "completed" ? "ended" : "lobby",
+    categoryId: p.categoryId || null,
+    label: p.label || null,
+    seq: Number.isInteger(p.seq) ? p.seq : 0,
+    updatedAt: p.updatedAt || null,
+    updatedBy: p.updatedBy || null,
+  };
+}
+
 // Party doc fields a guest or display may see. The secrets never live here.
 function previewOf(party) {
   return {
@@ -186,8 +207,18 @@ function previewOf(party) {
     eventDate: party.eventDate || null,
     coverImageUrl: party.coverImageUrl || "",
     hostName: party.hostName || "",
+    presenters: Array.isArray(party.presenters) ? party.presenters : [],
     status: party.status,
+    format: party.format || "blind",
     categoryCount: (party.categories || []).length,
+    // Pours across every round. Letters only: never a bottle.
+    pourCount: (party.categories || []).reduce((sum, c) => sum + (c.sampleLabels || []).length, 0),
+    capacity: party.capacity || null,
+    participantCount: party.counts?.guests || 0,
+    ...(party.format === "dual" && party.dual
+      ? { plannedGuided: party.dual.plannedGuided ?? null, plannedBlind: party.dual.plannedBlind ?? null }
+      : {}),
+    progressState: progressOf(party).state,
   };
 }
 
@@ -356,6 +387,7 @@ async function createParty(ctx) {
     settings,
     categories,
     currentCategoryId: categories[0] ? categories[0].id : null,
+    progress: { state: "lobby", categoryId: null, label: null, seq: 0, updatedAt: ctx.now, updatedBy: null },
     joinCode: code,
     inviteActive: true,
     inviteExpiresAt: null,
@@ -558,6 +590,27 @@ async function revealCategory(tx, ctx, party, category) {
   return { ...results, revealedAt: ctx.now, partyId: party.id };
 }
 
+// results/event: event-wide standings over every revealed round. Rebuilt
+// whenever a round is revealed (and at completion), inside the same
+// transaction, from the published results only. `fresh` are results being
+// written in this transaction; tx reads must come before any write, so the
+// caller reads first and writes after.
+async function readPublishedResults(tx, db, partyId) {
+  const snap = await tx.get(db.collection(`parties/${partyId}/results`));
+  const out = new Map();
+  for (const doc of snap.docs) if (doc.id !== "recap" && doc.id !== "event") out.set(doc.id, doc.data());
+  return out;
+}
+
+function eventStandingsDoc(party, published, fresh, now) {
+  const all = new Map(published);
+  for (const r of fresh) all.set(r.categoryId, r);
+  const revealedIds = new Set(party.categories.filter((c) => c.state === "revealed").map((c) => c.id));
+  for (const r of fresh) revealedIds.add(r.categoryId);
+  const results = [...all.values()].filter((r) => revealedIds.has(r.categoryId));
+  return { partyId: party.id, ...computeEventStandings({ results, categoryOrder: party.categories.map((c) => c.id) }), updatedAt: now };
+}
+
 async function setCategoryState(ctx) {
   const partyId = v.requireId(ctx.data.partyId, "party");
   const categoryId = v.requireId(ctx.data.categoryId, "category");
@@ -581,7 +634,11 @@ async function setCategoryState(ctx) {
     }
 
     let results;
-    if (to === "revealed") results = await revealCategory(tx, ctx, party, category);
+    let published = null;
+    if (to === "revealed") {
+      results = await revealCategory(tx, ctx, party, category);
+      published = await readPublishedResults(tx, ctx.db, partyId);
+    }
 
     const updated = { ...category, state: to };
     const patch = { updatedAt: ctx.now };
@@ -596,7 +653,10 @@ async function setCategoryState(ctx) {
     patch.categories = replaceCategory(party, updated);
 
     tx.update(partyRef(ctx.db, partyId), patch);
-    if (results) tx.set(ctx.db.doc(`parties/${partyId}/results/${categoryId}`), results);
+    if (results) {
+      tx.set(ctx.db.doc(`parties/${partyId}/results/${categoryId}`), results);
+      tx.set(ctx.db.doc(`parties/${partyId}/results/event`), eventStandingsDoc(party, published, [results], ctx.now));
+    }
     auditEvent(tx, ctx.db, partyId, ctx, "round-state", { categoryId, from: category.state, to });
     return { state: to };
   });
@@ -615,12 +675,115 @@ async function revealAll(ctx) {
     if (closed.length === 0) throw precondition("Close voting on a round before revealing it.");
     const allResults = [];
     for (const category of closed) allResults.push(await revealCategory(tx, ctx, party, category));
+    const published = await readPublishedResults(tx, ctx.db, partyId);
     const ids = new Set(closed.map((c) => c.id));
     const categories = party.categories.map((c) => (ids.has(c.id) ? { ...c, state: "revealed", revealedAt: ctx.now } : c));
     tx.update(partyRef(ctx.db, partyId), { categories, updatedAt: ctx.now });
     for (const results of allResults) tx.set(ctx.db.doc(`parties/${partyId}/results/${results.categoryId}`), results);
+    tx.set(ctx.db.doc(`parties/${partyId}/results/event`), eventStandingsDoc(party, published, allResults, ctx.now));
     auditEvent(tx, ctx.db, partyId, ctx, "reveal-all", { categoryIds: [...ids] });
     return { revealed: [...ids] };
+  });
+}
+
+// The display name (never a uid) of the admin issuing a command, shown to
+// the room as "Paused by …".
+function adminName(party, uid) {
+  if (uid === party.hostUid) return party.hostName || "Host";
+  return party.coHosts?.[uid]?.name || "Co-host";
+}
+
+const PROGRESS_COMMANDS = ["start", "openGlass", "pause", "resume", "advanceGlass", "advanceFlight"];
+
+// Opens a round for voting inside a progression command, exactly like
+// setCategoryState: bottles lock the first time, and a closed round can be
+// reopened with every saved score kept.
+function openRound(category, now) {
+  if (category.state === "voting_open") return category;
+  if (category.state === "revealed") throw precondition(`"${category.name}" has been revealed, so it can't reopen.`);
+  if (category.sampleLabels.length < v.LIMITS.MIN_SAMPLES) throw precondition(`Add at least ${v.LIMITS.MIN_SAMPLES} bottles to "${category.name}" first.`);
+  return { ...category, state: "voting_open", lockedAt: category.lockedAt || now, votingOpenedAt: now };
+}
+
+// Host dashboard live controls: start, open a glass (also reopens a locked
+// flight), pause, resume, next glass, next flight. Lock submissions and
+// reveals stay on setCategoryState / revealAll; End event is completeParty.
+// Every command is one transaction and is checked against `expectedSeq`.
+async function setProgress(ctx) {
+  const partyId = v.requireId(ctx.data.partyId, "party");
+  const command = ctx.data.command;
+  if (!PROGRESS_COMMANDS.includes(command)) throw v.invalid("Unknown event command.");
+  if (!Number.isInteger(ctx.data.expectedSeq) || ctx.data.expectedSeq < 0) throw v.invalid("Refresh the dashboard and try again.");
+  await limit(ctx, "host");
+
+  return ctx.db.runTransaction(async (tx) => {
+    const party = await readParty(tx, ctx.db, partyId);
+    assertAdmin(ctx, party);
+    assertNotCompleted(party);
+    const current = progressOf(party);
+    if (current.seq !== ctx.data.expectedSeq) {
+      throw new HttpsError("aborted", `${current.updatedBy || "Another host"} just changed the event. Check where it is now and try again.`, {
+        progress: current,
+      });
+    }
+    const categories = party.categories;
+    if (!categories.length) throw precondition("Add a flight first.");
+    const indexOf = (id) => categories.findIndex((c) => c.id === id);
+    let next = { ...current };
+    const changed = new Map(); // categoryId -> updated category
+
+    const goTo = (category, label) => {
+      const opened = openRound(changed.get(category.id) || category, ctx.now);
+      changed.set(category.id, opened);
+      if (!opened.sampleLabels.includes(label)) throw v.invalid("That glass isn't part of this flight.");
+      next = { ...next, categoryId: category.id, label };
+    };
+
+    if (command === "start") {
+      if (current.state !== "lobby") throw precondition("The tasting has already started.");
+      const first = categories[0];
+      goTo(first, first.sampleLabels[0]);
+      next.state = "live";
+    } else if (command === "openGlass") {
+      if (current.state === "lobby") throw precondition("Start the tasting first.");
+      const categoryId = v.requireId(ctx.data.categoryId, "flight");
+      const category = findCategory(party, categoryId);
+      const label = typeof ctx.data.label === "string" ? ctx.data.label : category.sampleLabels[0];
+      goTo(category, label);
+    } else if (command === "pause") {
+      if (current.state !== "live") throw precondition("Only a live tasting can be paused.");
+      next.state = "paused";
+    } else if (command === "resume") {
+      if (current.state !== "paused") throw precondition("The tasting isn't paused.");
+      next.state = "live";
+    } else if (command === "advanceGlass") {
+      if (current.state === "lobby") throw precondition("Start the tasting first.");
+      const category = categories[indexOf(current.categoryId)];
+      if (!category) throw precondition("Open a glass first.");
+      const at = category.sampleLabels.indexOf(current.label);
+      const label = category.sampleLabels[at + 1];
+      if (!label) throw precondition("That's the last glass in this flight. Advance to the next flight.");
+      goTo(category, label);
+    } else if (command === "advanceFlight") {
+      if (current.state === "lobby") throw precondition("Start the tasting first.");
+      const at = indexOf(current.categoryId);
+      const following = categories[at + 1];
+      if (!following) throw precondition("That was the final flight. Reveal the results or end the event.");
+      // Lock the flight the room is leaving; nothing saved is lost, and the
+      // host can reopen it from any of its glasses.
+      const leaving = categories[at];
+      if (leaving && leaving.state === "voting_open") changed.set(leaving.id, { ...leaving, state: "voting_closed", votingClosedAt: ctx.now });
+      goTo(following, following.sampleLabels[0]);
+    }
+
+    next = { ...next, seq: current.seq + 1, updatedAt: ctx.now, updatedBy: adminName(party, ctx.uid) };
+    const patch = { progress: next, updatedAt: ctx.now };
+    if (next.categoryId) patch.currentCategoryId = next.categoryId;
+    if (next.state === "live" || next.state === "paused") patch.status = "live";
+    if (changed.size) patch.categories = categories.map((c) => changed.get(c.id) || c);
+    tx.update(partyRef(ctx.db, partyId), patch);
+    auditEvent(tx, ctx.db, partyId, ctx, "progress", { command, categoryId: next.categoryId, label: next.label, seq: next.seq });
+    return { progress: next };
   });
 }
 
@@ -648,7 +811,7 @@ async function completeParty(ctx) {
     assertNotCompleted(party);
     const resultsSnap = await tx.get(ctx.db.collection(`parties/${partyId}/results`));
     const revealedIds = party.categories.filter((c) => c.state === "revealed").map((c) => c.id);
-    const byId = new Map(resultsSnap.docs.map((d) => [d.id, d.data()]));
+    const byId = new Map(resultsSnap.docs.filter((d) => d.id !== "recap" && d.id !== "event").map((d) => [d.id, d.data()]));
     const results = revealedIds.map((id) => byId.get(id)).filter(Boolean);
     const notes =
       ctx.data.notes !== undefined ? v.cleanText(ctx.data.notes, v.LIMITS.MAX_HOST_NOTES) : party.recapNotes || "";
@@ -662,9 +825,11 @@ async function completeParty(ctx) {
       categories,
       recapNotes: notes,
       inviteActive: false,
+      progress: { ...progressOf(party), state: "ended", seq: progressOf(party).seq + 1, updatedAt: ctx.now, updatedBy: adminName(party, ctx.uid) },
       updatedAt: ctx.now,
     });
     tx.set(ctx.db.doc(`parties/${partyId}/results/recap`), recap);
+    tx.set(ctx.db.doc(`parties/${partyId}/results/event`), eventStandingsDoc(party, byId, [], ctx.now));
     auditEvent(tx, ctx.db, partyId, ctx, "party-completed", { revealedRounds: results.length });
     return { ok: true };
   });
@@ -1298,6 +1463,9 @@ async function saveBallot(ctx) {
     assertNotCompleted(party);
     const category = findCategory(party, categoryId);
     if (category.state !== "voting_open") throw precondition("Voting isn't open for this round.");
+    if (progressOf(party).state === "paused") {
+      throw precondition("The hosts paused the tasting. Your notes are kept on this device and will save when it resumes.");
+    }
 
     const scores = v.validateScores(ctx.data.scores, category.sampleLabels, mode);
     const favoriteLabel = v.validateOptionalLabel(ctx.data.favoriteLabel, category.sampleLabels, "Favorite");
@@ -1308,6 +1476,30 @@ async function saveBallot(ctx) {
     const snap = await tx.get(ref);
     const before = snap.exists ? snap.data() : null;
     if (before && before.ownerUid !== ctx.uid) throw denied("That ballot belongs to someone else.");
+    // Idempotent retries: a phone that lost its connection resends the same
+    // request id, which returns the saved ballot instead of saving twice.
+    const requestId = typeof ctx.data.requestId === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(ctx.data.requestId) ? ctx.data.requestId : null;
+    if (before && requestId && before.lastRequestId === requestId) {
+      return {
+        ballotId: ref.id,
+        scores: before.scores,
+        favoriteLabel: before.favoriteLabel,
+        predictionLabel: before.predictionLabel,
+        locked: party.settings?.allowEdits === false,
+        finalizedAt: before.finalizedAt || null,
+        duplicate: true,
+      };
+    }
+    // Final submissions. Once a flight's ballot is submitted, it changes
+    // only through an intentional edit (`edit: true`), and only when the
+    // host allows edits. Submitting again is a no-op, never a second ballot.
+    const finalize = ctx.data.finalize === true;
+    const wasFinal = Boolean(before && before.finalizedAt);
+    if (wasFinal && finalize && ctx.data.scores && Object.keys(ctx.data.scores).length === 0) {
+      return { ballotId: ref.id, scores: before.scores, favoriteLabel: before.favoriteLabel, predictionLabel: before.predictionLabel, locked: party.settings?.allowEdits === false, finalizedAt: before.finalizedAt, duplicate: true };
+    }
+    if (wasFinal && ctx.data.edit !== true) throw new HttpsError("already-exists", "You've already submitted this flight. Choose Edit to change it.");
+    if (wasFinal && party.settings?.allowEdits === false) throw precondition("The hosts aren't allowing edits to submitted flights.");
     const rosterDoc = roster.rosterRef(ctx.db, partyId, roster.guestRosterId(guest));
     const rosterSnap = await tx.get(rosterDoc);
     const group = groupOf(party, guest);
@@ -1331,6 +1523,10 @@ async function saveBallot(ctx) {
       }
     }
     if (Object.keys(mergedScores).length === 0 && !favorite) throw v.invalid("Score at least one sample.");
+    if (finalize && !category.sampleLabels.every((label) => mergedScores[label])) {
+      throw v.invalid("Rate every glass in this flight before submitting it.");
+    }
+    const finalizedAt = wasFinal ? before.finalizedAt : finalize ? ctx.now : null;
 
     tx.set(ref, {
       id: ref.id,
@@ -1347,6 +1543,9 @@ async function saveBallot(ctx) {
       ...(group ? { group } : {}),
       excluded: before ? before.excluded === true : false,
       ...(unblinded ? { unblinded: true } : {}),
+      ...(finalizedAt ? { finalizedAt } : {}),
+      ...(wasFinal ? { editedAt: ctx.now } : {}),
+      ...(requestId ? { lastRequestId: requestId } : {}),
       createdAt: before ? before.createdAt : ctx.now,
       updatedAt: ctx.now,
       revision: before ? (before.revision || 1) + 1 : 1,
@@ -1355,7 +1554,14 @@ async function saveBallot(ctx) {
     // Status only (tasting / submitted), never a score. A party from before
     // the roster existed has no entry until an admin rebuilds it.
     if (rosterSnap.exists) tx.update(rosterDoc, { [`progress.${categoryId}`]: roster.progressStatus({ scores: mergedScores }, category) });
-    return { ballotId: ref.id, scores: mergedScores, favoriteLabel: favorite, predictionLabel: prediction, locked: party.settings?.allowEdits === false };
+    return {
+      ballotId: ref.id,
+      scores: mergedScores,
+      favoriteLabel: favorite,
+      predictionLabel: prediction,
+      locked: party.settings?.allowEdits === false,
+      finalizedAt,
+    };
   });
 }
 
@@ -1455,6 +1661,7 @@ const ACTIONS = {
   setCategoryState,
   revealAll,
   setCurrentCategory,
+  setProgress,
   completeParty,
   setInvite,
   rotateJoinCode,
@@ -1511,4 +1718,4 @@ async function handlePartyAction(db, request) {
   return ACTIONS[action](ctx);
 }
 
-module.exports = { ACTIONS, RATE_LIMITS, TRANSITIONS, handlePartyAction, joinBlocker };
+module.exports = { ACTIONS, RATE_LIMITS, TRANSITIONS, handlePartyAction, joinBlocker, progressOf };

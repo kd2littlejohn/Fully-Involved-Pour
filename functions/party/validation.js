@@ -225,7 +225,19 @@ function validateDetails(input) {
     eventDate: validateEventDate(data.eventDate),
     coverImageUrl: validateImageUrl(data.coverImageUrl),
     capacity: capacity === undefined ? null : Math.floor(capacity),
+    presenters: validatePresenters(data.presenters),
   };
+}
+
+// Named guides for an event (e.g. "Professors" at a graduation tasting).
+// Display names only, shown on the lobby to everyone who has the invite.
+const MAX_PRESENTERS = 4;
+
+function validatePresenters(input) {
+  if (input === undefined || input === null) return [];
+  if (!Array.isArray(input)) throw invalid("Presenters must be a list.");
+  if (input.length > MAX_PRESENTERS) throw invalid(`Up to ${MAX_PRESENTERS} presenters.`);
+  return input.map((name) => cleanText(name, 60)).filter(Boolean);
 }
 
 // A category definition as the host edits it. `id` is present for an
@@ -296,7 +308,9 @@ function validateScore(input, mode) {
   if (overall === undefined) throw invalid("Every scored sample needs an overall enjoyment rating.");
   const out = { overall: Math.round(overall * 10) / 10 };
   if (mode === "detailed") {
-    for (const key of ["nose", "palate", "finish", "complexity"]) {
+    // `value` is the FIP Value / Buy Again component, rated 0-10 like the
+    // others. Optional: not every pour has a price to judge it against.
+    for (const key of ["nose", "palate", "finish", "complexity", "value"]) {
       const value = optionalNumber(input[key], 0, 10, key);
       if (value !== undefined) out[key] = Math.round(value * 10) / 10;
     }
@@ -361,4 +375,5 @@ module.exports = {
   validateDual,
   validateExtras,
   validateGroup,
+  validatePresenters,
 };

@@ -343,11 +343,113 @@ function computeRecap({ party, results, notes }) {
   };
 }
 
+// Event-wide standings across every REVEALED round (results/event). Built
+// only from published round results, so it can never include a round, a
+// bottle or a group average that hasn't been revealed yet.
+//
+// Each bottle keeps its own round's average (every round is scored by the
+// same room on the same 0-10 scale). Ties use the same rule as a round:
+// averages compared at two decimals share a rank. Display order within a
+// shared rank is more ratings first, then round order, then sample letter,
+// so the list is stable but never implies one tied bottle beat another.
+function rankEntries(entries) {
+  const ranks = competitionRanks(entries.map((e) => ({ key: e.key, value: e.average === null ? null : round2(e.average) })));
+  return entries
+    .map((e) => ({ ...e, rank: ranks.has(e.key) ? ranks.get(e.key) : null }))
+    .sort((a, b) => {
+      if (a.rank === null && b.rank === null) return a.order - b.order;
+      if (a.rank === null) return 1;
+      if (b.rank === null) return -1;
+      return a.rank - b.rank || b.count - a.count || a.order - b.order;
+    })
+    .map(({ order: _order, ...rest }) => rest);
+}
+
+function computeEventStandings({ results, categoryOrder = [] }) {
+  const revealed = (results || []).filter(Boolean);
+  const position = new Map(categoryOrder.map((id, i) => [id, i]));
+  revealed.sort((a, b) => (position.get(a.categoryId) ?? 999) - (position.get(b.categoryId) ?? 999));
+  const overall = [];
+  const byGroup = { guided: [], blind: [] };
+  const differences = [];
+  const flightFavorites = [];
+  let dual = false;
+
+  revealed.forEach((result, roundIndex) => {
+    const groups = result.groups || null;
+    if (groups) dual = true;
+    (result.samples || []).forEach((sample, sampleIndex) => {
+      const base = {
+        key: `${result.categoryId}:${sample.label}`,
+        categoryId: result.categoryId,
+        categoryName: result.name,
+        label: sample.label,
+        bottle: sample.bottle,
+        order: roundIndex * 100 + sampleIndex,
+      };
+      overall.push({ ...base, average: sample.average, count: sample.count });
+      if (groups) {
+        for (const group of GROUPS) {
+          const g = (groups[group]?.samples || []).find((x) => x.label === sample.label);
+          byGroup[group].push({ ...base, average: g ? g.average : null, count: g ? g.count : 0 });
+        }
+      }
+    });
+    if (result.comparison) {
+      for (const c of result.comparison.samples || []) {
+        if (c.difference === null || c.difference === undefined) continue;
+        const sample = (result.samples || []).find((s) => s.label === c.label);
+        differences.push({
+          categoryId: result.categoryId,
+          categoryName: result.name,
+          label: c.label,
+          bottle: sample ? sample.bottle : { name: `Sample ${c.label}` },
+          guided: c.guided,
+          blind: c.blind,
+          difference: c.difference,
+        });
+      }
+    }
+    const winners = (result.samples || []).filter((s) => (result.champions || []).includes(s.label));
+    flightFavorites.push({
+      categoryId: result.categoryId,
+      categoryName: result.name,
+      winners: winners.map((s) => ({ label: s.label, bottle: s.bottle, average: s.average, count: s.count })),
+    });
+  });
+
+  const rankedOverall = rankEntries(overall);
+  const favorites = (list) => list.filter((e) => e.rank === 1);
+  const guided = dual ? rankEntries(byGroup.guided) : null;
+  const blind = dual ? rankEntries(byGroup.blind) : null;
+  // Largest gap first; equal gaps keep round order.
+  differences.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+
+  return {
+    roundsRevealed: revealed.length,
+    overall: rankedOverall,
+    overallFavorite: favorites(rankedOverall),
+    // Every bottle ranked 1-3, ties included (so this can hold more than 3).
+    topThree: rankedOverall.filter((e) => e.rank !== null && e.rank <= 3),
+    flightFavorites,
+    ...(dual
+      ? {
+          guided,
+          blind,
+          guidedFavorite: favorites(guided),
+          blindFavorite: favorites(blind),
+          differences,
+        }
+      : {}),
+  };
+}
+
 module.exports = {
   BOTH_ENJOYED_MIN,
   MIN_PREDICTIONS_FOR_SURPRISE,
   computeCategoryResults,
   computeRecap,
+  computeEventStandings,
   competitionRanks,
   isValidOverall,
 };
