@@ -13,6 +13,7 @@ import { LabelsStep } from '../../features/party/setup/LabelsStep'
 import { DualOptions } from '../../features/party/setup/DualOptions'
 import { ExtrasEditor } from '../../features/party/setup/ExtrasEditor'
 import { GROUP_LABEL } from '../../features/party/dualGroups'
+import { EVENT_TEMPLATES } from '../../features/party/eventTemplates'
 import {
   draftEventDate,
   draftFromParty,
@@ -76,6 +77,8 @@ export function PartySetupPage() {
 
   const [searchParams] = useSearchParams()
   const [draft, setDraft] = useState<PartyDraft>(() => {
+    const template = EVENT_TEMPLATES.find((t) => t.id === searchParams.get('template'))
+    if (template && !partyId) return template.build(emptyDraft())
     const format = formatFromParam(searchParams.get('format'))
     return format === 'dual' ? withDualDefaults(emptyDraft()) : { ...emptyDraft(), format }
   })
@@ -187,6 +190,7 @@ export function PartySetupPage() {
       eventDate: draftEventDate(draft),
       coverImageUrl: draft.coverImageUrl,
       capacity: draft.capacity ? Number(draft.capacity) : null,
+      presenters: draft.presenters.map((p) => p.trim()).filter(Boolean),
     }
     try {
       let id = partyId
@@ -196,7 +200,7 @@ export function PartySetupPage() {
           details,
           settings: draft.settings,
           categories: categories.map((c) => ({ libraryId: c.libraryId, name: c.name.trim(), description: c.description.trim() })),
-          hostName: profile?.displayName || user!.displayName || 'Your host',
+          hostName: draft.hostName.trim() || profile?.displayName || user!.displayName || 'Your host',
           hostTasting: draft.hostTasting,
           format: draft.format,
           ...(draft.format === 'dual' ? { dual: draft.dual, hostGroup: draft.hostGroup } : {}),
@@ -259,6 +263,25 @@ export function PartySetupPage() {
           <h2 id="details-heading" className={styles.sectionTitle}>
             Event details
           </h2>
+          {!isEdit ? (
+            <div className={`${styles.card} ${styles.cardWarm}`} aria-label="Event templates">
+              <span className={styles.label}>Start from an event</span>
+              {EVENT_TEMPLATES.map((t) => (
+                <div key={t.id} className={styles.spread}>
+                  <span>
+                    <strong>{t.name}</strong>
+                    <span className={styles.muted} style={{ display: 'block' }}>
+                      {t.summary}
+                    </span>
+                  </span>
+                  <Button variant="secondary" onClick={() => setDraft(t.build(emptyDraft()))}>
+                    {draft.name === t.name ? 'Reload' : 'Use this event'}
+                  </Button>
+                </div>
+              ))}
+              <p className={styles.muted}>Everything stays editable. Check each bottle’s proof before you pour.</p>
+            </div>
+          ) : null}
           <fieldset className={styles.fieldset}>
             <legend className={styles.label}>Tasting format</legend>
             <div className={styles.row}>
@@ -319,6 +342,36 @@ export function PartySetupPage() {
                 value={draft.capacity}
                 placeholder="No limit"
                 onChange={(e) => setDraft({ ...draft, capacity: e.target.value.replace(/\D/g, '') })}
+              />
+            </div>
+          </div>
+          <div className={local.formGrid}>
+            {!isEdit ? (
+              <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
+                <label className={styles.label} htmlFor="party-host-name">
+                  Host name guests see (optional)
+                </label>
+                <input
+                  id="party-host-name"
+                  className={styles.input}
+                  maxLength={40}
+                  value={draft.hostName}
+                  placeholder={profile?.displayName || 'Your name'}
+                  onChange={(e) => setDraft({ ...draft, hostName: e.target.value })}
+                />
+              </div>
+            ) : null}
+            <div className={styles.stack} style={{ gap: 'var(--fip-space-2)' }}>
+              <label className={styles.label} htmlFor="party-presenters">
+                Presenters or professors (optional, one per line)
+              </label>
+              <textarea
+                id="party-presenters"
+                className={styles.input}
+                rows={2}
+                value={draft.presenters.join('\n')}
+                placeholder="Who’s leading the tasting"
+                onChange={(e) => setDraft({ ...draft, presenters: e.target.value.split('\n').slice(0, 4) })}
               />
             </div>
           </div>

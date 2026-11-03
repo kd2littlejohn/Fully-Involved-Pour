@@ -10,6 +10,7 @@ export interface SampleDraft {
   palate: number | null
   finish: number | null
   complexity: number | null
+  value: number | null
   descriptors: string[]
   notes: string
 }
@@ -25,6 +26,8 @@ export const DETAILED_FIELDS = [
   { key: 'palate', label: 'Palate', hint: 'How does it taste?' },
   { key: 'finish', label: 'Finish', hint: 'How long does it linger, and is it pleasant?' },
   { key: 'complexity', label: 'Complexity', hint: 'Layers that keep revealing themselves.' },
+  // FIP Value / Buy Again. Optional: skip it when there's no price to judge.
+  { key: 'value', label: 'Value', hint: 'Worth it? Would you buy it again? (optional)' },
 ] as const
 
 export type DetailedField = (typeof DETAILED_FIELDS)[number]['key']
@@ -41,7 +44,7 @@ export const DETAILED_DESCRIPTOR_GROUPS = FLAVOR_FAMILIES.map((family) => ({
 }))
 
 export function emptySample(): SampleDraft {
-  return { overall: null, nose: null, palate: null, finish: null, complexity: null, descriptors: [], notes: '' }
+  return { overall: null, nose: null, palate: null, finish: null, complexity: null, value: null, descriptors: [], notes: '' }
 }
 
 export function draftFromBallot(labels: string[], ballot: PartyBallot | undefined): RoundDraft {
@@ -55,6 +58,7 @@ export function draftFromBallot(labels: string[], ballot: PartyBallot | undefine
           palate: s.palate ?? null,
           finish: s.finish ?? null,
           complexity: s.complexity ?? null,
+          value: s.value ?? null,
           descriptors: s.descriptors ?? [],
           notes: s.notes ?? '',
         }

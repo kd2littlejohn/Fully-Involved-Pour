@@ -5,6 +5,7 @@ import { LinkButton } from '../../components/ui/LinkButton'
 import { SignInButton } from '../../components/domain/SignInButton'
 import { useAuth } from '../../hooks/useAuth'
 import { PartyLoading, PartyMessage, PartyPage } from '../../features/party/PartyChrome'
+import { LiveControls } from '../../features/party/LiveControls'
 import { ConfirmDialog } from '../../features/party/ConfirmDialog'
 import { InvitePanel } from '../../features/party/InvitePanel'
 import { ResultsView } from '../../features/party/ResultsView'
@@ -362,6 +363,7 @@ export function HostDashboardPage() {
             resumeAtLastSample
             group={hostGroup}
             guidedBottles={guided.data}
+            roster={roster.data}
           />
         </div>
       ) : null}
@@ -408,6 +410,13 @@ export function HostDashboardPage() {
             {error}
           </p>
         ) : null}
+
+        <LiveControls
+          party={p}
+          roster={roster.data}
+          onRevealAll={() => setPending({ kind: 'revealAll' })}
+          onEnd={() => setPending({ kind: 'complete' })}
+        />
 
         <div className={styles.statRow}>
           {dual && counts ? (

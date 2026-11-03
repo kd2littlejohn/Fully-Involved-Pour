@@ -104,9 +104,30 @@ export interface PartyGuidedView {
   bottles: Record<string, PartyPublicBottle>
 }
 
+// Synchronized tasting: the flight (round) and glass (sample letter) the
+// hosts are pouring for the whole room. `seq` guards against two hosts
+// issuing conflicting commands (functions/party/service.js setProgress).
+export type PartyProgressState = 'lobby' | 'live' | 'paused' | 'ended'
+
+export interface PartyProgress {
+  state: PartyProgressState
+  categoryId: string | null
+  label: string | null
+  seq: number
+  updatedAt: number | null
+  // Display name of the admin who issued the last command.
+  updatedBy: string | null
+}
+
+export type PartyProgressCommand = 'start' | 'openGlass' | 'pause' | 'resume' | 'advanceGlass' | 'advanceFlight'
+
 export interface Party {
   id: string
   hostName: string
+  // Named guides shown on the lobby (e.g. the "Professors").
+  presenters?: string[]
+  // Absent on parties created before synchronized tasting: the lobby.
+  progress?: PartyProgress
   // "I'm tasting too". Absent on parties created before host participation.
   hostTasting?: boolean
   format?: PartyFormat
@@ -212,6 +233,8 @@ export interface PartySampleScore {
   palate?: number
   finish?: number
   complexity?: number
+  // FIP Value / Buy Again, 0-10 (Detailed only, optional).
+  value?: number
   descriptors?: string[]
   notes?: string
 }
@@ -235,6 +258,10 @@ export interface PartyBallot {
   // taster's blind ballot after they'd seen them in the guided group. Counted.
   unblinded?: boolean
   group?: PartyGroup
+  // The taster submitted the whole flight as final. Later changes are
+  // intentional edits (editedAt), allowed only while the host permits them.
+  finalizedAt?: number | null
+  editedAt?: number
   createdAt: number
   updatedAt: number
   revision: number
@@ -375,8 +402,16 @@ export interface PartyPreview {
   eventDate: string | null
   coverImageUrl: string
   hostName: string
+  presenters?: string[]
   status: PartyStatus
+  format?: PartyFormat
   categoryCount: number
+  pourCount?: number
+  capacity?: number | null
+  participantCount?: number
+  plannedGuided?: number | null
+  plannedBlind?: number | null
+  progressState?: PartyProgressState
   joinBlocker: string | null
   guest: { nickname: string } | null
   isHost: boolean
@@ -397,4 +432,42 @@ export interface PartyTemplate {
   name: string
   categories: { libraryId: string | null; name: string; description: string }[]
   createdAt: number
+}
+
+// parties/{partyId}/results/event — event-wide standings over REVEALED
+// rounds only, rebuilt by the server at every reveal and at completion.
+export interface PartyStandingEntry {
+  key: string
+  categoryId: string
+  categoryName: string
+  label: string
+  bottle: PartyPublicBottle
+  average: number | null
+  count: number
+  rank: number | null
+}
+
+export interface PartyStandingDifference {
+  categoryId: string
+  categoryName: string
+  label: string
+  bottle: PartyPublicBottle
+  guided: { average: number | null; count: number }
+  blind: { average: number | null; count: number }
+  difference: number
+}
+
+export interface PartyEventStandings {
+  partyId: string
+  roundsRevealed: number
+  overall: PartyStandingEntry[]
+  overallFavorite: PartyStandingEntry[]
+  topThree: PartyStandingEntry[]
+  flightFavorites: { categoryId: string; categoryName: string; winners: PartyRecapWinner[] }[]
+  guided?: PartyStandingEntry[]
+  blind?: PartyStandingEntry[]
+  guidedFavorite?: PartyStandingEntry[]
+  blindFavorite?: PartyStandingEntry[]
+  differences?: PartyStandingDifference[]
+  updatedAt: number
 }

@@ -9,6 +9,8 @@ import { formatEventDate } from '../../features/party/partyLabels'
 import { joinParty, partyErrorMessage, previewParty, recoverGuest } from '../../data/repositories/party'
 import type { PartyPreview } from '../../features/party/types'
 import styles from '../../features/party/party.module.css'
+import { EventFacts } from '../../features/party/EventFacts'
+import { factsFromPreview } from '../../features/party/lobbyFacts'
 
 // The guest's front door: scan the QR code (or type the code), enter a
 // nickname, join. No email, password or app install. The first join signs
@@ -172,12 +174,19 @@ export function JoinPartyPage() {
         {preview.coverImageUrl ? (
           <img src={preview.coverImageUrl} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 'var(--fip-radius-md)' }} />
         ) : null}
-        <span className={styles.eyebrow}>{preview.hostName} invites you to a blind tasting</span>
+        <span className={styles.eyebrow}>
+          {preview.hostName} invites you to {preview.format === 'dual' ? 'a guided + blind tasting' : preview.format === 'regular' ? 'a tasting' : 'a blind tasting'}
+        </span>
         <h1 id="party-heading" className={styles.title}>
           {preview.name}
         </h1>
-        {date ? <p className={styles.muted}>{date}</p> : null}
         {preview.description ? <p className={styles.subtitle}>{preview.description}</p> : null}
+        {preview.pourCount !== undefined ? (
+          // Newer servers send the event's facts (counts and names, never bottles).
+          <EventFacts facts={factsFromPreview(preview)} />
+        ) : date ? (
+          <p className={styles.muted}>{date}</p>
+        ) : null}
         <p className={styles.muted}>
           {preview.categoryCount} {preview.categoryCount === 1 ? 'round' : 'rounds'} · No account needed · Taste, score, then
           see what you were really drinking.

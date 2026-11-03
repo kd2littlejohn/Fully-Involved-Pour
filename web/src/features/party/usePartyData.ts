@@ -10,6 +10,7 @@ import {
   watchMyAdmin,
   watchAdmins,
   watchGuided,
+  watchEventStandings,
   migrateParty,
 } from '../../data/repositories/party'
 import type {
@@ -21,6 +22,7 @@ import type {
   PartyCategoryResults,
   PartyGuest,
   PartyGuidedView,
+  PartyEventStandings,
   PartyRecap,
 } from './types'
 
@@ -201,6 +203,21 @@ export function useGuidedBottles(partyId: string | undefined, enabled: boolean):
       partyId,
       (data) => setState({ data, loading: false, error: null }),
       (err) => setState({ data: {}, loading: false, error: accessError(err) }),
+    )
+  }, [partyId, enabled])
+  return state
+}
+
+// Event-wide standings (results/event). Exists only once a round has been
+// revealed, and covers revealed rounds only.
+export function useEventStandings(partyId: string | undefined, enabled = true): Live<PartyEventStandings | undefined> {
+  const [state, setState] = useState<Live<PartyEventStandings | undefined>>({ data: undefined, loading: true, error: null })
+  useEffect(() => {
+    if (!partyId || !enabled) return
+    return watchEventStandings(
+      partyId,
+      (data) => setState({ data, loading: false, error: null }),
+      (err) => setState({ data: undefined, loading: false, error: accessError(err) }),
     )
   }, [partyId, enabled])
   return state

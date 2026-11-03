@@ -94,6 +94,7 @@ export function buildSavedTastings({
       ...(typeof score.palate === 'number' ? { palate: score.palate } : {}),
       ...(typeof score.finish === 'number' ? { finish: score.finish } : {}),
       ...(typeof score.complexity === 'number' ? { complexity: score.complexity } : {}),
+      ...(typeof score.value === 'number' ? { value: score.value } : {}),
       ...(score.notes?.trim() ? { notes: score.notes.trim() } : {}),
       descriptors: score.descriptors ?? [],
       favorite: ballot.favoriteLabel === sample.label,

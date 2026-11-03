@@ -7,7 +7,13 @@ import { AromaStations, PairingNote } from './EventExtras'
 import { GROUP_HINT, GROUP_LABEL } from './dualGroups'
 import { recallMyRound, rememberMyRound } from './guestSession'
 import { activeCategory, categoryStateLabel, formatScore } from './partyLabels'
-import type { Party, PartyBallot, PartyCategory, PartyCategoryResults, PartyGroup, PartyGuest, PartyPublicBottle } from './types'
+import { NowPouring } from './EventFacts'
+import { EventStandingsView } from './EventStandingsView'
+import { GraduationCard } from './GraduationCard'
+import { TastingAxePanel } from './TastingAxePanel'
+import { progressOf } from './liveProgress'
+import { useEventStandings } from './usePartyData'
+import type { Party, PartyBallot, PartyCategory, PartyCategoryResults, PartyGroup, PartyGuest, PartyPublicBottle, PartyRosterEntry } from './types'
 import styles from './party.module.css'
 
 function statePillClass(category: PartyCategory): string {
@@ -31,6 +37,7 @@ export function MyTastingView({
   resumeAtLastSample = false,
   group = null,
   guidedBottles = {},
+  roster = [],
 }: {
   party: Party
   guest: PartyGuest
@@ -40,7 +47,12 @@ export function MyTastingView({
   // Dual Experience only.
   group?: PartyGroup | null
   guidedBottles?: Record<string, Record<string, PartyPublicBottle>>
+  // The shared roster, for the lobby's participant count.
+  roster?: PartyRosterEntry[]
 }) {
+  const progress = progressOf(party)
+  const anyRevealed = party.categories.some((c) => c.state === 'revealed')
+  const standings = useEventStandings(party.id, anyRevealed)
   const [selectedId, setSelectedIdState] = useState<string | null>(() => {
     const remembered = recallMyRound(party.id)
     return remembered && party.categories.some((c) => c.id === remembered) ? remembered : null
@@ -63,6 +75,16 @@ export function MyTastingView({
     }
   }, [openId, followedOpenId, party.id])
 
+  // Follow the hosts' glass: every progression command moves the whole
+  // room to the flight being poured (the taster can still look back).
+  const [followedSeq, setFollowedSeq] = useState<number | null>(null)
+  useEffect(() => {
+    if (!progress.categoryId || progress.seq === followedSeq) return
+    setFollowedSeq(progress.seq)
+    setSelectedIdState(progress.categoryId)
+    rememberMyRound(party.id, progress.categoryId)
+  }, [progress.seq, progress.categoryId, followedSeq, party.id])
+
   const category = party.categories.find((c) => c.id === selectedId) ?? activeCategory(party)
   const myBallot = category ? ballots.find((b) => b.categoryId === category.id) : undefined
   const categoryResults = category ? results[category.id] : undefined
@@ -72,8 +94,16 @@ export function MyTastingView({
   const visibleBottles = category?.bottles ?? myBottles
   const finishedRound = Boolean(category && category.sampleLabels.length && category.sampleLabels.every((l) => myBallot?.scores?.[l]))
 
+  const experience: PartyGroup | 'regular' = group ?? (party.format === 'regular' ? 'regular' : 'blind')
+  const currentLabel = category && progress.categoryId === category.id ? progress.label : null
+
   return (
     <>
+      <NowPouring party={party} roster={roster} />
+      {anyRevealed ? (
+        <GraduationCard party={party} ballots={ballots} results={results} group={group} name={guest.nickname} />
+      ) : null}
+      {standings.data ? <EventStandingsView standings={standings.data} totalFlights={party.categories.length} /> : null}
       {group ? (
         <div className={`${styles.card} ${styles.cardWarm}`} style={{ padding: 'var(--fip-space-3) var(--fip-space-4)' }}>
           <div className={styles.spread}>
@@ -144,6 +174,18 @@ export function MyTastingView({
               ballot={myBallot}
               resumeAtLastSample={resumeAtLastSample}
               guidedBottles={myBottles}
+              currentLabel={currentLabel}
+              paused={progress.state === 'paused'}
+            />
+          ) : null}
+
+          {party.status !== 'completed' && (category.state === 'voting_open' || category.state === 'voting_closed') ? (
+            <TastingAxePanel
+              key={`${category.id}:${currentLabel ?? ''}`}
+              partyId={party.id}
+              categoryId={category.id}
+              label={currentLabel}
+              experience={experience}
             />
           ) : null}
 

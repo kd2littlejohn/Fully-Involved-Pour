@@ -43,7 +43,7 @@ export function withSavedTastings(bottles: Bottle[], pours: Pour[], tastings: Sa
         palate: scale(t.palate, FIP_MAX.palate),
         finish: scale(t.finish, FIP_MAX.finish),
         complexity: scale(t.complexity, FIP_MAX.complexity),
-        value: 0,
+        value: scale(t.value, FIP_MAX.value),
         total: t.overall,
         noseAromas: [],
         palateFlavors: t.descriptors,

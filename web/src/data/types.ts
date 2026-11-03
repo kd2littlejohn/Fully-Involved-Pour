@@ -1,3 +1,4 @@
+import type { EventGraduation } from '../features/party/graduation'
 /**
  * Mirrors the existing Firestore schema exactly (see app.js's normalizeBottle /
  * savePourStory / userDocRef). Field names — including pre-existing
@@ -446,6 +447,8 @@ export interface SavedTasting {
   palate?: number
   finish?: number
   complexity?: number
+  // FIP Value / Buy Again, 0-10 as rated at the event.
+  value?: number
   notes?: string
   descriptors: string[]
   favorite: boolean
@@ -473,6 +476,9 @@ export interface UserDoc {
   // Saved event tastings (see SavedTasting). Absent on docs saved before
   // this existed.
   tastings?: SavedTasting[]
+  // Event graduation summaries (features/party/graduation.ts), one per
+  // party. Absent on docs saved before this existed.
+  graduations?: EventGraduation[]
 }
 
 export interface UsernameRecord {
